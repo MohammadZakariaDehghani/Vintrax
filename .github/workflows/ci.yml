@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # Pull requests cover feature branches; limiting push to the default branch
+  # stops every PR commit from running the suite twice.
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
 
 # A newer push to the same branch makes an in-flight run redundant.
@@ -38,9 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No version pin here on purpose: the action reads packageManager from
+      # package.json, and specifying both is a hard error.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:
