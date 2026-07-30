@@ -7,12 +7,27 @@ future auction application built on shared platform foundations.
 This repository contains the **Phase 1 marketplace MVP** — a working full-stack application — plus
 the project's planning documents.
 
-## Project documentation
+## Documentation
 
-- [Project Atlas HQ](./docs/atlas-hq.md) — vision, mission, phased roadmap, guiding principles,
-  user groups, and open questions.
-- [Decision Log](./docs/decision-log.md) — the record of significant accepted product, business,
-  and architecture decisions.
+Full documentation lives in **[`docs/`](./docs/README.md)**.
+
+| | |
+| --- | --- |
+| [Project Atlas HQ](./docs/atlas-hq.md) | Vision, roadmap, principles, open questions |
+| [Decision Log](./docs/decision-log.md) | Every accepted decision and why |
+| [Architecture overview](./docs/architecture/overview.md) | How the system fits together |
+| [Data model](./docs/architecture/data-model.md) | Entities, indexes, invariants |
+| [API reference](./docs/architecture/api-reference.md) | Every endpoint |
+| [Security model](./docs/architecture/security.md) | Auth, authorisation, known gaps |
+| [Web app](./docs/architecture/web-app.md) | Frontend architecture |
+| [Getting started](./docs/guides/getting-started.md) | Clean machine to running marketplace |
+| [Development workflow](./docs/guides/development-workflow.md) | Branching, CI, schema changes |
+| [Testing](./docs/guides/testing.md) | What is tested and how to add more |
+| [Configuration](./docs/guides/configuration.md) | Every environment variable |
+| [Deployment](./docs/guides/deployment.md) | What production needs |
+| [Technology stack](./docs/reference/technology-stack.md) | Every technology and why |
+| [Implementation notes](./docs/reference/implementation-notes.md) | How it was built, traps hit |
+| [Future work](./docs/reference/future-work.md) | Phase 2 to 4 in detail |
 
 ## What is built
 
