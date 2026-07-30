@@ -1,0 +1,260 @@
+// Atlas marketplace schema.
+//
+// The enums here mirror packages/shared/src/domain.ts exactly. If you change one,
+// change the other and generate a migration — the API validates input against the
+// shared constants before Prisma ever sees it.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  BUYER
+  PRIVATE_SELLER
+  DEALER
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  SOLD
+  ARCHIVED
+}
+
+enum VehicleCondition {
+  NEW
+  USED
+  CERTIFIED_PRE_OWNED
+}
+
+enum BodyType {
+  SEDAN
+  SUV
+  TRUCK
+  COUPE
+  HATCHBACK
+  MINIVAN
+  WAGON
+  CONVERTIBLE
+}
+
+enum Transmission {
+  AUTOMATIC
+  MANUAL
+  CVT
+  DUAL_CLUTCH
+}
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  HYBRID
+  PLUG_IN_HYBRID
+  ELECTRIC
+}
+
+enum Drivetrain {
+  FWD
+  RWD
+  AWD
+  FOUR_WHEEL_DRIVE
+}
+
+enum Province {
+  AB
+  BC
+  MB
+  NB
+  NL
+  NS
+  NT
+  NU
+  ON
+  PE
+  QC
+  SK
+  YT
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String
+  displayName  String
+  role         UserRole  @default(BUYER)
+  phone        String?
+  province     Province?
+  city         String?
+
+  dealership Dealership?
+
+  listings      Listing[]
+  favourites    Favourite[]
+  messages      Message[]
+  refreshTokens RefreshToken[]
+
+  // A conversation always has exactly one buyer and one seller, so the User
+  // relation is disambiguated by name rather than a join table.
+  buyerConversations  Conversation[] @relation("ConversationBuyer")
+  sellerConversations Conversation[] @relation("ConversationSeller")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+}
+
+/// Present only for DEALER accounts. Verification is a manual admin action for now.
+model Dealership {
+  id      String @id @default(uuid()) @db.Uuid
+  ownerId String @unique @db.Uuid
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name     String
+  verified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Listing {
+  id       String @id @default(uuid()) @db.Uuid
+  sellerId String @db.Uuid
+  seller   User   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String @db.Text
+
+  make  String
+  model String
+  trim  String?
+  year  Int
+
+  /// Whole Canadian dollars. Integer to avoid floating-point drift on money.
+  priceCad  Int
+  mileageKm Int
+
+  condition    VehicleCondition
+  bodyType     BodyType
+  transmission Transmission
+  fuelType     FuelType
+  drivetrain   Drivetrain
+
+  exteriorColour String?
+  /// Not unique: the same vehicle can legitimately be relisted after a sale.
+  vin            String?
+
+  province Province
+  city     String
+
+  status      ListingStatus @default(DRAFT)
+  viewCount   Int           @default(0)
+  publishedAt DateTime?
+
+  images        ListingImage[]
+  favourites    Favourite[]
+  conversations Conversation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Search filters almost always constrain status first, so it leads the
+  // composite indexes that back the common browse-and-sort paths.
+  @@index([status, publishedAt])
+  @@index([status, priceCad])
+  @@index([status, make, model])
+  @@index([status, province])
+  @@index([sellerId, status])
+}
+
+model ListingImage {
+  id        String  @id @default(uuid()) @db.Uuid
+  listingId String  @db.Uuid
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  url      String
+  alt      String?
+  /// Zero-based display order; position 0 is the listing's primary image.
+  position Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([listingId, position])
+}
+
+model Favourite {
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String  @db.Uuid
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String  @db.Uuid
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+  @@index([userId, createdAt])
+}
+
+/// One thread per buyer per listing — a buyer messaging the same listing twice
+/// continues the existing conversation rather than starting a new one.
+model Conversation {
+  id        String  @id @default(uuid()) @db.Uuid
+  listingId String  @db.Uuid
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  buyerId String @db.Uuid
+  buyer   User   @relation("ConversationBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+
+  sellerId String @db.Uuid
+  seller   User   @relation("ConversationSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  /// Denormalised so inbox listings can sort without aggregating messages.
+  lastMessageAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([listingId, buyerId])
+  @@index([buyerId, lastMessageAt])
+  @@index([sellerId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String @db.Uuid
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  body   String    @db.Text
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+/// Refresh tokens are stored hashed so a database leak cannot be replayed.
+model RefreshToken {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
