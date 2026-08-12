@@ -2,21 +2,129 @@
  * Domain vocabulary for the Atlas marketplace.
  *
  * These constants are the single source of truth for the values the API accepts
- * and the web app renders. The Prisma enums mirror them exactly, so a change
+ * and the frontend renders. The Prisma enums mirror them exactly, so a change
  * here is a schema change and needs a migration.
  */
 
-export const USER_ROLES = ['BUYER', 'PRIVATE_SELLER', 'DEALER', 'ADMIN'] as const;
+// --- Identity and access -----------------------------------------------------
+
+export const USER_ROLES = [
+  'BUYER',
+  'SELLER',
+  'DEALER',
+  'INSPECTOR',
+  'ADMIN',
+  'SUPER_ADMIN',
+] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-/** Roles permitted to publish listings. Buyers browse and message only. */
-export const SELLER_ROLES = ['PRIVATE_SELLER', 'DEALER'] as const;
+/** Roles permitted to publish vehicle listings. */
+export const SELLER_ROLES = ['SELLER', 'DEALER'] as const;
 export type SellerRole = (typeof SELLER_ROLES)[number];
 
-export const LISTING_STATUSES = ['DRAFT', 'ACTIVE', 'SOLD', 'ARCHIVED'] as const;
+/** Roles with platform administration capability. */
+export const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'] as const;
+
+/**
+ * Fine-grained permissions. Roles map onto sets of these, so a capability can be
+ * granted without inventing a new role. Checked by the permissions guard.
+ */
+export const PERMISSIONS = [
+  'vehicle:read',
+  'vehicle:write',
+  'vehicle:publish',
+  'vehicle:delete',
+  'auction:read',
+  'auction:create',
+  'auction:manage',
+  'bid:place',
+  'inspection:read',
+  'inspection:write',
+  'dealer:read',
+  'dealer:manage',
+  'dealer:verify',
+  'user:read',
+  'user:manage',
+  'payment:read',
+  'payment:manage',
+  'report:read',
+  'settings:manage',
+  'audit:read',
+] as const;
+export type Permission = (typeof PERMISSIONS)[number];
+
+/** Which permissions each role carries. SUPER_ADMIN implicitly holds all. */
+export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
+  BUYER: ['vehicle:read', 'auction:read', 'bid:place', 'inspection:read'],
+  SELLER: [
+    'vehicle:read',
+    'vehicle:write',
+    'vehicle:publish',
+    'vehicle:delete',
+    'auction:read',
+    'auction:create',
+    'bid:place',
+    'inspection:read',
+  ],
+  DEALER: [
+    'vehicle:read',
+    'vehicle:write',
+    'vehicle:publish',
+    'vehicle:delete',
+    'auction:read',
+    'auction:create',
+    'bid:place',
+    'inspection:read',
+    'dealer:read',
+    'payment:read',
+    'report:read',
+  ],
+  INSPECTOR: ['vehicle:read', 'inspection:read', 'inspection:write'],
+  ADMIN: [
+    'vehicle:read',
+    'vehicle:write',
+    'vehicle:publish',
+    'vehicle:delete',
+    'auction:read',
+    'auction:create',
+    'auction:manage',
+    'inspection:read',
+    'inspection:write',
+    'dealer:read',
+    'dealer:manage',
+    'dealer:verify',
+    'user:read',
+    'user:manage',
+    'payment:read',
+    'report:read',
+    'audit:read',
+  ],
+  SUPER_ADMIN: PERMISSIONS,
+};
+
+export const USER_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'] as const;
+export type UserStatus = (typeof USER_STATUSES)[number];
+
+export const DEALER_STATUSES = ['PENDING', 'VERIFIED', 'REJECTED', 'SUSPENDED'] as const;
+export type DealerStatus = (typeof DEALER_STATUSES)[number];
+
+// --- Vehicles ----------------------------------------------------------------
+
+export const LISTING_STATUSES = [
+  'DRAFT',
+  'PENDING_REVIEW',
+  'ACTIVE',
+  'IN_AUCTION',
+  'SOLD',
+  'ARCHIVED',
+] as const;
 export type ListingStatus = (typeof LISTING_STATUSES)[number];
 
-export const VEHICLE_CONDITIONS = ['NEW', 'USED', 'CERTIFIED_PRE_OWNED'] as const;
+/** How a vehicle is being sold. Fixed price, auction, or accepting offers. */
+export const SALE_CHANNELS = ['FIXED_PRICE', 'AUCTION', 'ACCEPTING_OFFERS'] as const;
+export type SaleChannel = (typeof SALE_CHANNELS)[number];
+
+export const VEHICLE_CONDITIONS = ['NEW', 'USED', 'CERTIFIED_PRE_OWNED', 'SALVAGE'] as const;
 export type VehicleCondition = (typeof VEHICLE_CONDITIONS)[number];
 
 export const BODY_TYPES = [
@@ -28,6 +136,7 @@ export const BODY_TYPES = [
   'MINIVAN',
   'WAGON',
   'CONVERTIBLE',
+  'VAN',
 ] as const;
 export type BodyType = (typeof BODY_TYPES)[number];
 
@@ -40,13 +149,158 @@ export const FUEL_TYPES = [
   'HYBRID',
   'PLUG_IN_HYBRID',
   'ELECTRIC',
+  'HYDROGEN',
 ] as const;
 export type FuelType = (typeof FUEL_TYPES)[number];
 
 export const DRIVETRAINS = ['FWD', 'RWD', 'AWD', 'FOUR_WHEEL_DRIVE'] as const;
 export type Drivetrain = (typeof DRIVETRAINS)[number];
 
-/** Atlas launches in Canada, so location is modelled as province + city. */
+export const VEHICLE_DOCUMENT_TYPES = [
+  'REGISTRATION',
+  'TITLE',
+  'CARFAX',
+  'SERVICE_RECORD',
+  'SAFETY_CERTIFICATE',
+  'BILL_OF_SALE',
+  'OTHER',
+] as const;
+export type VehicleDocumentType = (typeof VEHICLE_DOCUMENT_TYPES)[number];
+
+// --- Inspections -------------------------------------------------------------
+
+export const INSPECTION_STATUSES = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
+export type InspectionStatus = (typeof INSPECTION_STATUSES)[number];
+
+/**
+ * Overall condition grade, following the 1–5 scale common in wholesale auto
+ * auctions where 5 is showroom and 1 is rough.
+ */
+export const CONDITION_GRADES = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'GRADE_4', 'GRADE_5'] as const;
+export type ConditionGrade = (typeof CONDITION_GRADES)[number];
+
+/** Areas assessed during an inspection. Each receives a rating and notes. */
+export const INSPECTION_SECTIONS = [
+  'EXTERIOR',
+  'INTERIOR',
+  'ENGINE',
+  'TRANSMISSION',
+  'BRAKES',
+  'SUSPENSION',
+  'ELECTRICAL',
+  'TIRES',
+  'FRAME',
+  'ROAD_TEST',
+] as const;
+export type InspectionSection = (typeof INSPECTION_SECTIONS)[number];
+
+export const SECTION_RATINGS = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'NOT_APPLICABLE'] as const;
+export type SectionRating = (typeof SECTION_RATINGS)[number];
+
+// --- Auctions ----------------------------------------------------------------
+
+export const AUCTION_STATUSES = [
+  'DRAFT',
+  'SCHEDULED',
+  'LIVE',
+  'ENDED',
+  'SETTLED',
+  'CANCELLED',
+] as const;
+export type AuctionStatus = (typeof AUCTION_STATUSES)[number];
+
+export const BID_STATUSES = ['ACTIVE', 'OUTBID', 'WINNING', 'WON', 'LOST', 'RETRACTED'] as const;
+export type BidStatus = (typeof BID_STATUSES)[number];
+
+/**
+ * Minimum increment by price band, in whole dollars. Prevents one-dollar bid
+ * wars on expensive lots while keeping cheap lots accessible.
+ */
+export const BID_INCREMENT_BANDS: ReadonlyArray<{ upTo: number; increment: number }> = [
+  { upTo: 5_000, increment: 100 },
+  { upTo: 15_000, increment: 250 },
+  { upTo: 30_000, increment: 500 },
+  { upTo: 75_000, increment: 1_000 },
+  { upTo: Number.MAX_SAFE_INTEGER, increment: 2_500 },
+];
+
+/** The smallest legal next bid above `currentPrice`. */
+export function minimumBidIncrement(currentPrice: number): number {
+  const band = BID_INCREMENT_BANDS.find((candidate) => currentPrice < candidate.upTo);
+  return band?.increment ?? 2_500;
+}
+
+/**
+ * A bid inside this window extends the auction, so a lot cannot be won by
+ * sniping in the final seconds. Standard practice in online vehicle auctions.
+ */
+export const ANTI_SNIPE_WINDOW_SECONDS = 120;
+export const ANTI_SNIPE_EXTENSION_SECONDS = 120;
+
+// --- Commerce ----------------------------------------------------------------
+
+export const PAYMENT_STATUSES = [
+  'PENDING',
+  'AUTHORIZED',
+  'PAID',
+  'PARTIALLY_REFUNDED',
+  'REFUNDED',
+  'FAILED',
+  'CANCELLED',
+] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+export const PAYMENT_METHODS = ['CARD', 'BANK_TRANSFER', 'FINANCING', 'CASH_ON_PICKUP'] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export const TRANSACTION_STATUSES = [
+  'INITIATED',
+  'AWAITING_PAYMENT',
+  'PAID',
+  'AWAITING_DELIVERY',
+  'COMPLETED',
+  'CANCELLED',
+  'DISPUTED',
+] as const;
+export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
+
+/** Platform commission on a completed sale, as a fraction of the hammer price. */
+export const PLATFORM_FEE_RATE = 0.05;
+/** Commission floor and ceiling in whole dollars, so small lots stay viable. */
+export const PLATFORM_FEE_MIN = 150;
+export const PLATFORM_FEE_MAX = 2_500;
+
+export function calculatePlatformFee(saleAmount: number): number {
+  const raw = Math.round(saleAmount * PLATFORM_FEE_RATE);
+  return Math.min(PLATFORM_FEE_MAX, Math.max(PLATFORM_FEE_MIN, raw));
+}
+
+// --- Notifications and messaging ---------------------------------------------
+
+export const NOTIFICATION_TYPES = [
+  'BID_PLACED',
+  'OUTBID',
+  'AUCTION_WON',
+  'AUCTION_LOST',
+  'AUCTION_STARTING',
+  'AUCTION_ENDING',
+  'LISTING_APPROVED',
+  'LISTING_REJECTED',
+  'INSPECTION_COMPLETED',
+  'MESSAGE_RECEIVED',
+  'PAYMENT_RECEIVED',
+  'PAYMENT_DUE',
+  'DEALER_VERIFIED',
+  'SYSTEM',
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const NOTIFICATION_CHANNELS = ['IN_APP', 'EMAIL', 'SMS'] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
+// --- Geography ---------------------------------------------------------------
+
+/** Atlas launches in Canada, so location is modelled as province plus city. */
 export const PROVINCES = [
   'AB',
   'BC',
@@ -80,6 +334,11 @@ export const PROVINCE_LABELS: Record<Province, string> = {
   YT: 'Yukon',
 };
 
+export const ADDRESS_TYPES = ['BILLING', 'SHIPPING', 'BUSINESS', 'PICKUP'] as const;
+export type AddressType = (typeof ADDRESS_TYPES)[number];
+
+// --- Search ------------------------------------------------------------------
+
 export const LISTING_SORTS = [
   'RELEVANCE',
   'NEWEST',
@@ -87,16 +346,26 @@ export const LISTING_SORTS = [
   'PRICE_DESC',
   'MILEAGE_ASC',
   'YEAR_DESC',
+  'ENDING_SOON',
 ] as const;
 export type ListingSort = (typeof LISTING_SORTS)[number];
+
+// --- Constraints -------------------------------------------------------------
 
 /** Oldest model year a listing may claim; guards against typos like `19995`. */
 export const MIN_MODEL_YEAR = 1900;
 
-/** Listings may be posted up to one model year ahead of the current calendar year. */
+/** Listings may be posted up to one model year ahead of the current year. */
 export const maxModelYear = (now: Date = new Date()): number => now.getUTCFullYear() + 1;
 
-export const MAX_LISTING_IMAGES = 20;
+export const MAX_LISTING_IMAGES = 30;
+export const MAX_INSPECTION_IMAGES = 60;
+export const MAX_VEHICLE_DOCUMENTS = 20;
+
+/** Standard 17-character VIN; I, O and Q are excluded by the standard. */
+export const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
+
+// --- Display -----------------------------------------------------------------
 
 /**
  * Enum values whose generic title-cased form reads wrong — acronyms that must
@@ -108,27 +377,35 @@ const LABEL_OVERRIDES: Record<string, string> = {
   FWD: 'FWD',
   RWD: 'RWD',
   AWD: 'AWD',
+  VIN: 'VIN',
+  SMS: 'SMS',
   FOUR_WHEEL_DRIVE: '4WD',
   DUAL_CLUTCH: 'Dual-clutch',
   PLUG_IN_HYBRID: 'Plug-in hybrid',
   CERTIFIED_PRE_OWNED: 'Certified pre-owned',
   PRIVATE_SELLER: 'Private seller',
+  SUPER_ADMIN: 'Super admin',
+  IN_APP: 'In-app',
+  NOT_APPLICABLE: 'Not applicable',
+  GRADE_1: 'Grade 1',
+  GRADE_2: 'Grade 2',
+  GRADE_3: 'Grade 3',
+  GRADE_4: 'Grade 4',
+  GRADE_5: 'Grade 5',
 };
 
 /**
- * Human-readable label for an enum value, used by the web app's filter controls
- * and detail pages. Falls back to sentence case: SEDAN -> "Sedan".
+ * Human-readable label for an enum value, used by filter controls and detail
+ * pages. Falls back to sentence case: SEDAN -> "Sedan".
  */
 export const labelize = (value: string): string => {
   const override = LABEL_OVERRIDES[value];
   if (override) return override;
 
-  const words = value.split('_');
-  return words
+  return value
+    .split('_')
     .map((word, index) =>
-      index === 0
-        ? word.charAt(0) + word.slice(1).toLowerCase()
-        : word.toLowerCase(),
+      index === 0 ? word.charAt(0) + word.slice(1).toLowerCase() : word.toLowerCase(),
     )
     .join(' ');
 };

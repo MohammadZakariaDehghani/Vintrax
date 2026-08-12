@@ -1,21 +1,33 @@
 import { z } from 'zod';
 import {
+  ADDRESS_TYPES,
+  AUCTION_STATUSES,
   BODY_TYPES,
+  CONDITION_GRADES,
   DRIVETRAINS,
   FUEL_TYPES,
+  INSPECTION_SECTIONS,
   LISTING_SORTS,
   LISTING_STATUSES,
+  MAX_INSPECTION_IMAGES,
   MAX_LISTING_IMAGES,
+  MAX_VEHICLE_DOCUMENTS,
   MIN_MODEL_YEAR,
+  NOTIFICATION_CHANNELS,
+  PAYMENT_METHODS,
   PROVINCES,
+  SALE_CHANNELS,
+  SECTION_RATINGS,
   TRANSMISSIONS,
   VEHICLE_CONDITIONS,
+  VEHICLE_DOCUMENT_TYPES,
+  VIN_PATTERN,
   maxModelYear,
 } from './domain';
 
 /**
- * Query strings can deliver a repeated key as an array or a single value, and the
- * web app sends comma-separated lists. Normalise both into a deduplicated array.
+ * Query strings deliver a repeated key as an array or a single value, and the
+ * frontend sends comma-separated lists. Normalise both into a deduplicated array.
  */
 const csvEnumArray = <T extends readonly [string, ...string[]]>(values: T) =>
   z
@@ -31,8 +43,12 @@ const csvEnumArray = <T extends readonly [string, ...string[]]>(values: T) =>
     .pipe(z.array(z.enum(values)).nonempty().optional());
 
 const trimmed = (max: number) => z.string().trim().max(max);
+const uuid = () => z.string().uuid();
 
-// --- Auth -------------------------------------------------------------------
+/** Whole Canadian dollars. Integer to avoid floating-point drift on money. */
+const money = (max = 10_000_000) => z.coerce.number().int().min(0).max(max);
+
+// --- Auth --------------------------------------------------------------------
 
 export const passwordSchema = z
   .string()
@@ -45,13 +61,17 @@ export const registerSchema = z
   .object({
     email: emailSchema,
     password: passwordSchema,
-    displayName: trimmed(80).min(2),
-    // Accounts self-select a seller role at signup; ADMIN is never self-assignable.
-    role: z.enum(['BUYER', 'PRIVATE_SELLER', 'DEALER']).default('BUYER'),
-    dealershipName: trimmed(120).min(2).optional(),
+    firstName: trimmed(60).min(1),
+    lastName: trimmed(60).min(1),
+    // ADMIN and SUPER_ADMIN are never self-assignable.
+    role: z.enum(['BUYER', 'SELLER', 'DEALER']).default('BUYER'),
     phone: trimmed(30).optional(),
     province: z.enum(PROVINCES).optional(),
     city: trimmed(80).optional(),
+    // Dealer registration details, required when role is DEALER.
+    dealershipName: trimmed(140).min(2).optional(),
+    businessNumber: trimmed(40).optional(),
+    licenceNumber: trimmed(60).optional(),
   })
   .refine((data) => data.role !== 'DEALER' || !!data.dealershipName, {
     message: 'Dealership name is required for dealer accounts',
@@ -65,83 +85,153 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
-});
+export const refreshSchema = z.object({ refreshToken: z.string().min(1) });
 export type RefreshInput = z.infer<typeof refreshSchema>;
 
-// --- Listings ---------------------------------------------------------------
+export const requestPasswordResetSchema = z.object({ email: emailSchema });
+export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchema>;
 
-export const listingImageSchema = z.object({
-  url: z.string().trim().min(1).max(500),
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: passwordSchema,
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+export const verifyEmailSchema = z.object({ token: z.string().min(1) });
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: passwordSchema,
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+export const updateProfileSchema = z
+  .object({
+    firstName: trimmed(60).min(1).optional(),
+    lastName: trimmed(60).min(1).optional(),
+    phone: trimmed(30).optional(),
+    province: z.enum(PROVINCES).optional(),
+    city: trimmed(80).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Provide at least one field to update',
+  });
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+// --- Addresses ---------------------------------------------------------------
+
+export const addressSchema = z.object({
+  type: z.enum(ADDRESS_TYPES),
+  line1: trimmed(160).min(1),
+  line2: trimmed(160).optional(),
+  city: trimmed(80).min(1),
+  province: z.enum(PROVINCES),
+  postalCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    // Canadian postal code, with or without the conventional middle space.
+    .regex(/^[A-Z]\d[A-Z] ?\d[A-Z]\d$/, 'Enter a valid Canadian postal code'),
+  country: trimmed(2).default('CA'),
+  isDefault: z.boolean().default(false),
+});
+export type AddressInput = z.infer<typeof addressSchema>;
+
+// --- Vehicles ----------------------------------------------------------------
+
+export const vehicleImageSchema = z.object({
+  url: trimmed(500).min(1),
   alt: trimmed(160).optional(),
 });
 
-export const createListingSchema = z.object({
-  title: trimmed(140).min(6),
-  description: trimmed(6000).min(20),
+export const vehicleDocumentSchema = z.object({
+  type: z.enum(VEHICLE_DOCUMENT_TYPES),
+  url: trimmed(500).min(1),
+  filename: trimmed(200).min(1),
+  sizeBytes: z.coerce.number().int().min(0).optional(),
+});
+
+export const createVehicleSchema = z.object({
+  title: trimmed(160).min(6),
+  description: trimmed(8000).min(20),
+
+  vin: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(VIN_PATTERN, 'VIN must be 17 characters and exclude I, O and Q')
+    .optional(),
+
   make: trimmed(60).min(1),
   model: trimmed(60).min(1),
   trim: trimmed(60).optional(),
-  year: z.coerce
-    .number()
-    .int()
-    .min(MIN_MODEL_YEAR)
-    .max(maxModelYear())
-    .describe('Model year'),
-  // Price in whole Canadian dollars. Stored as an integer to avoid float drift.
-  priceCad: z.coerce.number().int().min(1).max(10_000_000),
+  year: z.coerce.number().int().min(MIN_MODEL_YEAR).max(maxModelYear()),
+
+  priceCad: money().refine((value) => value >= 1, { message: 'Price is required' }),
+  /** Lowest price the seller will accept in an auction. Never shown to buyers. */
+  reservePriceCad: money().optional(),
   mileageKm: z.coerce.number().int().min(0).max(2_000_000),
+
   condition: z.enum(VEHICLE_CONDITIONS),
   bodyType: z.enum(BODY_TYPES),
   transmission: z.enum(TRANSMISSIONS),
   fuelType: z.enum(FUEL_TYPES),
   drivetrain: z.enum(DRIVETRAINS),
+
+  engine: trimmed(80).optional(),
+  engineSizeL: z.coerce.number().min(0).max(20).optional(),
+  cylinders: z.coerce.number().int().min(0).max(16).optional(),
+  doors: z.coerce.number().int().min(0).max(8).optional(),
+  seats: z.coerce.number().int().min(0).max(60).optional(),
   exteriorColour: trimmed(40).optional(),
-  vin: z
-    .string()
-    .trim()
-    .toUpperCase()
-    // Standard 17-character VIN; I, O and Q are excluded by the standard.
-    .regex(/^[A-HJ-NPR-Z0-9]{17}$/, 'VIN must be 17 characters and exclude I, O and Q')
-    .optional(),
+  interiorColour: trimmed(40).optional(),
+
   province: z.enum(PROVINCES),
   city: trimmed(80).min(1),
-  status: z.enum(LISTING_STATUSES).default('DRAFT'),
-  images: z.array(listingImageSchema).max(MAX_LISTING_IMAGES).default([]),
-});
-export type CreateListingInput = z.infer<typeof createListingSchema>;
+  postalCode: trimmed(10).optional(),
 
-/** Every field optional, but the payload must change something. */
-export const updateListingSchema = createListingSchema
+  saleChannel: z.enum(SALE_CHANNELS).default('FIXED_PRICE'),
+  status: z.enum(LISTING_STATUSES).default('DRAFT'),
+
+  features: z.array(trimmed(60)).max(60).default([]),
+  images: z.array(vehicleImageSchema).max(MAX_LISTING_IMAGES).default([]),
+  documents: z.array(vehicleDocumentSchema).max(MAX_VEHICLE_DOCUMENTS).default([]),
+});
+export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
+
+export const updateVehicleSchema = createVehicleSchema
   .partial()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Provide at least one field to update',
   });
-export type UpdateListingInput = z.infer<typeof updateListingSchema>;
+export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;
 
-// --- Search -----------------------------------------------------------------
+// --- Search ------------------------------------------------------------------
 
 export const MAX_PAGE_SIZE = 60;
 
-export const searchListingsSchema = z
+export const searchVehiclesSchema = z
   .object({
-    q: trimmed(120).optional(),
+    q: trimmed(160).optional(),
     make: trimmed(60).optional(),
     model: trimmed(60).optional(),
     minYear: z.coerce.number().int().min(MIN_MODEL_YEAR).optional(),
     maxYear: z.coerce.number().int().max(maxModelYear()).optional(),
-    minPrice: z.coerce.number().int().min(0).optional(),
-    maxPrice: z.coerce.number().int().min(0).optional(),
+    minPrice: money().optional(),
+    maxPrice: money().optional(),
     maxMileageKm: z.coerce.number().int().min(0).optional(),
     bodyType: csvEnumArray(BODY_TYPES),
     fuelType: csvEnumArray(FUEL_TYPES),
     transmission: csvEnumArray(TRANSMISSIONS),
     drivetrain: csvEnumArray(DRIVETRAINS),
     condition: csvEnumArray(VEHICLE_CONDITIONS),
+    saleChannel: csvEnumArray(SALE_CHANNELS),
     province: z.enum(PROVINCES).optional(),
     city: trimmed(80).optional(),
-    sellerType: z.enum(['DEALER', 'PRIVATE_SELLER']).optional(),
+    sellerType: z.enum(['DEALER', 'SELLER']).optional(),
+    /** Restrict to vehicles with a completed inspection report. */
+    inspectedOnly: z.coerce.boolean().optional(),
     sort: z.enum(LISTING_SORTS).default('RELEVANCE'),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(24),
@@ -154,25 +244,166 @@ export const searchListingsSchema = z
     message: 'minYear must be less than or equal to maxYear',
     path: ['minYear'],
   });
-export type SearchListingsQuery = z.infer<typeof searchListingsSchema>;
+export type SearchVehiclesQuery = z.infer<typeof searchVehiclesSchema>;
 
-// --- Messaging --------------------------------------------------------------
+// --- Auctions ----------------------------------------------------------------
+
+export const createAuctionSchema = z
+  .object({
+    vehicleId: uuid(),
+    title: trimmed(160).min(6).optional(),
+    startingBidCad: money(),
+    reservePriceCad: money().optional(),
+    /** Immediate-purchase price. Ends the auction when met. */
+    buyNowPriceCad: money().optional(),
+    startsAt: z.coerce.date(),
+    endsAt: z.coerce.date(),
+  })
+  .refine((data) => data.endsAt > data.startsAt, {
+    message: 'endsAt must be after startsAt',
+    path: ['endsAt'],
+  })
+  .refine(
+    (data) => !data.buyNowPriceCad || data.buyNowPriceCad > data.startingBidCad,
+    { message: 'Buy-now price must exceed the starting bid', path: ['buyNowPriceCad'] },
+  )
+  .refine(
+    (data) => !data.reservePriceCad || data.reservePriceCad >= data.startingBidCad,
+    { message: 'Reserve cannot be below the starting bid', path: ['reservePriceCad'] },
+  );
+export type CreateAuctionInput = z.infer<typeof createAuctionSchema>;
+
+export const updateAuctionSchema = z
+  .object({
+    title: trimmed(160).min(6).optional(),
+    startingBidCad: money().optional(),
+    reservePriceCad: money().optional(),
+    buyNowPriceCad: money().optional(),
+    startsAt: z.coerce.date().optional(),
+    endsAt: z.coerce.date().optional(),
+    status: z.enum(AUCTION_STATUSES).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Provide at least one field to update',
+  });
+export type UpdateAuctionInput = z.infer<typeof updateAuctionSchema>;
+
+export const placeBidSchema = z.object({
+  amountCad: money().refine((value) => value > 0, { message: 'Bid amount is required' }),
+  /**
+   * Optional ceiling for proxy bidding: the engine bids the minimum needed to
+   * stay ahead, up to this amount, rather than committing the full value.
+   */
+  maxProxyAmountCad: money().optional(),
+});
+export type PlaceBidInput = z.infer<typeof placeBidSchema>;
+
+export const searchAuctionsSchema = z.object({
+  status: csvEnumArray(AUCTION_STATUSES),
+  make: trimmed(60).optional(),
+  province: z.enum(PROVINCES).optional(),
+  /** Only auctions the caller has bid on. */
+  participatingOnly: z.coerce.boolean().optional(),
+  sort: z.enum(['ENDING_SOON', 'NEWEST', 'PRICE_ASC', 'PRICE_DESC']).default('ENDING_SOON'),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(24),
+});
+export type SearchAuctionsQuery = z.infer<typeof searchAuctionsSchema>;
+
+// --- Inspections -------------------------------------------------------------
+
+export const inspectionSectionSchema = z.object({
+  section: z.enum(INSPECTION_SECTIONS),
+  rating: z.enum(SECTION_RATINGS),
+  notes: trimmed(2000).optional(),
+});
+
+export const createInspectionSchema = z.object({
+  vehicleId: uuid(),
+  scheduledFor: z.coerce.date().optional(),
+});
+export type CreateInspectionInput = z.infer<typeof createInspectionSchema>;
+
+export const submitInspectionSchema = z.object({
+  overallGrade: z.enum(CONDITION_GRADES),
+  summary: trimmed(4000).min(20),
+  odometerReadingKm: z.coerce.number().int().min(0).max(2_000_000),
+  /** Structural damage disclosure — the single most material buyer signal. */
+  hasFrameDamage: z.boolean(),
+  hasAccidentHistory: z.boolean(),
+  estimatedReconditioningCad: money(100_000).optional(),
+  sections: z.array(inspectionSectionSchema).min(1),
+  images: z.array(vehicleImageSchema).max(MAX_INSPECTION_IMAGES).default([]),
+});
+export type SubmitInspectionInput = z.infer<typeof submitInspectionSchema>;
+
+// --- Commerce ----------------------------------------------------------------
+
+export const createOrderSchema = z.object({
+  vehicleId: uuid(),
+  paymentMethod: z.enum(PAYMENT_METHODS),
+  shippingAddressId: uuid().optional(),
+  notes: trimmed(1000).optional(),
+});
+export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+
+export const confirmPaymentSchema = z.object({
+  /** Reference returned by the payment provider. */
+  providerReference: trimmed(200).min(1),
+});
+export type ConfirmPaymentInput = z.infer<typeof confirmPaymentSchema>;
+
+// --- Messaging and notifications ---------------------------------------------
 
 export const messageBodySchema = trimmed(4000).min(1, 'Message cannot be empty');
 
-/** Buyers open a thread from a listing; the seller is derived server-side. */
 export const startConversationSchema = z.object({
-  listingId: z.string().uuid(),
+  vehicleId: uuid(),
   body: messageBodySchema,
 });
 export type StartConversationInput = z.infer<typeof startConversationSchema>;
 
-export const sendMessageSchema = z.object({
-  body: messageBodySchema,
-});
+export const sendMessageSchema = z.object({ body: messageBodySchema });
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
-// --- Pagination -------------------------------------------------------------
+export const notificationPreferencesSchema = z.object({
+  channels: z.array(z.enum(NOTIFICATION_CHANNELS)).min(1),
+});
+export type NotificationPreferencesInput = z.infer<typeof notificationPreferencesSchema>;
+
+// --- Administration ----------------------------------------------------------
+
+export const verifyDealerSchema = z.object({
+  approved: z.boolean(),
+  notes: trimmed(1000).optional(),
+});
+export type VerifyDealerInput = z.infer<typeof verifyDealerSchema>;
+
+export const moderateListingSchema = z.object({
+  approved: z.boolean(),
+  reason: trimmed(1000).optional(),
+});
+export type ModerateListingInput = z.infer<typeof moderateListingSchema>;
+
+export const updateUserStatusSchema = z.object({
+  status: z.enum(['PENDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED']),
+  reason: trimmed(1000).optional(),
+});
+export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
+
+export const auditLogQuerySchema = z.object({
+  actorId: uuid().optional(),
+  action: trimmed(80).optional(),
+  entityType: trimmed(60).optional(),
+  entityId: uuid().optional(),
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(50),
+});
+export type AuditLogQuery = z.infer<typeof auditLogQuerySchema>;
+
+// --- Pagination --------------------------------------------------------------
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
