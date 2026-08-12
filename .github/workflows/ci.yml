@@ -7,13 +7,13 @@ on:
     branches: [main]
   pull_request:
 
-# A newer push to the same branch makes an in-flight run redundant.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
+    name: Typecheck, test and build
     runs-on: ubuntu-latest
 
     services:
@@ -23,19 +23,27 @@ jobs:
           POSTGRES_USER: atlas
           POSTGRES_PASSWORD: atlas
           POSTGRES_DB: atlas_test
-        ports:
-          - 5432:5432
+        ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U atlas -d atlas_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+          --health-interval 5s --health-timeout 5s --health-retries 12
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
 
     env:
       DATABASE_URL: postgresql://atlas:atlas@localhost:5432/atlas_test?schema=public
+      REDIS_URL: redis://localhost:6379
       # CI-only values; the API refuses the .env.example placeholders in production.
       JWT_ACCESS_SECRET: ci-access-secret-not-used-in-production
       JWT_REFRESH_SECRET: ci-refresh-secret-not-used-in-production
+      SEARCH_PROVIDER: postgres
+      QUEUE_DRIVER: inline
+      STORAGE_DRIVER: local
 
     steps:
       - uses: actions/checkout@v4
@@ -53,13 +61,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: pnpm --filter @atlas/api exec prisma generate
+        run: pnpm --filter @atlas/backend exec prisma generate
 
       - name: Apply migrations
-        run: pnpm --filter @atlas/api exec prisma migrate deploy
+        run: pnpm --filter @atlas/backend exec prisma migrate deploy
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
 
       - name: Test
         run: pnpm test
@@ -71,3 +82,73 @@ jobs:
         run: |
           pnpm db:seed
           pnpm db:seed
+
+  security:
+    name: Security scanning
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fails the job on high or critical advisories. Lower severities are
+      # reported without blocking, so a transitive low-severity finding does
+      # not stop a security fix from shipping.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
+
+      - name: Scan filesystem for vulnerabilities and secrets
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret,config
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload results to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  docker:
+    name: Build container images
+    runs-on: ubuntu-latest
+    # Images are only worth building once the code is known good.
+    needs: verify
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/backend.Dockerfile
+          push: false
+          tags: atlas/api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/frontend.Dockerfile
+          push: false
+          tags: atlas/web:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

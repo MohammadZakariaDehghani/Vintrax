@@ -17,7 +17,13 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 
-apps/api/uploads/*
-!apps/api/uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
 
 *.tsbuildinfo
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+frontend/.env.local

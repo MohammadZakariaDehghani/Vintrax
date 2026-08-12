@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atlas-web
+  namespace: atlas
+  labels: { app: atlas-web }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: atlas-web }
+  template:
+    metadata:
+      labels: { app: atlas-web }
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/atlas/web:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: API_ORIGIN
+              value: http://atlas-api:3001
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ['ALL'] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlas-web
+  namespace: atlas
+spec:
+  selector: { app: atlas-web }
+  ports:
+    - port: 3000
+      targetPort: 3000

@@ -1,0 +1,802 @@
+// Atlas marketplace schema.
+//
+// The enums here mirror packages/shared/src/domain.ts exactly. If you change one,
+// change the other and generate a migration — the API validates input against the
+// shared constants before Prisma ever sees it.
+//
+// Money is stored as an integer number of whole Canadian dollars throughout.
+// Floating-point money accumulates rounding error; see D-010 in the decision log.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  BUYER
+  SELLER
+  DEALER
+  INSPECTOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum DealerStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  IN_AUCTION
+  SOLD
+  ARCHIVED
+}
+
+enum SaleChannel {
+  FIXED_PRICE
+  AUCTION
+  ACCEPTING_OFFERS
+}
+
+enum VehicleCondition {
+  NEW
+  USED
+  CERTIFIED_PRE_OWNED
+  SALVAGE
+}
+
+enum BodyType {
+  SEDAN
+  SUV
+  TRUCK
+  COUPE
+  HATCHBACK
+  MINIVAN
+  WAGON
+  CONVERTIBLE
+  VAN
+}
+
+enum Transmission {
+  AUTOMATIC
+  MANUAL
+  CVT
+  DUAL_CLUTCH
+}
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  HYBRID
+  PLUG_IN_HYBRID
+  ELECTRIC
+  HYDROGEN
+}
+
+enum Drivetrain {
+  FWD
+  RWD
+  AWD
+  FOUR_WHEEL_DRIVE
+}
+
+enum VehicleDocumentType {
+  REGISTRATION
+  TITLE
+  CARFAX
+  SERVICE_RECORD
+  SAFETY_CERTIFICATE
+  BILL_OF_SALE
+  OTHER
+}
+
+enum InspectionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ConditionGrade {
+  GRADE_1
+  GRADE_2
+  GRADE_3
+  GRADE_4
+  GRADE_5
+}
+
+enum InspectionSection {
+  EXTERIOR
+  INTERIOR
+  ENGINE
+  TRANSMISSION
+  BRAKES
+  SUSPENSION
+  ELECTRICAL
+  TIRES
+  FRAME
+  ROAD_TEST
+}
+
+enum SectionRating {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  NOT_APPLICABLE
+}
+
+enum AuctionStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  ENDED
+  SETTLED
+  CANCELLED
+}
+
+enum BidStatus {
+  ACTIVE
+  OUTBID
+  WINNING
+  WON
+  LOST
+  RETRACTED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  FINANCING
+  CASH_ON_PICKUP
+}
+
+enum TransactionStatus {
+  INITIATED
+  AWAITING_PAYMENT
+  PAID
+  AWAITING_DELIVERY
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum NotificationType {
+  BID_PLACED
+  OUTBID
+  AUCTION_WON
+  AUCTION_LOST
+  AUCTION_STARTING
+  AUCTION_ENDING
+  LISTING_APPROVED
+  LISTING_REJECTED
+  INSPECTION_COMPLETED
+  MESSAGE_RECEIVED
+  PAYMENT_RECEIVED
+  PAYMENT_DUE
+  DEALER_VERIFIED
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+enum AddressType {
+  BILLING
+  SHIPPING
+  BUSINESS
+  PICKUP
+}
+
+enum Province {
+  AB
+  BC
+  MB
+  NB
+  NL
+  NS
+  NT
+  NU
+  ON
+  PE
+  QC
+  SK
+  YT
+}
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+// ---------------------------------------------------------------------------
+// Identity and access
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         UserRole   @default(BUYER)
+  status       UserStatus @default(PENDING)
+
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+
+  phone     String?
+  province  Province?
+  city      String?
+  avatarUrl String?
+
+  /// Channels this user accepts notifications on.
+  notificationChannels NotificationChannel[] @default([IN_APP, EMAIL])
+
+  lastLoginAt DateTime?
+
+  dealer Dealer?
+
+  vehicles      Vehicle[]
+  addresses     Address[]
+  favourites    Favourite[]
+  bids          Bid[]
+  notifications Notification[]
+  messages      Message[]
+  refreshTokens RefreshToken[]
+  authTokens    AuthToken[]
+  auditLogs     AuditLog[]
+
+  inspectionsPerformed VehicleInspection[] @relation("InspectorInspections")
+
+  purchases TransactionRecord[] @relation("TransactionBuyer")
+  sales     TransactionRecord[] @relation("TransactionSeller")
+
+  // A conversation has exactly one buyer and one seller, so the User relation
+  // is disambiguated by name rather than a join table.
+  buyerConversations  Conversation[] @relation("ConversationBuyer")
+  sellerConversations Conversation[] @relation("ConversationSeller")
+
+  wonAuctions Auction[] @relation("AuctionWinner")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role, status])
+  @@index([status, createdAt])
+}
+
+/// Present only for DEALER accounts. Verification is an admin action.
+model Dealer {
+  id      String @id @default(uuid()) @db.Uuid
+  ownerId String @unique @db.Uuid
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name String
+  slug String @unique
+
+  status   DealerStatus @default(PENDING)
+  verified Boolean      @default(false)
+
+  businessNumber String?
+  licenceNumber  String?
+  description    String? @db.Text
+  websiteUrl     String?
+  phone          String?
+  logoUrl        String?
+
+  city     String?
+  province Province?
+
+  verifiedAt       DateTime?
+  verificationNote String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([verified, province])
+}
+
+model Address {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type       AddressType
+  line1      String
+  line2      String?
+  city       String
+  province   Province
+  postalCode String
+  country    String      @default("CA")
+  isDefault  Boolean     @default(false)
+
+  transactions TransactionRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, type])
+}
+
+/// Refresh tokens are stored hashed so a database leak cannot be replayed.
+model RefreshToken {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Single-use tokens for email verification and password reset, stored hashed.
+model AuthToken {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      TokenType
+  tokenHash String    @unique
+  expiresAt DateTime
+  consumedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, type])
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Vehicles
+// ---------------------------------------------------------------------------
+
+model Vehicle {
+  id       String @id @default(uuid()) @db.Uuid
+  /// Stable, human-readable URL segment. Unique so it can be routed on directly.
+  slug     String @unique
+  sellerId String @db.Uuid
+  seller   User   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String @db.Text
+
+  /// Not unique: the same vehicle can legitimately be relisted after a sale.
+  vin   String?
+  make  String
+  model String
+  trim  String?
+  year  Int
+
+  priceCad        Int
+  /// Lowest price the seller will accept. Never exposed to buyers.
+  reservePriceCad Int?
+  mileageKm       Int
+
+  condition    VehicleCondition
+  bodyType     BodyType
+  transmission Transmission
+  fuelType     FuelType
+  drivetrain   Drivetrain
+
+  engine         String?
+  engineSizeL    Float?
+  cylinders      Int?
+  doors          Int?
+  seats          Int?
+  exteriorColour String?
+  interiorColour String?
+
+  province   Province
+  city       String
+  postalCode String?
+
+  status      ListingStatus @default(DRAFT)
+  saleChannel SaleChannel   @default(FIXED_PRICE)
+
+  features String[] @default([])
+
+  viewCount      Int @default(0)
+  favouriteCount Int @default(0)
+
+  publishedAt     DateTime?
+  soldAt          DateTime?
+  moderatedAt     DateTime?
+  moderationNote  String?   @db.Text
+
+  images        VehicleImage[]
+  documents     VehicleDocument[]
+  favourites    Favourite[]
+  conversations Conversation[]
+  auctions      Auction[]
+  inspections   VehicleInspection[]
+  transactions  TransactionRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Search almost always constrains status first, so it leads the composite
+  // indexes backing the common browse-and-sort paths.
+  @@index([status, publishedAt])
+  @@index([status, priceCad])
+  @@index([status, make, model])
+  @@index([status, province])
+  @@index([status, saleChannel])
+  @@index([sellerId, status])
+  @@index([vin])
+}
+
+model VehicleImage {
+  id        String  @id @default(uuid()) @db.Uuid
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  url String
+  alt String?
+  /// Zero-based display order; position 0 is the primary image.
+  position Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId, position])
+}
+
+model VehicleDocument {
+  id        String  @id @default(uuid()) @db.Uuid
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  type      VehicleDocumentType
+  url       String
+  filename  String
+  sizeBytes Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId, type])
+}
+
+model VehicleInspection {
+  id        String  @id @default(uuid()) @db.Uuid
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  inspectorId String @db.Uuid
+  inspector   User   @relation("InspectorInspections", fields: [inspectorId], references: [id], onDelete: Restrict)
+
+  status       InspectionStatus @default(SCHEDULED)
+  overallGrade ConditionGrade?
+
+  summary                    String? @db.Text
+  odometerReadingKm          Int?
+  hasFrameDamage             Boolean?
+  hasAccidentHistory         Boolean?
+  estimatedReconditioningCad Int?
+
+  sections InspectionSectionResult[]
+  images   InspectionImage[]
+
+  scheduledFor DateTime?
+  completedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vehicleId, status])
+  @@index([inspectorId, status])
+}
+
+model InspectionSectionResult {
+  id           String            @id @default(uuid()) @db.Uuid
+  inspectionId String            @db.Uuid
+  inspection   VehicleInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  section InspectionSection
+  rating  SectionRating
+  notes   String?          @db.Text
+
+  /// One result row per section per inspection.
+  @@unique([inspectionId, section])
+}
+
+model InspectionImage {
+  id           String            @id @default(uuid()) @db.Uuid
+  inspectionId String            @db.Uuid
+  inspection   VehicleInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  url      String
+  alt      String?
+  position Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([inspectionId, position])
+}
+
+model Favourite {
+  id        String  @id @default(uuid()) @db.Uuid
+  userId    String  @db.Uuid
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, vehicleId])
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Auctions
+// ---------------------------------------------------------------------------
+
+model Auction {
+  id        String  @id @default(uuid()) @db.Uuid
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  title  String
+  status AuctionStatus @default(DRAFT)
+
+  startingBidCad  Int
+  /// Denormalised highest bid, kept in step with Bid rows inside a transaction
+  /// so reads never have to aggregate.
+  currentBidCad   Int  @default(0)
+  bidCount        Int  @default(0)
+  reservePriceCad Int?
+  buyNowPriceCad  Int?
+
+  startsAt DateTime
+  endsAt   DateTime
+  /// Set when an anti-snipe extension moves the close time.
+  extendedCount Int @default(0)
+
+  winnerId     String? @db.Uuid
+  winner       User?   @relation("AuctionWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  winningBidId String? @unique @db.Uuid
+
+  settledAt DateTime?
+
+  bids         Bid[]
+  transactions TransactionRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, endsAt])
+  @@index([status, startsAt])
+  @@index([vehicleId])
+  @@index([winnerId])
+}
+
+model Bid {
+  id        String  @id @default(uuid()) @db.Uuid
+  auctionId String  @db.Uuid
+  auction   Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+
+  bidderId String @db.Uuid
+  bidder   User   @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+
+  amountCad Int
+  /// Ceiling for proxy bidding. The engine raises to the minimum needed, up to
+  /// this amount, rather than committing the full value immediately.
+  maxProxyAmountCad Int?
+
+  status BidStatus @default(ACTIVE)
+
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+  @@index([auctionId, amountCad])
+  @@index([auctionId, createdAt])
+  @@index([bidderId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Commerce
+// ---------------------------------------------------------------------------
+
+/// Named TransactionRecord because `Transaction` collides with Prisma's own
+/// interactive-transaction type in generated client code.
+model TransactionRecord {
+  id        String @id @default(uuid()) @db.Uuid
+  /// Short human-quotable reference, e.g. ATL-8F3K2Q.
+  reference String @unique
+
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  auctionId String?  @db.Uuid
+  auction   Auction? @relation(fields: [auctionId], references: [id], onDelete: SetNull)
+
+  buyerId String @db.Uuid
+  buyer   User   @relation("TransactionBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+
+  sellerId String @db.Uuid
+  seller   User   @relation("TransactionSeller", fields: [sellerId], references: [id], onDelete: Restrict)
+
+  status TransactionStatus @default(INITIATED)
+
+  salePriceCad   Int
+  platformFeeCad Int
+  totalCad       Int
+
+  shippingAddressId String?  @db.Uuid
+  shippingAddress   Address? @relation(fields: [shippingAddressId], references: [id], onDelete: SetNull)
+
+  notes String? @db.Text
+
+  payment Payment?
+
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buyerId, status])
+  @@index([sellerId, status])
+  @@index([status, createdAt])
+}
+
+model Payment {
+  id            String            @id @default(uuid()) @db.Uuid
+  transactionId String            @unique @db.Uuid
+  transaction   TransactionRecord @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  amountCad      Int
+  platformFeeCad Int
+
+  method PaymentMethod
+  status PaymentStatus @default(PENDING)
+
+  /// Reference returned by the payment provider. Unique when present so a
+  /// provider callback cannot be applied twice.
+  providerReference String? @unique
+  failureReason     String?
+
+  paidAt     DateTime?
+  refundedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Messaging and notifications
+// ---------------------------------------------------------------------------
+
+/// One thread per buyer per vehicle — a buyer messaging the same vehicle twice
+/// continues the existing conversation rather than starting a new one.
+model Conversation {
+  id        String  @id @default(uuid()) @db.Uuid
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  buyerId String @db.Uuid
+  buyer   User   @relation("ConversationBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+
+  sellerId String @db.Uuid
+  seller   User   @relation("ConversationSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  /// Denormalised so inbox listings can sort without aggregating messages.
+  lastMessageAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vehicleId, buyerId])
+  @@index([buyerId, lastMessageAt])
+  @@index([sellerId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String @db.Uuid
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  body   String    @db.Text
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model Notification {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type  NotificationType
+  title String
+  body  String           @db.Text
+  /// Deep link into the app, e.g. /auctions/<id>.
+  link  String?
+
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Append-only record of security- and money-relevant actions. Rows are never
+/// updated or deleted; actorId is nullable so a deleted account does not erase
+/// the history of what it did.
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  actorId    String? @db.Uuid
+  actor      User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail String?
+
+  action     String
+  entityType String
+  entityId   String? @db.Uuid
+
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
