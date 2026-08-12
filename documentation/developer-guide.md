@@ -179,14 +179,26 @@ Two traps:
 
 `.github/workflows/ci.yml` runs three jobs on pull requests and pushes to
 `main`: **verify** (install, migrate against an empty database, typecheck, lint,
-test, build, seed twice), **security** (dependency audit plus Trivy for
-vulnerabilities, secrets and misconfiguration, uploaded as SARIF), and **docker**
-(builds both images, gated on verify).
+test, build, seed twice), **security** (dependency audit plus a Trivy scan for
+vulnerabilities, secrets and misconfiguration), and **docker** (builds both
+images, gated on verify).
 
-Two notes for anyone editing it:
+Only the dependency audit blocks: `pnpm audit --audit-level high` fails the job
+on a high or critical advisory. Trivy reports — its findings are uploaded as a
+build artifact rather than to code scanning, because SARIF upload needs GitHub
+Advanced Security, which this repository does not have.
+
+When the audit fails on a transitive dependency whose parent has not yet
+released a fix, pin the patched version in the `pnpm.overrides` block in the
+root `package.json` and drop the entry once the parent catches up.
+
+Three notes for anyone editing it:
 
 - **Do not add `version:` to `pnpm/action-setup`** — it reads `packageManager`
   from `package.json`, and specifying both is a hard error.
+- **Trivy runs from its published image, not the marketplace action.** The
+  runner already has Docker, and this pins the scanner itself rather than a
+  wrapper around it.
 - `pnpm/action-setup` must precede `actions/setup-node`, because the Node step's
   `cache: pnpm` needs pnpm to exist.
 

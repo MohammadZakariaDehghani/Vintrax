@@ -88,7 +88,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -103,25 +102,43 @@ jobs:
 
       # Fails the job on high or critical advisories. Lower severities are
       # reported without blocking, so a transitive low-severity finding does
-      # not stop a security fix from shipping.
+      # not stop a security fix from shipping. Fixes for the advisories this
+      # catches go in the pnpm overrides block in the root package.json.
       - name: Audit dependencies
         run: pnpm audit --audit-level high
 
-      - name: Scan filesystem for vulnerabilities and secrets
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: fs
-          scanners: vuln,secret,config
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          format: sarif
-          output: trivy-results.sarif
+      # Trivy runs from its published image rather than the marketplace action:
+      # the runner already has Docker, and this pins the scanner itself to an
+      # exact version instead of pinning an action that wraps it.
+      - name: Scan filesystem for vulnerabilities, secrets and misconfiguration
+        run: |
+          mkdir -p trivy-report
+          docker run --rm \
+            -v "$PWD:/workspace:ro" \
+            -v "$PWD/trivy-report:/report" \
+            aquasec/trivy:0.73.0 filesystem /workspace \
+              --scanners vuln,secret,misconfig \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 0 \
+              --format json \
+              --output /report/trivy.json
+          docker run --rm \
+            -v "$PWD/trivy-report:/report" \
+            aquasec/trivy:0.73.0 convert --format table /report/trivy.json
 
-      - name: Upload results to code scanning
-        uses: github/codeql-action/upload-sarif@v3
+      # Reported, not enforced. Code scanning would be the natural home for
+      # these findings, but SARIF upload needs Advanced Security, which this
+      # repository does not have — so the report is kept as an artifact and
+      # `pnpm audit` remains the blocking gate.
+      - name: Publish the scan report
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: trivy-results.sarif
+          name: trivy-report
+          path: trivy-report/trivy.json
+          if-no-files-found: warn
+          retention-days: 14
 
   docker:
     name: Build container images
