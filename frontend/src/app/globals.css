@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens.
+   Dark mode swaps these values on the html element, so component classes never
+   need a `dark:` variant for colour. */
+@layer base {
+  :root {
+    --background: 210 33% 98%;
+    --foreground: 215 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 30% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 30% 12%;
+
+    --primary: 211 67% 33%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 25% 94%;
+    --secondary-foreground: 215 30% 18%;
+
+    --muted: 210 25% 95%;
+    --muted-foreground: 215 14% 42%;
+
+    --accent: 38 72% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 2 72% 41%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 60% 30%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 32 85% 44%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 85%;
+    --ring: 211 67% 45%;
+
+    --radius: 0.65rem;
+  }
+
+  .dark {
+    --background: 215 32% 8%;
+    --foreground: 210 30% 92%;
+
+    --card: 215 28% 12%;
+    --card-foreground: 210 30% 92%;
+
+    --popover: 215 28% 12%;
+    --popover-foreground: 210 30% 92%;
+
+    /* Lifted from the light theme's near-black brand blue, which fails
+       contrast against a dark surface. */
+    --primary: 211 70% 62%;
+    --primary-foreground: 215 32% 8%;
+
+    --secondary: 215 22% 18%;
+    --secondary-foreground: 210 30% 92%;
+
+    --muted: 215 22% 16%;
+    --muted-foreground: 215 14% 65%;
+
+    --accent: 38 68% 58%;
+    --accent-foreground: 215 32% 8%;
+
+    --destructive: 2 65% 58%;
+    --destructive-foreground: 215 32% 8%;
+
+    --success: 152 48% 52%;
+    --success-foreground: 215 32% 8%;
+
+    --warning: 32 78% 58%;
+    --warning-foreground: 215 32% 8%;
+
+    --border: 215 20% 22%;
+    --input: 215 20% 26%;
+    --ring: 211 70% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  /* Visible focus for keyboard users on every interactive element. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Tabular figures keep prices and countdowns from jittering as they change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .skeleton {
+    @apply relative overflow-hidden bg-muted;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-black/5 to-transparent content-[''];
+  }
+
+  .dark .skeleton::after {
+    @apply via-white/10;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
