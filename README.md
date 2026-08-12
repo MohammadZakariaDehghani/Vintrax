@@ -1,194 +1,139 @@
 # Atlas
 
-Project Atlas is a planned vehicle commerce platform for Canada: a trusted, easy-to-use marketplace
-connecting buyers, dealerships, and private sellers, with direct buyer-to-seller messaging and a
-future auction application built on shared platform foundations.
-
-This repository contains the **Phase 1 marketplace MVP** — a working full-stack application — plus
-the project's planning documents.
-
-## Documentation
-
-Full documentation lives in **[`docs/`](./docs/README.md)**.
-
-| | |
-| --- | --- |
-| [Project Atlas HQ](./docs/atlas-hq.md) | Vision, roadmap, principles, open questions |
-| [Decision Log](./docs/decision-log.md) | Every accepted decision and why |
-| [Architecture overview](./docs/architecture/overview.md) | How the system fits together |
-| [Data model](./docs/architecture/data-model.md) | Entities, indexes, invariants |
-| [API reference](./docs/architecture/api-reference.md) | Every endpoint |
-| [Security model](./docs/architecture/security.md) | Auth, authorisation, known gaps |
-| [Web app](./docs/architecture/web-app.md) | Frontend architecture |
-| [Getting started](./docs/guides/getting-started.md) | Clean machine to running marketplace |
-| [Development workflow](./docs/guides/development-workflow.md) | Branching, CI, schema changes |
-| [Testing](./docs/guides/testing.md) | What is tested and how to add more |
-| [Configuration](./docs/guides/configuration.md) | Every environment variable |
-| [Deployment](./docs/guides/deployment.md) | What production needs |
-| [Technology stack](./docs/reference/technology-stack.md) | Every technology and why |
-| [Implementation notes](./docs/reference/implementation-notes.md) | How it was built, traps hit |
-| [Future work](./docs/reference/future-work.md) | Phase 2 to 4 in detail |
-
-## What is built
-
-| Capability | Status |
-| --- | --- |
-| Accounts for buyers, private sellers, dealerships, and admins | ✅ |
-| JWT auth with rotating, hashed refresh tokens and replay detection | ✅ |
-| Listing create / edit / publish / unpublish / mark sold / delete | ✅ |
-| Search with keyword, 11 filters, 6 sort orders, pagination, facet counts | ✅ |
-| Buyer-to-seller messaging with unread counts and read receipts | ✅ |
-| Favourites | ✅ |
-| Listing photo upload | ✅ |
-| Seller dashboard | ✅ |
-| Auctions | Out of scope — see [D-006](./docs/decision-log.md) |
-
-## Architecture
-
-A pnpm workspace with two applications over one shared contract package:
+An enterprise digital automotive marketplace and auction platform for Canada.
+Dealers and private sellers publish inventory, buyers search and purchase, and
+vehicles can be sold at a fixed price or through live timed auctions with
+independent inspection reports attached.
 
 ```
-apps/
-  api/       NestJS + Prisma + PostgreSQL REST API
-  web/       React + Vite single-page app
-packages/
-  shared/    Domain enums, Zod schemas, and API response types
+frontend/        Next.js 15 · React 19 · Tailwind
+backend/         NestJS 11 · REST + WebSocket · Prisma
+packages/shared/ Domain enums, Zod schemas, API contracts
+infrastructure/  Docker · Kubernetes · Terraform
+documentation/   Architecture, API, deployment, guides
 ```
-
-`@atlas/shared` is the single source of truth for the domain. The API validates every request
-against its Zod schemas, and the web app imports the same schemas and types — so a contract change
-is a compile error on both sides rather than a runtime surprise.
-
-The API is deliberately a standalone service rather than logic embedded in the web app. Per
-[D-006](./docs/decision-log.md), the future auction application and any mobile client are expected
-to consume the same accounts, vehicle data, images, and messaging.
 
 ## Quick start
 
-Requires Node 20.11+, pnpm 10+, and either Docker or a local PostgreSQL 16.
+Requires Node 20.11+, pnpm 10, and Docker (or local PostgreSQL 16 and Redis 7).
 
 ```bash
 pnpm install
-cp .env.example .env            # adjust if your database differs
+cp .env.example .env
 
-pnpm db:up                      # starts PostgreSQL in Docker
-pnpm db:migrate                 # applies migrations
-pnpm db:seed                    # loads demo inventory
+pnpm db:up          # PostgreSQL + Redis
+pnpm db:migrate
+pnpm db:seed
 
-pnpm dev                        # API on :3000, web on :5173
+pnpm dev            # web on :3000, API on :3001
 ```
 
-Then open <http://localhost:5173>. API documentation is served at
-<http://localhost:3000/api/docs> outside production.
-
-Without Docker, point `DATABASE_URL` at any PostgreSQL 16 instance and skip `pnpm db:up`.
-
-### Demo accounts
-
-The seed creates a Canadian demo marketplace — 8 accounts, 21 listings across 6 provinces,
-3 dealerships, favourites, and message threads. Every account uses the password
-`AtlasDemo123!`.
-
-| Email | Role |
+| URL | |
 | --- | --- |
-| `jordan.lee@example.test` | Buyer |
-| `sales@northshoremotors.test` | Dealer (verified) |
-| `priya.raman@example.test` | Private seller |
-| `admin@atlas.test` | Admin |
+| <http://localhost:3000> | Marketplace |
+| <http://localhost:3001/api/docs> | Swagger API documentation |
+| <http://localhost:3001/api/health> | Dependency readiness |
 
-Listing photos are generated locally as SVG files, so the demo renders with no network access.
-The seed is idempotent — re-running it produces the same data rather than duplicates.
+Demo accounts all use the password `AtlasDemo123!` —
+`jordan.lee@example.test` (buyer), `sales@northshoremotors.test` (dealer),
+`inspector@atlas.test` (inspector), `admin@atlas.test` (super admin).
+
+## What it does
+
+| Capability | |
+| --- | --- |
+| Six roles with a fine-grained permission matrix | ✅ |
+| Vehicle inventory with images, documents and features | ✅ |
+| Full-text search with facets, fuzzy fallback and 15 filters | ✅ |
+| Live auctions with real-time bidding over WebSocket | ✅ |
+| Anti-snipe extensions, proxy bid ceilings, reserve prices | ✅ |
+| Independent inspection reports graded by section | ✅ |
+| Orders, platform fees, payment recording, settlement | ✅ |
+| Buyer–seller messaging | ✅ |
+| Notifications, in-app and email | ✅ |
+| Dealer verification workflow | ✅ |
+| Dealer and platform analytics dashboards | ✅ |
+| Append-only audit trail | ✅ |
+| Dark mode, responsive, accessible | ✅ |
+
+## Architecture
+
+The API is a standalone service; the web app is a client of it and holds no
+business rules. `packages/shared` is the contract both compile against, so a
+mismatch is a build failure rather than a runtime bug.
+
+Search and storage sit behind **provider interfaces**. PostgreSQL full-text
+search and local disk are the defaults, so the platform boots with only
+PostgreSQL and Redis; OpenSearch and S3 are selected by environment variable,
+and the OpenSearch provider falls back to PostgreSQL if the cluster is
+unreachable.
+
+Read [documentation/architecture.md](./documentation/architecture.md) for the
+full picture.
+
+### Bidding correctness
+
+Bidding is the part that has to be right. Every bid runs inside a **serializable
+transaction**, so two bidders hitting the same auction at the same instant
+cannot both be told they are winning — PostgreSQL aborts one and the caller gets
+a 409 telling them to review the price and bid again, rather than silently
+losing a bid.
+
+Verified under load: ten simultaneous bids produced two accepted, seven
+serialization conflicts and one below-minimum rejection, leaving exactly one
+`WINNING` row and a denormalised price matching the database maximum.
+
+Live updates were verified across two independent browser sessions — a bid in
+one moved the other from $58,000 to $59,000 in 400 ms with no reload.
+
+## Documentation
+
+| | |
+| --- | --- |
+| [Architecture](./documentation/architecture.md) | System shape, request lifecycle, the bid path |
+| [Backend](./documentation/backend.md) | Modules, auth, the auction engine, jobs |
+| [Frontend](./documentation/frontend.md) | Pages, state, live auctions, design system |
+| [API reference](./documentation/api-reference.md) | Every endpoint |
+| [Deployment](./documentation/deployment.md) | Docker, Kubernetes, cloud |
+| [Developer guide](./documentation/developer-guide.md) | Setup, workflows, CI, troubleshooting |
+| [Decision Log](./documentation/decision-log.md) | Why things are the way they are |
+| [Future work](./documentation/reference/future-work.md) | Roadmap and technical debt |
 
 ## Commands
 
-| Command | Description |
+| Command | |
 | --- | --- |
-| `pnpm dev` | Run the API and web app together |
-| `pnpm build` | Production build of every package |
-| `pnpm test` | Run all test suites |
-| `pnpm typecheck` | Typecheck every package |
-| `pnpm db:migrate` | Apply pending migrations |
-| `pnpm db:seed` | Load demo data |
-| `pnpm db:reset` | Drop, recreate, migrate, and reseed |
-
-## API
-
-All routes are prefixed with `/api`. Authentication is a bearer access token; browse endpoints
-accept one optionally, which is what lets an anonymous and a signed-in visitor share a controller
-while only the latter receives favourite flags.
-
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| `POST` | `/auth/register` | — | Create an account and receive a token pair |
-| `POST` | `/auth/login` | — | Exchange credentials for a token pair |
-| `POST` | `/auth/refresh` | — | Rotate a refresh token |
-| `POST` | `/auth/logout` | — | Revoke a refresh token |
-| `GET` | `/auth/me` | ✅ | The authenticated user |
-| `GET` | `/listings` | optional | Search with filters, sorting, pagination, facets |
-| `GET` | `/listings/mine` | seller | The caller's listings, including drafts |
-| `GET` | `/listings/:id` | optional | A single listing |
-| `POST` | `/listings` | seller | Create a listing |
-| `PATCH` | `/listings/:id` | owner | Update a listing |
-| `DELETE` | `/listings/:id` | owner | Delete a listing |
-| `PUT`/`DELETE` | `/listings/:id/favourite` | ✅ | Add or remove a favourite |
-| `GET` | `/me/favourites` | ✅ | The caller's saved listings |
-| `GET` | `/conversations` | ✅ | Inbox, most recent first |
-| `POST` | `/conversations` | ✅ | Start or continue a thread about a listing |
-| `GET` | `/conversations/:id` | participant | A thread; marks incoming messages read |
-| `POST` | `/conversations/:id/messages` | participant | Post a reply |
-| `GET` | `/conversations/unread-count` | ✅ | Total unread, for the navbar badge |
-| `POST` | `/uploads/images` | seller | Upload a listing photo |
-| `GET` | `/health` | — | Liveness and database readiness |
-
-Errors share one shape (`ApiErrorBody`) with a `details` map of field paths to messages, which the
-web app renders inline next to the offending input.
-
-## Notable design decisions
-
-**Money is stored as an integer** number of Canadian dollars. Floating-point dollars accumulate
-rounding error, and this marketplace has no sub-dollar prices.
-
-**Refresh tokens are stored as SHA-256 digests**, not bcrypt hashes — the token is already
-high-entropy random, and an unsalted digest is what makes the stored value directly queryable for
-revocation. Presenting an already-revoked token revokes the entire family, so a stolen token
-becomes a detectable, self-limiting event.
-
-**Unpublished listings return 404, not 403**, so drafts cannot be discovered by probing IDs.
-
-**One conversation per buyer per listing**, enforced by a unique constraint. Messaging the same
-listing twice continues the existing thread instead of fragmenting it.
-
-**`@atlas/shared` is aliased to its TypeScript source** in the web app rather than pre-bundled.
-Pre-bundling a linked workspace package caches it once, so edits to the shared contracts would be
-served stale until the cache was manually cleared.
-
-**The API compiles with the Nest CLI, not esbuild.** NestJS dependency injection relies on
-`emitDecoratorMetadata`, which esbuild-based runners (`tsx`, `swc` without the plugin) do not emit —
-the result is a container that silently injects `undefined`.
-
-## Known limitations
-
-These are deliberate Phase 1 boundaries, not oversights:
-
-- **Search relevance is recency.** The `RELEVANCE` sort orders by publication date. Genuine scoring
-  needs a `tsvector` column with `ts_rank`; the current keyword matching is `ILIKE` substring
-  matching, which is also why terms shorter than three characters skip the description field.
-- **Uploads are written to local disk.** Production would swap the upload controller for object
-  storage behind the same response shape.
-- **Messaging polls rather than streams.** Async messaging was chosen over live chat per
-  [D-005](./docs/decision-log.md); the unread badge refreshes on an interval.
-- **No email delivery.** Message notifications and address verification are not implemented.
-- **Dealer verification is a manual database flag.** There is no admin UI yet.
+| `pnpm dev` | Run both applications |
+| `pnpm build` | Production build |
+| `pnpm test` | All test suites |
+| `pnpm typecheck` / `pnpm lint` | Static checks |
+| `pnpm db:migrate` / `db:seed` / `db:reset` | Database lifecycle |
+| `pnpm stack:up` | Full Docker stack including MinIO and OpenSearch |
 
 ## Testing
 
-36 tests cover the logic-dense areas: search query construction, listing visibility rules, view
-counting, validation and error mapping, URL filter round-tripping, and display formatting.
+42 tests cover the logic that decides who wins and what they pay — bid
+increments, fee floors and ceilings, auction constraints, the permission matrix
+— plus validation, error mapping, URL round-tripping and display formatting.
 
-```bash
-pnpm test
-```
+The platform was additionally exercised end to end in a real browser: search and
+faceted filtering, fuzzy matching, vehicle detail with inspection reports,
+authentication, RBAC gating, the verified-email gate, live bidding across two
+sessions, dealer and admin dashboards, dark mode, and a 390px viewport.
 
-The application flows were additionally exercised end to end in a real browser — search and
-filtering, listing detail, authentication, favourites, messaging, the seller dashboard, role
-enforcement, dark mode, and mobile layout.
+## Known limitations
+
+Deliberate boundaries, documented rather than hidden:
+
+- **Payments are recorded, not processed.** There is no gateway integration —
+  `POST /orders/:id/payment` records a reference something else must produce.
+- **WebSocket scaling needs a Redis adapter** before running more than one API
+  replica; socket rooms are per-process today.
+- **Rate limits are per-instance and in-memory.**
+- **Docker and Kubernetes manifests have not been runtime-verified** — the
+  Docker daemon was unavailable in the environment where this was built.
+- **Tokens live in `localStorage`**, which is XSS-exposed; moving refresh tokens
+  to `HttpOnly` cookies is planned hardening.
+
+The full register is in
+[future work](./documentation/reference/future-work.md).

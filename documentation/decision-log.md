@@ -152,6 +152,28 @@ The decisions below were made while implementing the Phase 1 marketplace MVP. D-
 
 **Consequences:** A new message may take up to a minute to surface. Polling cost grows with concurrent signed-in users and will eventually justify a push transport. Auctions are expected to need genuine real-time updates regardless, so that infrastructure will likely arrive with Phase 4 and could then be adopted by messaging.
 
+## D-015 — Auctions Are Built Into the Platform, Superseding D-006
+
+**Status:** Accepted
+
+**Supersedes:** [D-006](#d-006--auctions-will-be-a-separate-application-with-shared-foundations)
+
+**Decision:** Vehicle auctions are implemented inside the Atlas platform rather than as a separate application. Auction listings, bidding, settlement and live updates share the same API, database, accounts and notification infrastructure as the fixed-price marketplace.
+
+**Rationale:** D-006 separated auctions to keep each product clear and to avoid entangling different legal, payment and trust requirements. That reasoning still holds in principle, but the platform owner directed that auctions form part of the single product. Building them in one codebase removes the account, inventory and messaging duplication that a separate application would have required, and a vehicle can move between fixed-price and auction sale channels without being re-created.
+
+**Consequences:** Vehicles carry a `saleChannel`, and `IN_AUCTION` is a listing status rather than a separate entity type, so a vehicle has one identity across both ways of selling. The auction-specific concerns D-006 warned about are now internal boundaries instead of application boundaries: bidding runs in its own module with its own concurrency model, and settlement shares the transaction and payment records used by direct purchases. The legal, deposit and dispute questions the HQ document raises for auctions remain open and are now questions for this platform rather than a future one. If auctions later need to diverge — a separate brand, different jurisdictions, distinct compliance — the module boundary is the seam to extract along.
+
+## D-016 — Search and Storage Behind Provider Interfaces
+
+**Status:** Accepted
+
+**Decision:** Vehicle search and file storage are accessed through provider interfaces with more than one implementation, selected by environment variable. Search defaults to PostgreSQL full-text; storage defaults to the local filesystem. OpenSearch and S3-compatible object storage are the production implementations.
+
+**Rationale:** Requiring a search cluster and an object store to run the platform makes local development heavy, makes continuous integration slow and fragile, and couples every developer to infrastructure they do not need. PostgreSQL full-text search with `ts_rank` and trigram fallback is genuinely good at the catalogue sizes this platform will see for some time, so the simple path is also a legitimate production option rather than a toy.
+
+**Consequences:** The platform boots with only PostgreSQL and Redis. Adding a search cluster is a configuration change, not a code change, and the OpenSearch provider falls back to PostgreSQL when the cluster is unreachable, so a search outage degrades relevance rather than breaking browse. The cost is that two search implementations must be kept behaviourally consistent, and the interface constrains both to what each can express. The same reasoning applies to background jobs, which have a Redis-backed and an in-process driver, and to email.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

@@ -1,61 +1,65 @@
 # Atlas documentation
 
-Everything written down about Project Atlas: what it is, how it is built, how to work on it, and
-where it goes next.
+Everything written down about the Atlas platform: what it is, how it is built,
+how to work on it, and where it goes next.
 
 ## Start here
 
 | If you are… | Read |
 | --- | --- |
-| New to the project | [Project Atlas HQ](./atlas-hq.md) |
-| Setting up to develop | [Getting started](./guides/getting-started.md) |
-| Trying to understand the system | [Architecture overview](./architecture/overview.md) |
-| Integrating with the API | [API reference](./architecture/api-reference.md) |
+| Setting up to develop | [Developer guide](./developer-guide.md) |
+| Understanding the system | [Architecture](./architecture.md) |
+| Integrating with the API | [API reference](./api-reference.md) |
+| Working on the API | [Backend](./backend.md) |
+| Working on the UI | [Frontend](./frontend.md) |
+| Deploying | [Deployment](./deployment.md) |
 | Wondering why something is the way it is | [Decision Log](./decision-log.md) |
-| Planning the next phase | [Future work](./reference/future-work.md) |
+| Planning what comes next | [Future work](./reference/future-work.md) |
+
+## Core documents
+
+- **[Architecture](./architecture.md)** — system shape, request lifecycle, the
+  bid path, and the boundaries kept open on purpose.
+- **[Backend](./backend.md)** — modules, authentication, authorisation, the
+  auction engine, background jobs.
+- **[Frontend](./frontend.md)** — pages, state management, live auctions, the
+  design system, accessibility.
+- **[API reference](./api-reference.md)** — every endpoint, its authorisation
+  rule, and error semantics.
+- **[Deployment](./deployment.md)** — Docker, Kubernetes, cloud, and what is
+  still missing before production.
+- **[Developer guide](./developer-guide.md)** — setup, demo accounts, workflows,
+  CI, troubleshooting.
 
 ## Product and direction
 
-- **[Project Atlas HQ](./atlas-hq.md)** — vision, mission, phased roadmap, guiding principles,
-  user groups, and open questions. The front door to the project.
-- **[Decision Log](./decision-log.md)** — every significant accepted decision with its rationale
-  and consequences, identified as `D-nnn` so later documents can cite one without reopening it.
+- **[Project Atlas HQ](./atlas-hq.md)** — vision, phased roadmap, principles.
+- **[Decision Log](./decision-log.md)** — every accepted decision with rationale
+  and consequences, identified as `D-nnn`.
 
-## Architecture
+## Deeper reference
 
-- **[Overview](./architecture/overview.md)** — system shape, component responsibilities, request
-  lifecycle, and the boundaries that exist so the auction product can be added later.
-- **[Data model](./architecture/data-model.md)** — entities, relationships, indexes, and the
-  invariants the schema enforces.
-- **[API reference](./architecture/api-reference.md)** — every endpoint, its authorisation rule,
-  request and response shape, and error semantics.
-- **[Security model](./architecture/security.md)** — authentication, token handling, authorisation,
-  input validation, and what is deliberately not yet addressed.
-- **[Web app](./architecture/web-app.md)** — routing, server state, auth handling, styling, and the
-  URL-as-state approach used for search.
+### Architecture detail
+- [Overview](./architecture/overview.md) · [Data model](./architecture/data-model.md)
+- [Security model](./architecture/security.md) · [Web app internals](./architecture/web-app.md)
+- [API contract detail](./architecture/api-reference.md)
 
-## Guides
+### Guides
+- [Getting started](./guides/getting-started.md) · [Development workflow](./guides/development-workflow.md)
+- [Testing](./guides/testing.md) · [Configuration](./guides/configuration.md)
+- [Deployment notes](./guides/deployment.md)
 
-- **[Getting started](./guides/getting-started.md)** — from a clean machine to a running
-  marketplace with demo data.
-- **[Development workflow](./guides/development-workflow.md)** — branching, commits, CI, code
-  review, database changes, and the shared-contract change process.
-- **[Testing](./guides/testing.md)** — what is tested, at what level, and how to add tests.
-- **[Configuration](./guides/configuration.md)** — every environment variable, its default, and its
-  effect.
-- **[Deployment](./guides/deployment.md)** — what production needs that local development does not.
+### Reference
+- [Technology stack](./reference/technology-stack.md) — every technology and the
+  alternative it was chosen over
+- [Implementation notes](./reference/implementation-notes.md) — how it was built
+  and the traps hit along the way
+- [Future work](./reference/future-work.md) — roadmap and the technical debt
+  register
 
-## Reference
+## Conventions
 
-- **[Technology stack](./reference/technology-stack.md)** — every technology in use and why it was
-  chosen over the obvious alternative.
-- **[Implementation notes](./reference/implementation-notes.md)** — how the MVP was actually built,
-  including the traps hit along the way and how to avoid repeating them.
-- **[Future work](./reference/future-work.md)** — Phase 2 through Phase 4 in enough detail to plan
-  against, plus the known limitations carried forward from Phase 1.
-
-## Conventions used in these documents
-
-Decisions are cited as **[D-006](./decision-log.md)** and link to the Decision Log. Where a document
-describes something not yet built, it says so explicitly rather than describing an aspiration in the
-present tense. Code references use `path/to/file.ts` relative to the repository root.
+Decisions are cited as **[D-006](./decision-log.md)**. Where a document
+describes something not yet built, it says so explicitly rather than describing
+an aspiration in the present tense. Code references use `path/to/file.ts`
+relative to the repository root.
