@@ -11,24 +11,32 @@ import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
 
 /**
- * Normalises every failure into the `ApiErrorBody` contract so the web app has a
- * single error shape to handle. Unexpected errors are logged in full but reported
- * to the client generically — internal messages never reach the browser.
+ * Normalises every failure into the `ApiErrorBody` contract so clients have a
+ * single error shape to handle. Unexpected errors are logged in full but
+ * reported generically — internal messages never reach the browser.
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    // WebSocket and other non-HTTP contexts have no response to write to.
+    if (host.getType() !== 'http') {
+      this.logger.error(
+        `Non-HTTP exception: ${exception instanceof Error ? exception.message : String(exception)}`,
+      );
+      return;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const request = ctx.getRequest<Request & { requestId?: string }>();
 
     const { status, error, message, details } = this.describe(exception);
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(
-        `${request.method} ${request.url} -> ${status}`,
+        `${request.method} ${request.url} -> ${status} [${request.requestId ?? '-'}]`,
         exception instanceof Error ? exception.stack : String(exception),
       );
     }
@@ -38,6 +46,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error,
       message,
       ...(details ? { details } : {}),
+      ...(request.requestId ? { requestId: request.requestId } : {}),
       timestamp: new Date().toISOString(),
       path: request.url,
     };
@@ -77,6 +86,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return this.describePrisma(exception);
     }
 
+    if (exception instanceof Prisma.PrismaClientValidationError) {
+      this.logger.error('Prisma validation error', exception.message);
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        error: 'BadRequest',
+        message: 'The request could not be processed',
+      };
+    }
+
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       error: 'InternalServerError',
@@ -106,6 +124,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
           status: HttpStatus.BAD_REQUEST,
           error: 'BadRequest',
           message: 'Referenced record does not exist',
+        };
+      // Delete blocked by a dependent row (onDelete: Restrict).
+      case 'P2014':
+      case 'P2011':
+        return {
+          status: HttpStatus.CONFLICT,
+          error: 'Conflict',
+          message: 'This record is referenced by other data and cannot be changed',
         };
       // Record required by the operation was not found.
       case 'P2025':
