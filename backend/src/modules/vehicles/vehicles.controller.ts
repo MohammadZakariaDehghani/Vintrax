@@ -1,0 +1,151 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  type CreateVehicleInput,
+  type ModerateListingInput,
+  type Paginated,
+  type SearchVehiclesQuery,
+  type UpdateVehicleInput,
+  type VehicleDetail,
+  type VehicleSearchResponse,
+  type VehicleSummary,
+  createVehicleSchema,
+  moderateListingSchema,
+  searchVehiclesSchema,
+  updateVehicleSchema,
+} from '@atlas/shared';
+import { z } from 'zod';
+import {
+  Audit,
+  CurrentUser,
+  Public,
+  RequirePermissions,
+  RequireVerifiedEmail,
+} from '../../common/decorators';
+import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
+import type { AuthUser } from '../../common/auth/auth-user';
+import { VehiclesService } from './vehicles.service';
+
+const myVehiclesQuerySchema = z.object({
+  status: z
+    .enum(['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'IN_AUCTION', 'SOLD', 'ARCHIVED'])
+    .optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(60).default(20),
+});
+
+const paginationQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(60).default(25),
+});
+
+@ApiTags('vehicles')
+@Controller('vehicles')
+export class VehiclesController {
+  constructor(private readonly vehicles: VehiclesService) {}
+
+  @Public()
+  @Get()
+  @ApiOperation({
+    summary: 'Search vehicles',
+    description:
+      'Filters, sorting and pagination follow the searchVehiclesSchema contract in @atlas/shared. ' +
+      'Authenticating is optional; with a token each result carries its isFavourited flag.',
+  })
+  search(
+    @Query(zodQuery(searchVehiclesSchema)) query: SearchVehiclesQuery,
+    @CurrentUser() user?: AuthUser,
+  ): Promise<VehicleSearchResponse> {
+    return this.vehicles.searchVehicles(query, user);
+  }
+
+  // Literal segments are declared before ':id' so they are not captured as ids.
+  @Get('mine')
+  @RequirePermissions('vehicle:write')
+  @ApiOperation({ summary: "Return the caller's own vehicles, including drafts" })
+  listMine(
+    @Query(zodQuery(myVehiclesQuerySchema)) query: z.infer<typeof myVehiclesQuerySchema>,
+    @CurrentUser() user: AuthUser,
+  ): Promise<Paginated<VehicleSummary>> {
+    return this.vehicles.listMine(user, query.page, query.pageSize, query.status);
+  }
+
+  @Get('pending-review')
+  @RequirePermissions('vehicle:publish', 'user:read')
+  @ApiOperation({ summary: 'List vehicles awaiting moderation' })
+  listPendingReview(
+    @Query(zodQuery(paginationQuerySchema)) query: z.infer<typeof paginationQuerySchema>,
+  ): Promise<Paginated<VehicleSummary>> {
+    return this.vehicles.listPendingReview(query.page, query.pageSize);
+  }
+
+  @Public()
+  @Get(':idOrSlug')
+  @ApiOperation({ summary: 'Return a single vehicle by id or slug' })
+  findOne(
+    @Param('idOrSlug') idOrSlug: string,
+    @CurrentUser() user?: AuthUser,
+  ): Promise<VehicleDetail> {
+    return this.vehicles.findById(idOrSlug, user);
+  }
+
+  @Post()
+  @RequirePermissions('vehicle:write')
+  @RequireVerifiedEmail()
+  @Audit('vehicle.created', 'Vehicle')
+  @ApiOperation({ summary: 'Create a vehicle listing' })
+  create(
+    @Body(zodBody(createVehicleSchema)) body: CreateVehicleInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<VehicleDetail> {
+    return this.vehicles.create(body, user);
+  }
+
+  @Patch(':id')
+  @RequirePermissions('vehicle:write')
+  @Audit('vehicle.updated', 'Vehicle')
+  @ApiOperation({ summary: 'Update a vehicle the caller owns' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(updateVehicleSchema)) body: UpdateVehicleInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<VehicleDetail> {
+    return this.vehicles.update(id, body, user);
+  }
+
+  @Delete(':id')
+  @RequirePermissions('vehicle:delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Audit('vehicle.deleted', 'Vehicle')
+  @ApiOperation({ summary: 'Delete a vehicle the caller owns' })
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<void> {
+    await this.vehicles.remove(id, user);
+  }
+
+  @Patch(':id/moderate')
+  @RequirePermissions('vehicle:publish', 'user:manage')
+  @Audit('vehicle.moderated', 'Vehicle')
+  @ApiOperation({ summary: 'Approve or reject a vehicle awaiting review' })
+  moderate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(moderateListingSchema)) body: ModerateListingInput,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<VehicleDetail> {
+    return this.vehicles.moderate(id, body, actor);
+  }
+}

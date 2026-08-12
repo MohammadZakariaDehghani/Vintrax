@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { type ListingSummary, type Paginated, paginationSchema } from '@atlas/shared';
+import { type VehicleSummary, type Paginated, paginationSchema } from '@atlas/shared';
 import { CurrentUser } from '../../common/decorators';
 import { zodQuery } from '../../common/pipes/zod-validation.pipe';
 import type { AuthUser } from '../../common/auth/auth-user';
@@ -22,18 +22,18 @@ export class FavouritesController {
   constructor(private readonly favourites: FavouritesService) {}
 
   @Get('me/favourites')
-  @ApiOperation({ summary: "Return the caller's favourited listings" })
+  @ApiOperation({ summary: "Return the caller's favourited vehicles" })
   list(
     @Query(zodQuery(paginationSchema)) query: { page: number; pageSize: number },
     @CurrentUser() user: AuthUser,
-  ): Promise<Paginated<ListingSummary>> {
+  ): Promise<Paginated<VehicleSummary>> {
     return this.favourites.list(user, query.page, query.pageSize);
   }
 
   // PUT rather than POST: favouriting is idempotent, so repeat calls are safe.
-  @Put('listings/:id/favourite')
+  @Put('vehicles/:id/favourite')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Favourite a listing' })
+  @ApiOperation({ summary: 'Favourite a vehicle' })
   async add(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
@@ -41,9 +41,9 @@ export class FavouritesController {
     await this.favourites.add(id, user);
   }
 
-  @Delete('listings/:id/favourite')
+  @Delete('vehicles/:id/favourite')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Remove a listing from favourites' })
+  @ApiOperation({ summary: 'Remove a vehicle from favourites' })
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
