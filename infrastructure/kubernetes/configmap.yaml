@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: atlas-config
+  namespace: atlas
+data:
+  NODE_ENV: production
+  API_PORT: '3001'
+  APP_URL: https://atlas.example.com
+  CORS_ORIGINS: https://atlas.example.com
+  REDIS_URL: redis://atlas-redis:6379
+  QUEUE_DRIVER: redis
+  STORAGE_DRIVER: s3
+  S3_REGION: ca-central-1
+  S3_BUCKET: atlas-media
+  S3_FORCE_PATH_STYLE: 'false'
+  SEARCH_PROVIDER: opensearch
+  OPENSEARCH_NODE: http://atlas-opensearch:9200
+  MAIL_DRIVER: smtp

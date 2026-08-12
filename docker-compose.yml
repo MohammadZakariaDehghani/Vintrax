@@ -1,3 +1,11 @@
+# Full local stack: database, cache, object storage, search, API and web.
+#
+# `docker compose up -d postgres redis` brings up only what the API strictly
+# needs — MinIO and OpenSearch are optional, because storage and search sit
+# behind provider interfaces with local and PostgreSQL implementations.
+
+name: atlas
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -5,17 +13,158 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: atlas
-      POSTGRES_PASSWORD: atlas
-      POSTGRES_DB: atlas_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-atlas}
+      POSTGRES_DB: atlas
     ports:
       - '5432:5432'
     volumes:
-      - atlas-postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U atlas -d atlas_dev']
+      test: ['CMD-SHELL', 'pg_isready -U atlas -d atlas']
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: atlas-redis
+    restart: unless-stopped
+    # Append-only persistence so queued jobs survive a restart.
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # S3-compatible object storage. Optional: STORAGE_DRIVER=local writes to disk.
+  minio:
+    image: minio/minio:latest
+    container_name: atlas-minio
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-atlasadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-atlasadmin}
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    profiles: ['storage', 'full']
+
+  # Creates the bucket once MinIO is healthy, then exits.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID:-atlasadmin} ${S3_SECRET_ACCESS_KEY:-atlasadmin} &&
+      mc mb --ignore-existing local/${S3_BUCKET:-atlas-media} &&
+      mc anonymous set download local/${S3_BUCKET:-atlas-media} &&
+      echo 'MinIO bucket ready'
+      "
+    profiles: ['storage', 'full']
+
+  # Optional dedicated search cluster. SEARCH_PROVIDER=postgres is the default
+  # and needs none of this.
+  opensearch:
+    image: opensearchproject/opensearch:2.18.0
+    container_name: atlas-opensearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: 'true'
+      OPENSEARCH_JAVA_OPTS: '-Xms512m -Xmx512m'
+      # Local development only. A real deployment terminates TLS and enables
+      # the security plugin.
+      DISABLE_SECURITY_PLUGIN: 'true'
+      DISABLE_INSTALL_DEMO_CONFIG: 'true'
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    ports:
+      - '9200:9200'
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:9200/_cluster/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 12
+    profiles: ['search', 'full']
+
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    container_name: atlas-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:-atlas}@postgres:5432/atlas?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      UPLOAD_DIR: /app/backend/uploads
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_BUCKET: ${S3_BUCKET:-atlas-media}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-atlasadmin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-atlasadmin}
+      SEARCH_PROVIDER: ${SEARCH_PROVIDER:-postgres}
+      OPENSEARCH_NODE: ${OPENSEARCH_NODE:-http://opensearch:9200}
+      QUEUE_DRIVER: redis
+      MAIL_DRIVER: ${MAIL_DRIVER:-log}
+    ports:
+      - '3001:3001'
+    volumes:
+      - uploads-data:/app/backend/uploads
+    # Migrations run before the process starts. With more than one replica this
+    # belongs in a separate pre-deploy job instead, to avoid a migration race.
+    command: >
+      /bin/sh -c "node_modules/.bin/prisma migrate deploy && node dist/main"
+
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:3001}
+    container_name: atlas-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      # Server components address the API over the compose network.
+      API_ORIGIN: http://api:3001
+    ports:
+      - '3000:3000'
 
 volumes:
-  atlas-postgres-data:
+  postgres-data:
+  redis-data:
+  minio-data:
+  opensearch-data:
+  uploads-data:
