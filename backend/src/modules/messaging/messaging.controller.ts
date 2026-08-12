@@ -38,9 +38,9 @@ export class MessagingController {
 
   @Post()
   @ApiOperation({
-    summary: 'Start or continue a conversation about a listing',
+    summary: 'Start or continue a conversation about a vehicle',
     description:
-      'The seller is resolved from the listing. Messaging the same listing twice continues the existing thread.',
+      'The seller is resolved from the vehicle. Messaging the same vehicle twice continues the existing thread.',
   })
   start(
     @Body(zodBody(startConversationSchema)) body: unknown,

@@ -11,7 +11,21 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { AuthUser } from '../../common/auth/auth-user';
 
-const participantSelect = { id: true, displayName: true, role: true } satisfies Prisma.UserSelect;
+const participantSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+} satisfies Prisma.UserSelect;
+
+type ParticipantRow = Prisma.UserGetPayload<{ select: typeof participantSelect }>;
+
+/** Users are stored as first and last name; the wire contract carries one. */
+const toParticipant = (row: ParticipantRow): ConversationParticipant => ({
+  id: row.id,
+  displayName: `${row.firstName} ${row.lastName}`.trim(),
+  role: row.role,
+});
 
 const conversationSelect = {
   id: true,
@@ -20,7 +34,7 @@ const conversationSelect = {
   lastMessageAt: true,
   buyer: { select: participantSelect },
   seller: { select: participantSelect },
-  listing: {
+  vehicle: {
     select: {
       id: true,
       title: true,
@@ -43,30 +57,30 @@ export class MessagingService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Opens — or continues — the thread between a buyer and a listing's seller.
-   * The seller is derived from the listing rather than supplied by the client,
+   * Opens — or continues — the thread between a buyer and a vehicle's seller.
+   * The seller is derived from the vehicle rather than supplied by the client,
    * so a caller cannot address a message to an arbitrary account.
    */
   async startConversation(
     input: StartConversationInput,
     user: AuthUser,
   ): Promise<ConversationDetail> {
-    const listing = await this.prisma.listing.findUnique({
-      where: { id: input.listingId },
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: input.vehicleId },
       select: { id: true, sellerId: true, status: true },
     });
-    if (!listing) throw new NotFoundException('Listing not found');
-    if (listing.sellerId === user.id) {
-      throw new BadRequestException('You cannot message yourself about your own listing');
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+    if (vehicle.sellerId === user.id) {
+      throw new BadRequestException('You cannot message yourself about your own vehicle');
     }
-    if (listing.status !== 'ACTIVE') {
-      throw new BadRequestException('This listing is not accepting enquiries');
+    if (vehicle.status !== 'ACTIVE') {
+      throw new BadRequestException('This vehicle is not accepting enquiries');
     }
 
     const conversation = await this.prisma.conversation.upsert({
-      where: { listingId_buyerId: { listingId: listing.id, buyerId: user.id } },
+      where: { vehicleId_buyerId: { vehicleId: vehicle.id, buyerId: user.id } },
       update: {},
-      create: { listingId: listing.id, buyerId: user.id, sellerId: listing.sellerId },
+      create: { vehicleId: vehicle.id, buyerId: user.id, sellerId: vehicle.sellerId },
       select: { id: true },
     });
 
@@ -214,18 +228,18 @@ export class MessagingService {
   }
 
   private toSummary(row: ConversationRow, viewerId: string, unreadCount: number): ConversationSummary {
-    const buyer: ConversationParticipant = row.buyer;
-    const seller: ConversationParticipant = row.seller;
+    const buyer = toParticipant(row.buyer);
+    const seller = toParticipant(row.seller);
     const lastMessage = row.messages[0];
 
     return {
       id: row.id,
-      listing: {
-        id: row.listing.id,
-        title: row.listing.title,
-        priceCad: row.listing.priceCad,
-        primaryImageUrl: row.listing.images[0]?.url ?? null,
-        status: row.listing.status,
+      vehicle: {
+        id: row.vehicle.id,
+        title: row.vehicle.title,
+        priceCad: row.vehicle.priceCad,
+        primaryImageUrl: row.vehicle.images[0]?.url ?? null,
+        status: row.vehicle.status,
       },
       buyer,
       seller,

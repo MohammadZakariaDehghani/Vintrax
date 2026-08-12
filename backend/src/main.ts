@@ -19,15 +19,21 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService<Env, true>);
   const port = config.get('API_PORT', { infer: true });
   const nodeEnv = config.get('NODE_ENV', { infer: true });
+  const storageDriver = config.get('STORAGE_DRIVER', { infer: true });
   const uploadDir = resolve(config.get('UPLOAD_DIR', { infer: true }));
 
   app.setGlobalPrefix('api');
 
+  // Behind a load balancer, X-Forwarded-For carries the real client IP, which
+  // rate limiting and the audit trail both depend on.
+  app.set('trust proxy', 1);
+
   app.use(
     helmet({
-      // Listing images are served from this origin and embedded by the web app
-      // on a different port, so the default same-origin policy is too strict.
+      // Vehicle images are served from this origin and embedded by the web app
+      // on a different one, so the default same-origin policy is too strict.
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: nodeEnv === 'production' ? undefined : false,
     }),
   );
 
@@ -36,19 +42,30 @@ async function bootstrap(): Promise<void> {
     credentials: true,
   });
 
-  // Uploaded and seeded images are served outside the /api prefix.
-  mkdirSync(uploadDir, { recursive: true });
-  app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
+  // Local storage serves uploads as static assets outside the /api prefix.
+  // With S3 the objects are served by the bucket or its CDN instead.
+  if (storageDriver === 'local') {
+    mkdirSync(uploadDir, { recursive: true });
+    app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
+  }
 
   if (nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Atlas Marketplace API')
       .setDescription(
-        'REST API for the Atlas vehicle marketplace. Request and response shapes are defined ' +
-          'as Zod schemas in the @atlas/shared package, which the web app validates against too.',
+        'REST and WebSocket API for the Atlas automotive marketplace and auction platform. ' +
+          'Request and response shapes are defined as Zod schemas in the @atlas/shared package, ' +
+          'which the frontend validates against too.',
       )
-      .setVersion('0.1.0')
+      .setVersion('1.0.0')
       .addBearerAuth()
+      .addTag('auth', 'Registration, sign-in, tokens, verification')
+      .addTag('vehicles', 'Inventory and search')
+      .addTag('auctions', 'Auctions and bidding')
+      .addTag('inspections', 'Vehicle condition reports')
+      .addTag('orders', 'Purchases, payments and settlement')
+      .addTag('dealers', 'Dealership profiles and analytics')
+      .addTag('admin', 'Platform administration')
       .build();
     SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swaggerConfig));
   }
@@ -58,6 +75,7 @@ async function bootstrap(): Promise<void> {
 
   const logger = new Logger('Bootstrap');
   logger.log(`Atlas API listening on http://localhost:${port}/api`);
+  logger.log(`WebSocket namespace: ws://localhost:${port}/auctions`);
   if (nodeEnv !== 'production') {
     logger.log(`API documentation at http://localhost:${port}/api/docs`);
   }
