@@ -174,6 +174,16 @@ The decisions below were made while implementing the Phase 1 marketplace MVP. D-
 
 **Consequences:** The platform boots with only PostgreSQL and Redis. Adding a search cluster is a configuration change, not a code change, and the OpenSearch provider falls back to PostgreSQL when the cluster is unreachable, so a search outage degrades relevance rather than breaking browse. The cost is that two search implementations must be kept behaviourally consistent, and the interface constrains both to what each can express. The same reasoning applies to background jobs, which have a Redis-backed and an in-process driver, and to email.
 
+## D-017 — The Dependency Audit Is the Security Gate; Scanning Reports
+
+**Status:** Accepted
+
+**Decision:** Continuous integration fails on a high or critical dependency advisory, and advisories in transitive packages are resolved by pinning the patched version in the `pnpm.overrides` block of the root `package.json`. The Trivy filesystem scan for vulnerabilities, secrets and misconfiguration runs alongside it but does not fail the build; its report is kept as a build artifact. Trivy is invoked from its published container image at a pinned version rather than through a marketplace action.
+
+**Rationale:** A gate is only useful if a red build means something specific and actionable. `pnpm audit` produces exactly that: a named package, a vulnerable range and a patched range, which an override fixes in one line. Trivy's misconfiguration rules cover the deployment manifests, where a finding is often a deliberate trade-off rather than a defect, so treating every one of them as a build failure would train people to ignore the job. Findings would ideally go to code scanning, but SARIF upload requires GitHub Advanced Security, which this repository does not have — an artifact keeps them retrievable without pretending the integration exists. Pinning the scanner image rather than an action removes a dependency on a wrapper's release tags, which is what broke this job originally.
+
+**Consequences:** Every override is technical debt with a visible expiry: it exists because a parent package has not yet released a fix, and it should be removed when it does, otherwise the pin silently holds a dependency back. Trivy findings need someone to read them, since nothing forces the issue. The scanner version is explicit in the workflow and must be bumped deliberately, which is the intent — a scanner that changes underneath the build makes failures hard to attribute.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.
