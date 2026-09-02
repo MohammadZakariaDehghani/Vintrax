@@ -14,7 +14,9 @@ graph TB
 
     subgraph Workspace["pnpm workspace"]
         Web["frontend<br/><i>SSR pages + client islands</i>"]
+        Mob["mobile<br/><i>installable PWA</i>"]
         Shared["packages/shared<br/><i>enums · Zod schemas · types</i>"]
+        Client["packages/client<br/><i>API client · session · formatting</i>"]
         Api["backend<br/><i>NestJS 11 · REST + WebSocket</i>"]
     end
 
@@ -26,7 +28,10 @@ graph TB
     Browser -->|"HTTPS · JSON"| Api
     Browser -->|"WebSocket"| Api
     Browser -.->|"serves"| Web
-    Web -.->|"imports"| Shared
+    Browser -.->|"serves"| Mob
+    Web -.->|"imports"| Client
+    Mob -.->|"imports"| Client
+    Client -.->|"imports"| Shared
     Api -.->|"imports"| Shared
     Api --> Db
     Api --> Redis
@@ -36,9 +41,10 @@ graph TB
 
 Four things are worth noticing.
 
-**The frontend never talks to the database.** All persistence goes through the
-API, which is what makes a second client — a mobile app, the dealer portal — a
-matter of calling the same endpoints rather than reimplementing business rules.
+**No client talks to the database.** All persistence goes through the API,
+which is what made the second client — Atlas Mobile — a matter of calling the
+same endpoints rather than reimplementing business rules. See
+[mobile.md](./mobile.md).
 
 **`packages/shared` is imported by both applications.** It is the contract, and
 both sides compile against it, so a mismatch is a build failure rather than a
@@ -67,6 +73,13 @@ bundle both consume it.
 | `src/domain.ts` | Enum value lists, the role/permission matrix, bid increment bands, fee rules, display labels |
 | `src/schemas.ts` | Zod schemas for every request payload and query string |
 | `src/contracts.ts` | TypeScript interfaces for every response body |
+
+### `packages/client`
+
+What both browser applications must agree on: the API client and its token
+refresh, the session store, the auction socket subscription, and display
+formatting. No framework or router code, so a third client inherits the same
+behaviour rather than a slightly different copy of it.
 
 The enum lists here and the Prisma enums mirror each other exactly. Changing one
 without the other is a bug — see

@@ -2,7 +2,7 @@
   "name": "atlas",
   "version": "1.0.0",
   "private": true,
-  "description": "Atlas — enterprise digital automotive marketplace and auction platform",
+  "description": "Atlas \u2014 enterprise digital automotive marketplace and auction platform",
   "engines": {
     "node": ">=20.11"
   },
@@ -12,8 +12,10 @@
     "dev": "pnpm shared:build && pnpm --parallel --filter \"@atlas/backend\" --filter \"@atlas/frontend\" dev",
     "dev:backend": "pnpm shared:build && pnpm --filter @atlas/backend dev",
     "dev:frontend": "pnpm shared:build && pnpm --filter @atlas/frontend dev",
-    "build": "pnpm shared:build && pnpm --filter @atlas/backend build && pnpm --filter @atlas/frontend build",
-    "start": "pnpm --parallel --filter \"@atlas/backend\" --filter \"@atlas/frontend\" start",
+    "dev:mobile": "pnpm shared:build && pnpm --parallel --filter \"@atlas/backend\" --filter \"@atlas/mobile\" dev",
+    "dev:all": "pnpm shared:build && pnpm --parallel --filter \"@atlas/backend\" --filter \"@atlas/frontend\" --filter \"@atlas/mobile\" dev",
+    "build": "pnpm shared:build && pnpm --filter @atlas/backend build && pnpm --filter @atlas/frontend build && pnpm --filter @atlas/mobile build",
+    "start": "pnpm --parallel --filter \"@atlas/backend\" --filter \"@atlas/frontend\" --filter \"@atlas/mobile\" start",
     "setup": "bash scripts/setup-ubuntu.sh",
     "lint": "pnpm shared:build && pnpm -r lint",
     "test": "pnpm shared:build && pnpm -r test",

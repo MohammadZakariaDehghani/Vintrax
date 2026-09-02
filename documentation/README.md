@@ -12,6 +12,7 @@ how to work on it, and where it goes next.
 | Integrating with the API | [API reference](./api-reference.md) |
 | Working on the API | [Backend](./backend.md) |
 | Working on the UI | [Frontend](./frontend.md) |
+| Working on the mobile app | [Mobile](./mobile.md) |
 | Deploying | [Deployment](./deployment.md) |
 | Wondering why something is the way it is | [Decision Log](./decision-log.md) |
 | Planning what comes next | [Future work](./reference/future-work.md) |
@@ -24,6 +25,8 @@ how to work on it, and where it goes next.
   auction engine, background jobs.
 - **[Frontend](./frontend.md)** — pages, state management, live auctions, the
   design system, accessibility.
+- **[Mobile](./mobile.md)** — the installable PWA: screens, touch constraints,
+  live bidding, camera capture, offline behaviour.
 - **[API reference](./api-reference.md)** — every endpoint, its authorisation
   rule, and error semantics.
 - **[Deployment](./deployment.md)** — Docker, Kubernetes, cloud, and what is

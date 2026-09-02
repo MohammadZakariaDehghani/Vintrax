@@ -13,6 +13,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@atlas/client": "workspace:*",
     "@atlas/shared": "workspace:*",
     "@tanstack/react-query": "^5.66.0",
     "class-variance-authority": "^0.7.1",

@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens, matching the web application so a colour means the same thing
+   in both. Dark mode swaps these on the html element, so component classes
+   never need a `dark:` variant for colour. */
+@layer base {
+  :root {
+    --background: 210 33% 98%;
+    --foreground: 215 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 30% 12%;
+
+    --primary: 211 67% 33%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 25% 94%;
+    --secondary-foreground: 215 30% 18%;
+
+    --muted: 210 25% 95%;
+    --muted-foreground: 215 14% 42%;
+
+    --accent: 38 72% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 2 72% 41%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 60% 30%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 32 85% 44%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 85%;
+    --ring: 211 67% 45%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 215 32% 8%;
+    --foreground: 210 30% 92%;
+
+    --card: 215 28% 12%;
+    --card-foreground: 210 30% 92%;
+
+    /* Lifted from the light theme's near-black brand blue, which fails
+       contrast against a dark surface. */
+    --primary: 211 70% 62%;
+    --primary-foreground: 215 32% 8%;
+
+    --secondary: 215 24% 18%;
+    --secondary-foreground: 210 30% 92%;
+
+    --muted: 215 24% 17%;
+    --muted-foreground: 214 16% 68%;
+
+    --accent: 38 78% 58%;
+    --accent-foreground: 215 32% 8%;
+
+    --destructive: 2 70% 62%;
+    --destructive-foreground: 215 32% 8%;
+
+    --success: 152 48% 52%;
+    --success-foreground: 215 32% 8%;
+
+    --warning: 32 88% 60%;
+    --warning-foreground: 215 32% 8%;
+
+    --border: 215 20% 24%;
+    --input: 215 20% 28%;
+    --ring: 211 70% 62%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  html {
+    /* iOS zooms the page when a focused input is under 16px. Setting the base
+       here means form controls inherit a size that never triggers it. */
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    /* Standalone PWAs have no browser chrome to rubber-band against, and the
+       overscroll bounce under a fixed tab bar looks broken. */
+    overscroll-behavior-y: none;
+  }
+
+  /* Touch devices have no hover, and the tap highlight fires on scroll. */
+  button,
+  a,
+  [role='button'] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Horizontal filter and category rails: scrollable, without a visible bar. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .snap-rail {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .snap-rail > * {
+    scroll-snap-align: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

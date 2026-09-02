@@ -16,15 +16,20 @@ Docker, Kubernetes and cloud deployment for Atlas.
 | --- | --- | --- |
 | API image | `infrastructure/docker/backend.Dockerfile` | Node 22 Alpine, non-root |
 | Web image | `infrastructure/docker/frontend.Dockerfile` | Node 22 Alpine, non-root |
+| Mobile image | `infrastructure/docker/mobile.Dockerfile` | Node 22 Alpine, non-root |
 | Database | — | Managed PostgreSQL 16 |
 | Cache and queues | — | Managed Redis 7 |
 | Media | — | S3-compatible storage behind a CDN |
 | Search | — | OpenSearch, optional |
 
-Both images are multi-stage: the workspace installs once with the full lockfile
-so the shared contract package resolves, then only build output and production
-dependencies reach the runtime layer. Both run as the unprivileged `node` user
+All three images are multi-stage: the workspace installs once with the full
+lockfile so the shared packages resolve, then only build output and production
+dependencies reach the runtime layer. Each runs as the unprivileged `node` user
 with a health check.
+
+Every image copies **all** workspace manifests before installing, not just its
+own. The lockfile describes the whole workspace, and `--frozen-lockfile` fails
+on a manifest it cannot find.
 
 `NEXT_PUBLIC_*` values are compiled into the client bundle, so they are **build
 arguments** for the web image, not runtime environment variables. Changing
@@ -54,9 +59,13 @@ What it does, in order:
 | PostgreSQL | Installs 16 — adds the PGDG archive on releases that lack it |
 | Redis | Installs the distribution package and starts it |
 | Database | Creates the role and database, enables `pg_trgm` |
-| Environment | Writes `.env` with generated secrets, links `backend/.env`, writes `frontend/.env.local` |
+| Environment | Writes `.env` with generated secrets, links `backend/.env`, writes `frontend/.env.local` and `mobile/.env.local` |
 | Application | `pnpm install`, `prisma generate`, `migrate deploy`, optional seed, `pnpm build` |
-| Run | Foreground, or systemd units with `--systemd` |
+| Run | Foreground, or systemd units with `--systemd` — `atlas-api`, `atlas-web`, `atlas-mobile` |
+
+Three ports: the API on 3001, the marketplace on 3000, and Atlas Mobile on
+3002. Each is overridable — `ATLAS_API_PORT`, `ATLAS_WEB_PORT`,
+`ATLAS_MOBILE_PORT`.
 
 ### Options
 
@@ -66,7 +75,7 @@ What it does, in order:
 | `--skip-system` | Leave apt alone — for containers, or a machine already provisioned |
 | `--no-seed` | Skip demo data. **Use this for anything real.** |
 | `--no-start` | Set everything up and stop |
-| `--systemd` | Install and enable `atlas-api` and `atlas-web` units |
+| `--systemd` | Install and enable the `atlas-api`, `atlas-web` and `atlas-mobile` units |
 
 | Variable | Default |
 | --- | --- |
@@ -75,7 +84,11 @@ What it does, in order:
 | `ATLAS_DB_NAME` / `ATLAS_DB_USER` | `atlas` / `atlas` |
 | `ATLAS_DB_PASSWORD` | Generated — 192 bits of hex |
 | `ATLAS_DB_HOST` / `ATLAS_DB_PORT` | `localhost` / `5432` |
-| `ATLAS_API_PORT` / `ATLAS_WEB_PORT` | `3001` / `3000` |
+| `ATLAS_API_PORT` / `ATLAS_WEB_PORT` / `ATLAS_MOBILE_PORT` | `3001` / `3000` / `3002` |
+
+**Adding Atlas Mobile to an existing installation** needs the mobile origin in
+the API's `CORS_ORIGINS`, or the API refuses the WebSocket handshake and live
+bidding falls back to polling. Re-running the setup script adds it.
 
 **`ATLAS_PUBLIC_URL` is the one to get right.** It becomes `APP_URL`, the CORS
 allowlist, and the WebSocket origin compiled into the browser bundle. Left at
@@ -96,7 +109,7 @@ To deploy a new version:
 ```bash
 git pull
 ./scripts/setup-ubuntu.sh --skip-system --no-seed --no-start
-sudo systemctl restart atlas-api atlas-web
+sudo systemctl restart atlas-api atlas-web atlas-mobile
 ```
 
 ### What it does not do
@@ -104,10 +117,12 @@ sudo systemctl restart atlas-api atlas-web
 Deliberate omissions — a single-server install is a starting point, not a
 hardened production deployment:
 
-- **No reverse proxy and no TLS.** Both applications serve plain HTTP on their
-  own ports. Put nginx or Caddy in front and terminate TLS there before this is
-  reachable from the internet.
-- **No firewall rules.** Ports 3000 and 3001 bind `0.0.0.0`.
+- **No reverse proxy and no TLS.** All three applications serve plain HTTP on
+  their own ports. Put nginx or Caddy in front and terminate TLS there before
+  this is reachable from the internet. Atlas Mobile needs it for a second
+  reason: a service worker will not register on an insecure origin, so the PWA
+  is not installable over plain HTTP.
+- **No firewall rules.** Ports 3000, 3001 and 3002 bind `0.0.0.0`.
 - **No dedicated service account.** The systemd units run as the user who ran
   the script.
 - **No backups.** See [Backups](#backups).
@@ -122,7 +137,7 @@ cp .env.example .env
 # when NODE_ENV=production.
 openssl rand -base64 48   # twice, into JWT_ACCESS_SECRET and JWT_REFRESH_SECRET
 
-docker compose up -d                      # postgres, redis, api, web
+docker compose up -d                      # postgres, redis, api, web, mobile
 docker compose --profile full up -d       # adds MinIO and OpenSearch
 docker compose exec api node_modules/.bin/prisma migrate deploy
 docker compose exec api node_modules/.bin/tsx prisma/seed.ts   # optional
@@ -146,6 +161,7 @@ kubectl apply -f infrastructure/kubernetes/namespace.yaml
 kubectl apply -f infrastructure/kubernetes/secrets.example.yaml
 kubectl apply -f infrastructure/kubernetes/configmap.yaml
 kubectl apply -f infrastructure/kubernetes/api-deployment.yaml
+kubectl apply -f infrastructure/kubernetes/mobile-deployment.yaml
 kubectl apply -f infrastructure/kubernetes/web-deployment.yaml
 kubectl apply -f infrastructure/kubernetes/ingress.yaml
 ```
@@ -163,6 +179,10 @@ load-balancer pool without being killed.
 
 **The ingress sets long proxy timeouts** on `/socket.io`, or the proxy cuts idle
 auction connections between bids.
+
+**Atlas Mobile gets its own host** (`m.atlas.example.com`) rather than a path on
+the web host. Its manifest scope is `/`, and a service worker cannot claim a
+scope above its own path.
 
 **Rolling updates use `maxUnavailable: 0`** with a PodDisruptionBudget, so
 capacity never dips during a deploy — which matters while an auction is live.

@@ -10,6 +10,7 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@atlas/shared': fileURLToPath(new URL('../packages/shared/src/index.ts', import.meta.url)),
+      '@atlas/client': fileURLToPath(new URL('../packages/client/src/index.ts', import.meta.url)),
     },
   },
 });
