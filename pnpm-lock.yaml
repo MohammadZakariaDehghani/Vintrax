@@ -171,6 +171,9 @@ importers:
 
   frontend:
     dependencies:
+      '@atlas/client':
+        specifier: workspace:*
+        version: link:../packages/client
       '@atlas/shared':
         specifier: workspace:*
         version: link:../packages/shared
@@ -250,6 +253,34 @@ importers:
       vitest:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.1)(jiti@1.21.7)(terser@5.49.0)(tsx@4.23.1)
+
+  packages/client:
+    dependencies:
+      '@atlas/shared':
+        specifier: workspace:*
+        version: link:../shared
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: '>=19'
+        version: 19.2.8
+      socket.io-client:
+        specifier: ^4.8.1
+        version: 4.8.3
+      tailwind-merge:
+        specifier: ^2.6.0
+        version: 2.6.1
+      zustand:
+        specifier: ^5.0.3
+        version: 5.0.14(@types/react@19.2.18)(react@19.2.8)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.8
+        version: 19.2.18
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
 
   packages/shared:
     dependencies:

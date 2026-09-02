@@ -5,7 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   // The shared contract package is TypeScript source, not a build artefact,
   // so Next must transpile it like first-party code.
-  transpilePackages: ['@atlas/shared'],
+  transpilePackages: ['@atlas/shared', '@atlas/client'],
   eslint: { ignoreDuringBuilds: false },
   typescript: { ignoreBuildErrors: false },
   images: {
