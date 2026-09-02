@@ -5,6 +5,10 @@ Docker, Kubernetes and cloud deployment for Atlas.
 > **Status:** Atlas has not been deployed to a production environment. This
 > describes what the code supports and what still has to be built or chosen.
 > Items that do not exist yet are marked **not yet implemented**.
+>
+> The exception is [Single Ubuntu server](#single-ubuntu-server): that script
+> has been run end to end — clean machine to serving marketplace, including a
+> sign-in against the seeded data.
 
 ## Artefacts
 
@@ -25,6 +29,90 @@ with a health check.
 `NEXT_PUBLIC_*` values are compiled into the client bundle, so they are **build
 arguments** for the web image, not runtime environment variables. Changing
 `NEXT_PUBLIC_API_URL` requires a rebuild, not a restart.
+
+## Single Ubuntu server
+
+The shortest path to a running platform, and the only one in this document that
+has been executed end to end. `scripts/setup-ubuntu.sh` takes a bare Ubuntu
+machine to a serving marketplace.
+
+```bash
+git clone https://github.com/MohammadZakariaDehghani/Atlas.git
+cd Atlas
+
+ATLAS_PUBLIC_URL=http://203.0.113.10:3000 \
+  ./scripts/setup-ubuntu.sh --no-seed --systemd
+```
+
+What it does, in order:
+
+| Step | Detail |
+| --- | --- |
+| System packages | curl, gnupg, git, openssl, and a compiler for native modules |
+| Node.js | Installs 22.x from the NodeSource archive unless ≥ 20.11 is present |
+| pnpm | Enabled through corepack, at the version pinned in `packageManager` |
+| PostgreSQL | Installs 16 — adds the PGDG archive on releases that lack it |
+| Redis | Installs the distribution package and starts it |
+| Database | Creates the role and database, enables `pg_trgm` |
+| Environment | Writes `.env` with generated secrets, links `backend/.env`, writes `frontend/.env.local` |
+| Application | `pnpm install`, `prisma generate`, `migrate deploy`, optional seed, `pnpm build` |
+| Run | Foreground, or systemd units with `--systemd` |
+
+### Options
+
+| Flag | Effect |
+| --- | --- |
+| `--mode dev` | Development servers with hot reload instead of a production build |
+| `--skip-system` | Leave apt alone — for containers, or a machine already provisioned |
+| `--no-seed` | Skip demo data. **Use this for anything real.** |
+| `--no-start` | Set everything up and stop |
+| `--systemd` | Install and enable `atlas-api` and `atlas-web` units |
+
+| Variable | Default |
+| --- | --- |
+| `ATLAS_PUBLIC_URL` | `http://localhost:3000` |
+| `ATLAS_API_URL` | Derived from `ATLAS_PUBLIC_URL` and the API port |
+| `ATLAS_DB_NAME` / `ATLAS_DB_USER` | `atlas` / `atlas` |
+| `ATLAS_DB_PASSWORD` | Generated — 192 bits of hex |
+| `ATLAS_DB_HOST` / `ATLAS_DB_PORT` | `localhost` / `5432` |
+| `ATLAS_API_PORT` / `ATLAS_WEB_PORT` | `3001` / `3000` |
+
+**`ATLAS_PUBLIC_URL` is the one to get right.** It becomes `APP_URL`, the CORS
+allowlist, and the WebSocket origin compiled into the browser bundle. Left at
+the default on a remote server, pages render but live bidding cannot connect,
+because the browser would be told to open a socket to its own machine.
+Changing it later means re-running the script so the bundle is rebuilt.
+
+### Re-running and upgrading
+
+Every step checks for the state it creates, so a second run is a no-op where
+nothing changed. An existing `.env` is never overwritten — rotating the JWT
+secrets would sign every issued token out, and rewriting the database password
+would lock the platform out of its own data. The script reads `DATABASE_URL`
+back instead and keeps the role in step with it.
+
+To deploy a new version:
+
+```bash
+git pull
+./scripts/setup-ubuntu.sh --skip-system --no-seed --no-start
+sudo systemctl restart atlas-api atlas-web
+```
+
+### What it does not do
+
+Deliberate omissions — a single-server install is a starting point, not a
+hardened production deployment:
+
+- **No reverse proxy and no TLS.** Both applications serve plain HTTP on their
+  own ports. Put nginx or Caddy in front and terminate TLS there before this is
+  reachable from the internet.
+- **No firewall rules.** Ports 3000 and 3001 bind `0.0.0.0`.
+- **No dedicated service account.** The systemd units run as the user who ran
+  the script.
+- **No backups.** See [Backups](#backups).
+- **One machine.** WebSocket rooms are per-process, so scaling past one API
+  instance needs `@socket.io/redis-adapter` first.
 
 ## Docker Compose
 

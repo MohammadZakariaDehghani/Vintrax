@@ -184,6 +184,16 @@ The decisions below were made while implementing the Phase 1 marketplace MVP. D-
 
 **Consequences:** Every override is technical debt with a visible expiry: it exists because a parent package has not yet released a fix, and it should be removed when it does, otherwise the pin silently holds a dependency back. Trivy findings need someone to read them, since nothing forces the issue. The scanner version is explicit in the workflow and must be bumped deliberately, which is the intent — a scanner that changes underneath the build makes failures hard to attribute.
 
+## D-018 — A Single-Server Install Path Alongside the Container Path
+
+**Status:** Accepted
+
+**Decision:** Atlas ships `scripts/setup-ubuntu.sh`, which provisions an Ubuntu machine directly — Node, pnpm, PostgreSQL, Redis, the database, environment files, migrations, an optional seed, a build, and either a foreground run or systemd units. It stands beside the Docker, Compose and Kubernetes artefacts rather than replacing them.
+
+**Rationale:** The container path assumes a working Docker daemon, a registry, and someone who knows both. That is the right target for a real deployment and the wrong first step for evaluating the platform, onboarding a developer, or standing up a demo on a virtual machine. Two paths also cost less than they appear to: the script drives the same `pnpm` scripts and the same migrations that CI and the images use, so it exercises the ordinary path rather than inventing a parallel one. Writing it also surfaced a genuine defect — the documented setup could not run migrations, because the Prisma CLI reads `.env` from `backend/` and the repository keeps it at the root.
+
+**Consequences:** The script must be updated whenever setup changes shape — a new service dependency, a new environment variable, a new build step — or it silently produces a half-configured machine, which is worse than no script. It is deliberately not a hardened deployment: no TLS, no reverse proxy, no firewall, no dedicated service account, and one machine only, all stated in the deployment guide so nobody mistakes it for a production baseline. Generated secrets and an existing `.env` are treated as sacred: re-running never rotates the JWT secrets, because that would sign every issued token out. `backend/.env` is now a symlink to the root `.env`, so there is one file to edit rather than two that drift.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.
