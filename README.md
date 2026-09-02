@@ -15,11 +15,36 @@ documentation/   Architecture, API, deployment, guides
 
 ## Quick start
 
+### On Ubuntu, one command
+
+```bash
+git clone https://github.com/MohammadZakariaDehghani/Atlas.git
+cd Atlas
+./scripts/setup-ubuntu.sh
+```
+
+Installs Node, pnpm, PostgreSQL and Redis, provisions the database, generates
+secrets, applies migrations, loads demo data, builds both applications and
+starts them. Re-running is safe — it never overwrites an existing `.env`.
+
+On a server people reach by address, say so, because the browser bundle is
+compiled against it:
+
+```bash
+ATLAS_PUBLIC_URL=http://203.0.113.10:3000 ./scripts/setup-ubuntu.sh --systemd
+```
+
+`--systemd` runs Atlas under systemd instead of the foreground. Full options in
+[deployment.md](./documentation/deployment.md#single-ubuntu-server).
+
+### Anywhere else
+
 Requires Node 20.11+, pnpm 10, and Docker (or local PostgreSQL 16 and Redis 7).
 
 ```bash
 pnpm install
 cp .env.example .env
+ln -s ../.env backend/.env    # the Prisma CLI reads .env from backend/
 
 pnpm db:up          # PostgreSQL + Redis
 pnpm db:migrate
@@ -103,7 +128,9 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 
 | Command | |
 | --- | --- |
+| `./scripts/setup-ubuntu.sh` | Install everything and run (Ubuntu) |
 | `pnpm dev` | Run both applications |
+| `pnpm start` | Run both from a production build |
 | `pnpm build` | Production build |
 | `pnpm test` | All test suites |
 | `pnpm typecheck` / `pnpm lint` | Static checks |

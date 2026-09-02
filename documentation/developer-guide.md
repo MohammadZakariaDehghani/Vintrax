@@ -18,12 +18,29 @@ corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 ## Quick start
 
+### Ubuntu
+
+```bash
+git clone https://github.com/MohammadZakariaDehghani/Atlas.git
+cd Atlas
+./scripts/setup-ubuntu.sh --mode dev
+```
+
+One script from a bare machine to a running platform: it installs Node, pnpm,
+PostgreSQL and Redis, provisions the database, writes `.env` with generated
+secrets, migrates, seeds and starts the dev servers. It is safe to re-run and
+never overwrites an existing `.env`. See
+[deployment.md](./deployment.md#single-ubuntu-server) for every option.
+
+### Every other platform
+
 ```bash
 git clone https://github.com/MohammadZakariaDehghani/Atlas.git
 cd Atlas
 
 pnpm install
 cp .env.example .env
+ln -s ../.env backend/.env    # see below
 
 pnpm db:up          # PostgreSQL + Redis in Docker
 pnpm db:migrate     # apply migrations
@@ -31,6 +48,17 @@ pnpm db:seed        # load demo data
 
 pnpm dev            # API on :3001, web on :3000
 ```
+
+**Why the symlink.** The API reads `.env` or `../.env`, so the root file is
+enough for it. The Prisma CLI does not look at the parent directory — it reads
+`.env` from its working directory, which is `backend/`. Linking keeps one file
+to edit instead of two that drift apart. Without it, `pnpm db:migrate` fails
+with `Environment variable not found: DATABASE_URL`.
+
+Next.js is the same story in the other direction: it reads env files from
+`frontend/`, so browser-facing values (`NEXT_PUBLIC_*`, `API_ORIGIN`) belong in
+`frontend/.env.local`. Defaults cover localhost, so this only matters once the
+platform is reachable at a real address. `setup-ubuntu.sh` writes both files.
 
 | URL | Contents |
 | --- | --- |
@@ -83,7 +111,9 @@ identical counts.
 
 | Command | Effect |
 | --- | --- |
+| `./scripts/setup-ubuntu.sh` | Install dependencies, set up and run (Ubuntu) |
 | `pnpm dev` | Run API and web together |
+| `pnpm start` | Run both from a production build |
 | `pnpm build` | Production build of every package |
 | `pnpm test` | All test suites |
 | `pnpm typecheck` | Typecheck every package |
@@ -243,6 +273,10 @@ API's `CORS_ORIGINS`. Both need a restart to take effect.
 
 **`Invalid environment configuration`** — the message names each failing
 variable. Compare `.env` against `.env.example`.
+
+**`Environment variable not found: DATABASE_URL`** from a `prisma` command —
+the Prisma CLI reads `.env` from `backend/`, not from the repository root.
+Link them: `ln -s ../.env backend/.env`.
 
 **Redis unavailable** — the API still starts. Caching and shared locks are
 disabled and the queue driver logs a warning; set `QUEUE_DRIVER=inline` to run

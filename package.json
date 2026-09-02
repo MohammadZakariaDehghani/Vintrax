@@ -13,6 +13,8 @@
     "dev:backend": "pnpm shared:build && pnpm --filter @atlas/backend dev",
     "dev:frontend": "pnpm shared:build && pnpm --filter @atlas/frontend dev",
     "build": "pnpm shared:build && pnpm --filter @atlas/backend build && pnpm --filter @atlas/frontend build",
+    "start": "pnpm --parallel --filter \"@atlas/backend\" --filter \"@atlas/frontend\" start",
+    "setup": "bash scripts/setup-ubuntu.sh",
     "lint": "pnpm shared:build && pnpm -r lint",
     "test": "pnpm shared:build && pnpm -r test",
     "test:e2e": "pnpm --filter @atlas/frontend test:e2e",
