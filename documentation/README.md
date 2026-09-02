@@ -27,6 +27,8 @@ how to work on it, and where it goes next.
   design system, accessibility.
 - **[Mobile](./mobile.md)** — the installable PWA: screens, touch constraints,
   live bidding, camera capture, offline behaviour.
+- **[Brand](./brand.md)** — the mark, the palette, and why red is not a brand
+  colour here.
 - **[API reference](./api-reference.md)** — every endpoint, its authorisation
   rule, and error semantics.
 - **[Deployment](./deployment.md)** — Docker, Kubernetes, cloud, and what is

@@ -123,6 +123,7 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 | [Backend](./documentation/backend.md) | Modules, auth, the auction engine, jobs |
 | [Frontend](./documentation/frontend.md) | Pages, state, live auctions, design system |
 | [Mobile](./documentation/mobile.md) | The PWA: screens, live bidding, camera, offline |
+| [Brand](./documentation/brand.md) | The mark, the palette, and the rules behind them |
 | [API reference](./documentation/api-reference.md) | Every endpoint |
 | [Deployment](./documentation/deployment.md) | Docker, Kubernetes, cloud |
 | [Developer guide](./documentation/developer-guide.md) | Setup, workflows, CI, troubleshooting |
