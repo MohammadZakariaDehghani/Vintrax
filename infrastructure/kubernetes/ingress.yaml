@@ -15,6 +15,11 @@ spec:
   tls:
     - hosts: [atlas.example.com]
       secretName: atlas-tls
+    # Atlas Mobile gets its own host rather than a path on the web host: the
+    # PWA's manifest scope is "/", and a service worker cannot be registered
+    # for a scope above its own path.
+    - hosts: [m.atlas.example.com]
+      secretName: atlas-mobile-tls
   rules:
     - host: atlas.example.com
       http:
@@ -37,3 +42,24 @@ spec:
               service:
                 name: atlas-web
                 port: { number: 3000 }
+    - host: m.atlas.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: atlas-api
+                port: { number: 3001 }
+          - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: atlas-api
+                port: { number: 3001 }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: atlas-mobile
+                port: { number: 3002 }

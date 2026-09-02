@@ -32,7 +32,16 @@ export interface PageQuery {
   pageSize?: number;
 }
 
-function query(params: Record<string, string | number | boolean | undefined | null>): string {
+/**
+ * Builds a query string, dropping anything unset. Passing `page=undefined`
+ * through would reach the API as the literal string "undefined" and fail
+ * validation, so the filtering is the point rather than tidiness.
+ *
+ * Exported for its own tests.
+ */
+export function buildQuery(
+  params: Record<string, string | number | boolean | undefined | null>,
+): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '') continue;
@@ -52,33 +61,33 @@ export const atlas = {
     search: (searchQuery: string) => api.get<VehicleSearchResponse>(`/vehicles${searchQuery}`),
     byIdOrSlug: (idOrSlug: string) => api.get<VehicleDetail>(`/vehicles/${idOrSlug}`),
     mine: (params: PageQuery = {}) =>
-      api.get<Paginated<VehicleSummary>>(`/vehicles/mine${query({ ...params })}`),
+      api.get<Paginated<VehicleSummary>>(`/vehicles/mine${buildQuery({ ...params })}`),
     create: (input: unknown) => api.post<VehicleDetail>('/vehicles', input),
     update: (id: string, input: unknown) => api.patch<VehicleDetail>(`/vehicles/${id}`, input),
   },
 
   auctions: {
     list: (params: { status?: string; sort?: string } & PageQuery = {}) =>
-      api.get<Paginated<AuctionSummary>>(`/auctions${query({ ...params })}`),
+      api.get<Paginated<AuctionSummary>>(`/auctions${buildQuery({ ...params })}`),
     byId: (id: string) => api.get<AuctionDetail>(`/auctions/${id}`),
     bids: (id: string, params: PageQuery = {}) =>
-      api.get<Paginated<BidSummary>>(`/auctions/${id}/bids${query({ ...params })}`),
+      api.get<Paginated<BidSummary>>(`/auctions/${id}/bids${buildQuery({ ...params })}`),
     myBids: (params: PageQuery = {}) =>
-      api.get<Paginated<BidSummary>>(`/auctions/my-bids${query({ ...params })}`),
+      api.get<Paginated<BidSummary>>(`/auctions/my-bids${buildQuery({ ...params })}`),
     placeBid: (id: string, amountCad: number) =>
       api.post<AuctionDetail>(`/auctions/${id}/bids`, { amountCad }),
   },
 
   favourites: {
     list: (params: PageQuery = {}) =>
-      api.get<Paginated<VehicleSummary>>(`/me/favourites${query({ ...params })}`),
+      api.get<Paginated<VehicleSummary>>(`/me/favourites${buildQuery({ ...params })}`),
     add: (vehicleId: string) => api.put<void>(`/vehicles/${vehicleId}/favourite`),
     remove: (vehicleId: string) => api.delete<void>(`/vehicles/${vehicleId}/favourite`),
   },
 
   conversations: {
     list: (params: PageQuery = {}) =>
-      api.get<Paginated<ConversationSummary>>(`/conversations${query({ ...params })}`),
+      api.get<Paginated<ConversationSummary>>(`/conversations${buildQuery({ ...params })}`),
     byId: (id: string) => api.get<ConversationDetail>(`/conversations/${id}`),
     start: (vehicleId: string, body: string) =>
       api.post<ConversationDetail>('/conversations', { vehicleId, body }),
@@ -89,13 +98,13 @@ export const atlas = {
 
   orders: {
     list: (params: PageQuery = {}) =>
-      api.get<Paginated<TransactionSummary>>(`/orders${query({ ...params })}`),
+      api.get<Paginated<TransactionSummary>>(`/orders${buildQuery({ ...params })}`),
     byId: (id: string) => api.get<TransactionSummary>(`/orders/${id}`),
   },
 
   notifications: {
     list: (params: PageQuery = {}) =>
-      api.get<Paginated<NotificationDto>>(`/notifications${query({ ...params })}`),
+      api.get<Paginated<NotificationDto>>(`/notifications${buildQuery({ ...params })}`),
     unreadCount: () => api.get<{ count: number }>('/notifications/unread-count'),
     markRead: (id: string) => api.patch<NotificationDto>(`/notifications/${id}/read`, {}),
     markAllRead: () => api.patch<void>('/notifications/read-all', {}),

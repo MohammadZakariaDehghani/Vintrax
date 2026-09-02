@@ -9,10 +9,15 @@ WORKDIR /app
 
 # ---- Dependencies -----------------------------------------------------------
 FROM base AS deps
+# Every workspace manifest is copied, not just this app's: the lockfile
+# describes the whole workspace, and --frozen-lockfile fails on a missing one.
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/client/package.json ./packages/client/
+COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
-RUN pnpm install --frozen-lockfile
+COPY mobile/package.json ./mobile/
+RUN pnpm install --frozen-lockfile --filter @atlas/frontend...
 
 # ---- Build ------------------------------------------------------------------
 FROM base AS build
@@ -24,6 +29,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app/packages/client/node_modules ./packages/client/node_modules
 COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
 COPY . .
 RUN pnpm --filter @atlas/frontend build
@@ -35,6 +41,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/shared ./packages/shared
+COPY --from=build /app/packages/client ./packages/client
 COPY --from=build /app/frontend ./frontend
 
 USER node

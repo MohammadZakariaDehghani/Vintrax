@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import type { Paginated, VehicleSummary } from '@atlas/shared';
 import { atlas, type PageQuery } from '@/lib/atlas';
+import { withPage } from '@/lib/paging';
 
 /**
  * Query keys are hierarchical, so invalidating `['vehicles']` clears every
@@ -48,10 +49,7 @@ export function useVehicleSearch(apiQuery: string) {
   return useInfiniteQuery({
     queryKey: keys.vehicleSearch(apiQuery),
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => {
-      const separator = apiQuery.startsWith('?') ? '&' : '?';
-      return atlas.vehicles.search(`${apiQuery}${separator}page=${pageParam}`);
-    },
+    queryFn: ({ pageParam }) => atlas.vehicles.search(withPage(apiQuery, pageParam)),
     getNextPageParam: nextPageParam,
   });
 }

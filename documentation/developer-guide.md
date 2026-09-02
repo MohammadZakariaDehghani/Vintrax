@@ -47,6 +47,7 @@ pnpm db:migrate     # apply migrations
 pnpm db:seed        # load demo data
 
 pnpm dev            # API on :3001, web on :3000
+pnpm dev:all        # adds Atlas Mobile on :3002
 ```
 
 **Why the symlink.** The API reads `.env` or `../.env`, so the root file is
@@ -55,14 +56,16 @@ enough for it. The Prisma CLI does not look at the parent directory — it reads
 to edit instead of two that drift apart. Without it, `pnpm db:migrate` fails
 with `Environment variable not found: DATABASE_URL`.
 
-Next.js is the same story in the other direction: it reads env files from
-`frontend/`, so browser-facing values (`NEXT_PUBLIC_*`, `API_ORIGIN`) belong in
-`frontend/.env.local`. Defaults cover localhost, so this only matters once the
-platform is reachable at a real address. `setup-ubuntu.sh` writes both files.
+Next.js is the same story in the other direction: it reads env files from its
+own directory, so browser-facing values (`NEXT_PUBLIC_*`, `API_ORIGIN`) belong
+in `frontend/.env.local` and `mobile/.env.local`. Defaults cover localhost, so
+this only matters once the platform is reachable at a real address.
+`setup-ubuntu.sh` writes both files.
 
 | URL | Contents |
 | --- | --- |
 | <http://localhost:3000> | Marketplace |
+| <http://localhost:3002> | Atlas Mobile |
 | <http://localhost:3001/api/docs> | Swagger |
 | <http://localhost:3001/api/health> | Dependency readiness |
 
@@ -113,7 +116,8 @@ identical counts.
 | --- | --- |
 | `./scripts/setup-ubuntu.sh` | Install dependencies, set up and run (Ubuntu) |
 | `pnpm dev` | Run API and web together |
-| `pnpm start` | Run both from a production build |
+| `pnpm dev:mobile` / `pnpm dev:all` | Add Atlas Mobile, on its own or with the web app |
+| `pnpm start` | Run all three from a production build |
 | `pnpm build` | Production build of every package |
 | `pnpm test` | All test suites |
 | `pnpm typecheck` | Typecheck every package |
@@ -268,8 +272,15 @@ built. The root scripts build it first; run `pnpm shared:build` if you invoked a
 package script directly.
 
 **WebSocket shows "Reconnecting"** — `NEXT_PUBLIC_WS_URL` must point at the API
-origin (Next's proxy does not forward upgrades), and that origin must be in the
-API's `CORS_ORIGINS`. Both need a restart to take effect.
+origin (Next's proxy does not forward upgrades), and **the page's own origin**
+must be in the API's `CORS_ORIGINS`. Adding Atlas Mobile to an existing install
+trips this: port 3002 is not in an allowlist written before the app existed, and
+the API logs `Rejected socket from disallowed origin`. Re-run
+`scripts/setup-ubuntu.sh` to add it, then restart the API.
+
+**A page renders but its data never appears** — a production build replaced
+`.next` underneath a running `next start`, so the browser asks for chunk files
+that no longer exist. Restart the server after any rebuild.
 
 **`Invalid environment configuration`** — the message names each failing
 variable. Compare `.env` against `.env.example`.

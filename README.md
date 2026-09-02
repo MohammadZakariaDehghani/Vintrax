@@ -6,9 +6,11 @@ vehicles can be sold at a fixed price or through live timed auctions with
 independent inspection reports attached.
 
 ```
-frontend/        Next.js 15 · React 19 · Tailwind
+frontend/        Next.js 15 · React 19 · Tailwind — desktop-first marketplace
+mobile/          Next.js 15 · installable PWA — mobile-first client
 backend/         NestJS 11 · REST + WebSocket · Prisma
 packages/shared/ Domain enums, Zod schemas, API contracts
+packages/client/ API client, session store and formatting shared by both apps
 infrastructure/  Docker · Kubernetes · Terraform
 documentation/   Architecture, API, deployment, guides
 ```
@@ -24,8 +26,8 @@ cd Atlas
 ```
 
 Installs Node, pnpm, PostgreSQL and Redis, provisions the database, generates
-secrets, applies migrations, loads demo data, builds both applications and
-starts them. Re-running is safe — it never overwrites an existing `.env`.
+secrets, applies migrations, loads demo data, builds all three applications
+and starts them. Re-running is safe — it never overwrites an existing `.env`.
 
 On a server people reach by address, say so, because the browser bundle is
 compiled against it:
@@ -56,6 +58,7 @@ pnpm dev            # web on :3000, API on :3001
 | URL | |
 | --- | --- |
 | <http://localhost:3000> | Marketplace |
+| <http://localhost:3002> | Atlas Mobile (installable PWA) |
 | <http://localhost:3001/api/docs> | Swagger API documentation |
 | <http://localhost:3001/api/health> | Dependency readiness |
 
@@ -80,6 +83,7 @@ Demo accounts all use the password `AtlasDemo123!` —
 | Dealer and platform analytics dashboards | ✅ |
 | Append-only audit trail | ✅ |
 | Dark mode, responsive, accessible | ✅ |
+| Installable mobile PWA with live bidding and camera capture | ✅ |
 
 ## Architecture
 
@@ -118,6 +122,7 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 | [Architecture](./documentation/architecture.md) | System shape, request lifecycle, the bid path |
 | [Backend](./documentation/backend.md) | Modules, auth, the auction engine, jobs |
 | [Frontend](./documentation/frontend.md) | Pages, state, live auctions, design system |
+| [Mobile](./documentation/mobile.md) | The PWA: screens, live bidding, camera, offline |
 | [API reference](./documentation/api-reference.md) | Every endpoint |
 | [Deployment](./documentation/deployment.md) | Docker, Kubernetes, cloud |
 | [Developer guide](./documentation/developer-guide.md) | Setup, workflows, CI, troubleshooting |
@@ -129,8 +134,10 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 | Command | |
 | --- | --- |
 | `./scripts/setup-ubuntu.sh` | Install everything and run (Ubuntu) |
-| `pnpm dev` | Run both applications |
-| `pnpm start` | Run both from a production build |
+| `pnpm dev` | Run the API and web app |
+| `pnpm dev:mobile` | Run the API and Atlas Mobile |
+| `pnpm dev:all` | Run all three |
+| `pnpm start` | Run all three from a production build |
 | `pnpm build` | Production build |
 | `pnpm test` | All test suites |
 | `pnpm typecheck` / `pnpm lint` | Static checks |
@@ -139,14 +146,17 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 
 ## Testing
 
-42 tests cover the logic that decides who wins and what they pay — bid
+71 tests cover the logic that decides who wins and what they pay — bid
 increments, fee floors and ceilings, auction constraints, the permission matrix
-— plus validation, error mapping, URL round-tripping and display formatting.
+— plus validation, error mapping, URL round-tripping, query construction and
+display formatting.
 
 The platform was additionally exercised end to end in a real browser: search and
 faceted filtering, fuzzy matching, vehicle detail with inspection reports,
 authentication, RBAC gating, the verified-email gate, live bidding across two
-sessions, dealer and admin dashboards, dark mode, and a 390px viewport.
+sessions, dealer and admin dashboards, dark mode, and a 390px viewport. Atlas
+Mobile was exercised the same way at iPhone size, including a touch-target
+audit and installability of its manifest.
 
 ## Known limitations
 

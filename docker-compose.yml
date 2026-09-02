@@ -162,6 +162,26 @@ services:
     ports:
       - '3000:3000'
 
+  # Atlas Mobile. A separate service on its own port so the existing web
+  # container, its port and its build are untouched.
+  mobile:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/mobile.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:3001}
+    container_name: atlas-mobile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      # The rewrite proxy addresses the API over the compose network.
+      API_ORIGIN: http://api:3001
+    ports:
+      - '3002:3002'
+
 volumes:
   postgres-data:
   redis-data:

@@ -169,3 +169,13 @@ jobs:
           tags: atlas/web:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build mobile image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/mobile.Dockerfile
+          push: false
+          tags: atlas/mobile:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -52,12 +52,11 @@ export function FilterSheet({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <button
-        type="button"
-        aria-label="Close filters"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/50"
-      />
+      {/* Tap-to-dismiss. Deliberately not a button: it would be a second
+          control with the same accessible name as the header's close button,
+          and it is unreachable by keyboard anyway — Escape and that button are
+          how assistive technology closes this. */}
+      <div aria-hidden onClick={onClose} className="absolute inset-0 bg-black/50" />
 
       <div
         role="dialog"

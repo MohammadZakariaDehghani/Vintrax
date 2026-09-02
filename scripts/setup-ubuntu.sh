@@ -43,8 +43,10 @@ DB_PORT=${ATLAS_DB_PORT:-5432}
 DB_PASSWORD=${ATLAS_DB_PASSWORD:-}
 API_PORT=${ATLAS_API_PORT:-3001}
 WEB_PORT=${ATLAS_WEB_PORT:-3000}
+MOBILE_PORT=${ATLAS_MOBILE_PORT:-3002}
 PUBLIC_URL=${ATLAS_PUBLIC_URL:-}
 API_URL=${ATLAS_API_URL:-}
+MOBILE_URL=
 
 MODE=production
 SKIP_SYSTEM=false
@@ -55,6 +57,7 @@ USE_SYSTEMD=false
 APT_UPDATED=false
 ENV_FILE="${REPO_ROOT}/.env"
 WEB_ENV_FILE="${REPO_ROOT}/frontend/.env.local"
+MOBILE_ENV_FILE="${REPO_ROOT}/mobile/.env.local"
 
 # --- Output ----------------------------------------------------------------
 
@@ -101,6 +104,7 @@ Environment overrides:
   ATLAS_DB_PORT           Database port.               Default: 5432
   ATLAS_API_PORT          API port.                    Default: 3001
   ATLAS_WEB_PORT          Web port.                    Default: 3000
+  ATLAS_MOBILE_PORT       Atlas Mobile port.           Default: 3002
   ATLAS_PUBLIC_URL        Browser-facing web URL.      Default: http://localhost:3000
   ATLAS_API_URL           Browser-facing API URL.      Default: derived from ATLAS_PUBLIC_URL
 
@@ -243,7 +247,8 @@ preflight() {
   # escaped — a name outside this set is a mistake, not something to quote.
   [[ $DB_NAME =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "invalid database name: ${DB_NAME}"
   [[ $DB_USER =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "invalid database user: ${DB_USER}"
-  [[ $API_PORT =~ ^[0-9]+$ && $WEB_PORT =~ ^[0-9]+$ ]] || die "ports must be numeric"
+  [[ $API_PORT =~ ^[0-9]+$ && $WEB_PORT =~ ^[0-9]+$ && $MOBILE_PORT =~ ^[0-9]+$ ]] ||
+    die "ports must be numeric"
 
   PUBLIC_URL=${PUBLIC_URL:-http://localhost:${WEB_PORT}}
   PUBLIC_URL=${PUBLIC_URL%/}
@@ -259,8 +264,15 @@ preflight() {
   fi
   API_URL=${API_URL%/}
 
+  if [[ $PUBLIC_URL =~ ^(https?)://([^/:]+) ]]; then
+    MOBILE_URL="${BASH_REMATCH[1]}://${BASH_REMATCH[2]}:${MOBILE_PORT}"
+  else
+    MOBILE_URL="http://localhost:${MOBILE_PORT}"
+  fi
+
   info "mode:      ${MODE}"
   info "web:       ${PUBLIC_URL} (port ${WEB_PORT})"
+  info "mobile:    ${MOBILE_URL} (port ${MOBILE_PORT})"
   info "api:       ${API_URL} (port ${API_PORT})"
   info "database:  ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
 }
@@ -501,6 +513,28 @@ write_env_files() {
     # out, and would desynchronise the database password from the role.
     skip ".env exists — keeping its secrets and database password"
 
+    # One targeted exception to leaving an existing .env alone: adding the
+    # mobile origins to the CORS allowlist. Without them the API refuses the
+    # WebSocket handshake and live bidding silently degrades to polling — and
+    # unlike a secret, an added origin breaks nothing that already worked.
+    local existing_origins
+    if existing_origins=$(read_env_var "$ENV_FILE" CORS_ORIGINS) && [[ -n $existing_origins ]]; then
+      local missing=()
+      local origin
+      for origin in "http://localhost:${MOBILE_PORT}" "http://127.0.0.1:${MOBILE_PORT}" "$MOBILE_URL"; do
+        case ",${existing_origins}," in
+          *",${origin},"*) ;;
+          *) missing+=("$origin") ;;
+        esac
+      done
+      if [[ ${#missing[@]} -gt 0 ]]; then
+        local joined
+        joined=$(printf '%s\n' "${missing[@]}" | awk '!seen[$0]++' | paste -sd,)
+        set_env_var "$ENV_FILE" CORS_ORIGINS "${existing_origins},${joined}"
+        ok "added the Atlas Mobile origins to CORS_ORIGINS"
+      fi
+    fi
+
     local existing_url
     if existing_url=$(read_env_var "$ENV_FILE" DATABASE_URL) && [[ -n $existing_url ]]; then
       if [[ $existing_url =~ ^postgresql://([^:]+):([^@]*)@([^:/]+):([0-9]+)/([^?]+) ]]; then
@@ -533,10 +567,12 @@ write_env_files() {
     # over an SSH tunnel; deduplicated because the public URL is often one of
     # them on a development machine.
     local origins
-    origins=$(printf '%s\n%s\n%s\n' \
-      "$PUBLIC_URL" "http://localhost:${WEB_PORT}" "http://127.0.0.1:${WEB_PORT}" |
+    origins=$(printf '%s\n%s\n%s\n%s\n%s\n' \
+      "$PUBLIC_URL" "http://localhost:${WEB_PORT}" "http://127.0.0.1:${WEB_PORT}" \
+      "http://localhost:${MOBILE_PORT}" "http://127.0.0.1:${MOBILE_PORT}" |
       awk '!seen[$0]++' | paste -sd,)
     set_env_var "$ENV_FILE" CORS_ORIGINS "$origins"
+    set_env_var "$ENV_FILE" MOBILE_PORT "$MOBILE_PORT"
     set_env_var "$ENV_FILE" NEXT_PUBLIC_API_URL "/api"
     set_env_var "$ENV_FILE" NEXT_PUBLIC_WS_URL "$API_URL"
     set_env_var "$ENV_FILE" API_ORIGIN "http://127.0.0.1:${API_PORT}"
@@ -566,8 +602,10 @@ write_env_files() {
   fi
 
   # Next reads env files from its own directory, so the browser-facing values
-  # have to live here as well as in the root .env the API reads.
-  cat >"$WEB_ENV_FILE" <<ENV
+  # have to live in each application as well as in the root .env the API reads.
+  local client_env
+  client_env=$(
+    cat <<ENV
 # Written by scripts/setup-ubuntu.sh. Next.js reads env files from its own
 # directory, so these mirror the browser-facing values in the root .env.
 #
@@ -577,7 +615,13 @@ NEXT_PUBLIC_API_URL="/api"
 NEXT_PUBLIC_WS_URL="${API_URL}"
 API_ORIGIN="http://127.0.0.1:${API_PORT}"
 ENV
+  )
+
+  printf '%s\n' "$client_env" >"$WEB_ENV_FILE"
   ok "wrote frontend/.env.local"
+
+  printf '%s\n' "$client_env" >"$MOBILE_ENV_FILE"
+  ok "wrote mobile/.env.local"
 }
 
 # --- Application -----------------------------------------------------------
@@ -613,10 +657,10 @@ build_applications() {
     skip "no production build in dev mode"
     return
   fi
-  step "Building both applications"
+  step "Building the API, web and mobile applications"
   cd "$REPO_ROOT"
   NODE_ENV=production pnpm build
-  ok "API and web built"
+  ok "API, web and mobile built"
 }
 
 # --- systemd ---------------------------------------------------------------
@@ -675,11 +719,34 @@ StandardError=journal
 WantedBy=multi-user.target
 UNIT
 
+  as_root tee /etc/systemd/system/atlas-mobile.service >/dev/null <<UNIT
+[Unit]
+Description=Atlas Mobile
+Documentation=https://github.com/MohammadZakariaDehghani/Atlas
+After=network-online.target atlas-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${run_user}
+WorkingDirectory=${REPO_ROOT}/mobile
+Environment=NODE_ENV=production
+Environment=MOBILE_PORT=${MOBILE_PORT}
+ExecStart=${node_bin} node_modules/next/dist/bin/next start -p ${MOBILE_PORT}
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
   as_root systemctl daemon-reload
-  as_root systemctl enable --now atlas-api.service atlas-web.service
-  ok "atlas-api and atlas-web enabled and started"
+  as_root systemctl enable --now atlas-api.service atlas-web.service atlas-mobile.service
+  ok "atlas-api, atlas-web and atlas-mobile enabled and started"
   info "logs:    journalctl -u atlas-api -f"
-  info "restart: sudo systemctl restart atlas-api atlas-web"
+  info "restart: sudo systemctl restart atlas-api atlas-web atlas-mobile"
 }
 
 # --- Summary and start -----------------------------------------------------
@@ -690,6 +757,7 @@ summary() {
 ${C_GREEN}${C_BOLD}Atlas is ready.${C_RESET}
 
   Marketplace   ${PUBLIC_URL}
+  Atlas Mobile  ${MOBILE_URL}
   API docs      ${API_URL}/api/docs
   Health        ${API_URL}/api/health
 

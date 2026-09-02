@@ -194,6 +194,16 @@ The decisions below were made while implementing the Phase 1 marketplace MVP. D-
 
 **Consequences:** The script must be updated whenever setup changes shape — a new service dependency, a new environment variable, a new build step — or it silently produces a half-configured machine, which is worse than no script. It is deliberately not a hardened deployment: no TLS, no reverse proxy, no firewall, no dedicated service account, and one machine only, all stated in the deployment guide so nobody mistakes it for a production baseline. Generated secrets and an existing `.env` are treated as sacred: re-running never rotates the JWT secrets, because that would sign every issued token out. `backend/.env` is now a symlink to the root `.env`, so there is one file to edit rather than two that drift.
 
+## D-019 — Atlas Mobile Is a Separate Application Over a Shared Client
+
+**Status:** Accepted
+
+**Decision:** The mobile experience is a separate workspace application, `mobile/`, built on the same stack as the web app and consuming the same API. The behaviour both clients must agree on — the API client, token refresh, session store, auction socket protocol and display formatting — moves into `packages/client`, which both import. No backend, database, schema or authentication change was made.
+
+**Rationale:** The web application is already responsive and usable on a phone, so the case for a second application is not "it does not fit" but "it is not designed for a thumb". A bidder standing on a lot needs the price, the countdown and a bid button without pinching; a dealer photographing a trade-in needs the camera two taps from the home screen; both need targets a thumb hits while walking. Retrofitting that onto a layout designed for a cursor would have meant either compromising the desktop experience or scattering breakpoint-specific branches through it. The shared package is what keeps the cost honest: the parts where two implementations could silently disagree — when a session ends, what a 409 means, what a price looks like — exist once.
+
+**Consequences:** A third application to build, test and deploy, on its own port and behind its own host, because a PWA's service worker cannot claim a scope above its own path. Anything in `packages/client` now has two consumers, so a change there has to be checked against both — the web app's existing tests exercise it through that app's own import paths, which is the guard. The mobile app deliberately does not cover every screen the web app has: administration, moderation and inspection authoring stay on the desktop, where they belong. Offline support stops at an application shell; there is no write queue, because a bid replayed silently minutes later is worse than one that visibly failed.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

@@ -9,6 +9,7 @@ import type { AuctionEvent } from '@atlas/shared';
 import { ApiError } from '@/lib/api-client';
 import { atlas } from '@/lib/atlas';
 import { keys, useAuction, useAuctionBids } from '@/lib/queries';
+import { isSubmittableBid, quickBidLadder } from '@/lib/bidding';
 import { useAuctionSocket } from '@/hooks/use-auction-socket';
 import { useUser } from '@/store/session';
 import { useOnline } from '@/components/connectivity';
@@ -74,15 +75,7 @@ export default function AuctionPage({ params }: { params: Promise<{ id: string }
 
   const auction = auctionQuery.data;
 
-  const quickBids = useMemo(() => {
-    if (!auction) return [];
-    const step = auction.minimumNextBidCad - auction.currentBidCad;
-    return [
-      auction.minimumNextBidCad,
-      auction.minimumNextBidCad + step,
-      auction.minimumNextBidCad + step * 4,
-    ];
-  }, [auction]);
+  const quickBids = useMemo(() => (auction ? quickBidLadder(auction) : []), [auction]);
 
   if (auctionQuery.isPending) {
     return (
@@ -211,8 +204,7 @@ export default function AuctionPage({ params }: { params: Promise<{ id: string }
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  const value = Number(amount);
-                  if (Number.isFinite(value) && value > 0) void placeBid(value);
+                  if (isSubmittableBid(amount, auction)) void placeBid(Number(amount));
                 }}
                 className="flex gap-2"
               >
@@ -232,7 +224,7 @@ export default function AuctionPage({ params }: { params: Promise<{ id: string }
                   type="submit"
                   size="large"
                   loading={submitting}
-                  disabled={!amount || !online}
+                  disabled={!online || !isSubmittableBid(amount, auction)}
                 >
                   Bid
                 </Button>
