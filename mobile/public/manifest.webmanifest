@@ -1,0 +1,39 @@
+{
+  "name": "Atlas Mobile — vehicle marketplace and auctions",
+  "short_name": "Atlas",
+  "description": "Browse inventory, bid in live auctions and manage listings from your phone.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f9fb",
+  "theme_color": "#1c4c86",
+  "categories": ["business", "shopping"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Browse inventory",
+      "short_name": "Browse",
+      "url": "/browse"
+    },
+    {
+      "name": "Live auctions",
+      "short_name": "Auctions",
+      "url": "/auctions"
+    }
+  ]
+}
