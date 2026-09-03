@@ -1,15 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
      role="img" aria-label="Atlas">
-  <!-- Maskable variant.
-       The launcher crops this to whatever shape it likes — a circle, a squircle,
-       a rounded square — so the background bleeds to the full square with no
-       corner radius of its own, and the mark is scaled to 80% to sit inside the
-       safe zone (the middle 80%, which is all that is guaranteed to survive the
-       crop). Everything else matches icon.svg. -->
-  <rect width="512" height="512" fill="#1c4c86"/>
-  <g transform="translate(256 256) scale(0.8) translate(-256 -256)">
-    <path d="M158 372 L256 140 L354 372" fill="none" stroke="#ffffff" stroke-width="54"
-          stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M170 296 H342" fill="none" stroke="#e7aa40" stroke-width="42" stroke-linecap="butt"/>
+  <!-- Maskable variant. The launcher crops this to whatever shape it likes, so
+       the background bleeds to the full square with no corner radius of its own
+       and the mark is scaled to sit inside the safe zone — the middle 80%, all
+       that is guaranteed to survive the crop. -->
+  <rect width="512" height="512" fill="#16295c"/>
+  <g transform="translate(256 256) scale(0.88) translate(-256 -265)">
+    <path d="M206 138 L108 392 L304 392 Z" fill="#d32027"/>
+    <path d="M120 392 C180 322, 288 236, 404 172 C312 266, 250 322, 240 392 Z" fill="#ffffff"/>
   </g>
 </svg>

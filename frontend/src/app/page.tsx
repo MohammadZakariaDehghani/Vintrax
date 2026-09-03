@@ -6,36 +6,26 @@ import { formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent } from '@/components/ui';
 import { VehicleCard } from '@/components/vehicle-card';
 import { HomeSearch } from '@/components/home-search';
+import { getServerDictionary } from '@/i18n/server';
 
 const QUICK_LINKS = [
-  { label: 'SUVs', query: 'bodyType=SUV' },
-  { label: 'Trucks', query: 'bodyType=TRUCK' },
-  { label: 'Electric', query: 'fuelType=ELECTRIC' },
-  { label: 'Under $30,000', query: 'maxPrice=30000' },
-  { label: 'Inspected', query: 'inspectedOnly=true' },
-];
+  { key: 'quickSuvs', query: 'bodyType=SUV' },
+  { key: 'quickTrucks', query: 'bodyType=TRUCK' },
+  { key: 'quickElectric', query: 'fuelType=ELECTRIC' },
+  { key: 'quickUnder', query: 'maxPrice=30000' },
+  { key: 'quickInspected', query: 'inspectedOnly=true' },
+] as const;
 
 const VALUE_PROPS = [
-  {
-    icon: ShieldCheck,
-    title: 'Independent inspections',
-    body: 'Condition reports graded section by section, with structural damage disclosed up front.',
-  },
-  {
-    icon: Gavel,
-    title: 'Transparent auctions',
-    body: 'Live bidding with anti-snipe extensions, so a lot cannot be won in the final seconds.',
-  },
-  {
-    icon: Truck,
-    title: 'Dealers and private sellers',
-    body: 'Verified dealership inventory alongside private listings, in one searchable marketplace.',
-  },
-];
+  { icon: ShieldCheck, title: 'inspectionsTitle', body: 'inspectionsBody' },
+  { icon: Gavel, title: 'auctionsTitle', body: 'auctionsBody' },
+  { icon: Truck, title: 'sellersTitle', body: 'sellersBody' },
+] as const;
 
 export default async function HomePage() {
   // Rendered on the server so the first paint carries real inventory, which
   // matters for search engines on a marketplace.
+  const t = await getServerDictionary();
   const [featured, auctions] = await Promise.all([
     serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=8'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
@@ -43,15 +33,14 @@ export default async function HomePage() {
 
   return (
     <>
-      <section className="border-b border-border bg-gradient-to-br from-primary via-primary to-accent">
+      <section className="border-b-4 border-accent bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)]">
         <div className="container py-16 md:py-24">
           <div className="max-w-2xl">
             <h1 className="text-4xl font-bold tracking-tight text-primary-foreground md:text-5xl">
-              Find your next vehicle, without the pressure
+              {t.home.heroTitle}
             </h1>
             <p className="mt-4 text-lg text-primary-foreground/85">
-              Browse dealer inventory and private listings across Canada, bid in live auctions, and
-              buy with an independent inspection report in hand.
+              {t.home.heroBody}
             </p>
 
             <HomeSearch />
@@ -59,11 +48,11 @@ export default async function HomePage() {
             <div className="mt-6 flex flex-wrap gap-2">
               {QUICK_LINKS.map((link) => (
                 <Link
-                  key={link.label}
+                  key={link.key}
                   href={`/vehicles?${link.query}`}
                   className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-white/25"
                 >
-                  {link.label}
+                  {t.home[link.key]}
                 </Link>
               ))}
             </div>
@@ -75,8 +64,8 @@ export default async function HomePage() {
         <section className="container py-12">
           <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-bold tracking-tight">Closing soon</h2>
-              <p className="text-sm text-muted-foreground">Live auctions accepting bids now.</p>
+              <h2 className="text-2xl font-bold tracking-tight">{t.home.closingSoon}</h2>
+              <p className="text-sm text-muted-foreground">{t.home.closingSoonBody}</p>
             </div>
             <Link href="/auctions" className="text-sm font-medium text-primary hover:underline">
               All auctions <ArrowRight className="inline h-3.5 w-3.5" aria-hidden />
@@ -96,13 +85,13 @@ export default async function HomePage() {
       <section className="container py-12">
         <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight">Recently listed</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{t.home.recentlyListed}</h2>
             <p className="text-sm text-muted-foreground">
-              {featured ? `${featured.total} vehicles available` : 'Fresh inventory'}
+              {featured ? `${featured.total} ${t.home.available}` : t.home.freshInventory}
             </p>
           </div>
           <Link href="/vehicles" className="text-sm font-medium text-primary hover:underline">
-            Browse all <ArrowRight className="inline h-3.5 w-3.5" aria-hidden />
+            {t.home.browseAll} <ArrowRight className="inline h-3.5 w-3.5" aria-hidden />
           </Link>
         </div>
 
@@ -115,7 +104,7 @@ export default async function HomePage() {
         ) : (
           <Card>
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
-              Inventory is loading. If this persists, the API may not be running.
+              {t.home.inventoryLoading}
             </CardContent>
           </Card>
         )}
@@ -128,8 +117,8 @@ export default async function HomePage() {
               <div className="mb-3 grid h-11 w-11 place-items-center rounded-lg bg-primary/10 text-primary">
                 <prop.icon className="h-5 w-5" aria-hidden />
               </div>
-              <h3 className="font-semibold">{prop.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{prop.body}</p>
+              <h3 className="font-semibold">{t.home[prop.title]}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t.home[prop.body]}</p>
             </div>
           ))}
         </div>
@@ -138,25 +127,24 @@ export default async function HomePage() {
       <section className="container py-14">
         <Card className="overflow-hidden">
           <CardContent className="flex flex-col items-center gap-4 p-10 text-center">
-            <h2 className="text-2xl font-bold tracking-tight">Selling a vehicle?</h2>
+            <h2 className="text-2xl font-bold tracking-tight">{t.home.sellingTitle}</h2>
             <p className="max-w-xl text-muted-foreground">
-              List it at a fixed price or run it through auction. Dealers get inventory tools,
-              analytics and lead management; private sellers get a guided listing flow.
+              {t.home.sellingBody}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link href="/register?role=SELLER">
-                <Button size="lg">Sell your vehicle</Button>
+                <Button size="lg">{t.home.sellCta}</Button>
               </Link>
               <Link href="/register?role=DEALER">
                 <Button size="lg" variant="outline">
-                  Register as a dealer
+                  {t.home.dealerCta}
                 </Button>
               </Link>
             </div>
             {featured?.facets.priceRange ? (
               <p className="text-xs text-muted-foreground">
-                Current inventory ranges from {formatPrice(featured.facets.priceRange.min)} to{' '}
-                {formatPrice(featured.facets.priceRange.max)}.
+                {t.home.priceRange} {formatPrice(featured.facets.priceRange.min)}{' '}
+                {t.home.priceRangeTo} {formatPrice(featured.facets.priceRange.max)}.
               </p>
             ) : null}
           </CardContent>

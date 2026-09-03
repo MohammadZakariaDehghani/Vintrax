@@ -227,7 +227,7 @@ export function AuctionRoom({ auctionId }: { auctionId: string }) {
               <p
                 className={cn(
                   'tabular text-4xl font-bold transition-colors',
-                  flash ? 'text-accent' : 'text-primary',
+                  flash ? 'text-warning' : 'text-primary',
                 )}
                 aria-live="polite"
               >
@@ -314,7 +314,6 @@ export function AuctionRoom({ auctionId }: { auctionId: string }) {
 
                   <Button
                     type="submit"
-                    variant="accent"
                     className="mt-3 w-full"
                     size="lg"
                     loading={placeBid.isPending}

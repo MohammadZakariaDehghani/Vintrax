@@ -82,6 +82,7 @@ Demo accounts all use the password `AtlasDemo123!` —
 | Dealer verification workflow | ✅ |
 | Dealer and platform analytics dashboards | ✅ |
 | Append-only audit trail | ✅ |
+| English and French interface | ✅ |
 | Dark mode, responsive, accessible | ✅ |
 | Installable mobile PWA with live bidding and camera capture | ✅ |
 

@@ -6,6 +6,7 @@ import { Suspense, useState, type FormEvent } from 'react';
 import { PROVINCES, PROVINCE_LABELS } from '@atlas/shared';
 import { ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth-store';
+import { useT } from '@/i18n/provider';
 import {
   Button,
   Card,
@@ -40,6 +41,7 @@ function RegisterForm() {
   });
   const [error, setError] = useState<unknown>(null);
   const [submitting, setSubmitting] = useState(false);
+  const t = useT();
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
     setForm((previous) => ({ ...previous, [key]: value }));
@@ -79,14 +81,14 @@ function RegisterForm() {
       <div className="w-full max-w-lg">
         <Card>
           <CardHeader>
-            <CardTitle>Create your account</CardTitle>
+            <CardTitle>{t.auth.registerTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             <ErrorAlert error={error} className="mb-4" />
 
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
               <Field
-                label="I want to"
+                label={t.auth.iWantTo}
                 htmlFor="role"
                 hint="Any account can browse, save vehicles and bid."
               >
@@ -104,7 +106,7 @@ function RegisterForm() {
               {form.role === 'DEALER' ? (
                 <>
                   <Field
-                    label="Dealership name"
+                    label={t.auth.dealershipName}
                     htmlFor="dealershipName"
                     error={apiError?.fieldError('dealershipName')}
                   >
@@ -117,7 +119,7 @@ function RegisterForm() {
                     />
                   </Field>
                   <Field
-                    label="Business number (optional)"
+                    label={t.auth.businessNumber}
                     htmlFor="businessNumber"
                     hint="Speeds up verification."
                   >
@@ -131,7 +133,7 @@ function RegisterForm() {
               ) : null}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="First name" htmlFor="firstName" error={apiError?.fieldError('firstName')}>
+                <Field label={t.auth.firstName} htmlFor="firstName" error={apiError?.fieldError('firstName')}>
                   <Input
                     id="firstName"
                     autoComplete="given-name"
@@ -140,7 +142,7 @@ function RegisterForm() {
                     onChange={(event) => set('firstName', event.target.value)}
                   />
                 </Field>
-                <Field label="Last name" htmlFor="lastName" error={apiError?.fieldError('lastName')}>
+                <Field label={t.auth.lastName} htmlFor="lastName" error={apiError?.fieldError('lastName')}>
                   <Input
                     id="lastName"
                     autoComplete="family-name"
@@ -151,7 +153,7 @@ function RegisterForm() {
                 </Field>
               </div>
 
-              <Field label="Email" htmlFor="email" error={apiError?.fieldError('email')}>
+              <Field label={t.auth.email} htmlFor="email" error={apiError?.fieldError('email')}>
                 <Input
                   id="email"
                   type="email"
@@ -164,7 +166,7 @@ function RegisterForm() {
               </Field>
 
               <Field
-                label="Password"
+                label={t.auth.password}
                 htmlFor="password"
                 hint="At least 10 characters."
                 error={apiError?.fieldError('password')}
@@ -181,7 +183,7 @@ function RegisterForm() {
               </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Province (optional)" htmlFor="province">
+                <Field label={t.auth.province} htmlFor="province">
                   <Select
                     id="province"
                     value={form.province}
@@ -195,7 +197,7 @@ function RegisterForm() {
                     ))}
                   </Select>
                 </Field>
-                <Field label="City (optional)" htmlFor="city">
+                <Field label={t.auth.city} htmlFor="city">
                   <Input
                     id="city"
                     value={form.city}
@@ -210,7 +212,7 @@ function RegisterForm() {
             </form>
 
             <p className="mt-4 text-sm text-muted-foreground">
-              Already have an account?{' '}
+              {t.auth.haveAccount}{' '}
               <Link href="/login" className="text-primary hover:underline">
                 Sign in
               </Link>

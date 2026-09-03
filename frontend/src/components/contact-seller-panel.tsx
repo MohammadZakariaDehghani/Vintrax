@@ -81,7 +81,7 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
           <p className="text-sm text-muted-foreground">This vehicle has been sold.</p>
         ) : vehicle.status === 'IN_AUCTION' && vehicle.activeAuction ? (
           <Link href={`/auctions/${vehicle.activeAuction.id}`}>
-            <Button className="w-full" variant="accent">
+            <Button className="w-full">
               Go to live auction
             </Button>
           </Link>
@@ -117,7 +117,6 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
 
             <Button
               type="button"
-              variant="accent"
               className="mt-2 w-full"
               loading={buyNow.isPending}
               onClick={() => buyNow.mutate()}

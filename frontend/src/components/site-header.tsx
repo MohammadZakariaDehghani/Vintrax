@@ -10,11 +10,14 @@ import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useAuthStore, useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
 import { Button } from '@/components/ui';
-import { LogoMark } from '@/components/logo';
+import { Logo } from '@/components/logo';
+import { LanguageSwitcher } from '@/components/language-switcher';
+import { useT } from '@/i18n/provider';
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const t = useT();
 
   // Theme is unknown until hydration; rendering the resolved icon before then
   // would mismatch the server output.
@@ -24,7 +27,7 @@ function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      aria-label={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={resolvedTheme === 'dark' ? t.theme.toLight : t.theme.toDark}
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
     >
       {mounted && resolvedTheme === 'dark' ? (
@@ -39,6 +42,7 @@ function ThemeToggle() {
 function NotificationBell() {
   const user = useUser();
 
+  const t = useT();
   const { data } = useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => api.get<{ unread: number }>('/notifications/unread-count'),
@@ -53,7 +57,7 @@ function NotificationBell() {
     <Link
       href="/dashboard/notifications"
       className="relative inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary"
-      aria-label={data?.unread ? `${data.unread} unread notifications` : 'Notifications'}
+      aria-label={data?.unread ? `${data.unread} · ${t.nav.notifications}` : t.nav.notifications}
     >
       <Bell className="h-4 w-4" aria-hidden />
       {data?.unread ? (
@@ -66,9 +70,9 @@ function NotificationBell() {
 }
 
 const NAV_LINKS = [
-  { href: '/vehicles', label: 'Browse', icon: Search },
-  { href: '/auctions', label: 'Auctions', icon: Gavel },
-];
+  { href: '/vehicles', key: 'browse', icon: Search },
+  { href: '/auctions', key: 'auctions', icon: Gavel },
+] as const;
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -77,15 +81,15 @@ export function SiteHeader() {
   const isAdmin = useIsAdmin();
   const logout = useAuthStore((state) => state.logout);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const t = useT();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center gap-4">
-        <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
-          <LogoMark className="h-8 w-8" aria-hidden />
-          <span className="text-lg">Atlas</span>
+        <Link href="/" aria-label="Atlas">
+          <Logo descriptor={t.brand.descriptor} />
         </Link>
 
         <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
@@ -99,12 +103,13 @@ export function SiteHeader() {
                 isActive(link.href) ? 'bg-secondary text-foreground' : 'text-muted-foreground',
               )}
             >
-              {link.label}
+              {t.nav[link.key]}
             </Link>
           ))}
         </nav>
 
         <div className="ml-auto flex items-center gap-1">
+          <LanguageSwitcher className="mr-1 hidden sm:flex" />
           <ThemeToggle />
 
           {user ? (
@@ -113,7 +118,7 @@ export function SiteHeader() {
               <Link
                 href="/dashboard/favorites"
                 className="hidden h-10 w-10 items-center justify-center rounded-md hover:bg-secondary sm:inline-flex"
-                aria-label="Saved vehicles"
+                aria-label={t.nav.saved}
               >
                 <Heart className="h-4 w-4" aria-hidden />
               </Link>
@@ -122,10 +127,10 @@ export function SiteHeader() {
                 className="hidden items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary sm:inline-flex"
               >
                 <LayoutDashboard className="h-4 w-4" aria-hidden />
-                Dashboard
+                {t.nav.dashboard}
               </Link>
               <Button variant="ghost" size="sm" onClick={() => void logout()}>
-                Sign out
+                {t.auth.signOut}
               </Button>
             </>
           ) : (
@@ -134,10 +139,10 @@ export function SiteHeader() {
                 href="/login"
                 className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
               >
-                Sign in
+                {t.auth.signIn}
               </Link>
               <Link href="/register">
-                <Button size="sm">Create account</Button>
+                <Button size="sm">{t.auth.createAccount}</Button>
               </Link>
             </>
           )}
@@ -146,7 +151,7 @@ export function SiteHeader() {
             variant="ghost"
             size="icon"
             className="md:hidden"
-            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-label={mobileOpen ? `${t.nav.close} ${t.nav.menu}` : t.nav.menu}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((open) => !open)}
           >
@@ -166,7 +171,7 @@ export function SiteHeader() {
                   className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
                 >
                   <link.icon className="h-4 w-4" aria-hidden />
-                  {link.label}
+                  {t.nav[link.key]}
                 </Link>
               </li>
             ))}

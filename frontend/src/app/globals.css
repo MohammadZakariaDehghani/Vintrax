@@ -7,79 +7,87 @@
    need a `dark:` variant for colour. */
 @layer base {
   :root {
-    --background: 210 33% 98%;
-    --foreground: 215 30% 12%;
+    --background: 0 0% 100%;
+    --foreground: 222 47% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 30% 12%;
+    --card-foreground: 222 47% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 30% 12%;
+    --popover-foreground: 222 47% 13%;
 
-    --primary: 211 67% 33%;
+    /* Brand navy — the wordmark's colour, and what carries every action. */
+    --primary: 222 62% 22%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 25% 94%;
-    --secondary-foreground: 215 30% 18%;
+    --secondary: 218 24% 95%;
+    --secondary-foreground: 222 47% 18%;
 
-    --muted: 210 25% 95%;
-    --muted-foreground: 215 14% 42%;
+    --muted: 218 24% 96%;
+    /* The lockup's third colour: the grey of "Canada's Auto Marketplace". */
+    --muted-foreground: 218 11% 46%;
 
-    --accent: 38 72% 42%;
+    /* Brand red. Reserved for brand and live-auction moments — see the note
+       below on why it is not used for buttons. */
+    --accent: 358 74% 49%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 2 72% 41%;
+    /* Errors stay red, because that convention is older and stronger than any
+       brand. It is darker and less saturated than the brand red so the two are
+       distinguishable when they appear on the same screen, and error states
+       always carry an icon and explicit wording as well as colour. */
+    --destructive: 0 64% 38%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 60% 30%;
+    --success: 152 60% 28%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 32 85% 44%;
+    --warning: 32 85% 42%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 20% 88%;
-    --input: 214 20% 85%;
-    --ring: 211 67% 45%;
+    --border: 218 20% 89%;
+    --input: 218 20% 84%;
+    --ring: 222 62% 34%;
 
-    --radius: 0.65rem;
+    --radius: 0.5rem;
   }
 
   .dark {
-    --background: 215 32% 8%;
-    --foreground: 210 30% 92%;
+    --background: 222 42% 8%;
+    --foreground: 214 28% 93%;
 
-    --card: 215 28% 12%;
-    --card-foreground: 210 30% 92%;
+    --card: 222 38% 12%;
+    --card-foreground: 214 28% 93%;
 
-    --popover: 215 28% 12%;
-    --popover-foreground: 210 30% 92%;
+    --popover: 222 38% 12%;
+    --popover-foreground: 214 28% 93%;
 
-    /* Lifted from the light theme's near-black brand blue, which fails
-       contrast against a dark surface. */
-    --primary: 211 70% 62%;
-    --primary-foreground: 215 32% 8%;
+    /* Lifted from the near-black brand navy, which fails contrast on a dark
+       surface. */
+    --primary: 217 72% 66%;
+    --primary-foreground: 222 42% 8%;
 
-    --secondary: 215 22% 18%;
-    --secondary-foreground: 210 30% 92%;
+    --secondary: 222 26% 18%;
+    --secondary-foreground: 214 28% 93%;
 
-    --muted: 215 22% 16%;
-    --muted-foreground: 215 14% 65%;
+    --muted: 222 26% 16%;
+    --muted-foreground: 216 15% 68%;
 
-    --accent: 38 68% 58%;
-    --accent-foreground: 215 32% 8%;
+    --accent: 358 82% 65%;
+    --accent-foreground: 222 42% 8%;
 
-    --destructive: 2 65% 58%;
-    --destructive-foreground: 215 32% 8%;
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 222 42% 8%;
 
     --success: 152 48% 52%;
-    --success-foreground: 215 32% 8%;
+    --success-foreground: 222 42% 8%;
 
     --warning: 32 78% 58%;
-    --warning-foreground: 215 32% 8%;
+    --warning-foreground: 222 42% 8%;
 
-    --border: 215 20% 22%;
-    --input: 215 20% 26%;
-    --ring: 211 70% 55%;
+    --border: 222 22% 22%;
+    --input: 222 22% 26%;
+    --ring: 217 72% 60%;
   }
 
   * {

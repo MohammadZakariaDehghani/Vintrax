@@ -204,6 +204,28 @@ The decisions below were made while implementing the Phase 1 marketplace MVP. D-
 
 **Consequences:** A third application to build, test and deploy, on its own port and behind its own host, because a PWA's service worker cannot claim a scope above its own path. Anything in `packages/client` now has two consumers, so a change there has to be checked against both — the web app's existing tests exercise it through that app's own import paths, which is the guard. The mobile app deliberately does not cover every screen the web app has: administration, moderation and inspection authoring stay on the desktop, where they belong. Offline support stops at an application shell; there is no write queue, because a bid replayed silently minutes later is worse than one that visibly failed.
 
+## D-020 — Navy Carries the Interface; Red Is Reserved
+
+**Status:** Accepted
+
+**Supersedes:** the blue-and-amber palette used before the brand lockup existed.
+
+**Decision:** The palette follows the Atlas lockup: navy for actions, links and headers; red as a brand accent; the lockup's grey for secondary text. Red is not used for buttons or for the auction price flash, and `--destructive` is a darker, less saturated red than the brand red.
+
+**Rationale:** The brand red and the colour of a rejected bid are both red, and they meet on the one screen where the distinction matters most — a live auction, where "your bid failed" has to be unmistakable within a second. Separating them by hue alone would be wishful thinking at a glance, on a phone, outdoors. So they are separated by role instead: the interface has no red controls at all, which means a red element is never something to click and is almost always something to read. The price flash moved to amber for the same reason, having previously sat two elements above a red rejection message.
+
+**Consequences:** Red appears sparingly — the mark, the live-auction badge, the rule beneath the hero — which is roughly the proportion it occupies in the lockup, and that restraint is load-bearing rather than aesthetic. Anyone adding a red control reintroduces the ambiguity, so the rule is written into the brand document. Error states must continue to pair colour with an icon and explicit wording; colour is never the only signal. The mark's colours are fixed hex rather than theme tokens, because tokens swap in dark mode and an inverted mark stops matching the app icon.
+
+## D-021 — Bilingual Interface, Unilingual Listings
+
+**Status:** Accepted
+
+**Decision:** The web application ships English and French. The locale lives in a cookie, so server-rendered pages and client components resolve the same language. Interface copy is translated; listings, descriptions and messages written by sellers are not.
+
+**Rationale:** A Canadian marketplace that only speaks English excludes a fifth of the country, and the lockup already says *Canada's auto marketplace*. The cookie is what makes it work rather than half-work: the home and listing pages are server components, and a locale the server could not read would leave those pages in English while the header around them switched to French — worse than not translating at all. Seller-written content is left alone deliberately. Machine-translating a description of a vehicle's condition creates a liability where a mistranslated "no frame damage" is a legal problem, not a cosmetic one.
+
+**Consequences:** Adding a string means adding it in both languages; the dictionary's French type is derived from the English object, so a missing key fails the build rather than surfacing an English word mid-sentence. Reading a cookie opts those routes out of static rendering, which costs nothing here because they already fetch live inventory uncached. Language is not in the URL, so the two versions are not separately addressable or separately indexable — a real cost for search visibility, and the thing to change first if organic search in French matters. A third language is a third dictionary and no new machinery.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.
