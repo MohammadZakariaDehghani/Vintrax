@@ -3,10 +3,18 @@
 import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
+import type { Locale } from '@/i18n/dictionary';
+import { LocaleProvider } from '@/i18n/provider';
 import { ApiError, setSessionExpiredHandler } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth-store';
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  initialLocale,
+  children,
+}: {
+  initialLocale: Locale;
+  children: React.ReactNode;
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -42,7 +50,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-        {children}
+        <LocaleProvider initialLocale={initialLocale}>{children}</LocaleProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

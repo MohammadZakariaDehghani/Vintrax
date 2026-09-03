@@ -4,8 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Search } from 'lucide-react';
 import { Button } from '@/components/ui';
+import { useT } from '@/i18n/provider';
 
 export function HomeSearch() {
+  const t = useT();
   const [term, setTerm] = useState('');
   const router = useRouter();
 
@@ -18,7 +20,7 @@ export function HomeSearch() {
   return (
     <form onSubmit={handleSubmit} role="search" className="mt-8 flex max-w-xl gap-2">
       <label htmlFor="hero-search" className="sr-only">
-        Search vehicles by make, model or keyword
+        {t.search.heroLabel}
       </label>
       <div className="relative flex-1">
         <Search
@@ -30,12 +32,12 @@ export function HomeSearch() {
           type="search"
           value={term}
           onChange={(event) => setTerm(event.target.value)}
-          placeholder="Try “RAV4”, “electric AWD” or “F-150”"
+          placeholder={t.search.heroPlaceholder}
           className="h-12 w-full rounded-md border-0 bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground"
         />
       </div>
-      <Button type="submit" size="lg" variant="accent">
-        Search
+      <Button type="submit" size="lg" variant="secondary">
+        {t.search.submit}
       </Button>
     </form>
   );

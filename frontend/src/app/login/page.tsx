@@ -6,11 +6,14 @@ import { Suspense, useState, type FormEvent } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth-store';
 import { Button, Card, CardContent, CardHeader, CardTitle, ErrorAlert, Field, Input } from '@/components/ui';
+import { Logo } from '@/components/logo';
+import { useT } from '@/i18n/provider';
 
 function LoginForm() {
   const login = useAuthStore((state) => state.login);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useT();
   const redirectTo = searchParams.get('from') ?? '/dashboard';
 
   const [email, setEmail] = useState('');
@@ -38,15 +41,20 @@ function LoginForm() {
   return (
     <div className="container flex justify-center py-12">
       <div className="w-full max-w-md">
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+          <Logo />
+          <p className="max-w-sm text-sm text-muted-foreground">{t.auth.signInSubtitle}</p>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Sign in</CardTitle>
+            <CardTitle>{t.auth.signInTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             <ErrorAlert error={error} className="mb-4" />
 
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-              <Field label="Email" htmlFor="email" error={apiError?.fieldError('email')}>
+              <Field label={t.auth.email} htmlFor="email" error={apiError?.fieldError('email')}>
                 <Input
                   id="email"
                   type="email"
@@ -58,7 +66,7 @@ function LoginForm() {
                 />
               </Field>
 
-              <Field label="Password" htmlFor="password" error={apiError?.fieldError('password')}>
+              <Field label={t.auth.password} htmlFor="password" error={apiError?.fieldError('password')}>
                 <Input
                   id="password"
                   type="password"
@@ -71,23 +79,16 @@ function LoginForm() {
               </Field>
 
               <Button type="submit" loading={submitting} className="w-full">
-                Sign in
+                {t.auth.signIn}
               </Button>
             </form>
 
             <p className="mt-4 text-sm text-muted-foreground">
-              New to Atlas? <Link href="/register" className="text-primary hover:underline">Create an account</Link>
+              {t.auth.noAccount}{' '}
+              <Link href="/register" className="font-medium text-primary hover:underline">
+                {t.auth.createAccount}
+              </Link>
             </p>
-
-            <div className="mt-5 rounded-md border border-border bg-secondary/50 p-3 text-xs">
-              <p className="font-semibold">Demo accounts — password AtlasDemo123!</p>
-              <ul className="mt-1.5 flex flex-col gap-0.5 text-muted-foreground">
-                <li><code>jordan.lee@example.test</code> — buyer</li>
-                <li><code>sales@northshoremotors.test</code> — dealer</li>
-                <li><code>inspector@atlas.test</code> — inspector</li>
-                <li><code>admin@atlas.test</code> — super admin</li>
-              </ul>
-            </div>
           </CardContent>
         </Card>
       </div>

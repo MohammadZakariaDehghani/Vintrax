@@ -19,6 +19,7 @@ import {
   type VehicleFilters,
 } from '@/lib/search-params';
 import { Button, EmptyState, ErrorAlert, Input, Pagination, Select } from '@/components/ui';
+import { useT } from '@/i18n/provider';
 import { VehicleCard, VehicleCardSkeleton } from '@/components/vehicle-card';
 import { VehicleFilterPanel } from '@/components/vehicle-filter-panel';
 
@@ -42,6 +43,7 @@ function BrowseContent() {
   // The text box is local state so typing does not rewrite the URL on every
   // keystroke; it commits on submit.
   const [term, setTerm] = useState(filters.q ?? '');
+  const t = useT();
   useEffect(() => setTerm(filters.q ?? ''), [filters.q]);
 
   // On phones the sidebar would push every result below ~30 checkboxes, so it
@@ -102,30 +104,30 @@ function BrowseContent() {
             }}
           >
             <label htmlFor="browse-search" className="sr-only">
-              Search vehicles
+              {t.search.browseLabel}
             </label>
             <Input
               id="browse-search"
               type="search"
               value={term}
               onChange={(event) => setTerm(event.target.value)}
-              placeholder="Search by make, model, colour or keyword"
+              placeholder={t.search.browsePlaceholder}
             />
-            <Button type="submit">Search</Button>
+            <Button type="submit">{t.search.submit}</Button>
           </form>
 
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground" aria-live="polite">
               {isPending ? (
-                'Searching…'
+                t.search.searching
               ) : (
                 <>
                   <strong className="tabular text-foreground">{data?.total ?? 0}</strong>{' '}
-                  {data?.total === 1 ? 'vehicle' : 'vehicles'}
+                  {data?.total === 1 ? t.search.resultsOne : t.search.resultsOther}
                   {filters.q ? (
                     <>
                       {' '}
-                      for “<strong className="text-foreground">{filters.q}</strong>”
+                      {t.search.forQuery} “<strong className="text-foreground">{filters.q}</strong>”
                     </>
                   ) : null}
                   {data ? (
@@ -188,11 +190,11 @@ function BrowseContent() {
           ) : (
             <div className="rounded-lg border border-border bg-card">
               <EmptyState
-                title="No vehicles match those filters"
-                description="Try widening your price or year range, or removing a filter."
+                title={t.search.noMatchTitle}
+                description={t.search.noMatchHelp}
                 action={
                   <Button variant="outline" onClick={() => applyFilters(EMPTY_FILTERS)}>
-                    Clear all filters
+                    {t.search.clearAll}
                   </Button>
                 }
               />
