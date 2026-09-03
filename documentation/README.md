@@ -9,6 +9,7 @@ how to work on it, and where it goes next.
 | --- | --- |
 | Setting up to develop | [Developer guide](./developer-guide.md) |
 | Understanding the system | [Architecture](./architecture.md) |
+| Working out who can do what | [Roles and transaction flows](./transaction-flow.md) |
 | Integrating with the API | [API reference](./api-reference.md) |
 | Working on the API | [Backend](./backend.md) |
 | Working on the UI | [Frontend](./frontend.md) |
@@ -29,6 +30,9 @@ how to work on it, and where it goes next.
   live bidding, camera capture, offline behaviour.
 - **[Brand](./brand.md)** — the mark, the palette, and why red is not a brand
   colour here.
+- **[Roles and transaction flows](./transaction-flow.md)** — the permission
+  matrix, a flowchart per role, and every process from registration to
+  settlement.
 - **[API reference](./api-reference.md)** — every endpoint, its authorisation
   rule, and error semantics.
 - **[Deployment](./deployment.md)** — Docker, Kubernetes, cloud, and what is
