@@ -411,6 +411,63 @@ install_redis() {
   ok "Redis $(version_of redis-cli) installed"
 }
 
+# --- Redis authentication ---------------------------------------------------
+
+# Set once a password is in force, so write_env_files can record it.
+REDIS_PASSWORD=""
+
+# Pings Redis with whatever credential we hold. Used everywhere below, because
+# a bare `redis-cli ping` returns NOAUTH once a password is set.
+redis_ping() {
+  have redis-cli || return 1
+  if [[ -n $REDIS_PASSWORD ]]; then
+    redis-cli -a "$REDIS_PASSWORD" --no-auth-warning ping >/dev/null 2>&1
+  else
+    redis-cli ping >/dev/null 2>&1
+  fi
+}
+
+# True when Redis is up but refusing commands without a password.
+redis_requires_auth() {
+  have redis-cli || return 1
+  redis-cli ping 2>&1 | grep -qi 'noauth\|authentication'
+}
+
+# Gives the local Redis a generated password.
+#
+# An unauthenticated Redis is not merely a readable cache: an anonymous client
+# can rewrite the RDB path and have the server write a file wherever it can
+# reach, which on a shared host is a foothold. The password is set through
+# CONFIG SET and persisted with CONFIG REWRITE, so it survives a restart
+# without this script editing redis.conf by hand.
+#
+# Only ever run before a .env is written. Adding a password under a deployment
+# whose REDIS_URL does not carry one would break it at the next enqueue.
+configure_redis_auth() {
+  have redis-cli || return 0
+
+  if redis_requires_auth; then
+    skip "Redis already requires a password — leaving it unchanged"
+    return 0
+  fi
+  if ! redis-cli ping >/dev/null 2>&1; then
+    warn "Redis is not responding — skipping password setup"
+    return 0
+  fi
+
+  local password
+  password=$(openssl rand -hex 24)
+
+  if redis-cli CONFIG SET requirepass "$password" >/dev/null 2>&1 &&
+    redis-cli -a "$password" --no-auth-warning CONFIG REWRITE >/dev/null 2>&1; then
+    REDIS_PASSWORD=$password
+    ok "Redis now requires a password (written to redis.conf)"
+  else
+    warn "could not set a Redis password — it is reachable without authentication"
+    warn "set 'requirepass' in /etc/redis/redis.conf by hand before exposing this host"
+  fi
+}
+
 # --- Services --------------------------------------------------------------
 
 wait_for_postgres() {
@@ -432,11 +489,11 @@ ensure_services_running() {
   fi
   ok "PostgreSQL accepting connections on ${DB_HOST}:${DB_PORT}"
 
-  if have redis-cli && ! redis-cli ping >/dev/null 2>&1; then
+  if have redis-cli && ! redis_ping && ! redis_requires_auth; then
     start_service redis-server
     sleep 1
   fi
-  if have redis-cli && redis-cli ping >/dev/null 2>&1; then
+  if have redis-cli && (redis_ping || redis_requires_auth); then
     ok "Redis responding"
   else
     # The queue driver falls back to in-process execution, so this is a
@@ -535,6 +592,19 @@ write_env_files() {
       fi
     fi
 
+    # Adopt the password an existing .env already holds, so the checks below
+    # and any later redis-cli call authenticate rather than reporting a
+    # perfectly healthy Redis as down.
+    local existing_redis_password
+    if existing_redis_password=$(read_env_var "$ENV_FILE" REDIS_PASSWORD) &&
+      [[ -n $existing_redis_password ]]; then
+      REDIS_PASSWORD=$existing_redis_password
+    fi
+    if have redis-cli && ! redis_requires_auth && redis-cli ping >/dev/null 2>&1; then
+      warn "Redis accepts commands without a password"
+      warn "set 'requirepass' in /etc/redis/redis.conf and add it to REDIS_URL in .env"
+    fi
+
     local existing_url
     if existing_url=$(read_env_var "$ENV_FILE" DATABASE_URL) && [[ -n $existing_url ]]; then
       if [[ $existing_url =~ ^postgresql://([^:]+):([^@]*)@([^:/]+):([0-9]+)/([^?]+) ]]; then
@@ -552,6 +622,9 @@ write_env_files() {
     [[ -f "${REPO_ROOT}/.env.example" ]] || die ".env.example is missing from the repository"
     cp "${REPO_ROOT}/.env.example" "$ENV_FILE"
 
+    # Safe here and only here: there is no existing REDIS_URL to invalidate.
+    configure_redis_auth
+
     # Hex rather than base64: no characters that need escaping in a URL, a
     # sed replacement or a systemd EnvironmentFile, and still 192 bits.
     DB_PASSWORD=${DB_PASSWORD:-$(openssl rand -hex 24)}
@@ -563,6 +636,14 @@ write_env_files() {
     set_env_var "$ENV_FILE" POSTGRES_PASSWORD "$DB_PASSWORD"
     set_env_var "$ENV_FILE" JWT_ACCESS_SECRET "$(openssl rand -hex 48)"
     set_env_var "$ENV_FILE" JWT_REFRESH_SECRET "$(openssl rand -hex 48)"
+    if [[ -n $REDIS_PASSWORD ]]; then
+      set_env_var "$ENV_FILE" REDIS_PASSWORD "$REDIS_PASSWORD"
+      set_env_var "$ENV_FILE" REDIS_URL "redis://:${REDIS_PASSWORD}@127.0.0.1:6379"
+    else
+      # No password in force, so a URL carrying one would fail to connect.
+      set_env_var "$ENV_FILE" REDIS_PASSWORD ""
+      set_env_var "$ENV_FILE" REDIS_URL "redis://127.0.0.1:6379"
+    fi
     # The loopback origins stay in the list so an admin can reach the platform
     # over an SSH tunnel; deduplicated because the public URL is often one of
     # them on a development machine.
@@ -579,7 +660,7 @@ write_env_files() {
 
     # Without a broker the queue has to run jobs in-process, or every enqueue
     # fails at runtime.
-    if ! { have redis-cli && redis-cli ping >/dev/null 2>&1; }; then
+    if ! redis_ping; then
       set_env_var "$ENV_FILE" QUEUE_DRIVER "inline"
       info "Redis unreachable — set QUEUE_DRIVER=inline"
     fi

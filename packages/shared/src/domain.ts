@@ -65,6 +65,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'auction:create',
     'bid:place',
     'inspection:read',
+    // Recording that funds arrived is the seller's side of a sale. Ownership of
+    // the specific order is still checked in the service.
+    'payment:manage',
   ],
   DEALER: [
     'vehicle:read',
@@ -77,6 +80,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'inspection:read',
     'dealer:read',
     'payment:read',
+    'payment:manage',
     'report:read',
   ],
   INSPECTOR: ['vehicle:read', 'inspection:read', 'inspection:write'],
@@ -96,6 +100,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'user:read',
     'user:manage',
     'payment:read',
+    'payment:manage',
     'report:read',
     'audit:read',
   ],
@@ -119,6 +124,41 @@ export const LISTING_STATUSES = [
   'ARCHIVED',
 ] as const;
 export type ListingStatus = (typeof LISTING_STATUSES)[number];
+
+/**
+ * Statuses a seller may put a listing into themselves.
+ *
+ * `ACTIVE` is deliberately absent: publishing is a moderation decision, so it
+ * is reached through the admin moderation endpoint and never by a seller
+ * writing the field. `IN_AUCTION` and `SOLD` are owned by the auction and
+ * settlement flows, which set them as a side effect of real events.
+ */
+export const SELLER_SETTABLE_LISTING_STATUSES = [
+  'DRAFT',
+  'PENDING_REVIEW',
+  'ARCHIVED',
+] as const;
+export type SellerSettableListingStatus = (typeof SELLER_SETTABLE_LISTING_STATUSES)[number];
+
+/** Statuses a listing may be created in. A new listing is never born published. */
+export const CREATABLE_LISTING_STATUSES = ['DRAFT', 'PENDING_REVIEW'] as const;
+
+/**
+ * Status transitions a seller may perform, keyed by the listing's current
+ * status. Anything absent here needs an administrator or a domain event.
+ */
+export const SELLER_STATUS_TRANSITIONS: Record<
+  ListingStatus,
+  readonly SellerSettableListingStatus[]
+> = {
+  DRAFT: ['PENDING_REVIEW', 'ARCHIVED'],
+  PENDING_REVIEW: ['DRAFT'],
+  ACTIVE: ['ARCHIVED'],
+  ARCHIVED: ['DRAFT'],
+  // A live auction and a completed sale are not the seller's to undo.
+  IN_AUCTION: [],
+  SOLD: [],
+};
 
 /** How a vehicle is being sold. Fixed price, auction, or accepting offers. */
 export const SALE_CHANNELS = ['FIXED_PRICE', 'AUCTION', 'ACCEPTING_OFFERS'] as const;

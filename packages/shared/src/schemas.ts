@@ -4,11 +4,11 @@ import {
   AUCTION_STATUSES,
   BODY_TYPES,
   CONDITION_GRADES,
+  CREATABLE_LISTING_STATUSES,
   DRIVETRAINS,
   FUEL_TYPES,
   INSPECTION_SECTIONS,
   LISTING_SORTS,
-  LISTING_STATUSES,
   MAX_INSPECTION_IMAGES,
   MAX_LISTING_IMAGES,
   MAX_VEHICLE_DOCUMENTS,
@@ -18,6 +18,7 @@ import {
   PROVINCES,
   SALE_CHANNELS,
   SECTION_RATINGS,
+  SELLER_SETTABLE_LISTING_STATUSES,
   TRANSMISSIONS,
   VEHICLE_CONDITIONS,
   VEHICLE_DOCUMENT_TYPES,
@@ -192,7 +193,8 @@ export const createVehicleSchema = z.object({
   postalCode: trimmed(10).optional(),
 
   saleChannel: z.enum(SALE_CHANNELS).default('FIXED_PRICE'),
-  status: z.enum(LISTING_STATUSES).default('DRAFT'),
+  // Not the full LISTING_STATUSES set: a listing cannot be created published.
+  status: z.enum(CREATABLE_LISTING_STATUSES).default('DRAFT'),
 
   features: z.array(trimmed(60)).max(60).default([]),
   images: z.array(vehicleImageSchema).max(MAX_LISTING_IMAGES).default([]),
@@ -200,12 +202,27 @@ export const createVehicleSchema = z.object({
 });
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 
+/**
+ * `status` is deliberately omitted rather than merely ignored.
+ *
+ * The update handler spreads validated fields into the database write, so any
+ * key this schema accepts is a key the caller can set. Leaving `status` in
+ * would let a seller move their own listing to `ACTIVE` and skip moderation
+ * entirely. Status changes go through `PATCH /vehicles/:id/status`, which
+ * enforces the transition table, or through admin moderation.
+ */
 export const updateVehicleSchema = createVehicleSchema
+  .omit({ status: true })
   .partial()
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Provide at least one field to update',
   });
 export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;
+
+export const updateListingStatusSchema = z.object({
+  status: z.enum(SELLER_SETTABLE_LISTING_STATUSES),
+});
+export type UpdateListingStatusInput = z.infer<typeof updateListingStatusSchema>;
 
 // --- Search ------------------------------------------------------------------
 

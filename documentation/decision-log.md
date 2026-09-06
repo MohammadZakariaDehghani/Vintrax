@@ -226,6 +226,16 @@ The decisions below were made while implementing the Phase 1 marketplace MVP. D-
 
 **Consequences:** Adding a string means adding it in both languages; the dictionary's French type is derived from the English object, so a missing key fails the build rather than surfacing an English word mid-sentence. Reading a cookie opts those routes out of static rendering, which costs nothing here because they already fetch live inventory uncached. Language is not in the URL, so the two versions are not separately addressable or separately indexable — a real cost for search visibility, and the thing to change first if organic search in French matters. A third language is a third dictionary and no new machinery.
 
+## D-022 — Authorization Is Decided by the Service, Not by the Schema
+
+**Status:** Accepted
+
+**Decision:** Three of the four high findings in the [security audit](./security-audit.md) shared one root cause, and are fixed the same way. A permission on the route is a floor, never the whole rule: `POST /orders/:id/payment` requires `payment:manage` *and* that the caller is the seller on that order. A field the caller must not control is removed from the schema rather than ignored in the handler: `updateVehicleSchema` omits `status`, and status moves through `PATCH /vehicles/:id/status` against an explicit transition table. Data whose audience is narrower than its parent resource is withheld by default: `toVehicleDetail` returns no documents unless a caller passes `includeDocuments`, and the value is computed from who is asking.
+
+**Rationale:** Each of the three had a correct sibling a few lines away — `complete()` checked the seller, `moderate` was properly gated, images really are public — so the failure was not ignorance of the rule but the absence of a place that forces it to be stated. Zod strips unknown keys, which makes the schema the real authority over what a handler can write, and `data: { ...fields }` turns every accepted key into a writable one; a comment saying "sellers should not set status" would not have survived. Defaulting document visibility to false means a new call site that forgets the question leaks nothing, and the compiler asks the question at every call.
+
+**Consequences:** Route guards and service checks now overlap deliberately, and the overlap is the point: a dealer holding `payment:manage` who is the buyer on an order is refused by the second check, not the first. Publication has exactly one door, so a seller-facing "publish" button is not implementable without moderation, which is intended. `VehicleDetail` gained `documentCount` so a page can say paperwork exists without disclosing it, and document links became fetches with an `Authorization` header rather than `<a href>`, since the bytes are no longer a static file. Each fix landed with a negative-case test; the wider goal in [future work](./reference/future-work.md) — one such test per role per sensitive endpoint — is still mostly unmet.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

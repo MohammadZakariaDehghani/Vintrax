@@ -9,6 +9,7 @@ import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/ui
 import { VehicleGallery } from '@/components/vehicle-gallery';
 import { ContactSellerPanel } from '@/components/contact-seller-panel';
 import { InspectionReport } from '@/components/inspection-report';
+import { VehicleDocuments } from '@/components/vehicle-documents';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -136,29 +137,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
-          {vehicle.documents.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Documents</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="flex flex-col gap-2">
-                  {vehicle.documents.map((document) => (
-                    <li key={document.id}>
-                      <a
-                        href={document.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm text-primary hover:underline"
-                      >
-                        {formatEnum(document.type)} — {document.filename}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ) : null}
+          <VehicleDocuments vehicleId={vehicle.id} documentCount={vehicle.documentCount} />
         </div>
 
         <div className="lg:sticky lg:top-24 lg:self-start">

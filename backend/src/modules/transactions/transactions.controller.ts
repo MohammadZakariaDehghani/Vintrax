@@ -9,7 +9,12 @@ import {
   createOrderSchema,
 } from '@atlas/shared';
 import { z } from 'zod';
-import { Audit, CurrentUser, RequireVerifiedEmail } from '../../common/decorators';
+import {
+  Audit,
+  CurrentUser,
+  RequirePermissions,
+  RequireVerifiedEmail,
+} from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { TransactionsService } from './transactions.service';
@@ -59,11 +64,14 @@ export class TransactionsController {
   }
 
   @Post(':id/payment')
+  @RequirePermissions('payment:manage')
   @Audit('payment.confirmed', 'TransactionRecord')
   @ApiOperation({
     summary: 'Record a successful payment',
     description:
-      'The provider reference is unique, so a retried provider callback cannot mark a payment paid twice.',
+      'The seller on the order, or an administrator. A buyer cannot record payment on their own ' +
+      'purchase. The provider reference is unique, so a retried provider callback cannot mark a ' +
+      'payment paid twice.',
   })
   confirmPayment(
     @Param('id', ParseUUIDPipe) id: string,

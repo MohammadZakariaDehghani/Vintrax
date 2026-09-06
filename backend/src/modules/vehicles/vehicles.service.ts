@@ -12,16 +12,19 @@ import type {
   ModerateListingInput,
   Paginated,
   SearchVehiclesQuery,
+  UpdateListingStatusInput,
   UpdateVehicleInput,
   VehicleDetail,
   VehicleSearchResponse,
   VehicleSummary,
 } from '@atlas/shared';
+import { SELLER_STATUS_TRANSITIONS } from '@atlas/shared';
 import { Prisma, type ListingStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { QueueService, QUEUE_NAMES } from '../../common/queue/queue.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { StorageService, type StoredLocation } from '../../common/storage/storage.service';
 import { SEARCH_PROVIDER, type SearchProvider } from '../../common/search/search.types';
 import { isAdmin, type AuthUser } from '../../common/auth/auth-user';
 import {
@@ -43,6 +46,7 @@ export class VehiclesService {
     private readonly redis: RedisService,
     private readonly queue: QueueService,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
     @Inject(SEARCH_PROVIDER) private readonly search: SearchProvider,
   ) {}
 
@@ -78,8 +82,69 @@ export class VehiclesService {
         });
     }
 
-    const favouritedIds = await this.favouritedIds(viewer?.id, [row.id]);
-    return toVehicleDetail(row, favouritedIds);
+    const [favouritedIds, includeDocuments] = await Promise.all([
+      this.favouritedIds(viewer?.id, [row.id]),
+      this.canViewDocuments(row.id, row.seller.id, viewer),
+    ]);
+    return toVehicleDetail(row, favouritedIds, { includeDocuments });
+  }
+
+  /**
+   * Streams a vehicle document to someone entitled to read it.
+   *
+   * The same access rule as the detail response, applied again here: knowing a
+   * document id is not authorization, because ids appear in the seller's own
+   * responses and could be passed on.
+   */
+  async openDocument(
+    vehicleId: string,
+    documentId: string,
+    viewer: AuthUser,
+  ): Promise<{ location: StoredLocation; filename: string }> {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: { id: true, sellerId: true },
+    });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    if (!(await this.canViewDocuments(vehicle.id, vehicle.sellerId, viewer))) {
+      // Indistinguishable from a missing document, so entitlement cannot be
+      // probed by asking for ids one at a time.
+      throw new NotFoundException('Document not found');
+    }
+
+    const document = await this.prisma.vehicleDocument.findFirst({
+      where: { id: documentId, vehicleId },
+      select: { url: true, filename: true },
+    });
+    if (!document) throw new NotFoundException('Document not found');
+
+    return {
+      location: this.storage.resolveStored(document.url),
+      filename: document.filename,
+    };
+  }
+
+  /**
+   * Whether a viewer may read a vehicle's paperwork.
+   *
+   * The seller who uploaded it, an administrator, and the buyer on an order
+   * that has not been cancelled — a buyer genuinely needs the title and bill of
+   * sale. Nobody else, including signed-in browsers of the public listing.
+   */
+  private async canViewDocuments(
+    vehicleId: string,
+    sellerId: string,
+    viewer?: AuthUser,
+  ): Promise<boolean> {
+    if (!viewer) return false;
+    if (viewer.id === sellerId || isAdmin(viewer.role)) return true;
+
+    const order = await this.prisma.transactionRecord.findFirst({
+      where: { vehicleId, buyerId: viewer.id, status: { not: 'CANCELLED' } },
+      select: { id: true },
+    });
+    return order !== null;
   }
 
   async create(input: CreateVehicleInput, user: AuthUser): Promise<VehicleDetail> {
@@ -97,7 +162,9 @@ export class VehiclesService {
         postalCode: fields.postalCode ?? null,
         reservePriceCad: fields.reservePriceCad ?? null,
         sellerId: user.id,
-        publishedAt: fields.status === 'ACTIVE' ? new Date() : null,
+        // A new listing is never born published — the create schema does not
+        // accept ACTIVE, so publication always comes later, from moderation.
+        publishedAt: null,
         images: {
           create: images.map((image, position) => ({
             url: image.url,
@@ -129,30 +196,18 @@ export class VehiclesService {
     // out from under the bidders.
     if (existing.status === 'IN_AUCTION') {
       const changesTerms =
-        fields.priceCad !== undefined ||
-        fields.reservePriceCad !== undefined ||
-        fields.status !== undefined;
+        fields.priceCad !== undefined || fields.reservePriceCad !== undefined;
       if (changesTerms && !isAdmin(user.role)) {
         throw new BadRequestException(
-          'This vehicle is in a live auction. Cancel the auction before changing its price or status.',
+          'This vehicle is in a live auction. Cancel the auction before changing its price.',
         );
       }
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.vehicle.update({
-        where: { id },
-        data: {
-          ...fields,
-          // Stamp publishedAt the first time a vehicle goes live, and clear it
-          // if it returns to draft, so "newest" reflects real publication.
-          ...(fields.status === 'ACTIVE' && !existing.publishedAt
-            ? { publishedAt: new Date() }
-            : {}),
-          ...(fields.status === 'DRAFT' ? { publishedAt: null } : {}),
-          ...(fields.status === 'SOLD' ? { soldAt: new Date() } : {}),
-        },
-      });
+      // `fields` cannot carry `status` — updateVehicleSchema omits it, so a
+      // seller cannot publish their own listing through this path.
+      await tx.vehicle.update({ where: { id }, data: fields });
 
       // Images and documents are replaced wholesale — the client always sends
       // the full ordered set.
@@ -184,6 +239,56 @@ export class VehiclesService {
           });
         }
       }
+    });
+
+    await this.afterWrite(id);
+    return this.findById(id, user);
+  }
+
+  /**
+   * Moves a listing between the statuses its seller owns.
+   *
+   * Publication is not among them. `SELLER_STATUS_TRANSITIONS` is the whole
+   * rule: a seller can submit for review, withdraw, archive and re-draft, and
+   * an administrator reaches `ACTIVE` through moderation. Admins are exempt so
+   * support can correct a stuck listing.
+   */
+  async setStatus(
+    id: string,
+    input: UpdateListingStatusInput,
+    user: AuthUser,
+  ): Promise<VehicleDetail> {
+    const existing = await this.requireOwnedVehicle(id, user);
+    const next = input.status;
+
+    if (!isAdmin(user.role)) {
+      const allowed = SELLER_STATUS_TRANSITIONS[existing.status];
+      if (!allowed.includes(next)) {
+        throw new BadRequestException(
+          allowed.length === 0
+            ? `A vehicle that is ${existing.status.toLowerCase().replace('_', ' ')} cannot have its status changed here.`
+            : `A ${existing.status} listing can only move to ${allowed.join(' or ')}.`,
+        );
+      }
+    }
+
+    await this.prisma.vehicle.update({
+      where: { id },
+      data: {
+        status: next,
+        // Returning to draft un-publishes, so "newest" keeps reflecting real
+        // publication rather than the first time the listing was written.
+        ...(next === 'DRAFT' ? { publishedAt: null } : {}),
+      },
+    });
+
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'vehicle.status_changed',
+      entityType: 'Vehicle',
+      entityId: id,
+      metadata: { from: existing.status, to: next },
     });
 
     await this.afterWrite(id);

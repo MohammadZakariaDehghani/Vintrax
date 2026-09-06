@@ -158,6 +158,23 @@ export const api = {
   patch: <T>(path: string, body: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
   put: <T>(path: string) => apiRequest<T>(path, { method: 'PUT' }),
   delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
+  /**
+   * Fetches a file the caller is only entitled to with their token, so it
+   * cannot be an `<a href>` — the browser would send no Authorization header.
+   * The bytes come back as a blob for the caller to save or open.
+   */
+  download: async (path: string): Promise<Blob> => {
+    const response = await send(path, { method: 'GET' });
+    if (!response.ok) {
+      throw new ApiError(
+        response.status,
+        response.status === 404
+          ? 'This file is not available to you'
+          : `Download failed with status ${response.status}`,
+      );
+    }
+    return response.blob();
+  },
   upload: <T>(path: string, file: File) => {
     const form = new FormData();
     form.append('file', file);

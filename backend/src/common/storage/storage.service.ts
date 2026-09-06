@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -40,6 +40,27 @@ const DOCUMENT_TYPES: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
 };
+
+/** Where a stored object lives, once its recorded URL has been resolved. */
+export type StoredLocation =
+  | { kind: 'local'; path: string; contentType: string }
+  | { kind: 'remote'; url: string };
+
+/**
+ * Content type from the extension the upload path assigned. Anything else is
+ * served as a download rather than guessed at, so an unexpected file cannot be
+ * rendered inline by the browser.
+ */
+function contentTypeFor(path: string): string {
+  const byExtension: Record<string, string> = {
+    '.pdf': 'application/pdf',
+    '.jpg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.avif': 'image/avif',
+  };
+  return byExtension[extname(path).toLowerCase()] ?? 'application/octet-stream';
+}
 
 /**
  * Object storage behind one interface, so callers never know whether a file
@@ -99,6 +120,29 @@ export class StorageService {
   /** Validates and stores a document, returning its public URL. */
   async uploadDocument(options: UploadOptions): Promise<StoredObject> {
     return this.upload(options, DOCUMENT_TYPES, 'document');
+  }
+
+  /**
+   * Resolves a stored object's recorded URL to something the API can serve.
+   *
+   * The recorded URL arrives in the vehicle payload the client sends, so this
+   * is exactly where an attacker-chosen path would land. A local key is
+   * resolved and then confirmed to sit inside the upload directory, which is
+   * what stops `../` from walking out of it — `resolve` also collapses an
+   * absolute key such as `/etc/passwd` to itself, and the same check rejects
+   * it.
+   */
+  resolveStored(url: string): StoredLocation {
+    if (/^https?:\/\//i.test(url)) return { kind: 'remote', url };
+
+    const key = url.replace(/^\/uploads\//, '');
+    const path = resolve(this.uploadDir, key);
+    const root = this.uploadDir.endsWith(sep) ? this.uploadDir : `${this.uploadDir}${sep}`;
+
+    if (!path.startsWith(root)) {
+      throw new BadRequestException('This file is not available');
+    }
+    return { kind: 'local', path, contentType: contentTypeFor(path) };
   }
 
   async delete(key: string): Promise<void> {

@@ -3,6 +3,13 @@
 # `docker compose up -d postgres redis` brings up only what the API strictly
 # needs — MinIO and OpenSearch are optional, because storage and search sit
 # behind provider interfaces with local and PostgreSQL implementations.
+#
+# Every backing service publishes to 127.0.0.1 rather than 0.0.0.0. Docker
+# publishes through its own NAT rules, which sit in front of the host firewall,
+# so a bare '5432:5432' on a machine with a public interface is a database on
+# the internet whether or not ufw is running. The API, web and mobile services
+# do bind every interface, because a reverse proxy or another host has to reach
+# them; nothing else does.
 
 name: atlas
 
@@ -16,7 +23,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-atlas}
       POSTGRES_DB: atlas
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -30,13 +37,23 @@ services:
     container_name: atlas-redis
     restart: unless-stopped
     # Append-only persistence so queued jobs survive a restart.
-    command: ['redis-server', '--appendonly', 'yes']
+    #
+    # Redis holds queued jobs and rate-limit counters, and it authenticates.
+    # Left open it is a remote-code-execution primitive, not just a cache: an
+    # unauthenticated client can rewrite the RDB path and drop a file anywhere
+    # the server can write.
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --requirepass
+      - ${REDIS_PASSWORD:-atlas}
     ports:
-      - '6379:6379'
+      - '127.0.0.1:6379:6379'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-atlas}', '--no-auth-warning', 'ping']
       interval: 5s
       timeout: 3s
       retries: 12
@@ -51,8 +68,8 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-atlasadmin}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-atlasadmin}
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9001:9001'
     volumes:
       - minio-data:/data
     healthcheck:
@@ -95,7 +112,7 @@ services:
       memlock: { soft: -1, hard: -1 }
       nofile: { soft: 65536, hard: 65536 }
     ports:
-      - '9200:9200'
+      - '127.0.0.1:9200:9200'
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
@@ -121,7 +138,7 @@ services:
       API_PORT: 3001
       APP_URL: ${APP_URL:-http://localhost:3000}
       DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:-atlas}@postgres:5432/atlas?schema=public
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD:-atlas}@redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}

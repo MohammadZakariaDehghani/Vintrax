@@ -66,11 +66,41 @@ Suspending an account also revokes its live sessions.
 | `GET` | `/vehicles/pending-review` | admin | Moderation queue |
 | `GET` | `/vehicles/:idOrSlug` | optional | One vehicle |
 | `POST` | `/vehicles` | seller + verified | Create a listing |
-| `PATCH` | `/vehicles/:id` | owner | Update a listing |
+| `PATCH` | `/vehicles/:id` | owner | Update a listing — everything except its status |
+| `PATCH` | `/vehicles/:id/status` | owner + verified | Submit for review, withdraw, archive, re-draft |
 | `DELETE` | `/vehicles/:id` | owner | Delete a listing |
 | `PATCH` | `/vehicles/:id/moderate` | admin | Approve or reject |
+| `GET` | `/vehicles/:id/documents/:documentId` | seller, admin or the buyer on a live order | Download a document |
 | `PUT`/`DELETE` | `/vehicles/:id/favourite` | ✅ | Save or unsave |
 | `GET` | `/me/favourites` | ✅ | Saved vehicles |
+
+### Listing status
+
+`PATCH /vehicles/:id` does not accept `status` — publishing is a moderation
+decision, so a seller cannot reach `ACTIVE` by writing the field. Sellers move
+listings with `PATCH /vehicles/:id/status`, which accepts only `DRAFT`,
+`PENDING_REVIEW` and `ARCHIVED` and validates the transition:
+
+| From | A seller may move it to |
+| --- | --- |
+| `DRAFT` | `PENDING_REVIEW`, `ARCHIVED` |
+| `PENDING_REVIEW` | `DRAFT` |
+| `ACTIVE` | `ARCHIVED` |
+| `ARCHIVED` | `DRAFT` |
+| `IN_AUCTION`, `SOLD` | nothing — the auction and settlement flows own these |
+
+`ACTIVE` is reached only through `PATCH /vehicles/:id/moderate`. Admins are
+exempt from the transition table so support can correct a stuck listing.
+
+### Documents
+
+Vehicle paperwork carries owner names, addresses and VIN history, so it is not
+served as a static file. `documents` in a vehicle response is empty unless the
+caller is the seller, an administrator, or the buyer on an order that has not
+been cancelled; `documentCount` is always present so a page can say that
+paperwork exists. When documents are returned, each `url` is the download route
+above rather than a storage path, and it needs the caller's access token — so it
+is fetched, not linked.
 
 ### Search parameters
 
@@ -153,7 +183,7 @@ misleading.
 | `GET` | `/orders` | ✅ | Orders as buyer or seller |
 | `GET` | `/orders/:id` | participant | One order |
 | `POST` | `/orders` | ✅ + verified | Create an order |
-| `POST` | `/orders/:id/payment` | participant | Record a payment |
+| `POST` | `/orders/:id/payment` | seller or admin, `payment:manage` | Record a payment |
 | `POST` | `/orders/:id/complete` | seller | Mark delivered |
 | `POST` | `/orders/:id/cancel` | participant | Cancel an unpaid order |
 
@@ -164,7 +194,14 @@ the winning bidder after the auction has ended.
 `providerReference` is unique, so a retried provider callback cannot mark the
 same payment paid twice.
 
+Recording a payment is the **seller's** side of a sale, not the buyer's: the
+route requires `payment:manage`, and the service additionally requires the
+caller to be the seller on that specific order, or an administrator. A buyer —
+including a dealer who holds the permission but is the buyer here — is refused.
+
 > Payments are **recorded, not processed** — there is no gateway integration.
+> This endpoint asserts that money arrived; nothing verifies that it did. A
+> signed provider webhook has to replace it before it carries real funds.
 
 ## Dealers, messaging, notifications
 
