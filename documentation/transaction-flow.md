@@ -61,12 +61,12 @@ The complete matrix, verbatim from `ROLE_PERMISSIONS`.
 | `user:read` | | | | | ✅ | ✅ |
 | `user:manage` | | | | | ✅ | ✅ |
 | `payment:read` | | | ✅ | | ✅ | ✅ |
-| `payment:manage` | | | | | | ✅ |
+| `payment:manage` | | ✅ | ✅ | | ✅ | ✅ |
 | `report:read` | | | ✅ | | ✅ | ✅ |
 | `settings:manage` | | | | | | ✅ |
 | `audit:read` | | | | | ✅ | ✅ |
 
-Three deliberate gaps:
+Four deliberate gaps:
 
 - **A dealer cannot verify a dealership** — not even their own. Self-verification
   would make the verified badge worthless.
@@ -74,6 +74,11 @@ Three deliberate gaps:
 - **An admin cannot bid.** Only `SUPER_ADMIN` holds `bid:place` among staff
   roles, and that is an artefact of holding every permission rather than an
   invitation to trade on the platform they moderate.
+- **A buyer does not hold `payment:manage`.** Recording that money arrived is
+  the seller's side of a sale; a buyer able to assert it about their own order
+  could take a vehicle without paying. The permission is a floor, not the whole
+  rule — the service also requires the caller to be the seller on that specific
+  order, so a dealer buying from another dealer is refused too.
 
 ---
 
@@ -285,14 +290,13 @@ later.
 
 ## Super admin
 
-Holds every permission, including the two nobody else has: `settings:manage`
-and `payment:manage`.
+Holds every permission, including the one nobody else has: `settings:manage`.
 
 | Can | Notes |
 | --- | --- |
 | Everything an admin can | |
 | Manage platform settings | The only role with `settings:manage` |
-| Manage payments — refunds, corrections | The only role with `payment:manage` |
+| Manage payments — refunds, corrections | Shares `payment:manage` with sellers, dealers and admins, who use it to record payment on their own sales |
 | Place bids | An artefact of holding every permission |
 
 ```mermaid
@@ -412,7 +416,8 @@ sequenceDiagram
     participant N as Notifications
     participant L as Audit log
 
-    S->>API: PATCH /vehicles/:id — status PENDING_REVIEW
+    S->>API: PATCH /vehicles/:id/status — PENDING_REVIEW
+    Note over S,API: The only statuses a seller may set are<br/>DRAFT, PENDING_REVIEW and ARCHIVED.<br/>ACTIVE is not reachable from here
     A->>API: GET /vehicles/pending-review
     Note over A,API: Needs vehicle:publish AND user:read.<br/>A seller has the first but not the second
     A->>API: PATCH /vehicles/:id/moderate
@@ -424,6 +429,17 @@ sequenceDiagram
     API->>N: notify the seller
     API->>L: append the decision, actor and target
 ```
+
+Publication is a decision, so it has exactly one door. `PATCH /vehicles/:id`
+cannot set `status` at all — the update schema omits the field, and the handler
+spreads validated input straight into the write, so anything the schema accepts
+is something the caller can set. `PATCH /vehicles/:id/status` accepts only the
+three statuses above, and checks the transition against the listing's current
+state: an archived listing returns to `DRAFT`, never straight back to review.
+
+`IN_AUCTION` and `SOLD` are absent from both, because they describe things that
+happened rather than choices a seller makes; the auction and settlement flows
+set them.
 
 ## 5. Fixed-price purchase
 
@@ -445,7 +461,9 @@ sequenceDiagram
     DB-->>API: COMMIT
     API-->>B: order reference
 
-    B->>API: POST /orders/:id/payment
+    B-->>S: pays by whatever means the order names
+    S->>API: POST /orders/:id/payment
+    Note over S,API: The seller records that funds arrived, not the buyer.<br/>Needs payment:manage AND being the seller on this order
     API->>DB: payment PAID, order AWAITING_DELIVERY
 
     S->>API: POST /orders/:id/complete
@@ -710,11 +728,15 @@ read the trail and a dealer cannot.
 
 - **Payments are recorded, not processed.** `POST /orders/:id/payment` stores a
   provider reference that something else must produce. There is no gateway, no
-  authorisation hold and no settlement to a seller's bank account.
+  authorisation hold and no settlement to a seller's bank account. The
+  authorization around it says who may make that assertion; nothing verifies
+  that the assertion is true, which is why a signed provider webhook has to
+  replace this endpoint before it carries real money.
 - **Disputes have a status but no workflow.** `DISPUTED` exists on the order;
   what happens next is a manual conversation.
-- **Refunds are a permission without a flow.** `payment:manage` gates an
-  endpoint set that has not been built.
+- **Refunds are a permission without a flow.** `payment:manage` covers recording
+  payment today; the refund and correction endpoints it is also meant to gate
+  have not been built.
 - **Proxy bidding is stored, not automated.** A bid can carry a ceiling, but
   nothing bids on the buyer's behalf as the price rises.
 

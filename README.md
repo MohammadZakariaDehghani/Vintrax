@@ -126,6 +126,7 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 | [Mobile](./documentation/mobile.md) | The PWA: screens, live bidding, camera, offline |
 | [Brand](./documentation/brand.md) | The mark, the palette, and the rules behind them |
 | [Roles and transaction flows](./documentation/transaction-flow.md) | What each role can do, and how every process moves |
+| [Security audit](./documentation/security-audit.md) | Findings, evidence, what was fixed, what is still owed |
 | [API reference](./documentation/api-reference.md) | Every endpoint |
 | [Deployment](./documentation/deployment.md) | Docker, Kubernetes, cloud |
 | [Developer guide](./documentation/developer-guide.md) | Setup, workflows, CI, troubleshooting |
@@ -149,10 +150,13 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 
 ## Testing
 
-71 tests cover the logic that decides who wins and what they pay — bid
+122 tests cover the logic that decides who wins and what they pay — bid
 increments, fee floors and ceilings, auction constraints, the permission matrix
 — plus validation, error mapping, URL round-tripping, query construction and
-display formatting.
+display formatting. A further group covers the authorization decisions a bug
+would quietly reverse: who may record a payment, who may read a vehicle
+document, which listing statuses a seller may set, and whether the compose file
+still binds its databases to loopback.
 
 The platform was additionally exercised end to end in a real browser: search and
 faceted filtering, fuzzy matching, vehicle detail with inspection reports,
@@ -167,6 +171,8 @@ Deliberate boundaries, documented rather than hidden:
 
 - **Payments are recorded, not processed.** There is no gateway integration —
   `POST /orders/:id/payment` records a reference something else must produce.
+  Only the seller on the order or an administrator may record it, but nothing
+  verifies that the money actually moved.
 - **WebSocket scaling needs a Redis adapter** before running more than one API
   replica; socket rooms are per-process today.
 - **Rate limits are per-instance and in-memory.**

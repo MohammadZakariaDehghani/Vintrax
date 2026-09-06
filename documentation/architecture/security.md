@@ -159,13 +159,20 @@ runs.
 
 ### SQL injection
 
-All database access goes through Prisma's query builder with parameterised queries. The single raw
-query in the codebase is the health check's `SELECT 1`, which interpolates nothing.
+All database access goes through Prisma's query builder. Where raw SQL is unavoidable — full-text
+ranking, trigram fallback, and the daily-series analytics — it uses Prisma's tagged
+`$queryRaw` template, which parameterises every interpolation.
+
+The one exception is `admin.service.ts:81`, which uses `$queryRawUnsafe` to vary a table and column
+name that a query builder cannot parameterise. Both come from file-local string literals and neither
+is reachable from a request, so it is not injectable today — but it is the one place where a future
+edit could make it so, and it is tracked as A-13 in the [security audit](../security-audit.md).
 
 ## Upload handling
 
-`POST /api/uploads/images` is the only endpoint accepting binary input, and it is restricted to
-seller roles. Its defences:
+`POST /api/uploads/images`, `/uploads/inspection-images` and `/uploads/documents` are the endpoints
+accepting binary input, each restricted by permission — `vehicle:write` for photos and documents,
+`inspection:write` for inspection photos. Their defences:
 
 1. **Held in memory until validated** — nothing touches disk before the type and size checks pass.
 2. **MIME allowlist**, not a blocklist: `image/jpeg`, `image/png`, `image/webp`, `image/avif`.
@@ -177,6 +184,26 @@ seller roles. Its defences:
 > The MIME type is taken from the request rather than sniffed from file content. A crafted file could
 > claim `image/png` while containing something else. Since files are served as static assets and
 > never executed, the practical risk is low, but content sniffing belongs in the hardening pass.
+
+### What is served, and to whom
+
+Only the photo folders are mounted as static assets — `vehicles/`, `inspections/` and the seed
+images. `documents/` is not, because vehicle paperwork carries the owner's name, address and VIN
+history. Documents are served by `GET /api/vehicles/:id/documents/:documentId`, which authorizes
+the caller as the seller, an administrator, or the buyer on an order that has not been cancelled,
+and returns the file as an attachment with `Cache-Control: private, no-store`.
+
+The mount is an allowlist rather than a denylist of one folder: a folder added later and forgotten
+returns 404, which someone notices. The reverse mistake is silent.
+
+A document's recorded URL arrives in the payload a seller sends, so it is attacker-controlled. It is
+resolved against the upload directory and then checked to still be inside it, which is what stops
+`../` — and an absolute path, which would otherwise override the join — from reading anything else
+on the host.
+
+> With `STORAGE_DRIVER=s3` the objects are served by the bucket, so this authorization only governs
+> *disclosure of the URL*. The bucket must be private for it to mean anything; the development MinIO
+> setup sets `mc anonymous set download`, which is fine for demo images and wrong for documents.
 
 ## Transport and headers
 

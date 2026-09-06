@@ -164,6 +164,11 @@ export class TransactionsService {
   /**
    * Records a successful payment.
    *
+   * Atlas records payments rather than processing them, so this endpoint is an
+   * assertion that money arrived — which makes it the seller's to make, not the
+   * buyer's. A buyer permitted to call it could mark their own order `PAID`
+   * without paying, so the check is here and not only in the route guard.
+   *
    * `providerReference` is unique in the database, so a provider retrying its
    * webhook cannot mark the same payment paid twice.
    */
@@ -174,6 +179,11 @@ export class TransactionsService {
   ): Promise<TransactionSummary> {
     const record = await this.requireParticipant(transactionId, actor);
 
+    if (record.sellerId !== actor.id && !isAdmin(actor.role)) {
+      throw new ForbiddenException(
+        'Only the seller or an administrator can record payment on this order',
+      );
+    }
     if (record.status === 'CANCELLED') {
       throw new BadRequestException('This order was cancelled');
     }

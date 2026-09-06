@@ -1,11 +1,15 @@
 # Security audit
 
-A read-only audit of the Atlas marketplace: backend, both web clients, shared
-packages, infrastructure and CI. **No code, configuration, database or
-infrastructure was modified.**
+An audit of the Atlas marketplace: backend, both web clients, shared packages,
+infrastructure and CI.
 
-Date of audit: 2026-09-06 · Commit audited: branch
+Date of audit: 2026-09-06 · Branch
 `claude/project-atlas-vehicle-marketplace-a8j3ng`
+
+The audit itself was read-only — nothing was changed while it ran. The four P0
+findings were then fixed under separate authorisation; each carries a **Status**
+line saying so, and [remediation](#remediation-log) records what changed and how
+it was checked. Everything below P0 is unchanged and still open.
 
 ---
 
@@ -20,7 +24,7 @@ repository or its history.
 
 The weaknesses are not in the cryptography or the framework. They are in a
 handful of **authorization decisions** and **infrastructure defaults**, and
-three of them are exploitable by any registered user today.
+three of them were exploitable by any registered user.
 
 | Severity | Count |
 | --- | --- |
@@ -29,7 +33,7 @@ three of them are exploitable by any registered user today.
 | Medium | 5 |
 | Low | 5 |
 
-**The four most dangerous, in order:**
+**The four most dangerous, in order — all four now fixed and verified:**
 
 1. **A buyer can mark their own order paid** without any money moving, and the
    seller sees a paid order.
@@ -40,14 +44,42 @@ three of them are exploitable by any registered user today.
 4. **PostgreSQL and Redis are published on all interfaces** by the compose
    file, and Redis has no password at all.
 
-**Production ready?** Not yet. The three application findings above are all
-one-line-to-one-function fixes, and the infrastructure one is a compose edit.
-After those, the remaining Medium findings are a normal hardening backlog.
+**Production ready?** Closer. All four are now fixed, and each fix was checked
+against a running instance by attempting the original attack. What remains is
+the Medium backlog — a normal hardening list, none of it a free vehicle or a
+world-readable title deed. The one thing that should still block real money is
+A-08's sibling: payments are *recorded*, never *processed*, so the settlement
+path needs a real provider webhook before it carries funds.
 
 **Limitations of this audit.** Static analysis and code reading, plus a local
 running instance. No penetration test, no live cloud console, no TLS/DNS/WAF
 review, no review of a real S3 bucket policy or IAM role. Everything under
 "Infrastructure audit required" below must be checked by someone with access.
+
+---
+
+# Remediation log
+
+The four P0 findings were fixed after the audit, on explicit authorisation.
+Nothing else in this report was touched.
+
+| Finding | Fix | Verified by |
+| --- | --- | --- |
+| A-01 | `payment:manage` added to the seller, dealer and admin roles and required on the route; `confirmPayment` additionally rejects anyone who is not the seller or an admin | A buyer's own-order payment returns 403 at the guard; a dealer who *holds* the permission but is the buyer on that order returns 403 from the service. The seller succeeds and the order moves to `AWAITING_DELIVERY` |
+| A-02 | Documents omitted from the detail response unless the viewer is the seller, an admin, or the buyer on a live order; `documents/` no longer served statically; a new authorized route streams the file and the response carries a download path instead of a storage path | The old static URL returns 404, photo folders still return 200, anonymous and unrelated signed-in viewers see `documents: []` with a `documentCount`, the owner and the buyer-on-an-order both download successfully, and traversal out of the upload directory is rejected |
+| A-03 | `status` removed from `updateVehicleSchema`, the create schema narrowed to `DRAFT`/`PENDING_REVIEW`, and a seller status route added that enforces a transition table with no path to `ACTIVE` | Four bypass attempts — create-as-published, direct PATCH, PATCH smuggled beside a legitimate price edit, and the new status route — all rejected or silently stripped, with the legitimate submit → moderate → publish → archive path still working |
+| A-04 | Every backing service published on `127.0.0.1`, Redis given a `requirepass`, and the Ubuntu installer now generates a password for a native Redis and records it in `.env` | `docker compose config` resolves Postgres, Redis, MinIO and OpenSearch to `127.0.0.1` and the API to a password-bearing `REDIS_URL`; the installer's function was run against a live Redis, which then refused unauthenticated commands, persisted the setting, and was idempotent on a second run |
+
+34 regression tests were added alongside the fixes — `transactions.authz.spec.ts`,
+`vehicles.documents.spec.ts`, `vehicles.status.spec.ts` and
+`test/deployment-hardening.spec.ts`. The last of these reads `docker-compose.yml`
+as text, because a port binding that silently regresses is exactly the kind of
+change no other test would notice.
+
+**What the fixes did not do.** They closed four specific holes. They did not
+add a payment provider, they did not move tokens out of `localStorage`, and they
+did not touch any live infrastructure — the compose and installer changes affect
+what a *new* deployment does, not what a running one is doing now.
 
 ---
 
@@ -101,9 +133,10 @@ histories, order and payment records, and **uploaded ownership documents**
 
 ## Attack surfaces
 
-Public: search and listing endpoints, dealer pages, auction reads, `/uploads/*`
-static files, sign-in and registration. Authenticated: everything else.
-Privileged: moderation, dealer verification, user management, analytics, audit.
+Public: search and listing endpoints, dealer pages, auction reads, the photo
+folders under `/uploads/*`, sign-in and registration. Authenticated: everything
+else, including vehicle documents since A-02. Privileged: moderation, dealer
+verification, user management, analytics, audit.
 
 ---
 
@@ -112,6 +145,7 @@ Privileged: moderation, dealer verification, user management, analytics, audit.
 ## [A-01] A buyer can record payment on their own order
 
 **Severity:** High · **Confidence:** Confirmed
+**Status:** Fixed — see [remediation](#remediation-log). Retained here as the record of what was wrong.
 **Category:** OWASP A01 Broken Access Control · CWE-639 Authorization Bypass Through User-Controlled Key
 **Affected component:** API — orders
 **Affected file:** `backend/src/modules/transactions/transactions.service.ts`
@@ -195,6 +229,7 @@ super admin and expect 200.
 ## [A-02] Private vehicle documents are readable by anyone
 
 **Severity:** High · **Confidence:** Confirmed
+**Status:** Fixed — see [remediation](#remediation-log). Retained here as the record of what was wrong.
 **Category:** OWASP A01 Broken Access Control · CWE-552 Files Accessible to External Parties
 **Affected component:** API — vehicles, static file serving
 **Affected files:** `backend/src/modules/vehicles/vehicles.mapper.ts`, `backend/src/main.ts`
@@ -277,6 +312,7 @@ Request a known document path directly; expect 401/403.
 ## [A-03] A seller can publish a listing without moderation
 
 **Severity:** High · **Confidence:** Confirmed
+**Status:** Fixed — see [remediation](#remediation-log). Retained here as the record of what was wrong.
 **Category:** OWASP A01 Broken Access Control · CWE-285 Improper Authorization
 **Affected component:** API — vehicles
 **Affected file:** `backend/src/modules/vehicles/vehicles.service.ts`, `packages/shared/src/schemas.ts`
@@ -358,6 +394,7 @@ listing to stay `DRAFT`.
 ## [A-04] Database and Redis published on all interfaces; Redis unauthenticated
 
 **Severity:** High · **Confidence:** Confirmed
+**Status:** Fixed — see [remediation](#remediation-log). Retained here as the record of what was wrong.
 **Category:** OWASP A05 Security Misconfiguration · CWE-1327 Binding to an Unrestricted Address
 **Affected component:** Infrastructure
 **Affected files:** `docker-compose.yml`, `.env.example`
@@ -812,10 +849,10 @@ application log.
 
 | Priority | Finding | Severity | Component | Status |
 | --- | --- | --- | --- | --- |
-| P0 | A-01 Buyer can record payment on their own order | High | API — orders | Open |
-| P0 | A-02 Private vehicle documents readable by anyone | High | API — vehicles, uploads | Open |
-| P0 | A-03 Seller can publish without moderation | High | API — vehicles | Open |
-| P0 | A-04 Postgres and Redis published; Redis unauthenticated | High | Infrastructure | Open |
+| P0 | A-01 Buyer can record payment on their own order | High | API — orders | **Fixed** |
+| P0 | A-02 Private vehicle documents readable by anyone | High | API — vehicles, uploads | **Fixed** |
+| P0 | A-03 Seller can publish without moderation | High | API — vehicles | **Fixed** |
+| P0 | A-04 Postgres and Redis published; Redis unauthenticated | High | Infrastructure | **Fixed** |
 | P1 | A-05 Open redirect after sign-in | Medium | Web | Open |
 | P1 | A-06 SSRF through the image optimizer | Medium | Web, mobile, shared | Open |
 | P1 | A-07 No security headers on the web apps | Medium | Web, mobile | Open |
@@ -829,32 +866,45 @@ application log.
 
 # Security score
 
-**72 / 100.**
+**As audited: 72 / 100. After the P0 fixes: 85 / 100.**
 
 The foundations score well — authentication, session handling, input
 validation, concurrency control and secret hygiene are all above what a project
-at this stage usually shows. The deductions are concentrated in four
-authorization and configuration decisions, three of which are exploitable by an
-ordinary registered user and all four of which are small, well-understood fixes.
+at this stage usually shows. The 28 points deducted at audit time were
+concentrated in four authorization and configuration decisions, three of which
+were exploitable by an ordinary registered user.
 
-**This score is not a substitute for a professional penetration test.** It
-reflects a static review of one commit, with no live exploitation, no
-infrastructure access and no adversarial testing by a third party.
+Closing those four recovers 13 points and no more. The remaining 15 are the
+Medium and Low backlog, and they are genuinely still owed: tokens are still in
+`localStorage`, neither web app sends security headers, there is no per-account
+brute-force protection, and nothing here has been tested by an adversary.
+
+**Neither score is a substitute for a professional penetration test.** Both
+reflect a static review of one branch plus a local instance — no adversarial
+testing by a third party, and no access to live infrastructure, where a
+misconfiguration would not be visible from this repository at all.
 
 ---
 
 # Remediation plan
 
-## P0 — before production
+## P0 — done
 
-1. Restrict `POST /orders/:id/payment` to `payment:manage`, and replace it with
-   a signed provider webhook before taking real money. *(A-01)*
-2. Stop returning document URLs to non-owners and move document files behind an
-   authenticated route or signed URLs. *(A-02)*
-3. Remove `status` from `updateVehicleSchema` and add explicit transition
-   endpoints. *(A-03)*
-4. Bind Postgres and Redis to loopback, set a Redis password, and add firewall
-   rules to the server setup. *(A-04)*
+1. ~~Restrict `POST /orders/:id/payment` to `payment:manage`~~ **done**. Still
+   outstanding: replace it with a signed provider webhook before taking real
+   money — the endpoint records an assertion, it does not verify a payment.
+   *(A-01)*
+2. ~~Stop returning document URLs to non-owners and move document files behind
+   an authenticated route~~ **done**. Still outstanding on the S3 driver: the
+   bucket policy is `mc anonymous set download`, so an object remains readable
+   to anyone holding its URL even though the API no longer discloses one.
+   Presigned URLs, or a private bucket, close that. *(A-02)*
+3. ~~Remove `status` from `updateVehicleSchema` and add explicit transition
+   endpoints~~ **done**. *(A-03)*
+4. ~~Bind Postgres and Redis to loopback and set a Redis password~~ **done** for
+   compose and for the Ubuntu installer. Still outstanding: host firewall rules,
+   and the Kubernetes and Terraform paths, which were not part of this change.
+   *(A-04)*
 
 ## P1 — next cycle
 
@@ -881,8 +931,9 @@ infrastructure access and no adversarial testing by a third party.
 15. Add `readOnlyRootFilesystem` to the web and mobile pods. *(A-14)*
 16. Ship the audit log to durable storage with alerting on auth-failure spikes.
 17. Add authorization regression tests — one per role per sensitive endpoint,
-    asserting the negative case. The permission matrix is already unit tested;
-    the endpoints are not.
+    asserting the negative case. Started: the four P0 fixes each landed with
+    negative-case tests, and `payment:manage` is now covered per role. Every
+    other sensitive endpoint still has none.
 18. Commission a third-party penetration test.
 
 ---

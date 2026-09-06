@@ -122,6 +122,10 @@ export interface VehicleImage {
 export interface VehicleDocument {
   id: string;
   type: VehicleDocumentType;
+  /**
+   * Authorized download path, not the object's location in storage. Requires
+   * the caller's access token, so it is fetched rather than linked.
+   */
   url: string;
   filename: string;
   sizeBytes: number | null;
@@ -174,7 +178,14 @@ export interface VehicleDetail extends VehicleSummary {
   viewCount: number;
   favouriteCount: number;
   images: VehicleImage[];
+  /**
+   * Paperwork — registration, title, CarFax, bill of sale. Empty unless the
+   * viewer is the seller, an administrator, or the buyer on a live order:
+   * these documents carry the owner's name, address and VIN history.
+   */
   documents: VehicleDocument[];
+  /** How many documents exist, regardless of whether the viewer may open them. */
+  documentCount: number;
   seller: VehicleSeller;
   inspection: InspectionSummary | null;
   updatedAt: string;

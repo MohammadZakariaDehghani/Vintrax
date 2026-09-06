@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -9,6 +9,15 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { parseCorsOrigins, type Env } from './config/env';
+
+/**
+ * Upload folders served without authentication.
+ *
+ * Photographs of a car for sale are public by intent — they are the listing.
+ * `documents/` is deliberately not here, and nothing should be added without
+ * asking whether every anonymous visitor may read it.
+ */
+const PUBLIC_UPLOAD_FOLDERS = ['vehicles', 'inspections', 'seed'] as const;
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -44,9 +53,23 @@ async function bootstrap(): Promise<void> {
 
   // Local storage serves uploads as static assets outside the /api prefix.
   // With S3 the objects are served by the bucket or its CDN instead.
+  //
+  // Folders are mounted one by one rather than serving the upload directory
+  // whole, because `documents/` holds registrations, titles, CarFax reports
+  // and bills of sale, which carry the owner's name and address. Mounting the
+  // parent would make every one of them readable by anyone who knew, or
+  // guessed, a URL. Documents are served by
+  // GET /api/vehicles/:id/documents/:documentId, which checks who is asking.
+  //
+  // An allowlist and not a denylist: a folder added later and forgotten here
+  // returns 404, which someone notices. The reverse mistake is silent.
   if (storageDriver === 'local') {
-    mkdirSync(uploadDir, { recursive: true });
-    app.useStaticAssets(uploadDir, { prefix: '/uploads/' });
+    for (const folder of PUBLIC_UPLOAD_FOLDERS) {
+      const path = join(uploadDir, folder);
+      mkdirSync(path, { recursive: true });
+      app.useStaticAssets(path, { prefix: `/uploads/${folder}/` });
+    }
+    mkdirSync(join(uploadDir, 'documents'), { recursive: true });
   }
 
   if (nodeEnv !== 'production') {

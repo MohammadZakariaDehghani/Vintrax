@@ -137,6 +137,10 @@ cp .env.example .env
 # when NODE_ENV=production.
 openssl rand -base64 48   # twice, into JWT_ACCESS_SECRET and JWT_REFRESH_SECRET
 
+# Redis authenticates. Set REDIS_PASSWORD, and put the same value in
+# REDIS_URL as redis://:PASSWORD@redis:6379 — compose reads both.
+openssl rand -hex 24
+
 docker compose up -d                      # postgres, redis, api, web, mobile
 docker compose --profile full up -d       # adds MinIO and OpenSearch
 docker compose exec api node_modules/.bin/prisma migrate deploy
@@ -146,6 +150,13 @@ docker compose exec api node_modules/.bin/tsx prisma/seed.ts   # optional
 The API container runs `prisma migrate deploy` before starting. With more than
 one replica that belongs in a separate pre-deploy job instead, to avoid a
 migration race.
+
+**PostgreSQL, Redis, MinIO and OpenSearch publish to `127.0.0.1` only.** Docker
+publishes ports through its own NAT rules, which sit *in front of* the host
+firewall, so a plain `5432:5432` on a machine with a public interface is a
+database on the internet whether or not `ufw` is running. Reach them over an
+SSH tunnel. The API, web and mobile services do bind every interface, because a
+reverse proxy or another host has to reach them.
 
 > **Not verified in this environment.** The Docker daemon was unavailable while
 > this was built, so the compose file and Dockerfiles are written and reviewed
@@ -275,7 +286,10 @@ S3 versioning protects media against accidental deletion.
 
 - [ ] Real JWT secrets in a secret manager, never in the repository
 - [ ] `NODE_ENV=production`, `CORS_ORIGINS` set to real origins
-- [ ] `STORAGE_DRIVER=s3` with a CDN in front
+- [ ] A real `REDIS_PASSWORD`, and no datastore reachable from outside the host
+- [ ] `STORAGE_DRIVER=s3` with a CDN in front, and the bucket **private** —
+      vehicle documents are authorized by the API, which cannot help if the
+      objects are anonymously readable at their own URL
 - [ ] Migrations run as a discrete pre-deploy step
 - [ ] Liveness and readiness probes wired correctly
 - [ ] TLS terminated; HTTP redirected

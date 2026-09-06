@@ -1,3 +1,4 @@
+import { createReadStream } from 'node:fs';
 import {
   Body,
   Controller,
@@ -10,13 +11,17 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import {
   type CreateVehicleInput,
   type ModerateListingInput,
   type Paginated,
   type SearchVehiclesQuery,
+  type UpdateListingStatusInput,
   type UpdateVehicleInput,
   type VehicleDetail,
   type VehicleSearchResponse,
@@ -24,6 +29,7 @@ import {
   createVehicleSchema,
   moderateListingSchema,
   searchVehiclesSchema,
+  updateListingStatusSchema,
   updateVehicleSchema,
 } from '@atlas/shared';
 import { z } from 'zod';
@@ -101,6 +107,37 @@ export class VehiclesController {
     return this.vehicles.findById(idOrSlug, user);
   }
 
+  @Get(':id/documents/:documentId')
+  @ApiOperation({
+    summary: 'Download a vehicle document',
+    description:
+      'The seller, an administrator, or the buyer on a live order. Documents are not served as ' +
+      'static files, so this route is the only way to read one and it authorizes every request.',
+  })
+  async downloadDocument(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @CurrentUser() user: AuthUser,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile | void> {
+    const { location, filename } = await this.vehicles.openDocument(id, documentId, user);
+
+    if (location.kind === 'remote') {
+      // Object storage serves the bytes; the authorization decision was made here.
+      response.redirect(HttpStatus.FOUND, location.url);
+      return;
+    }
+
+    response.set({
+      'Content-Type': location.contentType,
+      // Always an attachment: paperwork is never something the browser should
+      // render inline on this origin.
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(createReadStream(location.path));
+  }
+
   @Post()
   @RequirePermissions('vehicle:write')
   @RequireVerifiedEmail()
@@ -116,13 +153,35 @@ export class VehiclesController {
   @Patch(':id')
   @RequirePermissions('vehicle:write')
   @Audit('vehicle.updated', 'Vehicle')
-  @ApiOperation({ summary: 'Update a vehicle the caller owns' })
+  @ApiOperation({
+    summary: 'Update a vehicle the caller owns',
+    description:
+      'Listing status is not editable here — use PATCH /vehicles/:id/status, or admin moderation to publish.',
+  })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(zodBody(updateVehicleSchema)) body: UpdateVehicleInput,
     @CurrentUser() user: AuthUser,
   ): Promise<VehicleDetail> {
     return this.vehicles.update(id, body, user);
+  }
+
+  @Patch(':id/status')
+  @RequirePermissions('vehicle:write')
+  @RequireVerifiedEmail()
+  @Audit('vehicle.status_changed', 'Vehicle')
+  @ApiOperation({
+    summary: 'Move a listing between the statuses its seller controls',
+    description:
+      'Submit for review, withdraw, archive or return to draft. Publishing is not among them: ' +
+      'ACTIVE is reached only through admin moderation, so a seller cannot approve their own listing.',
+  })
+  setStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(updateListingStatusSchema)) body: UpdateListingStatusInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<VehicleDetail> {
+    return this.vehicles.setStatus(id, body, user);
   }
 
   @Delete(':id')

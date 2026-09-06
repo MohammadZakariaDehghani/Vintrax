@@ -184,9 +184,18 @@ export function toVehicleSummary(
   };
 }
 
+/**
+ * Builds the detail response.
+ *
+ * `includeDocuments` defaults to false so a caller has to say, explicitly, that
+ * this viewer is allowed to see the paperwork. The documents themselves are
+ * addressed by an authorized API route rather than by their location in
+ * storage, so the response never discloses where the file actually lives.
+ */
 export function toVehicleDetail(
   row: VehicleDetailRow,
   favouritedIds: ReadonlySet<string>,
+  options: { includeDocuments?: boolean } = {},
 ): VehicleDetail {
   const inspection = row.inspections[0];
 
@@ -211,14 +220,17 @@ export function toVehicleDetail(
       alt: image.alt,
       position: image.position,
     })),
-    documents: row.documents.map((document) => ({
-      id: document.id,
-      type: document.type,
-      url: document.url,
-      filename: document.filename,
-      sizeBytes: document.sizeBytes,
-      uploadedAt: document.createdAt.toISOString(),
-    })),
+    documents: options.includeDocuments
+      ? row.documents.map((document) => ({
+          id: document.id,
+          type: document.type,
+          url: `/vehicles/${row.id}/documents/${document.id}`,
+          filename: document.filename,
+          sizeBytes: document.sizeBytes,
+          uploadedAt: document.createdAt.toISOString(),
+        }))
+      : [],
+    documentCount: row.documents.length,
     seller: {
       id: row.seller.id,
       displayName: `${row.seller.firstName} ${row.seller.lastName}`.trim(),
