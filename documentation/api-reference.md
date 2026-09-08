@@ -77,9 +77,12 @@ Suspending an account also revokes its live sessions.
 ### Listing status
 
 `PATCH /vehicles/:id` does not accept `status` — publishing is a moderation
-decision, so a seller cannot reach `ACTIVE` by writing the field. Sellers move
-listings with `PATCH /vehicles/:id/status`, which accepts only `DRAFT`,
-`PENDING_REVIEW` and `ARCHIVED` and validates the transition:
+decision, so a seller cannot reach `ACTIVE` by writing the field. The update
+schema is **strict**, so sending it is a 400 naming the right endpoint rather
+than a silent no-op; an edit form that keeps sending the field would otherwise
+report a successful save that changed nothing. Sellers move listings with
+`PATCH /vehicles/:id/status`, which accepts only `DRAFT`, `PENDING_REVIEW` and
+`ARCHIVED` and validates the transition:
 
 | From | A seller may move it to |
 | --- | --- |

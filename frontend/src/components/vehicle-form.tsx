@@ -5,12 +5,13 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import {
-  BODY_TYPES, DRIVETRAINS, FUEL_TYPES, LISTING_STATUSES, MAX_LISTING_IMAGES,
-  PROVINCES, PROVINCE_LABELS, TRANSMISSIONS, VEHICLE_CONDITIONS, type VehicleDetail,
+  BODY_TYPES, CREATABLE_LISTING_STATUSES, DRIVETRAINS, FUEL_TYPES, MAX_LISTING_IMAGES,
+  PROVINCES, PROVINCE_LABELS, SELLER_STATUS_TRANSITIONS, TRANSMISSIONS, VEHICLE_CONDITIONS,
+  type ListingStatus, type VehicleDetail,
 } from '@atlas/shared';
 import { ApiError, api } from '@/lib/api-client';
 import { formatEnum } from '@/lib/utils';
-import { Button, Card, CardContent, CardHeader, CardTitle, ErrorAlert, Field, Input, Select, Spinner, Textarea } from '@/components/ui';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, ErrorAlert, Field, Input, Select, Spinner, Textarea } from '@/components/ui';
 
 interface FormImage { url: string; alt?: string }
 
@@ -21,6 +22,83 @@ const BLANK = {
   drivetrain: 'FWD', engine: '', exteriorColour: '', interiorColour: '', vin: '',
   province: 'ON', city: '', status: 'DRAFT', saleChannel: 'FIXED_PRICE',
 };
+
+/**
+ * Moves a listing between the statuses its seller actually controls.
+ *
+ * The options come from `SELLER_STATUS_TRANSITIONS`, the same table the API
+ * enforces, so the control cannot offer a move the server will refuse. `ACTIVE`
+ * is in none of them: a seller submits for review and an administrator
+ * publishes.
+ */
+function ListingStatusControl({
+  vehicleId,
+  status,
+  onChanged,
+}: {
+  vehicleId: string;
+  status: ListingStatus;
+  onChanged: () => void;
+}) {
+  const allowed = SELLER_STATUS_TRANSITIONS[status];
+  const [next, setNext] = useState<string>(allowed[0] ?? '');
+
+  const change = useMutation({
+    mutationFn: (to: string) =>
+      api.patch<VehicleDetail>(`/vehicles/${vehicleId}/status`, { status: to }),
+    onSuccess: onChanged,
+  });
+
+  const explanation: Partial<Record<ListingStatus, string>> = {
+    DRAFT: 'Not visible to buyers. Submit it for review to go live.',
+    PENDING_REVIEW: 'Waiting for an administrator to approve it.',
+    ACTIVE: 'Live on the marketplace.',
+    IN_AUCTION: 'In a live auction — its status is set by the auction.',
+    SOLD: 'Sold. Its status is set by the completed order.',
+    ARCHIVED: 'Delisted. Restore it to draft to work on it again.',
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium">Status</span>
+      <p className="text-sm">
+        <Badge variant={status === 'ACTIVE' ? 'success' : 'outline'}>{formatEnum(status)}</Badge>
+      </p>
+      <p className="text-xs text-muted-foreground">{explanation[status]}</p>
+
+      {allowed.length > 0 ? (
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <label htmlFor="next-status" className="sr-only">
+            Move this listing to
+          </label>
+          <Select
+            id="next-status"
+            className="w-auto"
+            value={next}
+            onChange={(event) => setNext(event.target.value)}
+          >
+            {allowed.map((option) => (
+              <option key={option} value={option}>
+                {formatEnum(option)}
+              </option>
+            ))}
+          </Select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            loading={change.isPending}
+            onClick={() => change.mutate(next)}
+          >
+            Update status
+          </Button>
+        </div>
+      ) : null}
+
+      <ErrorAlert error={change.error} className="mt-2" />
+    </div>
+  );
+}
 
 export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
   const isEditing = Boolean(vehicleId);
@@ -109,7 +187,11 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
       ...(form.exteriorColour ? { exteriorColour: form.exteriorColour } : {}),
       ...(form.interiorColour ? { interiorColour: form.interiorColour } : {}),
       ...(form.vin ? { vin: form.vin } : {}),
-      province: form.province, city: form.city, status: form.status, saleChannel: form.saleChannel,
+      province: form.province, city: form.city, saleChannel: form.saleChannel,
+      // Only on create. `updateVehicleSchema` omits `status`, so sending it on
+      // an edit is silently stripped — the save appears to work and the status
+      // does not move. It has its own endpoint; see ListingStatusControl.
+      ...(isEditing ? {} : { status: form.status }),
       features: features.split(',').map((entry) => entry.trim()).filter(Boolean),
       images,
     });
@@ -264,13 +346,34 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Status" htmlFor="status" error={fieldError('status')}>
-              <Select id="status" value={form.status} onChange={(e) => set('status', e.target.value)}>
-                {LISTING_STATUSES.filter((status) => status !== 'IN_AUCTION').map((status) => (
-                  <option key={status} value={status}>{formatEnum(status)}</option>
-                ))}
-              </Select>
-            </Field>
+            {isEditing ? (
+              // Status is not part of the update payload — the API rejects the
+              // field, because publishing is a moderation decision. It moves
+              // through its own endpoint, which is a separate action with its
+              // own rules, so it gets its own control rather than riding along
+              // with "Save changes" and silently doing nothing.
+              <ListingStatusControl
+                vehicleId={vehicleId!}
+                status={existing?.status ?? 'DRAFT'}
+                onChanged={() => {
+                  void queryClient.invalidateQueries({ queryKey: ['vehicle', vehicleId] });
+                  void queryClient.invalidateQueries({ queryKey: ['my-inventory'] });
+                }}
+              />
+            ) : (
+              <Field
+                label="Status"
+                htmlFor="status"
+                hint="A new listing starts as a draft. Submitting for review sends it to an administrator to publish."
+                error={fieldError('status')}
+              >
+                <Select id="status" value={form.status} onChange={(e) => set('status', e.target.value)}>
+                  {CREATABLE_LISTING_STATUSES.map((status) => (
+                    <option key={status} value={status}>{formatEnum(status)}</option>
+                  ))}
+                </Select>
+              </Field>
+            )}
             <Field label="How it sells" htmlFor="saleChannel">
               <Select id="saleChannel" value={form.saleChannel} onChange={(e) => set('saleChannel', e.target.value)}>
                 <option value="FIXED_PRICE">Fixed price</option>

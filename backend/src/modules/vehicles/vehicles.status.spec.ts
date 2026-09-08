@@ -58,19 +58,31 @@ describe('creating a listing', () => {
 });
 
 describe('updating a listing', () => {
-  it('drops a status the caller tries to smuggle in', () => {
-    // The update handler spreads the parsed result into the database write, so
-    // "stripped" and "cannot be set" are the same statement here.
-    const parsed = updateVehicleSchema.parse({ priceCad: 19_000, status: 'ACTIVE' });
+  it('refuses a status smuggled in beside a legitimate edit', () => {
+    // Rejected, not stripped. Stripping would save the price, report success
+    // and leave the status untouched — a silent no-op is how an edit form kept
+    // offering a control that did nothing.
+    const result = updateVehicleSchema.safeParse({ priceCad: 19_000, status: 'ACTIVE' });
 
-    expect(parsed).not.toHaveProperty('status');
-    expect(parsed.priceCad).toBe(19_000);
+    expect(result.success).toBe(false);
   });
 
-  it('rejects a payload whose only field was the status', () => {
-    // Nothing survives stripping, so this is an empty update rather than a
-    // silent success that changed nothing.
+  it('says where the status actually changes', () => {
+    const result = updateVehicleSchema.safeParse({ priceCad: 19_000, status: 'ACTIVE' });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues.map((issue) => issue.message).join(' ')).toContain(
+      '/vehicles/:id/status',
+    );
+  });
+
+  it('refuses a payload whose only field was the status', () => {
     expect(updateVehicleSchema.safeParse({ status: 'ACTIVE' }).success).toBe(false);
+  });
+
+  it('refuses an unknown field, rather than quietly discarding it', () => {
+    expect(updateVehicleSchema.safeParse({ priceCad: 19_000, colour: 'red' }).success).toBe(false);
   });
 
   it('still accepts an ordinary edit', () => {
