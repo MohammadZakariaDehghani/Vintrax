@@ -8,6 +8,7 @@ import type { Paginated, VehicleSummary } from '@atlas/shared';
 import { api } from '@/lib/api-client';
 import { Button, Card, EmptyState, ErrorAlert, Pagination } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { DashboardNav } from '@/components/dashboard-nav';
 import { VehicleCard, VehicleCardSkeleton } from '@/components/vehicle-card';
 
 function Favorites() {
@@ -20,6 +21,8 @@ function Favorites() {
 
   return (
     <div className="container py-8">
+      <DashboardNav />
+
       <h1 className="mb-6 text-3xl font-bold tracking-tight">Saved vehicles</h1>
       <ErrorAlert error={error} className="mb-5" />
 

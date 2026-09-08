@@ -12,6 +12,7 @@ import { formatCompact, formatPrice } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
 import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, ErrorAlert, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { DashboardNav } from '@/components/dashboard-nav';
 import { StatTile } from '@/components/stat-tile';
 import { VehicleCard } from '@/components/vehicle-card';
 
@@ -27,6 +28,8 @@ function DealerDashboard() {
 
   return (
     <div className="container py-8">
+      <DashboardNav />
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -49,10 +52,10 @@ function DealerDashboard() {
       <ErrorAlert error={error} className="mb-5" />
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Active listings" value={data?.activeListings ?? 0} hint={`${data?.draftListings ?? 0} drafts`} icon={Car} />
-        <StatTile label="Sold this month" value={data?.soldThisMonth ?? 0} icon={DollarSign} />
+        <StatTile label="Active listings" value={data?.activeListings ?? 0} hint={`${data?.draftListings ?? 0} drafts`} icon={Car} href="/dealer/inventory" />
+        <StatTile label="Sold this month" value={data?.soldThisMonth ?? 0} hint="Your sales" icon={DollarSign} href="/dashboard/purchases" />
         <StatTile label="Gross sales" value={formatPrice(data?.grossSalesCadThisMonth ?? 0)} hint="This month" icon={DollarSign} />
-        <StatTile label="Total views" value={formatCompact(data?.totalViews ?? 0)} hint={`${data?.totalEnquiries ?? 0} enquiries`} icon={Eye} />
+        <StatTile label="Total views" value={formatCompact(data?.totalViews ?? 0)} hint={`${data?.totalEnquiries ?? 0} enquiries`} icon={Eye} href="/dashboard/messages" />
       </div>
 
       <div className="mb-8 grid gap-6 lg:grid-cols-2">

@@ -3,12 +3,19 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Gavel, Heart, MessageSquare, ShoppingBag } from 'lucide-react';
-import type { BidSummary, Paginated, TransactionSummary, VehicleSummary } from '@atlas/shared';
+import type {
+  BidSummary,
+  ConversationSummary,
+  Paginated,
+  TransactionSummary,
+  VehicleSummary,
+} from '@atlas/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatPrice, formatRelativeTime } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { DashboardNav } from '@/components/dashboard-nav';
 import { StatTile } from '@/components/stat-tile';
 import { VehicleCard } from '@/components/vehicle-card';
 
@@ -30,12 +37,19 @@ function BuyerDashboard() {
     queryFn: () => api.get<Paginated<TransactionSummary>>('/orders?role=buyer&page=1&pageSize=5'),
   });
 
+  const { data: conversations } = useQuery({
+    queryKey: ['conversations', 1],
+    queryFn: () => api.get<Paginated<ConversationSummary>>('/conversations?page=1&pageSize=1'),
+  });
+
   if (!user) return <Spinner />;
 
   const winningBids = bids?.items.filter((bid) => bid.status === 'WINNING' || bid.status === 'WON').length ?? 0;
 
   return (
     <div className="container py-8">
+      <DashboardNav />
+
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user.firstName}</h1>
         <p className="mt-1 text-muted-foreground">Your saved vehicles, bids and purchases.</p>
@@ -54,10 +68,10 @@ function BuyerDashboard() {
       ) : null}
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Saved vehicles" value={favourites?.total ?? 0} icon={Heart} />
-        <StatTile label="Active bids" value={bids?.total ?? 0} hint={`${winningBids} leading`} icon={Gavel} />
-        <StatTile label="Purchases" value={orders?.total ?? 0} icon={ShoppingBag} />
-        <StatTile label="Account" value={formatEnum(user.role)} hint={user.email} icon={MessageSquare} />
+        <StatTile label="Saved vehicles" value={favourites?.total ?? 0} icon={Heart} href="/dashboard/favorites" />
+        <StatTile label="Active bids" value={bids?.total ?? 0} hint={`${winningBids} leading`} icon={Gavel} href="/dashboard/my-bids" />
+        <StatTile label="Purchases" value={orders?.total ?? 0} icon={ShoppingBag} href="/dashboard/purchases" />
+        <StatTile label="Messages" value={conversations?.total ?? 0} hint="Conversations with sellers" icon={MessageSquare} href="/dashboard/messages" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

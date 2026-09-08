@@ -9,6 +9,7 @@ import { api } from '@/lib/api-client';
 import { formatEnum, formatPrice, formatRelativeTime } from '@/lib/utils';
 import { Badge, Button, Card, CardContent, EmptyState, ErrorAlert, Pagination, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { DashboardNav } from '@/components/dashboard-nav';
 
 const STATUS_VARIANT = {
   ACTIVE: 'outline', OUTBID: 'warning', WINNING: 'success',
@@ -26,6 +27,8 @@ function MyBids() {
 
   return (
     <div className="container py-8">
+      <DashboardNav />
+
       <h1 className="mb-6 text-3xl font-bold tracking-tight">My bids</h1>
       <ErrorAlert error={error} className="mb-5" />
 

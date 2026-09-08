@@ -107,8 +107,32 @@ back instead and keeps the role in step with it.
 To deploy a new version:
 
 ```bash
+./scripts/update-ubuntu.sh
+```
+
+It pulls the current branch, installs dependencies, applies migrations,
+rebuilds and restarts the systemd units, then checks that the API and web
+answer. `--branch NAME` deploys a different branch; `--no-pull` rebuilds what
+is already on disk. It refuses to pull over uncommitted changes, and it never
+touches `.env`, the database password or the seed.
+
+**A pull on its own is not a deployment.** Both web applications are compiled
+ahead of time, so a running server keeps serving the previous build until it is
+rebuilt *and* the process is replaced. The failure mode is quiet and easy to
+misread: the page loads, the new controls are simply not on it, which looks
+exactly like a change that did not work. The script removes the previous
+`.next` output before building for the same reason — a server holding an old
+page that references chunk names the new build never wrote fails as a blank
+page rather than an error.
+
+Doing it by hand is the same sequence:
+
+```bash
 git pull
-./scripts/setup-ubuntu.sh --skip-system --no-seed --no-start
+pnpm install --frozen-lockfile
+pnpm db:migrate
+rm -rf frontend/.next mobile/.next
+NODE_ENV=production pnpm build
 sudo systemctl restart atlas-api atlas-web atlas-mobile
 ```
 
