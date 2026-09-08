@@ -796,7 +796,7 @@ they are where a marketplace usually fails.
 | CORS | Explicit allowlist parsed from env, never a wildcard; fails closed when empty |
 | Proxy trust | `trust proxy` set to 1, so the throttler sees the real client IP behind one hop |
 | Containers | All three images run as the unprivileged `node` user |
-| Dependencies | 0 high or critical advisories. The 2 moderate `qs` advisories reach only through `supertest`, a devDependency that never ships |
+| Dependencies | 0 high or critical advisories, and CI fails the build on one. The 6 moderate advisories that remain are all development tooling that never ships — `vitest` with its mocker, and `qs` through `supertest`. Clearing the `vitest` pair needs a major upgrade, which is a migration rather than an audit fix |
 
 ---
 
