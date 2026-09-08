@@ -14,6 +14,7 @@ import { api } from '@/lib/api-client';
 import { formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { Badge, Button, Card, CardContent, EmptyState, ErrorAlert, Pagination, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { DashboardNav } from '@/components/dashboard-nav';
 
 const TABS: Array<{ label: string; status?: ListingStatus }> = [
   { label: 'All' },
@@ -164,6 +165,8 @@ function Inventory() {
 
   return (
     <div className="container py-8">
+      <DashboardNav />
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
         <Link href="/dealer/add-vehicle">

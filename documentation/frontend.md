@@ -29,6 +29,19 @@ administrators.
 `/dashboard/messages` · `/dashboard/messages/[id]` (a thread) ·
 `/dashboard/notifications`
 
+`DashboardNav` sits across all of them, and gains the dealer entries for a
+seller account, so no screen is reachable only from a tile on the overview. It
+carries the unread counts as well as the header, because that row is where
+someone is when they are working.
+
+**Opening the notifications page is what marks them read.** A bell badge means
+"there is something you have not seen"; once the page has rendered that is no
+longer true, so requiring a separate click left a count that never went down.
+The page snapshots which notifications were unread on arrival and keeps their
+`New` marker for that visit — otherwise the marker would disappear on the same
+refetch that clears the badge, and there would be no way to see what had
+arrived.
+
 ### Dealer and seller
 
 `/dealer/dashboard` (analytics) · `/dealer/inventory` (management) ·

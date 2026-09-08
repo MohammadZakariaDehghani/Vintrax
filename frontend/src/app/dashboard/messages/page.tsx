@@ -18,6 +18,7 @@ import {
   Spinner,
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { DashboardNav } from '@/components/dashboard-nav';
 
 function Conversations() {
   const [page, setPage] = useState(1);
@@ -30,6 +31,8 @@ function Conversations() {
 
   return (
     <div className="container py-8">
+      <DashboardNav />
+
       <h1 className="mb-6 text-3xl font-bold tracking-tight">Messages</h1>
       <ErrorAlert error={error} className="mb-5" />
 
