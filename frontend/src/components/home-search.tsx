@@ -38,7 +38,24 @@ const field =
   'h-12 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground ' +
   'focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40';
 
-export function HomeSearch({ makes = [] }: { makes?: string[] }) {
+/**
+ * A body-type shortcut, carrying a photograph of a vehicle Atlas actually has
+ * of that shape. `imageUrl` is null when nothing of that body type is listed
+ * with a photo yet, and the drawn silhouette stands in.
+ */
+export interface BodyTypeShortcut {
+  bodyType: BodyType;
+  imageUrl: string | null;
+  count: number;
+}
+
+export function HomeSearch({
+  makes = [],
+  bodyTypes = [],
+}: {
+  makes?: string[];
+  bodyTypes?: BodyTypeShortcut[];
+}) {
   const t = useT();
   const router = useRouter();
 
@@ -49,6 +66,7 @@ export function HomeSearch({ makes = [] }: { makes?: string[] }) {
   const [province, setProvince] = useState('');
 
   const active = TABS.find((entry) => entry.key === tab) ?? TABS[0];
+  const byBodyType = new Map(bodyTypes.map((entry) => [entry.bodyType, entry]));
 
   const params = new URLSearchParams(active.params);
   if (make) params.set('make', make);
@@ -200,22 +218,48 @@ export function HomeSearch({ makes = [] }: { makes?: string[] }) {
         </div>
       </form>
 
+      {/* Shortcuts by shape, each showing a vehicle Atlas actually has of that
+          shape. A photograph of the real thing says "estate wagon" faster than
+          any drawing, and because it comes out of live inventory it is never a
+          picture of something the site cannot sell. */}
       <div className="border-t border-border px-3 pb-5 pt-4 sm:px-5">
         <h2 className="mb-3 text-sm font-semibold">{t.home.shopByType}</h2>
-        <ul className="grid grid-cols-3 gap-1 sm:grid-cols-5 lg:grid-cols-9">
-          {BODY_TYPES.map((bodyType: BodyType) => (
-            <li key={bodyType}>
-              <Link
-                href={`/vehicles?bodyType=${bodyType}`}
-                className="flex flex-col items-center gap-1 rounded-md px-1 py-2 text-center transition-colors hover:bg-secondary"
-              >
-                <BodyTypeIcon bodyType={bodyType} className="text-foreground/80" />
-                <span className="text-xs font-medium leading-tight">
-                  {formatEnum(bodyType)}
-                </span>
-              </Link>
-            </li>
-          ))}
+        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+          {BODY_TYPES.map((bodyType: BodyType) => {
+            const shortcut = byBodyType.get(bodyType);
+            return (
+              <li key={bodyType}>
+                <Link
+                  href={`/vehicles?bodyType=${bodyType}`}
+                  className="group flex flex-col items-center gap-1.5 rounded-md p-1 text-center transition-colors hover:bg-secondary"
+                >
+                  <span className="relative block aspect-[3/2] w-full overflow-hidden rounded bg-muted">
+                    {shortcut?.imageUrl ? (
+                      // Listing photos are served from the API origin and are
+                      // often SVG placeholders, neither of which next/image
+                      // optimisation helps with.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={shortcut.imageUrl}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                    ) : (
+                      // Nothing of this shape is listed with a photo yet.
+                      <span className="grid h-full w-full place-items-center text-muted-foreground">
+                        <BodyTypeIcon bodyType={bodyType} className="h-8 w-auto" />
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-xs font-medium leading-tight">
+                    {formatEnum(bodyType)}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

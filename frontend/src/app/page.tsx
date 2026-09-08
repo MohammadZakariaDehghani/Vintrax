@@ -5,7 +5,8 @@ import { serverFetch } from '@/lib/api-client';
 import { formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent } from '@/components/ui';
 import { VehicleRow } from '@/components/vehicle-row';
-import { HomeSearch } from '@/components/home-search';
+import { BrandLogo } from '@/components/brand-logo';
+import { HomeSearch, type BodyTypeShortcut } from '@/components/home-search';
 import { getServerDictionary } from '@/i18n/server';
 
 const QUICK_LINKS = [
@@ -26,10 +27,24 @@ export default async function HomePage() {
   // Rendered on the server so the first paint carries real inventory, which
   // matters for search engines on a marketplace.
   const t = await getServerDictionary();
+  // One wider page, two uses: the ten newest fill the list below, and the rest
+  // are scanned for a photographed example of each body type. A second round
+  // trip per body type would be nine more queries for nine thumbnails.
   const [featured, auctions] = await Promise.all([
-    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=10'),
+    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
   ]);
+
+  const recent = featured?.items.slice(0, 10) ?? [];
+  const bodyTypeShortcuts: BodyTypeShortcut[] = (featured?.facets.bodyTypes ?? []).map(
+    ({ value, count }) => ({
+      bodyType: value,
+      imageUrl:
+        featured?.items.find((vehicle) => vehicle.bodyType === value && vehicle.primaryImageUrl)
+          ?.primaryImageUrl ?? null,
+      count,
+    }),
+  );
 
   return (
     <>
@@ -48,7 +63,10 @@ export default async function HomePage() {
         </div>
 
         <div className="container -mt-24">
-          <HomeSearch makes={featured?.facets.makes.map((entry) => entry.value) ?? []} />
+          <HomeSearch
+            makes={featured?.facets.makes.map((entry) => entry.value) ?? []}
+            bodyTypes={bodyTypeShortcuts}
+          />
 
           <div className="mt-4 flex flex-wrap gap-2">
             {QUICK_LINKS.map((link) => (
@@ -64,22 +82,23 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* The pattern this follows puts manufacturer logos here. Those are
-          third-party trademarks, so this shows what Atlas actually has —
-          the makes in stock, with live counts, which is more use anyway. */}
+      {/* Makes in stock, each under its own mark. The count is the point of
+          difference from the site this follows: a marque here is a promise
+          that Atlas has that many of them right now, not a brand billboard. */}
       {featured && featured.facets.makes.length > 0 ? (
         <section className="container pt-10">
           <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.popularMakes}</h2>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
             {featured.facets.makes.slice(0, 12).map((entry) => (
               <li key={entry.value}>
                 <Link
                   href={`/vehicles?make=${encodeURIComponent(entry.value)}`}
-                  className="flex items-baseline gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold transition-colors hover:border-primary/40 hover:bg-secondary"
+                  className="flex h-full flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-5 text-center transition-colors hover:border-primary/40 hover:bg-secondary"
                 >
-                  {entry.value}
-                  <span className="tabular text-xs font-normal text-muted-foreground">
-                    {entry.count}
+                  <BrandLogo make={entry.value} className="text-foreground/85" />
+                  <span className="text-sm font-semibold leading-tight">{entry.value}</span>
+                  <span className="tabular text-xs text-muted-foreground">
+                    {entry.count} {entry.count === 1 ? t.home.makeOne : t.home.makeOther}
                   </span>
                 </Link>
               </li>
@@ -123,9 +142,9 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        {featured && featured.items.length > 0 ? (
+        {recent.length > 0 ? (
           <div className="overflow-hidden rounded-lg border border-border bg-card">
-            {featured.items.map((vehicle) => (
+            {recent.map((vehicle) => (
               <VehicleRow key={vehicle.id} vehicle={vehicle} />
             ))}
           </div>

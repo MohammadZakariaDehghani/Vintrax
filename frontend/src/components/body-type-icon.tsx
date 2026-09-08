@@ -4,13 +4,15 @@ import { cn } from '@/lib/utils';
 /**
  * Side profiles for the body-type shortcuts.
  *
- * Drawn rather than photographed. A rendered car is a licensing question and a
- * 40 KB image each; the thing that actually distinguishes an SUV from a wagon
- * from a hatchback at this size is the roofline and the overhangs, which a path
- * carries in a few hundred bytes and which stays sharp at any zoom.
+ * The shortcuts show a photograph of a vehicle Atlas actually has of that
+ * shape. These stand in for the shapes nothing is listed under yet, so a new
+ * deployment with an empty catalogue still gets a legible row instead of nine
+ * grey boxes.
  *
- * One viewBox and one wheelbase across all nine, so the shapes read as a set
- * and the difference the eye catches is the silhouette itself.
+ * What distinguishes an SUV from a wagon from a hatchback at thumbnail size is
+ * the roofline and the overhangs, which a path carries in a few hundred bytes
+ * and which stays sharp at any zoom. One viewBox and one wheelbase across all
+ * nine, so the shapes read as a set.
  */
 const BODIES: Record<BodyType, string> = {
   // Three boxes: bonnet, cabin, a boot deck below the roofline.
