@@ -54,7 +54,7 @@ function ListingStatusControl({
     PENDING_REVIEW: 'Waiting for an administrator to approve it.',
     ACTIVE: 'Live on the marketplace.',
     IN_AUCTION: 'In a live auction — its status is set by the auction.',
-    SOLD: 'Sold. Its status is set by the completed order.',
+    SOLD: 'Sold and off the market. Reopen it as a draft if the deal fell through.',
     ARCHIVED: 'Delisted. Restore it to draft to work on it again.',
   };
 

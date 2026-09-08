@@ -105,6 +105,12 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
                 <Link href={`/auctions/new?vehicleId=${vehicle.id}`}>
                   <Button variant="accent" size="sm">Run auction</Button>
                 </Link>
+                {/* Cars get sold off the platform. Marking it sold here takes
+                    it off the market without pretending the sale went through
+                    Atlas. */}
+                <Button variant="outline" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('SOLD')}>
+                  Mark as sold
+                </Button>
                 <Button variant="ghost" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
                   Unpublish
                 </Button>
@@ -114,6 +120,14 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
             {vehicle.status === 'ARCHIVED' ? (
               <Button variant="outline" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
                 Restore to draft
+              </Button>
+            ) : null}
+
+            {vehicle.status === 'SOLD' ? (
+              // Refused by the API when a real order exists, which is the
+              // case that must not be undone by relabelling.
+              <Button variant="ghost" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
+                Reopen as draft
               </Button>
             ) : null}
 

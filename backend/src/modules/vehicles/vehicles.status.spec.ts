@@ -92,7 +92,7 @@ describe('updating a listing', () => {
 
 describe('the seller status endpoint', () => {
   it('accepts only the statuses a seller owns', () => {
-    for (const status of ['DRAFT', 'PENDING_REVIEW', 'ARCHIVED'] as const) {
+    for (const status of ['DRAFT', 'PENDING_REVIEW', 'ARCHIVED', 'SOLD'] as const) {
       expect(updateListingStatusSchema.safeParse({ status }).success).toBe(true);
     }
   });
@@ -101,10 +101,8 @@ describe('the seller status endpoint', () => {
     expect(updateListingStatusSchema.safeParse({ status: 'ACTIVE' }).success).toBe(false);
   });
 
-  it('refuses statuses set by real events rather than by a request', () => {
-    for (const status of ['IN_AUCTION', 'SOLD'] as const) {
-      expect(updateListingStatusSchema.safeParse({ status }).success).toBe(false);
-    }
+  it('refuses IN_AUCTION, which describes a running auction', () => {
+    expect(updateListingStatusSchema.safeParse({ status: 'IN_AUCTION' }).success).toBe(false);
   });
 });
 
@@ -135,14 +133,32 @@ describe('the seller transition table', () => {
     expect(SELLER_STATUS_TRANSITIONS.ACTIVE).toContain('DRAFT');
   });
 
-  it('freezes a listing that is in auction or sold', () => {
+  it('freezes a listing that is in a running auction', () => {
+    // Bidders are committed to it; the seller cancels the auction instead.
     expect(SELLER_STATUS_TRANSITIONS.IN_AUCTION).toEqual([]);
-    expect(SELLER_STATUS_TRANSITIONS.SOLD).toEqual([]);
+  });
+
+  it('lets a seller mark a vehicle sold from every state that is on the market', () => {
+    // Cars get sold off the platform, and the listing has to be able to say so.
+    for (const status of ['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'ARCHIVED'] as const) {
+      expect(SELLER_STATUS_TRANSITIONS[status]).toContain('SOLD');
+    }
+  });
+
+  it('lets a sold listing reopen as a draft, and only as a draft', () => {
+    // The service refuses when a real order exists, so this is for a
+    // mistake or a deal that fell through — not for relisting a paid car.
+    expect(SELLER_STATUS_TRANSITIONS.SOLD).toEqual(['DRAFT']);
   });
 
   it('offers no transition that re-publishes without review', () => {
-    // Archived and pending listings must go back through DRAFT, which is the
-    // state moderation reads from.
-    expect(SELLER_STATUS_TRANSITIONS.ARCHIVED).toEqual(['DRAFT']);
+    // Everything returns through DRAFT, which is the state moderation reads
+    // from, so a reopened listing is reviewed again before it goes live.
+    for (const status of LISTING_STATUSES) {
+      for (const target of SELLER_STATUS_TRANSITIONS[status]) {
+        expect(target).not.toBe('ACTIVE');
+      }
+    }
+    expect(SELLER_STATUS_TRANSITIONS.ARCHIVED).toEqual(['DRAFT', 'SOLD']);
   });
 });
