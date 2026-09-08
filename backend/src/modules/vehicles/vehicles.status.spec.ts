@@ -118,6 +118,11 @@ describe('the seller transition table', () => {
     expect(SELLER_STATUS_TRANSITIONS.ACTIVE).toContain('ARCHIVED');
   });
 
+  it('lets a seller unpublish to edit, in one step rather than two', () => {
+    // Costing them the approval is the point; making it awkward is not.
+    expect(SELLER_STATUS_TRANSITIONS.ACTIVE).toContain('DRAFT');
+  });
+
   it('freezes a listing that is in auction or sold', () => {
     expect(SELLER_STATUS_TRANSITIONS.IN_AUCTION).toEqual([]);
     expect(SELLER_STATUS_TRANSITIONS.SOLD).toEqual([]);

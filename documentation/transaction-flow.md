@@ -435,7 +435,9 @@ cannot set `status` at all — the update schema omits the field, and the handle
 spreads validated input straight into the write, so anything the schema accepts
 is something the caller can set. `PATCH /vehicles/:id/status` accepts only the
 three statuses above, and checks the transition against the listing's current
-state: an archived listing returns to `DRAFT`, never straight back to review.
+state. A published listing can be unpublished to `DRAFT` in one step — that
+costs the seller their approval, which is the point — but an archived listing
+returns to `DRAFT` rather than straight back to review.
 
 `IN_AUCTION` and `SOLD` are absent from both, because they describe things that
 happened rather than choices a seller makes; the auction and settlement flows
