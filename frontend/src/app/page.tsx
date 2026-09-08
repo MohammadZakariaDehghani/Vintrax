@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, Gavel, ShieldCheck, Truck } from 'lucide-react';
 import type { AuctionSummary, Paginated, VehicleSearchResponse } from '@atlas/shared';
 import { serverFetch } from '@/lib/api-client';
-import { formatEnum, formatPrice } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent } from '@/components/ui';
 import { VehicleRow } from '@/components/vehicle-row';
 import { HomeSearch } from '@/components/home-search';
@@ -33,16 +33,21 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* A hero is a toll booth between a visitor and the inventory. This one
-          is sized to clear the fold on a laptop with listings already
-          visible, and the search below it is the point of the section. */}
-      <section className="border-b-4 border-accent bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)]">
-        <div className="container py-8 md:py-12">
-          <h1 className="text-2xl font-bold tracking-tight text-primary-foreground md:text-3xl">
-            {t.home.heroTitle}
-          </h1>
-          <p className="mt-1.5 text-primary-foreground/80">{t.home.heroBody}</p>
+      {/* The band is a backdrop, not a destination. The search card overlaps
+          its lower edge so the first thing on the page is a control rather
+          than a picture, and the band's height is set by the copy above it
+          instead of by an arbitrary hero size. */}
+      <section className="relative">
+        <div className="bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)] pb-28">
+          <div className="container pt-10 md:pt-12">
+            <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-primary-foreground md:text-4xl">
+              {t.home.heroTitle}
+            </h1>
+            <p className="mt-2 max-w-xl text-primary-foreground/80">{t.home.heroBody}</p>
+          </div>
+        </div>
 
+        <div className="container -mt-24">
           <HomeSearch makes={featured?.facets.makes.map((entry) => entry.value) ?? []} />
 
           <div className="mt-4 flex flex-wrap gap-2">
@@ -50,7 +55,7 @@ export default async function HomePage() {
               <Link
                 key={link.key}
                 href={`/vehicles?${link.query}`}
-                className="rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-white/25"
+                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-secondary"
               >
                 {t.home[link.key]}
               </Link>
@@ -59,26 +64,27 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Body type is the first cut most buyers make, and the facet counts
-          turn it from decoration into a real signal of what is in stock. */}
-      {featured && featured.facets.bodyTypes.length > 0 ? (
-        <section className="border-b border-border bg-card">
-          <div className="container py-5">
-            <h2 className="sr-only">{t.home.shopByType}</h2>
-            <ul className="flex flex-wrap gap-2">
-              {featured.facets.bodyTypes.map((entry) => (
-                <li key={entry.value}>
-                  <Link
-                    href={`/vehicles?bodyType=${entry.value}`}
-                    className="flex items-baseline gap-2 rounded-md border border-border px-3.5 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-secondary"
-                  >
-                    {formatEnum(entry.value)}
-                    <span className="tabular text-xs text-muted-foreground">{entry.count}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+      {/* The pattern this follows puts manufacturer logos here. Those are
+          third-party trademarks, so this shows what Atlas actually has —
+          the makes in stock, with live counts, which is more use anyway. */}
+      {featured && featured.facets.makes.length > 0 ? (
+        <section className="container pt-10">
+          <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.popularMakes}</h2>
+          <ul className="flex flex-wrap gap-2">
+            {featured.facets.makes.slice(0, 12).map((entry) => (
+              <li key={entry.value}>
+                <Link
+                  href={`/vehicles?make=${encodeURIComponent(entry.value)}`}
+                  className="flex items-baseline gap-2 rounded-md border border-border bg-card px-4 py-2.5 text-sm font-semibold transition-colors hover:border-primary/40 hover:bg-secondary"
+                >
+                  {entry.value}
+                  <span className="tabular text-xs font-normal text-muted-foreground">
+                    {entry.count}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
