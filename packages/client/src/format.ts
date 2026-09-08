@@ -82,3 +82,43 @@ export function formatCountdown(totalSeconds: number): string {
 /** True when an auction is close enough that the UI should convey urgency. */
 export const isClosingSoon = (secondsRemaining: number): boolean =>
   secondsRemaining > 0 && secondsRemaining <= 15 * 60;
+
+/**
+ * Assumptions behind the payment estimate shown on a listing.
+ *
+ * Every marketplace frames price as a monthly figure, because that is how
+ * people actually decide. It is only honest if the assumptions travel with the
+ * number, so they live here rather than being buried in a component, and the
+ * UI is expected to print them next to the figure.
+ */
+export const PAYMENT_ESTIMATE = {
+  /** Representative advertised rate for used-vehicle financing in Canada. */
+  aprPercent: 7.99,
+  termMonths: 72,
+  downPaymentCad: 0,
+} as const;
+
+/**
+ * Monthly payment for a price, on the assumptions above.
+ *
+ * The standard amortisation formula. This is an illustration, not an offer —
+ * it ignores taxes, fees and the buyer's credit, and the interface has to say
+ * so wherever the number appears.
+ */
+export function estimateMonthlyPayment(
+  priceCad: number,
+  options: { aprPercent?: number; termMonths?: number; downPaymentCad?: number } = {},
+): number {
+  const apr = options.aprPercent ?? PAYMENT_ESTIMATE.aprPercent;
+  const months = options.termMonths ?? PAYMENT_ESTIMATE.termMonths;
+  const principal = Math.max(0, priceCad - (options.downPaymentCad ?? PAYMENT_ESTIMATE.downPaymentCad));
+
+  if (principal <= 0 || months <= 0) return 0;
+
+  const monthlyRate = apr / 100 / 12;
+  // A zero rate is simple division; the formula below divides by zero there.
+  if (monthlyRate === 0) return Math.ceil(principal / months);
+
+  const growth = (1 + monthlyRate) ** months;
+  return Math.ceil((principal * monthlyRate * growth) / (growth - 1));
+}

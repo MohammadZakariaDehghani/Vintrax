@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { SlidersHorizontal } from 'lucide-react';
+import { LayoutGrid, Rows3, SlidersHorizontal } from 'lucide-react';
 import {
   LISTING_SORTS,
   type ListingSort,
@@ -21,9 +21,11 @@ import {
 import { Button, EmptyState, ErrorAlert, Input, Pagination, Select } from '@/components/ui';
 import { useT } from '@/i18n/provider';
 import { VehicleCard, VehicleCardSkeleton } from '@/components/vehicle-card';
+import { VehicleRow, VehicleRowSkeleton } from '@/components/vehicle-row';
 import { VehicleFilterPanel } from '@/components/vehicle-filter-panel';
 
 const PAGE_SIZE = 24;
+const VIEW_KEY = 'atlas.resultView';
 
 const SORT_LABELS: Record<ListingSort, string> = {
   RELEVANCE: 'Most relevant',
@@ -49,6 +51,28 @@ function BrowseContent() {
   // On phones the sidebar would push every result below ~30 checkboxes, so it
   // collapses behind a toggle and results lead the page.
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  /**
+   * List by default: it fits twice as many vehicles on a screen and aligns
+   * every field into a column the eye can scan. Grid is kept for people
+   * shopping on looks, and the choice is remembered per browser.
+   */
+  const [view, setView] = useState<'list' | 'grid'>('list');
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(VIEW_KEY);
+      if (stored === 'list' || stored === 'grid') setView(stored);
+    } catch {
+      // Private browsing and blocked site data both throw; the default stands.
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(VIEW_KEY, view);
+    } catch {
+      // Not worth surfacing — the layout still works, it just is not remembered.
+    }
+  }, [view]);
 
   const applyFilters = (next: VehicleFilters) => {
     router.push(`/vehicles?${filtersToParams(next).toString()}`, { scroll: false });
@@ -140,6 +164,32 @@ function BrowseContent() {
             </p>
 
             <div className="flex items-center gap-2">
+              <div
+                className="flex rounded-md border border-border p-0.5"
+                role="group"
+                aria-label="Result layout"
+              >
+                {([
+                  ['list', 'List', Rows3],
+                  ['grid', 'Grid', LayoutGrid],
+                ] as const).map(([value, label, Icon]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={view === value}
+                    aria-label={label}
+                    onClick={() => setView(value)}
+                    className={`grid h-8 w-8 place-items-center rounded transition-colors ${
+                      view === value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </button>
+                ))}
+              </div>
+
               <label htmlFor="sort-select" className="text-sm text-muted-foreground">
                 Sort
               </label>
@@ -163,20 +213,35 @@ function BrowseContent() {
           <ErrorAlert error={error} className="mb-5" />
 
           {isPending ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 6 }, (_, index) => (
-                <VehicleCardSkeleton key={index} />
-              ))}
-            </div>
+            view === 'list' ? (
+              <div className="overflow-hidden rounded-lg border border-border bg-card">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <VehicleRowSkeleton key={index} />
+                ))}
+              </div>
+            ) : (
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 6 }, (_, index) => (
+                  <VehicleCardSkeleton key={index} />
+                ))}
+              </div>
+            )
           ) : data && data.items.length > 0 ? (
             <>
-              <div
-                className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
-                style={{ opacity: isFetching ? 0.6 : 1 }}
-              >
-                {data.items.map((vehicle) => (
-                  <VehicleCard key={vehicle.id} vehicle={vehicle} />
-                ))}
+              <div style={{ opacity: isFetching ? 0.6 : 1 }}>
+                {view === 'list' ? (
+                  <div className="overflow-hidden rounded-lg border border-border bg-card">
+                    {data.items.map((vehicle) => (
+                      <VehicleRow key={vehicle.id} vehicle={vehicle} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    {data.items.map((vehicle) => (
+                      <VehicleCard key={vehicle.id} vehicle={vehicle} />
+                    ))}
+                  </div>
+                )}
               </div>
               <Pagination
                 page={data.page}

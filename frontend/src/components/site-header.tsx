@@ -129,7 +129,12 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center gap-4">
         <Link href="/" aria-label="Atlas">
-          <Logo descriptor={t.brand.descriptor} />
+          {/* The descriptor wraps to two lines below 640px and eats the width
+              the auth controls need, which pushed the header 36px past the
+              viewport on every page. The mark and name carry the brand alone
+              at that size. */}
+          <Logo descriptor={t.brand.descriptor} className="hidden sm:flex" />
+          <Logo className="sm:hidden" />
         </Link>
 
         <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
@@ -178,12 +183,14 @@ export function SiteHeader() {
             <>
               <Link
                 href="/login"
-                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
+                className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary sm:inline-block"
               >
                 {t.auth.signIn}
               </Link>
-              <Link href="/register">
-                <Button size="sm">{t.auth.createAccount}</Button>
+              <Link href="/register" className="hidden sm:inline-block">
+                <Button size="sm" className="whitespace-nowrap">
+                  {t.auth.createAccount}
+                </Button>
               </Link>
             </>
           )}
@@ -251,6 +258,19 @@ export function SiteHeader() {
                   </Link>
                 </li>
               </>
+            ) : null}
+
+            {!user ? (
+              <li className="mt-2 flex gap-2 border-t border-border pt-3">
+                <Link href="/login" onClick={() => setMobileOpen(false)} className="flex-1">
+                  <Button variant="outline" className="w-full">
+                    {t.auth.signIn}
+                  </Button>
+                </Link>
+                <Link href="/register" onClick={() => setMobileOpen(false)} className="flex-1">
+                  <Button className="w-full">{t.auth.createAccount}</Button>
+                </Link>
+              </li>
             ) : null}
           </ul>
         </nav>

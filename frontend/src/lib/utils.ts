@@ -4,7 +4,9 @@
  * here because every component in this app imports it from `@/lib/utils`.
  */
 export {
+  PAYMENT_ESTIMATE,
   cn,
+  estimateMonthlyPayment,
   formatCompact,
   formatCountdown,
   formatDate,
