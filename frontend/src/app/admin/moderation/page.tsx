@@ -19,6 +19,7 @@ import {
   Textarea,
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { AdminNav } from '@/components/admin-nav';
 
 /**
  * The moderation queue.
@@ -70,11 +71,7 @@ function ModerationQueue() {
 
   return (
     <div className="container py-8">
-      <nav className="mb-4 text-sm" aria-label="Breadcrumb">
-        <Link href="/admin/dashboard" className="text-muted-foreground hover:text-foreground">
-          ← Platform overview
-        </Link>
-      </nav>
+      <AdminNav />
 
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Moderation</h1>

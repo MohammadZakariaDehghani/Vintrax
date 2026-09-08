@@ -41,13 +41,23 @@ points at a route that does not exist. Six did, once.
 
 ### Administration
 
-`/admin/dashboard` — platform metrics, charts and the audit trail ·
-`/admin/moderation` — the review queue, where a listing is approved and
-published or sent back to its seller with a reason.
+| Route | Purpose |
+| --- | --- |
+| `/admin/dashboard` | Platform metrics, charts and the audit trail |
+| `/admin/moderation` | The review queue — approve and publish, or send back with a reason |
+| `/admin/dealers` | Dealer verification — grant or withdraw the verified badge |
+| `/admin/users` | Search accounts, suspend, reinstate, deactivate |
+| `/admin/revenue` | GMV, platform revenue, effective take rate, sales over time |
+
+Every tile on the overview links to one of these, or to the marketplace and
+auction pages the number describes. A count an administrator is meant to act on
+is a dead end without a destination, and the two that had none — pending
+dealers and listings awaiting review — were exactly the two that needed acting
+on. `AdminNav` sits on all five screens so moving between them does not route
+through the overview.
 
 Approving is the only way a listing reaches `ACTIVE`; a seller cannot publish
-their own. The "Awaiting review" tile on the dashboard links to the queue,
-because a count of things waiting for you is a dead end without one.
+their own.
 
 ## Two kinds of state
 

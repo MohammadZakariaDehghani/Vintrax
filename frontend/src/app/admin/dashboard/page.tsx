@@ -9,6 +9,7 @@ import { formatPrice, formatRelativeTime } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, EmptyState, ErrorAlert, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { StatTile } from '@/components/stat-tile';
+import { AdminNav } from '@/components/admin-nav';
 
 const TOOLTIP_STYLE = {
   background: 'hsl(var(--popover))',
@@ -32,6 +33,8 @@ function AdminDashboard() {
 
   return (
     <div className="container py-8">
+      <AdminNav />
+
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Platform overview</h1>
         <p className="mt-1 text-muted-foreground">Marketplace health over the last 30 days.</p>
@@ -39,13 +42,17 @@ function AdminDashboard() {
 
       <ErrorAlert error={error} className="mb-5" />
 
+      {/* Every tile goes somewhere. A number an administrator is meant to act
+          on is a dead end without a destination, and the two that had none —
+          pending dealers and listings awaiting review — were exactly the two
+          that needed acting on. */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatTile label="Total users" value={data?.totalUsers ?? 0} hint={`+${data?.newUsersThisMonth ?? 0} this month`} icon={Users} />
-        <StatTile label="Active listings" value={data?.activeListings ?? 0} icon={Car} />
-        <StatTile label="Live auctions" value={data?.liveAuctions ?? 0} icon={Gavel} />
-        <StatTile label="Pending dealers" value={data?.pendingDealers ?? 0} hint="Awaiting verification" icon={Building2} />
+        <StatTile label="Total users" value={data?.totalUsers ?? 0} hint={`+${data?.newUsersThisMonth ?? 0} this month`} icon={Users} href="/admin/users" />
+        <StatTile label="Active listings" value={data?.activeListings ?? 0} hint="Browse the marketplace" icon={Car} href="/vehicles" />
+        <StatTile label="Live auctions" value={data?.liveAuctions ?? 0} hint="Watch the floor" icon={Gavel} href="/auctions" />
+        <StatTile label="Pending dealers" value={data?.pendingDealers ?? 0} hint="Awaiting verification" icon={Building2} href="/admin/dealers" />
         <StatTile label="Awaiting review" value={data?.listingsPendingReview ?? 0} hint="Listings to moderate" icon={ShieldAlert} href="/admin/moderation" />
-        <StatTile label="Platform revenue" value={formatPrice(data?.platformRevenueCad ?? 0)} hint={`GMV ${formatPrice(data?.grossMerchandiseValueCad ?? 0)}`} icon={DollarSign} />
+        <StatTile label="Platform revenue" value={formatPrice(data?.platformRevenueCad ?? 0)} hint={`GMV ${formatPrice(data?.grossMerchandiseValueCad ?? 0)}`} icon={DollarSign} href="/admin/revenue" />
       </div>
 
       <div className="mb-8 grid gap-6 lg:grid-cols-2">
