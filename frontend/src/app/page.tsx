@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { ArrowRight, Gavel, ShieldCheck, Truck } from 'lucide-react';
 import type { AuctionSummary, Paginated, VehicleSearchResponse } from '@atlas/shared';
 import { serverFetch } from '@/lib/api-client';
-import { formatPrice } from '@/lib/utils';
+import { formatEnum, formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent } from '@/components/ui';
-import { VehicleCard } from '@/components/vehicle-card';
+import { VehicleRow } from '@/components/vehicle-row';
 import { HomeSearch } from '@/components/home-search';
 import { getServerDictionary } from '@/i18n/server';
 
@@ -27,38 +27,60 @@ export default async function HomePage() {
   // matters for search engines on a marketplace.
   const t = await getServerDictionary();
   const [featured, auctions] = await Promise.all([
-    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=8'),
+    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=10'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
   ]);
 
   return (
     <>
+      {/* A hero is a toll booth between a visitor and the inventory. This one
+          is sized to clear the fold on a laptop with listings already
+          visible, and the search below it is the point of the section. */}
       <section className="border-b-4 border-accent bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)]">
-        <div className="container py-16 md:py-24">
-          <div className="max-w-2xl">
-            <h1 className="text-4xl font-bold tracking-tight text-primary-foreground md:text-5xl">
-              {t.home.heroTitle}
-            </h1>
-            <p className="mt-4 text-lg text-primary-foreground/85">
-              {t.home.heroBody}
-            </p>
+        <div className="container py-8 md:py-12">
+          <h1 className="text-2xl font-bold tracking-tight text-primary-foreground md:text-3xl">
+            {t.home.heroTitle}
+          </h1>
+          <p className="mt-1.5 text-primary-foreground/80">{t.home.heroBody}</p>
 
-            <HomeSearch />
+          <HomeSearch makes={featured?.facets.makes.map((entry) => entry.value) ?? []} />
 
-            <div className="mt-6 flex flex-wrap gap-2">
-              {QUICK_LINKS.map((link) => (
-                <Link
-                  key={link.key}
-                  href={`/vehicles?${link.query}`}
-                  className="rounded-full bg-white/15 px-4 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-white/25"
-                >
-                  {t.home[link.key]}
-                </Link>
-              ))}
-            </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {QUICK_LINKS.map((link) => (
+              <Link
+                key={link.key}
+                href={`/vehicles?${link.query}`}
+                className="rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-white/25"
+              >
+                {t.home[link.key]}
+              </Link>
+            ))}
           </div>
         </div>
       </section>
+
+      {/* Body type is the first cut most buyers make, and the facet counts
+          turn it from decoration into a real signal of what is in stock. */}
+      {featured && featured.facets.bodyTypes.length > 0 ? (
+        <section className="border-b border-border bg-card">
+          <div className="container py-5">
+            <h2 className="sr-only">{t.home.shopByType}</h2>
+            <ul className="flex flex-wrap gap-2">
+              {featured.facets.bodyTypes.map((entry) => (
+                <li key={entry.value}>
+                  <Link
+                    href={`/vehicles?bodyType=${entry.value}`}
+                    className="flex items-baseline gap-2 rounded-md border border-border px-3.5 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-secondary"
+                  >
+                    {formatEnum(entry.value)}
+                    <span className="tabular text-xs text-muted-foreground">{entry.count}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
 
       {auctions && auctions.items.length > 0 ? (
         <section className="container py-12">
@@ -72,10 +94,10 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             {auctions.items.map((auction) =>
               auction.vehicle ? (
-                <VehicleCard key={auction.id} vehicle={auction.vehicle} />
+                <VehicleRow key={auction.id} vehicle={auction.vehicle} />
               ) : null,
             )}
           </div>
@@ -96,9 +118,9 @@ export default async function HomePage() {
         </div>
 
         {featured && featured.items.length > 0 ? (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             {featured.items.map((vehicle) => (
-              <VehicleCard key={vehicle.id} vehicle={vehicle} />
+              <VehicleRow key={vehicle.id} vehicle={vehicle} />
             ))}
           </div>
         ) : (

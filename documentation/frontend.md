@@ -15,7 +15,7 @@ administrators.
 | Route | Rendering | Purpose |
 | --- | --- | --- |
 | `/` | Server | Hero search, closing-soon auctions, recent inventory |
-| `/vehicles` | Client | Search with filters, facets, sorting, pagination |
+| `/vehicles` | Client | Search: filter rail, dense result rows, sort, list/grid toggle |
 | `/vehicles/[slug]` | Server | Vehicle detail, gallery, inspection report, contact |
 | `/auctions` | Client | Auction browse with live countdowns |
 | `/auctions/[id]` | Client | Live auction room with real-time bidding |
