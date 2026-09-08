@@ -44,7 +44,7 @@ function AdminDashboard() {
         <StatTile label="Active listings" value={data?.activeListings ?? 0} icon={Car} />
         <StatTile label="Live auctions" value={data?.liveAuctions ?? 0} icon={Gavel} />
         <StatTile label="Pending dealers" value={data?.pendingDealers ?? 0} hint="Awaiting verification" icon={Building2} />
-        <StatTile label="Awaiting review" value={data?.listingsPendingReview ?? 0} hint="Listings to moderate" icon={ShieldAlert} />
+        <StatTile label="Awaiting review" value={data?.listingsPendingReview ?? 0} hint="Listings to moderate" icon={ShieldAlert} href="/admin/moderation" />
         <StatTile label="Platform revenue" value={formatPrice(data?.platformRevenueCad ?? 0)} hint={`GMV ${formatPrice(data?.grossMerchandiseValueCad ?? 0)}`} icon={DollarSign} />
       </div>
 

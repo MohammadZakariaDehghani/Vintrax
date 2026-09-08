@@ -41,7 +41,13 @@ points at a route that does not exist. Six did, once.
 
 ### Administration
 
-`/admin/dashboard` — platform metrics, charts and the audit trail.
+`/admin/dashboard` — platform metrics, charts and the audit trail ·
+`/admin/moderation` — the review queue, where a listing is approved and
+published or sent back to its seller with a reason.
+
+Approving is the only way a listing reaches `ACTIVE`; a seller cannot publish
+their own. The "Awaiting review" tile on the dashboard links to the queue,
+because a count of things waiting for you is a dead end without one.
 
 ## Two kinds of state
 
