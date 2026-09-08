@@ -138,6 +138,7 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 | Command | |
 | --- | --- |
 | `./scripts/setup-ubuntu.sh` | Install everything and run (Ubuntu) |
+| `./scripts/update-ubuntu.sh` | Pull, build and restart a running server |
 | `pnpm dev` | Run the API and web app |
 | `pnpm dev:mobile` | Run the API and Atlas Mobile |
 | `pnpm dev:all` | Run all three |
