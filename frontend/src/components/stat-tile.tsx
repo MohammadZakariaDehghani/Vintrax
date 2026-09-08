@@ -1,19 +1,27 @@
+import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui';
 
+/**
+ * A metric. Give it an `href` when the number is something to act on rather
+ * than only to read — a count of things waiting for you is a dead end without
+ * one.
+ */
 export function StatTile({
   label,
   value,
   hint,
   icon: Icon,
+  href,
 }: {
   label: string;
   value: string | number;
   hint?: string;
   icon?: LucideIcon;
+  href?: string;
 }) {
-  return (
-    <Card>
+  const tile = (
+    <Card className={href ? 'h-full transition-colors hover:border-primary/40' : undefined}>
       <CardContent className="pt-5">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -31,5 +39,16 @@ export function StatTile({
         </div>
       </CardContent>
     </Card>
+  );
+
+  if (!href) return tile;
+
+  return (
+    <Link
+      href={href}
+      className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {tile}
+    </Link>
   );
 }

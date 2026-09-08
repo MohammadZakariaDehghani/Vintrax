@@ -249,9 +249,11 @@ export class VehiclesService {
    * Moves a listing between the statuses its seller owns.
    *
    * Publication is not among them. `SELLER_STATUS_TRANSITIONS` is the whole
-   * rule: a seller can submit for review, withdraw, archive and re-draft, and
-   * an administrator reaches `ACTIVE` through moderation. Admins are exempt so
-   * support can correct a stuck listing.
+   * rule: a seller can submit for review, withdraw, archive, re-draft and mark
+   * a vehicle sold, and an administrator reaches `ACTIVE` through moderation.
+   * Admins are exempt from the table so support can correct a stuck listing —
+   * but not from the auction and order guards below, which protect other
+   * people's money rather than the workflow.
    */
   async setStatus(
     id: string,
@@ -272,6 +274,35 @@ export class VehiclesService {
       }
     }
 
+    if (next === 'SOLD') {
+      // Marking a vehicle sold while people are bidding on it would end the
+      // auction by relabelling its subject. Cancel the auction instead.
+      const auction = await this.prisma.auction.findFirst({
+        where: { vehicleId: id, status: { in: ['SCHEDULED', 'LIVE'] } },
+        select: { id: true },
+      });
+      if (auction) {
+        throw new BadRequestException(
+          'This vehicle is in an auction. Cancel the auction before marking it sold.',
+        );
+      }
+    }
+
+    if (existing.status === 'SOLD' && next !== 'SOLD') {
+      // "Sold" set by a real order is not a label to peel off — a buyer may
+      // already have paid. Cancelling the order is what returns the vehicle
+      // to the marketplace, and that path already does it.
+      const order = await this.prisma.transactionRecord.findFirst({
+        where: { vehicleId: id, status: { not: 'CANCELLED' } },
+        select: { id: true, reference: true },
+      });
+      if (order) {
+        throw new BadRequestException(
+          `This vehicle was sold through order ${order.reference}. Cancel that order to put it back on the market.`,
+        );
+      }
+    }
+
     await this.prisma.vehicle.update({
       where: { id },
       data: {
@@ -279,6 +310,10 @@ export class VehiclesService {
         // Returning to draft un-publishes, so "newest" keeps reflecting real
         // publication rather than the first time the listing was written.
         ...(next === 'DRAFT' ? { publishedAt: null } : {}),
+        // Time-to-sale reporting reads soldAt, so it has to follow the status
+        // in both directions or a reopened listing skews the average.
+        ...(next === 'SOLD' ? { soldAt: new Date() } : {}),
+        ...(existing.status === 'SOLD' && next !== 'SOLD' ? { soldAt: null } : {}),
       },
     });
 

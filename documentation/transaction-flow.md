@@ -394,9 +394,13 @@ stateDiagram-v2
     IN_AUCTION --> ACTIVE: "auction ends unsold"
     ACTIVE --> SOLD: "order created"
     IN_AUCTION --> SOLD: "winner orders"
+    ACTIVE --> SOLD: "seller sold it off the platform"
     SOLD --> ACTIVE: "order cancelled"
+    SOLD --> DRAFT: "seller reopens — refused if an order exists"
     ACTIVE --> ARCHIVED: "seller withdraws"
+    ACTIVE --> DRAFT: "seller unpublishes to edit"
     DRAFT --> ARCHIVED: "seller deletes"
+    ARCHIVED --> DRAFT: "seller restores"
     ARCHIVED --> [*]
 ```
 
@@ -434,14 +438,23 @@ Publication is a decision, so it has exactly one door. `PATCH /vehicles/:id`
 cannot set `status` at all — the update schema omits the field, and the handler
 spreads validated input straight into the write, so anything the schema accepts
 is something the caller can set. `PATCH /vehicles/:id/status` accepts only the
-three statuses above, and checks the transition against the listing's current
-state. A published listing can be unpublished to `DRAFT` in one step — that
-costs the seller their approval, which is the point — but an archived listing
-returns to `DRAFT` rather than straight back to review.
+statuses above, and checks the transition against the listing's current state.
+A published listing can be unpublished to `DRAFT` in one step — that costs the
+seller their approval, which is the point — but an archived listing returns to
+`DRAFT` rather than straight back to review.
 
-`IN_AUCTION` and `SOLD` are absent from both, because they describe things that
-happened rather than choices a seller makes; the auction and settlement flows
-set them.
+A seller may also mark a vehicle `SOLD` from any state that is on the market.
+Cars are sold on the forecourt and in driveways, and a listing that cannot say
+so is a listing people stop trusting; marking it sold is also better than
+archiving it, because the vehicle stays visible with its outcome and
+time-to-sale reporting keeps working. It is not a moderation bypass — it takes
+a listing off sale rather than putting one up. Two guards apply to everyone,
+administrators included: a vehicle in a scheduled or live auction cannot be
+marked sold, and a vehicle sold through a real order cannot be reopened by
+relabelling it — cancelling the order is what returns it to the marketplace.
+
+`IN_AUCTION` is absent from both, because it describes a running auction rather
+than a choice a seller makes; the auction flow sets and clears it.
 
 ## 5. Fixed-price purchase
 

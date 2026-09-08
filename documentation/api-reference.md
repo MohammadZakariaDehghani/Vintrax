@@ -77,20 +77,37 @@ Suspending an account also revokes its live sessions.
 ### Listing status
 
 `PATCH /vehicles/:id` does not accept `status` — publishing is a moderation
-decision, so a seller cannot reach `ACTIVE` by writing the field. Sellers move
-listings with `PATCH /vehicles/:id/status`, which accepts only `DRAFT`,
-`PENDING_REVIEW` and `ARCHIVED` and validates the transition:
+decision, so a seller cannot reach `ACTIVE` by writing the field. The update
+schema is **strict**, so sending it is a 400 naming the right endpoint rather
+than a silent no-op; an edit form that keeps sending the field would otherwise
+report a successful save that changed nothing. Sellers move listings with
+`PATCH /vehicles/:id/status`, which accepts `DRAFT`, `PENDING_REVIEW`,
+`ARCHIVED` and `SOLD`, and validates the transition:
 
 | From | A seller may move it to |
 | --- | --- |
-| `DRAFT` | `PENDING_REVIEW`, `ARCHIVED` |
-| `PENDING_REVIEW` | `DRAFT` |
-| `ACTIVE` | `DRAFT`, `ARCHIVED` |
-| `ARCHIVED` | `DRAFT` |
-| `IN_AUCTION`, `SOLD` | nothing — the auction and settlement flows own these |
+| `DRAFT` | `PENDING_REVIEW`, `ARCHIVED`, `SOLD` |
+| `PENDING_REVIEW` | `DRAFT`, `SOLD` |
+| `ACTIVE` | `DRAFT`, `ARCHIVED`, `SOLD` |
+| `ARCHIVED` | `DRAFT`, `SOLD` |
+| `SOLD` | `DRAFT` |
+| `IN_AUCTION` | nothing — cancel the auction first |
 
 `ACTIVE` is reached only through `PATCH /vehicles/:id/moderate`. Admins are
-exempt from the transition table so support can correct a stuck listing.
+exempt from the transition table so support can correct a stuck listing, but
+not from the two guards below, which protect other people's money rather than
+the workflow:
+
+- **Marking a vehicle sold is refused while it has a scheduled or live
+  auction.** Relabelling the subject of an auction would end it out from under
+  the bidders.
+- **Reopening a sold vehicle is refused when a non-cancelled order exists for
+  it**, and the error names the order. A buyer may already have paid;
+  cancelling the order is what returns the vehicle to the marketplace, and that
+  path already does so.
+
+`soldAt` follows the status in both directions, so time-to-sale reporting is
+not skewed by a listing that was reopened.
 
 ### Documents
 

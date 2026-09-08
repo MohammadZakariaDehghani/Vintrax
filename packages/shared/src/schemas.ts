@@ -203,17 +203,25 @@ export const createVehicleSchema = z.object({
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 
 /**
- * `status` is deliberately omitted rather than merely ignored.
+ * `status` is deliberately omitted, and the schema is strict so that sending it
+ * anyway is an error rather than a no-op.
  *
  * The update handler spreads validated fields into the database write, so any
  * key this schema accepts is a key the caller can set. Leaving `status` in
  * would let a seller move their own listing to `ACTIVE` and skip moderation
  * entirely. Status changes go through `PATCH /vehicles/:id/status`, which
  * enforces the transition table, or through admin moderation.
+ *
+ * Strict, not merely stripping: an edit form that keeps sending `status` gets a
+ * save that reports success and changes nothing, which is worse than a refusal
+ * and is exactly how this went unnoticed once already.
  */
 export const updateVehicleSchema = createVehicleSchema
   .omit({ status: true })
   .partial()
+  .strict(
+    'Unexpected field. Listing status is changed through PATCH /vehicles/:id/status, not here.',
+  )
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Provide at least one field to update',
   });

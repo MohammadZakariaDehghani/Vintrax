@@ -130,13 +130,20 @@ export type ListingStatus = (typeof LISTING_STATUSES)[number];
  *
  * `ACTIVE` is deliberately absent: publishing is a moderation decision, so it
  * is reached through the admin moderation endpoint and never by a seller
- * writing the field. `IN_AUCTION` and `SOLD` are owned by the auction and
- * settlement flows, which set them as a side effect of real events.
+ * writing the field. `IN_AUCTION` is absent because it describes a running
+ * auction rather than a choice.
+ *
+ * `SOLD` is here because cars are sold off the platform. A dealer who sells
+ * one on the forecourt needs to take it off the market, and marking it sold is
+ * more honest than archiving it — the vehicle stays visible with its outcome,
+ * and time-to-sale reporting keeps working. Nothing about it is a moderation
+ * bypass: it removes a listing from sale rather than putting one up.
  */
 export const SELLER_SETTABLE_LISTING_STATUSES = [
   'DRAFT',
   'PENDING_REVIEW',
   'ARCHIVED',
+  'SOLD',
 ] as const;
 export type SellerSettableListingStatus = (typeof SELLER_SETTABLE_LISTING_STATUSES)[number];
 
@@ -151,16 +158,21 @@ export const SELLER_STATUS_TRANSITIONS: Record<
   ListingStatus,
   readonly SellerSettableListingStatus[]
 > = {
-  DRAFT: ['PENDING_REVIEW', 'ARCHIVED'],
-  PENDING_REVIEW: ['DRAFT'],
+  DRAFT: ['PENDING_REVIEW', 'ARCHIVED', 'SOLD'],
+  PENDING_REVIEW: ['DRAFT', 'SOLD'],
   // Unpublishing to edit is one step, not two. Returning to DRAFT costs the
   // seller their approval — re-publishing means going through review again —
   // which is the whole point, so there is no reason to make it awkward.
-  ACTIVE: ['DRAFT', 'ARCHIVED'],
-  ARCHIVED: ['DRAFT'],
-  // A live auction and a completed sale are not the seller's to undo.
+  ACTIVE: ['DRAFT', 'ARCHIVED', 'SOLD'],
+  ARCHIVED: ['DRAFT', 'SOLD'],
+  // A running auction is not the seller's to end by relabelling the vehicle —
+  // bidders are committed to it. Cancel the auction first.
   IN_AUCTION: [],
-  SOLD: [],
+  // Reopening a sold listing is allowed, because "sold" is sometimes a
+  // mistake or a deal that fell through. The service refuses when a real
+  // order exists for the vehicle, so a car someone has paid for cannot be
+  // put back on the market.
+  SOLD: ['DRAFT'],
 };
 
 /** How a vehicle is being sold. Fixed price, auction, or accepting offers. */
