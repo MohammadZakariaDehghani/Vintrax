@@ -153,7 +153,10 @@ export const SELLER_STATUS_TRANSITIONS: Record<
 > = {
   DRAFT: ['PENDING_REVIEW', 'ARCHIVED'],
   PENDING_REVIEW: ['DRAFT'],
-  ACTIVE: ['ARCHIVED'],
+  // Unpublishing to edit is one step, not two. Returning to DRAFT costs the
+  // seller their approval — re-publishing means going through review again —
+  // which is the whole point, so there is no reason to make it awkward.
+  ACTIVE: ['DRAFT', 'ARCHIVED'],
   ARCHIVED: ['DRAFT'],
   // A live auction and a completed sale are not the seller's to undo.
   IN_AUCTION: [],

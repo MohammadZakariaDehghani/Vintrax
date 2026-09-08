@@ -19,17 +19,25 @@ administrators.
 | `/vehicles/[slug]` | Server | Vehicle detail, gallery, inspection report, contact |
 | `/auctions` | Client | Auction browse with live countdowns |
 | `/auctions/[id]` | Client | Live auction room with real-time bidding |
+| `/dealers/[slug]` | Server | Dealership profile and its published inventory |
 | `/login`, `/register` | Client | Authentication |
 
 ### Buyer
 
 `/dashboard` · `/dashboard/favorites` · `/dashboard/my-bids` ·
-`/dashboard/purchases`
+`/dashboard/purchases` · `/dashboard/purchases/[id]` (one order) ·
+`/dashboard/messages` · `/dashboard/messages/[id]` (a thread) ·
+`/dashboard/notifications`
 
 ### Dealer and seller
 
 `/dealer/dashboard` (analytics) · `/dealer/inventory` (management) ·
-`/dealer/inventory/[id]` (edit) · `/dealer/add-vehicle`
+`/dealer/inventory/[id]` (edit) · `/dealer/add-vehicle` ·
+`/auctions/new` (schedule an auction)
+
+Every one of these is reachable from the header or from a page that links to
+it, and a test asserts that the reverse also holds — that no link in the app
+points at a route that does not exist. Six did, once.
 
 ### Administration
 

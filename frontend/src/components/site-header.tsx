@@ -5,7 +5,18 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
-import { Bell, Gavel, Heart, LayoutDashboard, Menu, Moon, Search, Sun, X } from 'lucide-react';
+import {
+  Bell,
+  Gavel,
+  Heart,
+  LayoutDashboard,
+  Menu,
+  MessagesSquare,
+  Moon,
+  Search,
+  Sun,
+  X,
+} from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useAuthStore, useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
@@ -69,6 +80,35 @@ function NotificationBell() {
   );
 }
 
+function MessagesLink() {
+  const user = useUser();
+  const t = useT();
+
+  const { data } = useQuery({
+    queryKey: ['conversations', 'unread-count'],
+    queryFn: () => api.get<{ unread: number }>('/conversations/unread-count'),
+    enabled: Boolean(user),
+    refetchInterval: 60_000,
+  });
+
+  if (!user) return null;
+
+  return (
+    <Link
+      href="/dashboard/messages"
+      className="relative hidden h-10 w-10 items-center justify-center rounded-md hover:bg-secondary sm:inline-flex"
+      aria-label={data?.unread ? `${data.unread} · ${t.nav.messages}` : t.nav.messages}
+    >
+      <MessagesSquare className="h-4 w-4" aria-hidden />
+      {data?.unread ? (
+        <span className="absolute right-1.5 top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-4 text-accent-foreground">
+          {data.unread > 9 ? '9+' : data.unread}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 const NAV_LINKS = [
   { href: '/vehicles', key: 'browse', icon: Search },
   { href: '/auctions', key: 'auctions', icon: Gavel },
@@ -115,6 +155,7 @@ export function SiteHeader() {
           {user ? (
             <>
               <NotificationBell />
+              <MessagesLink />
               <Link
                 href="/dashboard/favorites"
                 className="hidden h-10 w-10 items-center justify-center rounded-md hover:bg-secondary sm:inline-flex"
@@ -176,16 +217,40 @@ export function SiteHeader() {
               </li>
             ))}
             {user ? (
-              <li>
-                <Link
-                  href={isAdmin ? '/admin/dashboard' : isSeller ? '/dealer/dashboard' : '/dashboard'}
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
-                >
-                  <LayoutDashboard className="h-4 w-4" aria-hidden />
-                  Dashboard
-                </Link>
-              </li>
+              <>
+                <li>
+                  <Link
+                    href={isAdmin ? '/admin/dashboard' : isSeller ? '/dealer/dashboard' : '/dashboard'}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
+                  >
+                    <LayoutDashboard className="h-4 w-4" aria-hidden />
+                    {t.nav.dashboard}
+                  </Link>
+                </li>
+                {/* The icon links in the bar are hidden below `sm`, so without
+                    these two the pages are unreachable on a narrow screen. */}
+                <li>
+                  <Link
+                    href="/dashboard/messages"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
+                  >
+                    <MessagesSquare className="h-4 w-4" aria-hidden />
+                    {t.nav.messages}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard/favorites"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
+                  >
+                    <Heart className="h-4 w-4" aria-hidden />
+                    {t.nav.saved}
+                  </Link>
+                </li>
+              </>
             ) : null}
           </ul>
         </nav>

@@ -85,7 +85,7 @@ listings with `PATCH /vehicles/:id/status`, which accepts only `DRAFT`,
 | --- | --- |
 | `DRAFT` | `PENDING_REVIEW`, `ARCHIVED` |
 | `PENDING_REVIEW` | `DRAFT` |
-| `ACTIVE` | `ARCHIVED` |
+| `ACTIVE` | `DRAFT`, `ARCHIVED` |
 | `ARCHIVED` | `DRAFT` |
 | `IN_AUCTION`, `SOLD` | nothing — the auction and settlement flows own these |
 

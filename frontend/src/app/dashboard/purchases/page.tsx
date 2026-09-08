@@ -29,7 +29,12 @@ function Purchases() {
         <>
           <div className="flex flex-col gap-3">
             {data.items.map((order) => (
-              <Card key={order.id}>
+              <Link
+                key={order.id}
+                href={`/dashboard/purchases/${order.id}`}
+                className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Card className="transition-colors hover:border-primary/40">
                 <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5">
                   <div>
                     <p className="font-semibold">{order.vehicle?.title ?? 'Vehicle'}</p>
@@ -46,7 +51,8 @@ function Purchases() {
                     <Badge variant="outline" className="mt-1">{formatEnum(order.status)}</Badge>
                   </div>
                 </CardContent>
-              </Card>
+                </Card>
+              </Link>
             ))}
           </div>
           <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />

@@ -4,7 +4,12 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import type { ListingStatus, Paginated, VehicleSummary } from '@atlas/shared';
+import type {
+  ListingStatus,
+  Paginated,
+  SellerSettableListingStatus,
+  VehicleSummary,
+} from '@atlas/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { Badge, Button, Card, CardContent, EmptyState, ErrorAlert, Pagination, Spinner } from '@/components/ui';
@@ -15,7 +20,11 @@ const TABS: Array<{ label: string; status?: ListingStatus }> = [
   { label: 'Live', status: 'ACTIVE' },
   { label: 'In auction', status: 'IN_AUCTION' },
   { label: 'Drafts', status: 'DRAFT' },
+  // Without these two a listing awaiting moderation, or one the seller
+  // archived, is reachable only from the "All" tab.
+  { label: 'In review', status: 'PENDING_REVIEW' },
   { label: 'Sold', status: 'SOLD' },
+  { label: 'Archived', status: 'ARCHIVED' },
 ];
 
 const STATUS_VARIANT = {
@@ -32,8 +41,12 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
     void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
   };
 
+  // Status has its own endpoint, and a seller cannot reach ACTIVE through it —
+  // publishing is a moderation decision, so "Submit for review" is as far as
+  // this page goes. PATCH /vehicles/:id no longer accepts the field at all.
   const changeStatus = useMutation({
-    mutationFn: (status: ListingStatus) => api.patch(`/vehicles/${vehicle.id}`, { status }),
+    mutationFn: (status: SellerSettableListingStatus) =>
+      api.patch(`/vehicles/${vehicle.id}/status`, { status }),
     onSuccess: invalidate,
   });
 
@@ -71,20 +84,37 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
             </Link>
 
             {vehicle.status === 'DRAFT' ? (
-              <Button size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('ACTIVE')}>
-                Publish
+              <Button size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('PENDING_REVIEW')}>
+                Submit for review
               </Button>
+            ) : null}
+
+            {vehicle.status === 'PENDING_REVIEW' ? (
+              <>
+                <span className="self-center text-sm text-muted-foreground">
+                  Awaiting moderation
+                </span>
+                <Button variant="ghost" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
+                  Withdraw
+                </Button>
+              </>
             ) : null}
 
             {vehicle.status === 'ACTIVE' ? (
               <>
-                <Link href={`/dealer/auctions/new?vehicleId=${vehicle.id}`}>
+                <Link href={`/auctions/new?vehicleId=${vehicle.id}`}>
                   <Button variant="accent" size="sm">Run auction</Button>
                 </Link>
                 <Button variant="ghost" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
                   Unpublish
                 </Button>
               </>
+            ) : null}
+
+            {vehicle.status === 'ARCHIVED' ? (
+              <Button variant="outline" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
+                Restore to draft
+              </Button>
             ) : null}
 
             {confirming ? (
