@@ -1,11 +1,17 @@
 import Link from 'next/link';
 import { ArrowRight, Gavel, ShieldCheck, Truck } from 'lucide-react';
-import type { AuctionSummary, Paginated, VehicleSearchResponse } from '@atlas/shared';
+import type {
+  AuctionSummary,
+  BodyTypeImage,
+  Paginated,
+  VehicleSearchResponse,
+} from '@atlas/shared';
 import { serverFetch } from '@/lib/api-client';
-import { formatEnum, formatPrice } from '@/lib/utils';
+import { formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent } from '@/components/ui';
 import { VehicleRow } from '@/components/vehicle-row';
-import { HomeSearch } from '@/components/home-search';
+import { BrandLogo } from '@/components/brand-logo';
+import { HomeSearch, type BodyTypeShortcut } from '@/components/home-search';
 import { getServerDictionary } from '@/i18n/server';
 
 const QUICK_LINKS = [
@@ -26,31 +32,65 @@ export default async function HomePage() {
   // Rendered on the server so the first paint carries real inventory, which
   // matters for search engines on a marketplace.
   const t = await getServerDictionary();
-  const [featured, auctions] = await Promise.all([
-    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=10'),
+  // One wider page, two uses: the ten newest fill the list below, and the rest
+  // are scanned for a photographed example of each body type. A second round
+  // trip per body type would be nine more queries for nine thumbnails.
+  const [featured, auctions, bodyTypeImages] = await Promise.all([
+    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
+    serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
   ]);
+
+  const recent = featured?.items.slice(0, 10) ?? [];
+  const curated = new Map((bodyTypeImages ?? []).map((entry) => [entry.bodyType, entry]));
+
+  /**
+   * Three sources, in order of how much say a person had in the picture: what
+   * an administrator chose, then the newest photographed listing of that
+   * shape, then a drawn outline. Falling through rather than requiring the
+   * first means the row works on a fresh install and improves as it is used.
+   */
+  const bodyTypeShortcuts: BodyTypeShortcut[] = (featured?.facets.bodyTypes ?? []).map(
+    ({ value, count }) => ({
+      bodyType: value,
+      imageUrl:
+        curated.get(value)?.imageUrl ??
+        featured?.items.find((vehicle) => vehicle.bodyType === value && vehicle.primaryImageUrl)
+          ?.primaryImageUrl ??
+        null,
+      alt: curated.get(value)?.alt ?? null,
+      count,
+    }),
+  );
 
   return (
     <>
-      {/* A hero is a toll booth between a visitor and the inventory. This one
-          is sized to clear the fold on a laptop with listings already
-          visible, and the search below it is the point of the section. */}
-      <section className="border-b-4 border-accent bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)]">
-        <div className="container py-8 md:py-12">
-          <h1 className="text-2xl font-bold tracking-tight text-primary-foreground md:text-3xl">
-            {t.home.heroTitle}
-          </h1>
-          <p className="mt-1.5 text-primary-foreground/80">{t.home.heroBody}</p>
+      {/* The band is a backdrop, not a destination. The search card overlaps
+          its lower edge so the first thing on the page is a control rather
+          than a picture, and the band's height is set by the copy above it
+          instead of by an arbitrary hero size. */}
+      <section className="relative">
+        <div className="bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)] pb-28">
+          <div className="container pt-10 md:pt-12">
+            <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-primary-foreground md:text-4xl">
+              {t.home.heroTitle}
+            </h1>
+            <p className="mt-2 max-w-xl text-primary-foreground/80">{t.home.heroBody}</p>
+          </div>
+        </div>
 
-          <HomeSearch makes={featured?.facets.makes.map((entry) => entry.value) ?? []} />
+        <div className="container -mt-24">
+          <HomeSearch
+            makes={featured?.facets.makes.map((entry) => entry.value) ?? []}
+            bodyTypes={bodyTypeShortcuts}
+          />
 
           <div className="mt-4 flex flex-wrap gap-2">
             {QUICK_LINKS.map((link) => (
               <Link
                 key={link.key}
                 href={`/vehicles?${link.query}`}
-                className="rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-white/25"
+                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-sm font-medium transition-colors hover:bg-secondary"
               >
                 {t.home[link.key]}
               </Link>
@@ -59,26 +99,28 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Body type is the first cut most buyers make, and the facet counts
-          turn it from decoration into a real signal of what is in stock. */}
-      {featured && featured.facets.bodyTypes.length > 0 ? (
-        <section className="border-b border-border bg-card">
-          <div className="container py-5">
-            <h2 className="sr-only">{t.home.shopByType}</h2>
-            <ul className="flex flex-wrap gap-2">
-              {featured.facets.bodyTypes.map((entry) => (
-                <li key={entry.value}>
-                  <Link
-                    href={`/vehicles?bodyType=${entry.value}`}
-                    className="flex items-baseline gap-2 rounded-md border border-border px-3.5 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-secondary"
-                  >
-                    {formatEnum(entry.value)}
-                    <span className="tabular text-xs text-muted-foreground">{entry.count}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+      {/* Makes in stock, each under its own mark. The count is the point of
+          difference from the site this follows: a marque here is a promise
+          that Atlas has that many of them right now, not a brand billboard. */}
+      {featured && featured.facets.makes.length > 0 ? (
+        <section className="container pt-10">
+          <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.popularMakes}</h2>
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+            {featured.facets.makes.slice(0, 12).map((entry) => (
+              <li key={entry.value}>
+                <Link
+                  href={`/vehicles?make=${encodeURIComponent(entry.value)}`}
+                  className="flex h-full flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-5 text-center transition-colors hover:border-primary/40 hover:bg-secondary"
+                >
+                  <BrandLogo make={entry.value} className="text-foreground/85" />
+                  <span className="text-sm font-semibold leading-tight">{entry.value}</span>
+                  <span className="tabular text-xs text-muted-foreground">
+                    {entry.count} {entry.count === 1 ? t.home.makeOne : t.home.makeOther}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
@@ -117,9 +159,9 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        {featured && featured.items.length > 0 ? (
+        {recent.length > 0 ? (
           <div className="overflow-hidden rounded-lg border border-border bg-card">
-            {featured.items.map((vehicle) => (
+            {recent.map((vehicle) => (
               <VehicleRow key={vehicle.id} vehicle={vehicle} />
             ))}
           </div>

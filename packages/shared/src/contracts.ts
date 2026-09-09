@@ -392,6 +392,21 @@ export interface DealerAnalytics {
   topVehicles: Array<{ vehicle: VehicleSummary; views: number; enquiries: number }>;
 }
 
+/**
+ * The photograph shown for one body-type shortcut on the home page.
+ *
+ * `imageUrl` null means no administrator has set one; the client falls back to
+ * a photo from live inventory and then to a drawn silhouette, so a shortcut is
+ * never missing. Returned for every body type, set or not, so an admin screen
+ * can list them without knowing the enum.
+ */
+export interface BodyTypeImage {
+  bodyType: BodyType;
+  imageUrl: string | null;
+  alt: string | null;
+  updatedAt: string | null;
+}
+
 export interface AdminAnalytics {
   totalUsers: number;
   newUsersThisMonth: number;

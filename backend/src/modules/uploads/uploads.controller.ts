@@ -51,6 +51,25 @@ export class UploadsController {
     });
   }
 
+  @Post('body-type-images')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload a body-type shortcut photo',
+    description:
+      'Returns a URL to pass to PUT /admin/body-type-images/:bodyType. Separate from vehicle photos because it is an operator action, not a seller one, and carries a different permission.',
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  uploadBodyTypeImage(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.storage.uploadImage({
+      folder: 'body-types',
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
   @Post('documents')
   @RequirePermissions('vehicle:write')
   @ApiConsumes('multipart/form-data')

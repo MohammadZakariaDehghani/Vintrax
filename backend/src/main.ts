@@ -17,7 +17,7 @@ import { parseCorsOrigins, type Env } from './config/env';
  * `documents/` is deliberately not here, and nothing should be added without
  * asking whether every anonymous visitor may read it.
  */
-const PUBLIC_UPLOAD_FOLDERS = ['vehicles', 'inspections', 'seed'] as const;
+const PUBLIC_UPLOAD_FOLDERS = ['vehicles', 'inspections', 'seed', 'body-types'] as const;
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

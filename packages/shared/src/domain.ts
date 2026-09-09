@@ -48,6 +48,12 @@ export const PERMISSIONS = [
   'payment:read',
   'payment:manage',
   'report:read',
+  // How the storefront presents itself — the body-type photographs, and
+  // whatever joins them. Deliberately separate from `settings:manage`, which
+  // covers platform configuration and stays with super admins: changing a
+  // picture on the home page and changing a fee schedule are not the same
+  // power, and a moderator needs the first without the second.
+  'content:manage',
   'settings:manage',
   'audit:read',
 ] as const;
@@ -103,6 +109,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'payment:manage',
     'report:read',
     'audit:read',
+    'content:manage',
   ],
   SUPER_ADMIN: PERMISSIONS,
 };
@@ -194,6 +201,26 @@ export const BODY_TYPES = [
   'VAN',
 ] as const;
 export type BodyType = (typeof BODY_TYPES)[number];
+
+/**
+ * Body types as a shopper would name a group of them.
+ *
+ * The enum member is singular because a vehicle has one body type; a shortcut
+ * that leads to every SUV in the country is labelled "SUVs". Spelled out here
+ * rather than derived, because "Station wagons" is not "Wagon" plus an s, and
+ * because English pluralisation is not a rule worth writing in code.
+ */
+export const BODY_TYPE_PLURAL_LABELS: Record<BodyType, string> = {
+  SEDAN: 'Sedans',
+  SUV: 'SUVs',
+  TRUCK: 'Trucks',
+  COUPE: 'Coupes',
+  HATCHBACK: 'Hatchbacks',
+  MINIVAN: 'Minivans',
+  WAGON: 'Station wagons',
+  CONVERTIBLE: 'Convertibles',
+  VAN: 'Vans',
+};
 
 export const TRANSMISSIONS = ['AUTOMATIC', 'MANUAL', 'CVT', 'DUAL_CLUTCH'] as const;
 export type Transmission = (typeof TRANSMISSIONS)[number];

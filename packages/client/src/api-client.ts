@@ -156,7 +156,10 @@ export const api = {
   get: <T>(path: string, signal?: AbortSignal) => apiRequest<T>(path, { method: 'GET', signal }),
   post: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'POST', body }),
   patch: <T>(path: string, body: unknown) => apiRequest<T>(path, { method: 'PATCH', body }),
-  put: <T>(path: string) => apiRequest<T>(path, { method: 'PUT' }),
+  // The body is optional because PUT is used both ways here: to set a resource
+  // to a value, and to assert a membership that carries none, as the favourite
+  // toggle does.
+  put: <T>(path: string, body?: unknown) => apiRequest<T>(path, { method: 'PUT', body }),
   delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE' }),
   /**
    * Fetches a file the caller is only entitled to with their token, so it

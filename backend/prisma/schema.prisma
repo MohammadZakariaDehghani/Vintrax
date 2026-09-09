@@ -280,6 +280,8 @@ model User {
   authTokens    AuthToken[]
   auditLogs     AuditLog[]
 
+  bodyTypeImages BodyTypeImage[]
+
   inspectionsPerformed VehicleInspection[] @relation("InspectorInspections")
 
   purchases TransactionRecord[] @relation("TransactionBuyer")
@@ -799,4 +801,25 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([action, createdAt])
   @@index([createdAt])
+}
+
+/// The photograph shown for a body type on the home page's browse row.
+///
+/// One row per body type at most — the body type is the primary key, so
+/// setting an image is an upsert and there is no way to end up with two
+/// pictures competing for the same tile. A body type with no row here falls
+/// back to a photo from live inventory, and then to a drawn silhouette.
+model BodyTypeImage {
+  bodyType BodyType @id
+
+  imageUrl String
+  /// Alt text. Optional: these are decorative next to a visible label, and a
+  /// redundant alt is worse for a screen reader than an empty one.
+  alt      String?
+
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
