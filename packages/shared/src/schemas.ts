@@ -428,6 +428,25 @@ export const auditLogQuerySchema = z.object({
 });
 export type AuditLogQuery = z.infer<typeof auditLogQuerySchema>;
 
+// --- Site presentation -------------------------------------------------------
+
+/**
+ * The photograph an administrator sets for a body-type shortcut.
+ *
+ * The URL is one Atlas issued from its own upload endpoint, not an arbitrary
+ * address: an administrator pasting a third-party URL here would put a request
+ * to someone else's server on every shopper's home page, which is a privacy
+ * leak and an availability dependency neither of us controls. The check lives
+ * in the service, where the storage origin is known.
+ */
+export const bodyTypeImageSchema = z
+  .object({
+    imageUrl: trimmed(500).min(1),
+    alt: trimmed(160).optional(),
+  })
+  .strict();
+export type BodyTypeImageInput = z.infer<typeof bodyTypeImageSchema>;
+
 // --- Pagination --------------------------------------------------------------
 
 export const paginationSchema = z.object({

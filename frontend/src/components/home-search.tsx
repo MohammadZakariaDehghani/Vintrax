@@ -7,13 +7,14 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import {
   BODY_TYPES,
+  BODY_TYPE_PLURAL_LABELS,
   PROVINCES,
   PROVINCE_LABELS,
   type BodyType,
   type VehicleSearchResponse,
 } from '@atlas/shared';
 import { api } from '@/lib/api-client';
-import { cn, formatEnum, formatNumber } from '@/lib/utils';
+import { cn, formatNumber } from '@/lib/utils';
 import { BodyTypeIcon } from '@/components/body-type-icon';
 import { useT } from '@/i18n/provider';
 
@@ -46,6 +47,8 @@ const field =
 export interface BodyTypeShortcut {
   bodyType: BodyType;
   imageUrl: string | null;
+  /** Set only when an administrator gave the photo one. */
+  alt: string | null;
   count: number;
 }
 
@@ -218,10 +221,13 @@ export function HomeSearch({
         </div>
       </form>
 
-      {/* Shortcuts by shape, each showing a vehicle Atlas actually has of that
-          shape. A photograph of the real thing says "estate wagon" faster than
-          any drawing, and because it comes out of live inventory it is never a
-          picture of something the site cannot sell. */}
+      {/* Shortcuts by shape, each showing a photograph of that shape — the one
+          an administrator chose, or failing that one from a live listing.
+
+          The picture is contained rather than cropped, on a plain ground: a
+          body type is a silhouette, and cropping a side profile to fill a box
+          cuts off the nose or the tail, which is precisely the part that tells
+          a wagon from a hatchback. */}
       <div className="border-t border-border px-3 pb-5 pt-4 sm:px-5">
         <h2 className="mb-3 text-sm font-semibold">{t.home.shopByType}</h2>
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
@@ -233,28 +239,28 @@ export function HomeSearch({
                   href={`/vehicles?bodyType=${bodyType}`}
                   className="group flex flex-col items-center gap-1.5 rounded-md p-1 text-center transition-colors hover:bg-secondary"
                 >
-                  <span className="relative block aspect-[3/2] w-full overflow-hidden rounded bg-muted">
+                  <span className="relative block aspect-[3/2] w-full overflow-hidden rounded">
                     {shortcut?.imageUrl ? (
-                      // Listing photos are served from the API origin and are
-                      // often SVG placeholders, neither of which next/image
-                      // optimisation helps with.
+                      // Uploads and listing photos are served from the API
+                      // origin, and the placeholders among them are SVG;
+                      // next/image optimisation helps with neither.
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={shortcut.imageUrl}
-                        alt=""
+                        alt={shortcut.alt ?? ''}
                         loading="lazy"
                         decoding="async"
-                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                        className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"
                       />
                     ) : (
-                      // Nothing of this shape is listed with a photo yet.
-                      <span className="grid h-full w-full place-items-center text-muted-foreground">
-                        <BodyTypeIcon bodyType={bodyType} className="h-8 w-auto" />
+                      // No photo set and nothing of this shape listed with one.
+                      <span className="grid h-full w-full place-items-center text-foreground/70">
+                        <BodyTypeIcon bodyType={bodyType} className="h-9 w-auto" />
                       </span>
                     )}
                   </span>
-                  <span className="text-xs font-medium leading-tight">
-                    {formatEnum(bodyType)}
+                  <span className="text-xs font-semibold leading-tight">
+                    {BODY_TYPE_PLURAL_LABELS[bodyType]}
                   </span>
                 </Link>
               </li>

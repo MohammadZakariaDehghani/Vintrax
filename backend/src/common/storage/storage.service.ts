@@ -145,6 +145,25 @@ export class StorageService {
     return { kind: 'local', path, contentType: contentTypeFor(path) };
   }
 
+  /**
+   * Whether a URL is one this service issued.
+   *
+   * Used where an operator supplies a URL rather than a file. Accepting an
+   * arbitrary address would let whoever set it put a request to a third-party
+   * server on every visitor's page — a referer leak and an availability
+   * dependency Atlas does not control — so the answer has to come from here,
+   * where the storage origin is actually known.
+   */
+  isOwnUrl(url: string): boolean {
+    if (this.driver === 's3' && this.bucket) {
+      const base = this.publicUrl ?? `${this.config.get('S3_ENDPOINT', { infer: true })}/${this.bucket}`;
+      return url.startsWith(`${base.replace(/\/$/, '')}/`);
+    }
+    // Local storage serves from a fixed path. `//host` is excluded explicitly:
+    // it is a protocol-relative URL, not a path, and startsWith would pass it.
+    return url.startsWith('/uploads/') && !url.startsWith('//');
+  }
+
   async delete(key: string): Promise<void> {
     try {
       if (this.driver === 's3' && this.s3 && this.bucket) {

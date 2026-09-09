@@ -1,16 +1,33 @@
-import { Injectable } from '@nestjs/common';
-import type { AdminAnalytics, TimeSeriesPoint } from '@atlas/shared';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BODY_TYPES,
+  type AdminAnalytics,
+  type BodyType,
+  type BodyTypeImage,
+  type BodyTypeImageInput,
+  type TimeSeriesPoint,
+} from '@atlas/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
+import { StorageService } from '../../common/storage/storage.service';
 
 /** Analytics are expensive and rarely need to be to-the-second fresh. */
 const ANALYTICS_CACHE_TTL_SECONDS = 120;
+
+/**
+ * Body-type photographs change when an operator changes them, which is close
+ * to never, and are read on every home page render. The writes invalidate the
+ * key, so the long window costs nothing in freshness.
+ */
+const BODY_TYPE_IMAGE_CACHE_KEY = 'site:body-type-images';
+const BODY_TYPE_IMAGE_CACHE_TTL = 600;
 
 @Injectable()
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly storage: StorageService,
   ) {}
 
   async analytics(): Promise<AdminAnalytics> {
@@ -89,6 +106,79 @@ export class AdminService {
       date: row.day.toISOString().slice(0, 10),
       value: Number(row.value),
     }));
+  }
+
+  /**
+   * Every body type, with its photograph if one is set.
+   *
+   * Returns all nine rather than only the rows that exist, so the admin screen
+   * lists the shortcuts a shopper will actually see — including the empty ones,
+   * which are the whole reason to open the page.
+   */
+  async bodyTypeImages(): Promise<BodyTypeImage[]> {
+    const rows = await this.prisma.bodyTypeImage.findMany();
+    const byType = new Map(rows.map((row) => [row.bodyType, row]));
+
+    return BODY_TYPES.map((bodyType) => {
+      const row = byType.get(bodyType);
+      return {
+        bodyType,
+        imageUrl: row?.imageUrl ?? null,
+        alt: row?.alt ?? null,
+        updatedAt: row?.updatedAt.toISOString() ?? null,
+      };
+    });
+  }
+
+  async setBodyTypeImage(
+    bodyType: BodyType,
+    input: BodyTypeImageInput,
+    actorId: string,
+  ): Promise<BodyTypeImage> {
+    if (!this.storage.isOwnUrl(input.imageUrl)) {
+      throw new BadRequestException(
+        'Upload the image through POST /uploads/body-type-images first, then pass the URL it returns. An address on another server is not accepted.',
+      );
+    }
+
+    const row = await this.prisma.bodyTypeImage.upsert({
+      where: { bodyType },
+      create: { bodyType, imageUrl: input.imageUrl, alt: input.alt ?? null, updatedById: actorId },
+      update: { imageUrl: input.imageUrl, alt: input.alt ?? null, updatedById: actorId },
+    });
+
+    await this.redis.del(BODY_TYPE_IMAGE_CACHE_KEY);
+
+    return {
+      bodyType: row.bodyType,
+      imageUrl: row.imageUrl,
+      alt: row.alt,
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Drops the row, so the shortcut falls back to an inventory photo. The file
+   * itself is left in storage: an operator who removes the wrong picture can
+   * re-point at it, and an orphaned image costs bytes rather than correctness.
+   */
+  async clearBodyTypeImage(bodyType: BodyType): Promise<BodyTypeImage> {
+    await this.prisma.bodyTypeImage.deleteMany({ where: { bodyType } });
+    await this.redis.del(BODY_TYPE_IMAGE_CACHE_KEY);
+    return { bodyType, imageUrl: null, alt: null, updatedAt: null };
+  }
+
+  /**
+   * The public view, for the home page.
+   *
+   * Cached because every visitor's first paint reads it and it changes when an
+   * administrator saves, which is rarely. Both writes above drop the key, so
+   * the change is visible immediately rather than at the end of the window.
+   */
+  async publicBodyTypeImages(): Promise<BodyTypeImage[]> {
+    return this.redis.remember(BODY_TYPE_IMAGE_CACHE_KEY, BODY_TYPE_IMAGE_CACHE_TTL, () =>
+      this.bodyTypeImages(),
+    );
   }
 
   private async salesSeries(): Promise<TimeSeriesPoint[]> {

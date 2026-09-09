@@ -1,6 +1,11 @@
 import Link from 'next/link';
 import { ArrowRight, Gavel, ShieldCheck, Truck } from 'lucide-react';
-import type { AuctionSummary, Paginated, VehicleSearchResponse } from '@atlas/shared';
+import type {
+  AuctionSummary,
+  BodyTypeImage,
+  Paginated,
+  VehicleSearchResponse,
+} from '@atlas/shared';
 import { serverFetch } from '@/lib/api-client';
 import { formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent } from '@/components/ui';
@@ -30,18 +35,30 @@ export default async function HomePage() {
   // One wider page, two uses: the ten newest fill the list below, and the rest
   // are scanned for a photographed example of each body type. A second round
   // trip per body type would be nine more queries for nine thumbnails.
-  const [featured, auctions] = await Promise.all([
+  const [featured, auctions, bodyTypeImages] = await Promise.all([
     serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
+    serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
   ]);
 
   const recent = featured?.items.slice(0, 10) ?? [];
+  const curated = new Map((bodyTypeImages ?? []).map((entry) => [entry.bodyType, entry]));
+
+  /**
+   * Three sources, in order of how much say a person had in the picture: what
+   * an administrator chose, then the newest photographed listing of that
+   * shape, then a drawn outline. Falling through rather than requiring the
+   * first means the row works on a fresh install and improves as it is used.
+   */
   const bodyTypeShortcuts: BodyTypeShortcut[] = (featured?.facets.bodyTypes ?? []).map(
     ({ value, count }) => ({
       bodyType: value,
       imageUrl:
+        curated.get(value)?.imageUrl ??
         featured?.items.find((vehicle) => vehicle.bodyType === value && vehicle.primaryImageUrl)
-          ?.primaryImageUrl ?? null,
+          ?.primaryImageUrl ??
+        null,
+      alt: curated.get(value)?.alt ?? null,
       count,
     }),
   );

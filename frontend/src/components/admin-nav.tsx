@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, DollarSign, LayoutDashboard, ShieldAlert, Users } from 'lucide-react';
+import { Building2, DollarSign, ImageIcon, LayoutDashboard, ShieldAlert, Users } from 'lucide-react';
 
 const LINKS = [
   { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const LINKS = [
   { href: '/admin/dealers', label: 'Dealerships', icon: Building2 },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/revenue', label: 'Revenue', icon: DollarSign },
+  { href: '/admin/body-types', label: 'Body type photos', icon: ImageIcon },
 ] as const;
 
 /**
