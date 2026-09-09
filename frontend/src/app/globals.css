@@ -20,6 +20,19 @@
     --primary: 222 62% 22%;
     --primary-foreground: 0 0% 100%;
 
+    /* The masthead bar.
+       Its own token rather than `--primary`, because a brand bar must not
+       invert with the theme: `--primary` becomes a pale blue in dark mode,
+       which is right for a button on a dark page and wrong for the band that
+       carries the wordmark. These two values are close in both themes on
+       purpose — the bar is navy at midnight the same way a red bar stays red. */
+    --header: 222 62% 20%;
+    --header-foreground: 0 0% 100%;
+    /* Secondary text and idle triggers on the bar. */
+    --header-muted: 214 40% 82%;
+    /* Hairlines and the divider before the account controls. */
+    --header-border: 222 40% 34%;
+
     --secondary: 218 24% 95%;
     --secondary-foreground: 222 47% 18%;
 
@@ -66,6 +79,11 @@
        surface. */
     --primary: 217 72% 66%;
     --primary-foreground: 222 42% 8%;
+
+    --header: 222 52% 13%;
+    --header-foreground: 0 0% 100%;
+    --header-muted: 214 26% 76%;
+    --header-border: 222 32% 28%;
 
     --secondary: 222 26% 18%;
     --secondary-foreground: 214 28% 93%;

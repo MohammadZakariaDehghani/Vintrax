@@ -61,18 +61,39 @@ export function LogoMark({
 export function Logo({
   className,
   descriptor,
+  tone = 'auto',
 }: {
   className?: string;
   /** Omitted in cramped placements, where it would be unreadable anyway. */
   descriptor?: string;
+  /**
+   * `onDark` for a coloured band such as the site header. The navy tile is
+   * dropped there — a navy tile on a navy bar is a hole — and the text follows
+   * the band rather than the page, which is why it cannot simply inherit.
+   */
+  tone?: 'auto' | 'onDark';
 }) {
+  const onDark = tone === 'onDark';
+
   return (
     <span className={cn('flex items-center gap-2.5', className)}>
-      <LogoMark aria-hidden />
+      <LogoMark aria-hidden plain={onDark} />
       <span className="flex flex-col leading-none">
-        <span className="text-xl font-extrabold tracking-tight text-primary">ATLAS</span>
+        <span
+          className={cn(
+            'text-xl font-extrabold tracking-tight',
+            onDark ? 'text-current' : 'text-primary',
+          )}
+        >
+          ATLAS
+        </span>
         {descriptor ? (
-          <span className="mt-0.5 text-[0.625rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <span
+            className={cn(
+              'mt-0.5 text-[0.625rem] font-semibold uppercase tracking-[0.14em]',
+              onDark ? 'text-current opacity-70' : 'text-muted-foreground',
+            )}
+          >
             {descriptor}
           </span>
         ) : null}
