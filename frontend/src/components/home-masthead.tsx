@@ -26,8 +26,6 @@ export function HomeMasthead({
   article: ArticleSummary;
   className?: string;
 }) {
-  const published = article.publishedAt ? new Date(article.publishedAt) : null;
-
   return (
     <section
       aria-labelledby="masthead-title"
@@ -53,24 +51,10 @@ export function HomeMasthead({
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[hsl(222_47%_11%)]/90 via-[hsl(222_47%_11%)]/60 to-transparent" />
 
       <div className="container flex h-full flex-col justify-center py-10">
+        {/* No kicker and no date. A masthead is an invitation, not a filing
+            card — the byline and the date belong on the post itself, where
+            they answer a question the reader is actually asking. */}
         <div className="max-w-xl">
-          <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/70">
-            <span className="inline-block h-3 w-1 rounded-full bg-accent" aria-hidden />
-            Atlas editorial
-            {published ? (
-              <>
-                <span aria-hidden>·</span>
-                <time dateTime={article.publishedAt ?? undefined} className="font-medium normal-case tracking-normal">
-                  {published.toLocaleDateString('en-CA', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </time>
-              </>
-            ) : null}
-          </p>
-
           <h2
             id="masthead-title"
             className="text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-sm md:text-[2.6rem]"
