@@ -70,6 +70,24 @@ export class UploadsController {
     });
   }
 
+  @Post('article-images')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload a hero photograph for an editorial post',
+    description: 'Returns a URL to pass as heroImageUrl when writing or editing a post.',
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  uploadArticleImage(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.storage.uploadImage({
+      folder: 'articles',
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
   @Post('documents')
   @RequirePermissions('vehicle:write')
   @ApiConsumes('multipart/form-data')

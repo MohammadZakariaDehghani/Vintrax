@@ -281,6 +281,7 @@ model User {
   auditLogs     AuditLog[]
 
   bodyTypeImages BodyTypeImage[]
+  articles       Article[]
 
   inspectionsPerformed VehicleInspection[] @relation("InspectorInspections")
 
@@ -822,4 +823,46 @@ model BodyTypeImage {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// An editorial post — the car writing that fronts the home page.
+///
+/// The newest published row becomes the masthead: hero photograph, headline,
+/// standfirst and a call to action pointing back into inventory. The rest of
+/// the body is read on the post's own page.
+model Article {
+  id   String @id @default(uuid()) @db.Uuid
+  slug String @unique
+
+  title String
+  /// The standfirst — one line under the headline on the masthead.
+  subtitle String?
+  /// Plain text. Blank lines separate paragraphs; nothing is interpreted as
+  /// markup, so an author cannot put script or an iframe on the home page.
+  body String
+
+  heroImageUrl String
+  heroAlt      String?
+
+  /// Where the masthead button goes. An Atlas path, never another origin —
+  /// the front page should send traffic into the catalogue, not out of it.
+  ctaLabel String?
+  ctaHref  String?
+
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  authorId String? @db.Uuid
+  author   User?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt])
 }

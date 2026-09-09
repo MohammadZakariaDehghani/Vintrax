@@ -1,5 +1,6 @@
 import type {
   AddressType,
+  ArticleStatus,
   AuctionStatus,
   BidStatus,
   BodyType,
@@ -406,6 +407,35 @@ export interface BodyTypeImage {
   alt: string | null;
   updatedAt: string | null;
 }
+
+/**
+ * An editorial post.
+ *
+ * `body` is plain text: blank lines separate paragraphs and nothing is
+ * interpreted as markup, so an author cannot put a script or an iframe on the
+ * home page. That is a deliberate ceiling on the format — rich text on the
+ * most-visited page of the site is a cross-site-scripting surface that would
+ * need sanitising, and paragraphs are enough for what this is for.
+ */
+export interface Article {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  body: string;
+  heroImageUrl: string;
+  heroAlt: string | null;
+  ctaLabel: string | null;
+  ctaHref: string | null;
+  status: ArticleStatus;
+  publishedAt: string | null;
+  authorName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** What the masthead and the index need, without the full body. */
+export type ArticleSummary = Omit<Article, 'body'>;
 
 export interface AdminAnalytics {
   totalUsers: number;

@@ -31,6 +31,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { SearchIndexModule } from './modules/search-index/search-index.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { ArticlesModule } from './modules/articles/articles.module';
 import { UsersModule } from './modules/users/users.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
@@ -75,6 +76,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     NotificationsModule,
     TransactionsModule,
     UploadsModule,
+    ArticlesModule,
     SearchIndexModule,
     AdminModule,
     HealthModule,

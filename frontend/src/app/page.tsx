@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Gavel, ShieldCheck, Truck } from 'lucide-react';
 import type {
+  ArticleSummary,
   AuctionSummary,
   BodyTypeImage,
   Paginated,
@@ -11,7 +12,9 @@ import { formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent } from '@/components/ui';
 import { VehicleRow } from '@/components/vehicle-row';
 import { BrandLogo } from '@/components/brand-logo';
-import { HomeSearch, type BodyTypeShortcut } from '@/components/home-search';
+import { HomeSearch } from '@/components/home-search';
+import { HomeMasthead } from '@/components/home-masthead';
+import { buildBodyTypeShortcuts } from '@/lib/body-type-shortcuts';
 import { getServerDictionary } from '@/i18n/server';
 
 const QUICK_LINKS = [
@@ -35,51 +38,53 @@ export default async function HomePage() {
   // One wider page, two uses: the ten newest fill the list below, and the rest
   // are scanned for a photographed example of each body type. A second round
   // trip per body type would be nine more queries for nine thumbnails.
-  const [featured, auctions, bodyTypeImages] = await Promise.all([
+  const [featured, auctions, bodyTypeImages, masthead] = await Promise.all([
     serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
     serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
+    serverFetch<ArticleSummary | null>('/articles/masthead'),
   ]);
 
   const recent = featured?.items.slice(0, 10) ?? [];
-  const curated = new Map((bodyTypeImages ?? []).map((entry) => [entry.bodyType, entry]));
-
-  /**
-   * Three sources, in order of how much say a person had in the picture: what
-   * an administrator chose, then the newest photographed listing of that
-   * shape, then a drawn outline. Falling through rather than requiring the
-   * first means the row works on a fresh install and improves as it is used.
-   */
-  const bodyTypeShortcuts: BodyTypeShortcut[] = (featured?.facets.bodyTypes ?? []).map(
-    ({ value, count }) => ({
-      bodyType: value,
-      imageUrl:
-        curated.get(value)?.imageUrl ??
-        featured?.items.find((vehicle) => vehicle.bodyType === value && vehicle.primaryImageUrl)
-          ?.primaryImageUrl ??
-        null,
-      alt: curated.get(value)?.alt ?? null,
-      count,
-    }),
-  );
+  const bodyTypeShortcuts = buildBodyTypeShortcuts({
+    curated: bodyTypeImages ?? [],
+    vehicles: featured?.items ?? [],
+    counts: featured?.facets.bodyTypes ?? [],
+  });
 
   return (
     <>
       {/* The band is a backdrop, not a destination. The search card overlaps
           its lower edge so the first thing on the page is a control rather
-          than a picture, and the band's height is set by the copy above it
-          instead of by an arbitrary hero size. */}
-      <section className="relative">
-        <div className="bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)] pb-28">
-          <div className="container pt-10 md:pt-12">
-            <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-primary-foreground md:text-4xl">
-              {t.home.heroTitle}
-            </h1>
-            <p className="mt-2 max-w-xl text-primary-foreground/80">{t.home.heroBody}</p>
-          </div>
-        </div>
+          than a picture, and the band's height is set by its content instead
+          of by an arbitrary hero size.
 
-        <div className="container -mt-24">
+          When an editor has published something the band is that post's
+          masthead; otherwise it is the plain gradient and the standing
+          proposition. The fallback is not a placeholder — a marketplace whose
+          front page goes blank because nobody wrote this week is worse than
+          one that never had a masthead. */}
+      <section className="relative">
+        {masthead ? (
+          // The padding lives inside the masthead so the photograph runs
+          // behind the search card that overlaps it, as the gradient does.
+          <HomeMasthead article={masthead} className="pb-28" />
+        ) : (
+          <div className="bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)] pb-28">
+            <div className="container pt-10 md:pt-12">
+              <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-primary-foreground md:text-4xl">
+                {t.home.heroTitle}
+              </h1>
+              <p className="mt-2 max-w-xl text-primary-foreground/80">{t.home.heroBody}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Above the band, not behind it. The masthead is a positioned
+            element, so a statically-positioned card would paint underneath it
+            — which the plain gradient never revealed, because a background on
+            an unpositioned div paints below everything either way. */}
+        <div className="container relative z-10 -mt-24">
           <HomeSearch
             makes={featured?.facets.makes.map((entry) => entry.value) ?? []}
             bodyTypes={bodyTypeShortcuts}
