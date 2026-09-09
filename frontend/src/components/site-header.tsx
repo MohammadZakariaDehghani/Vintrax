@@ -2,29 +2,195 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
+import { Bell, ChevronDown, Heart, Menu, MessagesSquare, Moon, Sun, X } from 'lucide-react';
 import {
-  Bell,
-  Gavel,
-  Newspaper,
-  Heart,
-  LayoutDashboard,
-  Menu,
-  MessagesSquare,
-  Moon,
-  Search,
-  Sun,
-  X,
-} from 'lucide-react';
+  BODY_TYPES,
+  BODY_TYPE_PLURAL_LABELS,
+  type ArticleSummary,
+  type Paginated,
+} from '@atlas/shared';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useAuthStore, useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
-import { Button } from '@/components/ui';
 import { Logo } from '@/components/logo';
-import { LanguageSwitcher } from '@/components/language-switcher';
-import { useT } from '@/i18n/provider';
+import { useLocale, useT } from '@/i18n/provider';
+import { LOCALE_LABELS, type Locale } from '@/i18n/dictionary';
+import type { Dictionary } from '@/i18n/dictionary';
+
+/**
+ * The bar across the top of every page.
+ *
+ * Laid out the way large marketplaces lay this out: a solid brand band, two or
+ * three verbs rather than nouns — Buying, Selling, Research — each opening a
+ * panel of columns, then a cluster on the right of icon shortcuts, a divider,
+ * the account control, the language switch and one outlined pill for the
+ * action the business most wants.
+ *
+ * The band is navy rather than the red the pattern usually comes in. Red is
+ * reserved (D-020), and the point of following the layout was never to
+ * reproduce someone else's identity.
+ *
+ * Every item in every panel is a filter or a page Atlas actually has. The
+ * reference menus carry boats, RVs and snowmobiles; those would be entries
+ * leading nowhere, and a menu that lies is worse than a short one.
+ */
+
+type MenuKey = 'buying' | 'selling' | 'research';
+
+interface MenuColumn {
+  heading: string;
+  links: Array<{ href: string; label: string }>;
+}
+
+function buildColumns(t: Dictionary, key: MenuKey): MenuColumn[] {
+  if (key === 'buying') {
+    return [
+      {
+        heading: t.menu.cars,
+        links: [
+          { href: '/vehicles?condition=NEW', label: t.menu.newCars },
+          { href: '/vehicles?condition=USED', label: t.menu.usedCars },
+          { href: '/vehicles?condition=CERTIFIED_PRE_OWNED', label: t.menu.certified },
+          { href: '/vehicles', label: t.menu.allVehicles },
+        ],
+      },
+      {
+        heading: t.menu.byBodyType,
+        links: BODY_TYPES.map((bodyType) => ({
+          href: `/vehicles?bodyType=${bodyType}`,
+          label: BODY_TYPE_PLURAL_LABELS[bodyType],
+        })),
+      },
+      {
+        heading: t.menu.waysToBuy,
+        links: [
+          { href: '/auctions', label: t.menu.liveAuctions },
+          { href: '/vehicles?saleChannel=FIXED_PRICE', label: t.menu.buyNow },
+          { href: '/vehicles?inspectedOnly=true', label: t.menu.inspected },
+          { href: '/vehicles?maxPrice=30000', label: t.menu.underThirty },
+          { href: '/vehicles?fuelType=ELECTRIC', label: t.menu.electric },
+        ],
+      },
+    ];
+  }
+
+  if (key === 'selling') {
+    return [
+      {
+        heading: t.menu.sellYourCar,
+        links: [
+          { href: '/register?role=SELLER', label: t.menu.sellVehicle },
+          { href: '/dealer/add-vehicle', label: t.menu.listVehicle },
+          { href: '/auctions/new', label: t.menu.startAuction },
+        ],
+      },
+      {
+        heading: t.menu.forDealers,
+        links: [
+          { href: '/register?role=DEALER', label: t.menu.registerDealer },
+          { href: '/dealer/dashboard', label: t.menu.dealerPortal },
+          { href: '/dealer/inventory', label: t.menu.dealerInventory },
+        ],
+      },
+    ];
+  }
+
+  return [
+    {
+      heading: t.menu.editorial,
+      links: [{ href: '/blog', label: t.menu.allArticles }],
+    },
+    {
+      heading: t.menu.popularSearches,
+      links: [
+        { href: '/vehicles?inspectedOnly=true', label: t.menu.inspected },
+        { href: '/vehicles?fuelType=ELECTRIC', label: t.menu.electric },
+        { href: '/vehicles?maxPrice=30000', label: t.menu.underThirty },
+        { href: '/vehicles?bodyType=SUV', label: BODY_TYPE_PLURAL_LABELS.SUV },
+        { href: '/vehicles?bodyType=TRUCK', label: BODY_TYPE_PLURAL_LABELS.TRUCK },
+      ],
+    },
+  ];
+}
+
+/**
+ * The three latest posts, shown inside the research panel.
+ *
+ * Fetched only once that panel has been opened. A menu nobody opens should not
+ * cost a request on every page load.
+ */
+function LatestArticles({ enabled }: { enabled: boolean }) {
+  const t = useT();
+  const { data } = useQuery({
+    queryKey: ['articles', 'latest'],
+    queryFn: () => api.get<Paginated<ArticleSummary>>('/articles?page=1&pageSize=3'),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+
+  return (
+    <div>
+      <p className="mb-3 text-sm font-bold text-foreground">{t.menu.latest}</p>
+      <ul className="space-y-2.5">
+        {data?.items.length ? (
+          data.items.map((article) => (
+            <li key={article.id}>
+              <Link
+                href={`/blog/${article.slug}`}
+                className="group flex gap-3 rounded-md p-1 -m-1 transition-colors hover:bg-secondary"
+              >
+                <span className="relative h-11 w-[68px] shrink-0 overflow-hidden rounded bg-muted">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={article.heroImageUrl}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                </span>
+                <span className="line-clamp-2 text-sm leading-snug text-muted-foreground group-hover:text-foreground">
+                  {article.title}
+                </span>
+              </Link>
+            </li>
+          ))
+        ) : (
+          <li className="text-sm text-muted-foreground">{t.menu.noArticles}</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * A single "FR" or "EN" toggle rather than a pair.
+ *
+ * With exactly two languages, showing both means one of them is always inert.
+ * The button shows the language you would switch *to*, which is the only one
+ * worth a click.
+ */
+function LanguageToggle({ className }: { className?: string }) {
+  const { locale, setLocale } = useLocale();
+  const other: Locale = locale === 'en' ? 'fr' : 'en';
+
+  return (
+    <button
+      type="button"
+      lang={other}
+      onClick={() => setLocale(other)}
+      className={cn(
+        'rounded px-2 py-1.5 text-sm font-semibold uppercase text-header-foreground/90 transition-colors hover:bg-white/10 hover:text-header-foreground',
+        className,
+      )}
+    >
+      <span className="sr-only">{LOCALE_LABELS[other]}</span>
+      <span aria-hidden>{other}</span>
+    </button>
+  );
+}
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -36,85 +202,53 @@ function ThemeToggle() {
   useEffect(() => setMounted(true), []);
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
+    <button
+      type="button"
       aria-label={resolvedTheme === 'dark' ? t.theme.toLight : t.theme.toDark}
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-md text-header-foreground/90 transition-colors hover:bg-white/10 hover:text-header-foreground"
     >
       {mounted && resolvedTheme === 'dark' ? (
-        <Sun className="h-4 w-4" aria-hidden />
+        <Sun className="h-[18px] w-[18px]" aria-hidden />
       ) : (
-        <Moon className="h-4 w-4" aria-hidden />
+        <Moon className="h-[18px] w-[18px]" aria-hidden />
       )}
-    </Button>
+    </button>
   );
 }
 
-function NotificationBell() {
-  const user = useUser();
-
-  const t = useT();
-  const { data } = useQuery({
-    queryKey: ['notifications', 'unread-count'],
-    queryFn: () => api.get<{ unread: number }>('/notifications/unread-count'),
-    enabled: Boolean(user),
-    // In-app notifications do not need a socket; a periodic poll is enough.
-    refetchInterval: 60_000,
-  });
-
-  if (!user) return null;
-
+/** An icon shortcut on the bar, with an unread count when there is one. */
+function IconLink({
+  href,
+  label,
+  count,
+  children,
+  className,
+}: {
+  href: string;
+  label: string;
+  count?: number;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <Link
-      href="/dashboard/notifications"
-      className="relative inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-secondary"
-      aria-label={data?.unread ? `${data.unread} · ${t.nav.notifications}` : t.nav.notifications}
+      href={href}
+      aria-label={count ? `${count} · ${label}` : label}
+      className={cn(
+        'relative inline-flex h-9 w-9 items-center justify-center rounded-md text-header-foreground/90 transition-colors hover:bg-white/10 hover:text-header-foreground',
+        className,
+      )}
     >
-      <Bell className="h-4 w-4" aria-hidden />
-      {data?.unread ? (
-        <span className="absolute right-1.5 top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-4 text-accent-foreground">
-          {data.unread > 9 ? '9+' : data.unread}
+      {children}
+      {count ? (
+        <span className="absolute right-0.5 top-0.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-4 text-accent-foreground">
+          {count > 9 ? '9+' : count}
         </span>
       ) : null}
     </Link>
   );
 }
-
-function MessagesLink() {
-  const user = useUser();
-  const t = useT();
-
-  const { data } = useQuery({
-    queryKey: ['conversations', 'unread-count'],
-    queryFn: () => api.get<{ unread: number }>('/conversations/unread-count'),
-    enabled: Boolean(user),
-    refetchInterval: 60_000,
-  });
-
-  if (!user) return null;
-
-  return (
-    <Link
-      href="/dashboard/messages"
-      className="relative hidden h-10 w-10 items-center justify-center rounded-md hover:bg-secondary sm:inline-flex"
-      aria-label={data?.unread ? `${data.unread} · ${t.nav.messages}` : t.nav.messages}
-    >
-      <MessagesSquare className="h-4 w-4" aria-hidden />
-      {data?.unread ? (
-        <span className="absolute right-1.5 top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-4 text-accent-foreground">
-          {data.unread > 9 ? '9+' : data.unread}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
-
-const NAV_LINKS = [
-  { href: '/vehicles', key: 'browse', icon: Search },
-  { href: '/auctions', key: 'auctions', icon: Gavel },
-  { href: '/blog', key: 'editorial', icon: Newspaper },
-] as const;
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -122,159 +256,310 @@ export function SiteHeader() {
   const isSeller = useIsSeller();
   const isAdmin = useIsAdmin();
   const logout = useAuthStore((state) => state.logout);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const t = useT();
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
+  const [researchOpened, setResearchOpened] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const navRef = useRef<HTMLDivElement | null>(null);
+
+  const notifications = useQuery({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => api.get<{ unread: number }>('/notifications/unread-count'),
+    enabled: Boolean(user),
+    refetchInterval: 60_000,
+  });
+
+  const conversations = useQuery({
+    queryKey: ['conversations', 'unread-count'],
+    queryFn: () => api.get<{ unread: number }>('/conversations/unread-count'),
+    enabled: Boolean(user),
+    refetchInterval: 60_000,
+  });
+
+  // Navigating with a panel open would leave it hanging over the new page.
+  useEffect(() => {
+    setOpenMenu(null);
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!openMenu) return undefined;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpenMenu(null);
+    }
+    function onPointerDown(event: PointerEvent) {
+      if (!navRef.current?.contains(event.target as Node)) setOpenMenu(null);
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [openMenu]);
+
+  function toggle(key: MenuKey) {
+    if (key === 'research') setResearchOpened(true);
+    setOpenMenu((current) => (current === key ? null : key));
+  }
+
+  const dashboardHref = isAdmin
+    ? '/admin/dashboard'
+    : isSeller
+      ? '/dealer/dashboard'
+      : '/dashboard';
+  // Signed-in sellers already have an account, so the pill takes them straight
+  // to the form rather than back through registration.
+  const sellHref = isSeller ? '/dealer/add-vehicle' : '/register?role=SELLER';
+
+  const MENUS: Array<{ key: MenuKey; label: string }> = [
+    { key: 'buying', label: t.menu.buying },
+    { key: 'selling', label: t.menu.selling },
+    { key: 'research', label: t.menu.research },
+  ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="container flex h-16 items-center gap-4">
-        <Link href="/" aria-label="Atlas">
-          {/* The descriptor wraps to two lines below 640px and eats the width
-              the auth controls need, which pushed the header 36px past the
-              viewport on every page. The mark and name carry the brand alone
-              at that size. */}
-          <Logo descriptor={t.brand.descriptor} className="hidden sm:flex" />
-          <Logo className="sm:hidden" />
-        </Link>
+    <header className="sticky top-0 z-40">
+      <div className="bg-header text-header-foreground">
+        <div ref={navRef} className="container relative flex h-16 items-center gap-2">
+          <Link href="/" aria-label="Atlas" className="shrink-0">
+            <Logo
+              descriptor={t.brand.descriptor}
+              className="hidden text-header-foreground lg:flex"
+              tone="onDark"
+            />
+            <Logo className="text-header-foreground lg:hidden" tone="onDark" />
+          </Link>
 
-        <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={isActive(link.href) ? 'page' : undefined}
-              className={cn(
-                'rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary',
-                isActive(link.href) ? 'bg-secondary text-foreground' : 'text-muted-foreground',
-              )}
+          <nav className="relative ml-3 hidden items-stretch self-stretch md:flex" aria-label="Main">
+            {MENUS.map((menu) => {
+              const open = openMenu === menu.key;
+              return (
+                <button
+                  key={menu.key}
+                  type="button"
+                  aria-expanded={open}
+                  aria-haspopup="true"
+                  onClick={() => toggle(menu.key)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 whitespace-nowrap px-4 text-sm font-semibold transition-colors',
+                    open
+                      ? 'bg-card text-foreground'
+                      : 'text-header-foreground hover:bg-white/10',
+                  )}
+                >
+                  {menu.label}
+                  <ChevronDown
+                    className={cn('h-4 w-4 transition-transform', open && 'rotate-180')}
+                    aria-hidden
+                  />
+                </button>
+              );
+            })}
+
+            {/* Hung from the bar's lower edge and anchored to the trigger row,
+                not to the container, so the columns start under the word that
+                opened them whatever the logo happens to be wide. */}
+            {openMenu ? (
+              <div className="absolute left-0 top-full w-max max-w-[min(64rem,90vw)] rounded-b-lg bg-card text-card-foreground shadow-xl ring-1 ring-border">
+                <div className="grid gap-x-12 gap-y-6 p-7 grid-flow-col auto-cols-max">
+                  {buildColumns(t, openMenu).map((column) => (
+                    <div key={column.heading}>
+                      <p className="mb-3 text-sm font-bold text-foreground">{column.heading}</p>
+                      <ul className="space-y-2.5">
+                        {column.links.map((link) => (
+                          <li key={link.href + link.label}>
+                            <Link
+                              href={link.href}
+                              className="block text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline"
+                            >
+                              {link.label}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                  {openMenu === 'research' ? (
+                    <div className="w-[18rem]">
+                      <LatestArticles enabled={researchOpened} />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-0.5">
+            <IconLink
+              href="/dashboard/favorites"
+              label={t.nav.saved}
+              className="hidden sm:inline-flex"
             >
-              {t.nav[link.key]}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="ml-auto flex items-center gap-1">
-          <LanguageSwitcher className="mr-1 hidden sm:flex" />
-          <ThemeToggle />
-
-          {user ? (
-            <>
-              <NotificationBell />
-              <MessagesLink />
-              <Link
-                href="/dashboard/favorites"
-                className="hidden h-10 w-10 items-center justify-center rounded-md hover:bg-secondary sm:inline-flex"
-                aria-label={t.nav.saved}
+              <Heart className="h-[18px] w-[18px]" aria-hidden />
+            </IconLink>
+            <IconLink
+              href="/dashboard/notifications"
+              label={t.nav.notifications}
+              count={notifications.data?.unread}
+              className="hidden sm:inline-flex"
+            >
+              <Bell className="h-[18px] w-[18px]" aria-hidden />
+            </IconLink>
+            {user ? (
+              <IconLink
+                href="/dashboard/messages"
+                label={t.nav.messages}
+                count={conversations.data?.unread}
+                className="hidden sm:inline-flex"
               >
-                <Heart className="h-4 w-4" aria-hidden />
-              </Link>
-              <Link
-                href={isAdmin ? '/admin/dashboard' : isSeller ? '/dealer/dashboard' : '/dashboard'}
-                className="hidden items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary sm:inline-flex"
-              >
-                <LayoutDashboard className="h-4 w-4" aria-hidden />
-                {t.nav.dashboard}
-              </Link>
-              <Button variant="ghost" size="sm" onClick={() => void logout()}>
-                {t.auth.signOut}
-              </Button>
-            </>
-          ) : (
-            <>
+                <MessagesSquare className="h-[18px] w-[18px]" aria-hidden />
+              </IconLink>
+            ) : null}
+
+            <span
+              className="mx-2 hidden h-6 w-px bg-header-border sm:block"
+              aria-hidden
+            />
+
+            {user ? (
+              <>
+                <Link
+                  href={dashboardHref}
+                  className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground transition-colors hover:bg-white/10 sm:inline-block"
+                >
+                  {t.nav.dashboard}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground/90 transition-colors hover:bg-white/10 hover:text-header-foreground sm:inline-block"
+                >
+                  {t.auth.signOut}
+                </button>
+              </>
+            ) : (
               <Link
                 href="/login"
-                className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary sm:inline-block"
+                className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground transition-colors hover:bg-white/10 sm:inline-block"
               >
-                {t.auth.signIn}
+                {t.menu.logInSignUp}
               </Link>
-              <Link href="/register" className="hidden sm:inline-block">
-                <Button size="sm" className="whitespace-nowrap">
-                  {t.auth.createAccount}
-                </Button>
-              </Link>
-            </>
-          )}
+            )}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            aria-label={mobileOpen ? `${t.nav.close} ${t.nav.menu}` : t.nav.menu}
-            aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen((open) => !open)}
-          >
-            {mobileOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
-          </Button>
+            <ThemeToggle />
+            <LanguageToggle className="hidden sm:inline-flex" />
+
+            <Link
+              href={sellHref}
+              className="ml-2 hidden whitespace-nowrap rounded-full border border-header-foreground/70 px-5 py-2 text-sm font-semibold text-header-foreground transition-colors hover:bg-header-foreground hover:text-header sm:inline-block"
+            >
+              {t.menu.sellMyCar}
+            </Link>
+
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-header-foreground hover:bg-white/10 md:hidden"
+              aria-label={mobileOpen ? `${t.nav.close} ${t.nav.menu}` : t.nav.menu}
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((open) => !open)}
+            >
+              {mobileOpen ? (
+                <X className="h-5 w-5" aria-hidden />
+              ) : (
+                <Menu className="h-5 w-5" aria-hidden />
+              )}
+            </button>
+          </div>
+
         </div>
       </div>
 
       {mobileOpen ? (
-        <nav className="border-t border-border px-5 py-3 md:hidden" aria-label="Mobile">
-          <ul className="flex flex-col gap-1">
-            {NAV_LINKS.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
-                >
-                  <link.icon className="h-4 w-4" aria-hidden />
-                  {t.nav[link.key]}
-                </Link>
-              </li>
-            ))}
+        <nav
+          className="max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-card px-5 py-4 md:hidden"
+          aria-label="Mobile"
+        >
+          {MENUS.map((menu) => (
+            <section key={menu.key} className="mb-5">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                {menu.label}
+              </p>
+              {buildColumns(t, menu.key).map((column) => (
+                <div key={column.heading} className="mb-3">
+                  <p className="mb-1.5 text-sm font-semibold">{column.heading}</p>
+                  <ul className="space-y-1">
+                    {column.links.map((link) => (
+                      <li key={link.href + link.label}>
+                        <Link
+                          href={link.href}
+                          className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </section>
+          ))}
+
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
             {user ? (
               <>
-                <li>
-                  <Link
-                    href={isAdmin ? '/admin/dashboard' : isSeller ? '/dealer/dashboard' : '/dashboard'}
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
-                  >
-                    <LayoutDashboard className="h-4 w-4" aria-hidden />
-                    {t.nav.dashboard}
-                  </Link>
-                </li>
-                {/* The icon links in the bar are hidden below `sm`, so without
-                    these two the pages are unreachable on a narrow screen. */}
-                <li>
-                  <Link
-                    href="/dashboard/messages"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
-                  >
-                    <MessagesSquare className="h-4 w-4" aria-hidden />
-                    {t.nav.messages}
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/dashboard/favorites"
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary"
-                  >
-                    <Heart className="h-4 w-4" aria-hidden />
-                    {t.nav.saved}
-                  </Link>
-                </li>
+                <Link
+                  href={dashboardHref}
+                  className="rounded-md px-2 py-2 text-sm font-medium hover:bg-secondary"
+                >
+                  {t.nav.dashboard}
+                </Link>
+                {/* The icon shortcuts are hidden below `sm`, so without these
+                    the pages are unreachable on a narrow screen. */}
+                <Link
+                  href="/dashboard/messages"
+                  className="rounded-md px-2 py-2 text-sm font-medium hover:bg-secondary"
+                >
+                  {t.nav.messages}
+                </Link>
+                <Link
+                  href="/dashboard/notifications"
+                  className="rounded-md px-2 py-2 text-sm font-medium hover:bg-secondary"
+                >
+                  {t.nav.notifications}
+                </Link>
+                <Link
+                  href="/dashboard/favorites"
+                  className="rounded-md px-2 py-2 text-sm font-medium hover:bg-secondary"
+                >
+                  {t.nav.saved}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="rounded-md px-2 py-2 text-left text-sm font-medium hover:bg-secondary"
+                >
+                  {t.auth.signOut}
+                </button>
               </>
-            ) : null}
-
-            {!user ? (
-              <li className="mt-2 flex gap-2 border-t border-border pt-3">
-                <Link href="/login" onClick={() => setMobileOpen(false)} className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    {t.auth.signIn}
-                  </Button>
-                </Link>
-                <Link href="/register" onClick={() => setMobileOpen(false)} className="flex-1">
-                  <Button className="w-full">{t.auth.createAccount}</Button>
-                </Link>
-              </li>
-            ) : null}
-          </ul>
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-md px-2 py-2 text-sm font-medium hover:bg-secondary"
+              >
+                {t.menu.logInSignUp}
+              </Link>
+            )}
+            <Link
+              href={sellHref}
+              className="mt-1 rounded-full border border-primary px-5 py-2 text-center text-sm font-semibold text-primary"
+            >
+              {t.menu.sellMyCar}
+            </Link>
+          </div>
         </nav>
       ) : null}
     </header>

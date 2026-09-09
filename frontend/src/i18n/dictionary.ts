@@ -63,6 +63,46 @@ const en = {
     priceRangeTo: 'to',
   },
 
+  menu: {
+    buying: 'Buying',
+    selling: 'Selling',
+    research: 'Research & advice',
+
+    cars: 'Cars',
+    newCars: 'New cars for sale',
+    usedCars: 'Used cars for sale',
+    certified: 'Certified pre-owned',
+    allVehicles: 'All vehicles',
+
+    byBodyType: 'Browse by body type',
+
+    waysToBuy: 'Ways to buy',
+    liveAuctions: 'Live auctions',
+    buyNow: 'Buy at a fixed price',
+    inspected: 'Inspected vehicles',
+    underThirty: 'Under $30,000',
+    electric: 'Electric',
+
+    sellYourCar: 'Sell your car',
+    sellVehicle: 'Sell your vehicle',
+    listVehicle: 'List a vehicle',
+    startAuction: 'Start an auction',
+
+    forDealers: 'For dealerships',
+    registerDealer: 'Register a dealership',
+    dealerPortal: 'Dealer portal',
+    dealerInventory: 'Your inventory',
+
+    editorial: 'Editorial',
+    allArticles: 'All articles',
+    latest: 'Latest',
+    noArticles: 'Nothing published yet',
+    popularSearches: 'Popular searches',
+
+    logInSignUp: 'Log in / Sign up',
+    sellMyCar: 'Sell my car',
+  },
+
   nav: {
     browse: 'Browse',
     auctions: 'Auctions',
@@ -278,6 +318,46 @@ const fr: Dictionary = {
     dealerCta: 'S’inscrire comme concessionnaire',
     priceRange: 'L’inventaire actuel va de',
     priceRangeTo: 'à',
+  },
+
+  menu: {
+    buying: 'Acheter',
+    selling: 'Vendre',
+    research: 'Recherche et conseils',
+
+    cars: 'Voitures',
+    newCars: 'Voitures neuves à vendre',
+    usedCars: "Voitures d'occasion à vendre",
+    certified: 'Occasions certifiées',
+    allVehicles: 'Tous les véhicules',
+
+    byBodyType: 'Parcourir par carrosserie',
+
+    waysToBuy: "Façons d'acheter",
+    liveAuctions: 'Enchères en direct',
+    buyNow: 'Acheter à prix fixe',
+    inspected: 'Véhicules inspectés',
+    underThirty: 'Moins de 30 000 $',
+    electric: 'Électriques',
+
+    sellYourCar: 'Vendre votre voiture',
+    sellVehicle: 'Vendre votre véhicule',
+    listVehicle: 'Publier une annonce',
+    startAuction: 'Lancer une enchère',
+
+    forDealers: 'Pour les concessionnaires',
+    registerDealer: 'Inscrire une concession',
+    dealerPortal: 'Portail concessionnaire',
+    dealerInventory: 'Votre inventaire',
+
+    editorial: 'Actualités',
+    allArticles: 'Tous les articles',
+    latest: 'Derniers articles',
+    noArticles: 'Rien de publié pour le moment',
+    popularSearches: 'Recherches populaires',
+
+    logInSignUp: 'Connexion / Inscription',
+    sellMyCar: 'Vendre ma voiture',
   },
 
   nav: {
