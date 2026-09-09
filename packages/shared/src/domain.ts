@@ -114,6 +114,16 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
   SUPER_ADMIN: PERMISSIONS,
 };
 
+/**
+ * Editorial posts.
+ *
+ * `PUBLISHED` is the only state a visitor can reach. `ARCHIVED` exists so a
+ * post can be taken off the site without deleting the writing, which is what
+ * an author actually wants when a piece goes stale.
+ */
+export const ARTICLE_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
+export type ArticleStatus = (typeof ARTICLE_STATUSES)[number];
+
 export const USER_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 

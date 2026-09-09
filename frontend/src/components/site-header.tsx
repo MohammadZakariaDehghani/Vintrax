@@ -8,6 +8,7 @@ import { useTheme } from 'next-themes';
 import {
   Bell,
   Gavel,
+  Newspaper,
   Heart,
   LayoutDashboard,
   Menu,
@@ -112,6 +113,7 @@ function MessagesLink() {
 const NAV_LINKS = [
   { href: '/vehicles', key: 'browse', icon: Search },
   { href: '/auctions', key: 'auctions', icon: Gavel },
+  { href: '/blog', key: 'editorial', icon: Newspaper },
 ] as const;
 
 export function SiteHeader() {

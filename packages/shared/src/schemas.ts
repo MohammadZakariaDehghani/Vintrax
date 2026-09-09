@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   ADDRESS_TYPES,
+  ARTICLE_STATUSES,
   AUCTION_STATUSES,
   BODY_TYPES,
   CONDITION_GRADES,
@@ -446,6 +447,77 @@ export const bodyTypeImageSchema = z
   })
   .strict();
 export type BodyTypeImageInput = z.infer<typeof bodyTypeImageSchema>;
+
+// --- Editorial ---------------------------------------------------------------
+
+/**
+ * Where a masthead's button may point.
+ *
+ * An Atlas path, never another origin. The front page exists to move people
+ * into the catalogue, and an operator who could aim the largest button on the
+ * site at an arbitrary address turns it into an open redirect wearing Atlas's
+ * branding. `//evil.example` is excluded explicitly: it is a protocol-relative
+ * URL that a naive "starts with /" check would wave through.
+ */
+const internalPath = z
+  .string()
+  .trim()
+  .max(200)
+  .refine((value) => value.startsWith('/') && !value.startsWith('//'), {
+    message: 'Link to a page on Atlas, starting with "/". External addresses are not accepted.',
+  });
+
+export const articleSchema = z
+  .object({
+    title: trimmed(140).min(4),
+    /** The standfirst under the headline. Short, because the masthead is short. */
+    subtitle: trimmed(180).optional(),
+    body: trimmed(20_000).min(1),
+    heroImageUrl: trimmed(500).min(1),
+    heroAlt: trimmed(160).optional(),
+    ctaLabel: trimmed(40).optional(),
+    ctaHref: internalPath.optional(),
+    status: z.enum(ARTICLE_STATUSES).default('DRAFT'),
+  })
+  .strict()
+  // A button with no destination, or a destination with no button, is a
+  // half-built control. Requiring them together is cheaper than rendering
+  // around every combination.
+  .refine((data) => !data.ctaLabel === !data.ctaHref, {
+    message: 'Give the button both a label and a link, or neither',
+    path: ['ctaHref'],
+  });
+export type ArticleInput = z.infer<typeof articleSchema>;
+
+/**
+ * Partial update. Built from the object rather than the refined schema because
+ * `.partial()` cannot see through a refinement, and re-stating the pairing rule
+ * here would let the two drift.
+ */
+export const updateArticleSchema = z
+  .object({
+    title: trimmed(140).min(4),
+    subtitle: trimmed(180).nullable(),
+    body: trimmed(20_000).min(1),
+    heroImageUrl: trimmed(500).min(1),
+    heroAlt: trimmed(160).nullable(),
+    ctaLabel: trimmed(40).nullable(),
+    ctaHref: internalPath.nullable(),
+    status: z.enum(ARTICLE_STATUSES),
+  })
+  .partial()
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Provide at least one field to update',
+  });
+export type UpdateArticleInput = z.infer<typeof updateArticleSchema>;
+
+export const articleQuerySchema = z.object({
+  status: z.enum(ARTICLE_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(12),
+});
+export type ArticleQuery = z.infer<typeof articleQuerySchema>;
 
 // --- Pagination --------------------------------------------------------------
 

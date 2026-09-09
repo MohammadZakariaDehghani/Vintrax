@@ -178,6 +178,33 @@ socket.on('auction:event', (event) => { /* AuctionEvent */ });
 Events: `BID_PLACED`, `AUCTION_EXTENDED`, `AUCTION_ENDED`, `AUCTION_STARTED`.
 The channel is read-only; bids go over HTTP.
 
+## Editorial
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/articles/masthead` | — | The post the home page leads with, or null |
+| `GET` | `/articles` | — | Published posts, newest first |
+| `GET` | `/articles/:slug` | — | One published post |
+| `GET` | `/admin/articles` | `content:manage` | All posts including drafts |
+| `GET` | `/admin/articles/:slug` | `content:manage` | One post, published or not |
+| `POST` | `/admin/articles` | `content:manage` | Write a post |
+| `PATCH` | `/admin/articles/:id` | `content:manage` | Edit, publish or unpublish |
+| `DELETE` | `/admin/articles/:id` | `content:manage` | Delete a post |
+
+`heroImageUrl` must be a URL returned by `POST /uploads/article-images`; an
+address on another server is refused. `ctaHref` must be a path on Atlas
+starting with `/`, and `ctaLabel` and `ctaHref` are required together. The slug
+is derived from the title. An unpublished post answers 404 on the public
+routes.
+
+## Site presentation
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/admin/body-type-images` | — | Body-type shortcut photographs |
+| `PUT` | `/admin/body-type-images/:bodyType` | `content:manage` | Set one |
+| `DELETE` | `/admin/body-type-images/:bodyType` | `content:manage` | Remove one, restoring the fallback |
+
 ## Inspections
 
 | Method | Path | Auth | Purpose |
@@ -246,6 +273,8 @@ The message recipient is derived from the vehicle, never supplied by the client
 | --- | --- | --- | --- |
 | `POST` | `/uploads/images` | seller | Vehicle photo |
 | `POST` | `/uploads/inspection-images` | inspector | Inspection photo |
+| `POST` | `/uploads/body-type-images` | `content:manage` | Body-type shortcut photo |
+| `POST` | `/uploads/article-images` | `content:manage` | Editorial hero photo |
 | `POST` | `/uploads/documents` | seller | Title, history report, records |
 | `GET` | `/admin/analytics` | admin | Platform metrics |
 | `GET` | `/admin/audit-logs` | admin | Query the audit trail |

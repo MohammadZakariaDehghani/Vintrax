@@ -66,6 +66,7 @@ const en = {
   nav: {
     browse: 'Browse',
     auctions: 'Auctions',
+    editorial: 'Editorial',
     dashboard: 'Dashboard',
     inventory: 'Inventory',
     admin: 'Admin',
@@ -282,6 +283,7 @@ const fr: Dictionary = {
   nav: {
     browse: 'Parcourir',
     auctions: 'Enchères',
+    editorial: 'Actualités',
     dashboard: 'Tableau de bord',
     inventory: 'Inventaire',
     admin: 'Administration',

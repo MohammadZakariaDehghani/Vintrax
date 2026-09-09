@@ -16,6 +16,7 @@ import {
 import { api } from '@/lib/api-client';
 import { cn, formatNumber } from '@/lib/utils';
 import { BodyTypeIcon } from '@/components/body-type-icon';
+import type { BodyTypeShortcut } from '@/lib/body-type-shortcuts';
 import { useT } from '@/i18n/provider';
 
 /**
@@ -38,19 +39,6 @@ const PRICE_CEILINGS = [10_000, 15_000, 20_000, 30_000, 40_000, 50_000, 75_000, 
 const field =
   'h-12 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground ' +
   'focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40';
-
-/**
- * A body-type shortcut, carrying a photograph of a vehicle Atlas actually has
- * of that shape. `imageUrl` is null when nothing of that body type is listed
- * with a photo yet, and the drawn silhouette stands in.
- */
-export interface BodyTypeShortcut {
-  bodyType: BodyType;
-  imageUrl: string | null;
-  /** Set only when an administrator gave the photo one. */
-  alt: string | null;
-  count: number;
-}
 
 export function HomeSearch({
   makes = [],
