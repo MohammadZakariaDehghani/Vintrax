@@ -1,0 +1,57 @@
+# Milestones for the Atlas repository.
+#
+# Applied by .github/workflows/project-setup.yml. Created if missing, and the
+# description updated if it has drifted. Never closed or deleted by the
+# workflow — closing a milestone is a judgement call.
+#
+# Five, not fourteen. They come from what the repository has actually built and
+# from the roadmap in documentation/reference/future-work.md, not from a generic
+# list. Phase 1 is finished and shipped, so there is no "M1 — Foundation" to
+# open; it would be born closed. Each milestone below has real work waiting in
+# it, which is the only reason for a milestone to exist.
+
+milestones:
+  - title: 'M1 — Hardening & Launch Readiness'
+    state: open
+    description: >-
+      Everything standing between the current build and a deployment that can
+      take real users. Refresh-token rotation and account lockout, distributed
+      rate limiting across instances, object storage instead of local disk,
+      structured logging and metrics, and the open items from
+      documentation/security-audit.md. The four P0 findings are already fixed;
+      what remains is the hardening the audit called Not Audited or deferred.
+
+  - title: 'M2 — Marketplace Growth'
+    state: open
+    description: >-
+      Phase 2 in documentation/reference/future-work.md. Search quality beyond
+      the current Postgres provider, saved searches and alerts, richer
+      notifications, vehicle comparison, trust features, dealer tooling and
+      administration. Work that makes an existing marketplace better rather
+      than adding a new product surface.
+
+  - title: 'M3 — Inspections & Trust'
+    state: open
+    description: >-
+      Turning the inspector role into a working product. Today the data model,
+      the report and the badge exist, but nothing can be booked, nobody pays,
+      there is no inspector interface, and an inspector can only be created by
+      writing to the database. Includes deciding the commercial model before
+      building the flows around it.
+
+  - title: 'M4 — Auctions & Ecosystem'
+    state: open
+    description: >-
+      Phase 4. Deepening the auction product — proxy bidding refinements,
+      settlement, seller controls — and the partner integrations around it:
+      financing, transport, and a real payment provider behind the existing
+      order and platform-fee model.
+
+  - title: 'M5 — Production Launch'
+    state: open
+    description: >-
+      The work that is only done once. Managed Postgres and Redis, TLS and
+      domains, backup and restore rehearsed rather than assumed, an on-call
+      runbook, and the go-live checklist in documentation/deployment.md.
+      Nothing here is a feature; everything here blocks taking payment from a
+      real customer.

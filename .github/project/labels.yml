@@ -1,0 +1,136 @@
+# Labels for the Atlas repository.
+#
+# Applied by .github/workflows/project-setup.yml, which creates what is missing
+# and updates the colour and description of what already exists. It never
+# deletes a label that is not listed here — a label someone added by hand stays.
+#
+# Four axes, and an issue normally carries one of each of the first three:
+#
+#   type:*      what kind of work it is
+#   area:*      where in Atlas it lives
+#   priority:*  how soon it matters
+#   status:*    why it is not moving (only when it is not)
+#
+# Colours are grouped so the board reads at a glance: types are blue-grey,
+# areas green, priorities run cool to hot, statuses amber.
+
+labels:
+  # --- Type -----------------------------------------------------------------
+  - name: 'type:feature'
+    color: '1d4ed8'
+    description: New user-facing capability
+  - name: 'type:bug'
+    color: 'b91c1c'
+    description: Behaves differently from how it should
+  - name: 'type:task'
+    color: '475569'
+    description: Plumbing, tooling, dependencies — no user-facing change
+  - name: 'type:improvement'
+    color: '2563eb'
+    description: Something that works, made better
+  - name: 'type:refactor'
+    color: '64748b'
+    description: Same behaviour, better shape. Includes the technical debt register
+  - name: 'type:documentation'
+    color: '94a3b8'
+    description: Documentation only
+  - name: 'type:security'
+    color: '7f1d1d'
+    description: A weakness, or hardening work
+  - name: 'type:devops'
+    color: '334155'
+    description: CI, containers, infrastructure, deployment
+  - name: 'type:test'
+    color: '0e7490'
+    description: Test coverage and test tooling
+
+  # --- Area -----------------------------------------------------------------
+  # One per real part of the repository. There is no area:vehicle separate from
+  # area:marketplace here because in this codebase they are the same module.
+  - name: 'area:frontend'
+    color: '166534'
+    description: apps in frontend/ — the Next.js web application
+  - name: 'area:backend'
+    color: '15803d'
+    description: backend/ — the NestJS API
+  - name: 'area:api'
+    color: '16a34a'
+    description: Endpoint contracts, shared schemas, @atlas/client
+  - name: 'area:database'
+    color: '14532d'
+    description: Prisma schema, migrations, seed data
+  - name: 'area:marketplace'
+    color: '22c55e'
+    description: Listings, inventory, search, discovery
+  - name: 'area:auctions'
+    color: '4d7c0f'
+    description: Auctions, bidding, settlement
+  - name: 'area:inspections'
+    color: '65a30d'
+    description: Condition reports and the inspector role
+  - name: 'area:customer'
+    color: '84cc16'
+    description: Buyer accounts, favourites, purchases
+  - name: 'area:dealer'
+    color: '3f6212'
+    description: Seller and dealership experience
+  - name: 'area:admin'
+    color: '713f12'
+    description: Administration, moderation, editorial
+  - name: 'area:mobile'
+    color: '0f766e'
+    description: mobile/ — the progressive web app
+  - name: 'area:authentication'
+    color: '7c2d12'
+    description: Sign-in, tokens, roles, permissions
+  - name: 'area:payments'
+    color: 'a16207'
+    description: Orders, payments, settlement, platform fee
+  - name: 'area:messaging'
+    color: '0891b2'
+    description: Conversations and notifications
+  - name: 'area:infrastructure'
+    color: '1e293b'
+    description: Docker, Kubernetes, Terraform
+  - name: 'area:deployment'
+    color: '0f172a'
+    description: Release, migrations on deploy, the Ubuntu server
+  - name: 'area:monitoring'
+    color: '312e81'
+    description: Logging, metrics, tracing, alerting
+
+  # --- Priority -------------------------------------------------------------
+  - name: 'priority:critical'
+    color: 'dc2626'
+    description: Production is broken, data is at risk, or a live weakness is exposed
+  - name: 'priority:high'
+    color: 'ea580c'
+    description: Next up. Blocks the current milestone
+  - name: 'priority:medium'
+    color: 'f59e0b'
+    description: Planned, not urgent
+  - name: 'priority:low'
+    color: 'a8a29e'
+    description: Worth doing eventually
+
+  # --- Status ---------------------------------------------------------------
+  # Only for a state the board column cannot express on its own.
+  - name: 'status:blocked'
+    color: 'facc15'
+    description: Cannot proceed. Say what it is waiting on in a comment
+  - name: 'status:needs-review'
+    color: 'fbbf24'
+    description: Waiting on the developer's review or decision
+  - name: 'status:needs-testing'
+    color: 'fcd34d'
+    description: Implemented, not yet exercised against a running instance
+
+  # --- Provenance -----------------------------------------------------------
+  # Worth knowing at a glance who wrote a change, because AI-authored work
+  # waits for human approval before merging.
+  - name: 'ai-assisted'
+    color: '8b5cf6'
+    description: Written with an AI assistant. Merging is still the developer's call
+  - name: 'epic'
+    color: '6d28d9'
+    description: A long-running area of the platform, not a unit of work

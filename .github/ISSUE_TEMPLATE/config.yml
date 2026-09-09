@@ -1,0 +1,15 @@
+# Blank issues stay on, deliberately.
+#
+# Atlas has one developer. A template that gets in the way of writing down a
+# thought before it is lost costs more than the structure it adds, and an
+# unstructured issue can always be filled in later. The templates are there to
+# make the good shape easy, not to make the quick note impossible.
+blank_issues_enabled: true
+
+contact_links:
+  - name: Architecture decisions
+    url: https://github.com/MohammadZakariaDehghani/Atlas/blob/main/documentation/decision-log.md
+    about: Read the decision log before proposing a change to how Atlas is built. Significant decisions are recorded there with their rationale.
+  - name: How this project is run
+    url: https://github.com/MohammadZakariaDehghani/Atlas/blob/main/documentation/PROJECT_WORKFLOW.md
+    about: Board columns, labels, branch naming, Definition of Done, and the rules AI assistants follow.

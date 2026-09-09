@@ -1,0 +1,45 @@
+# Applies the label and milestone manifests to this repository.
+#
+# Why a workflow rather than clicking through Settings: the manifests in
+# .github/project/ are the source of truth, they are reviewed like code, and
+# re-running this after editing one is the whole update process. It also means
+# an AI assistant can propose a label change as a pull request instead of
+# needing write access to repository settings.
+#
+# Run it from Actions → Project setup → Run workflow. It is safe to run any
+# number of times: it creates what is missing and corrects what has drifted.
+#
+# It never deletes. A label or milestone that exists here but not in the
+# manifest is left exactly as it is — removing one is a judgement call with
+# consequences for every issue carrying it, so it stays a deliberate manual act.
+name: Project setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Report what would change without changing it'
+        type: boolean
+        default: false
+
+jobs:
+  apply:
+    name: Apply labels and milestones
+    runs-on: ubuntu-latest
+    permissions:
+      # Labels and milestones both live under the issues scope.
+      issues: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PyYAML
+        run: pip install --quiet pyyaml
+
+      - name: Apply the manifests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python3 .github/project/apply.py
