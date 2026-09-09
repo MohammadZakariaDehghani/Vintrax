@@ -93,7 +93,14 @@ export function HomeSearch({
 
   return (
     <div className="rounded-lg bg-card shadow-lg ring-1 ring-border">
-      <div className="flex gap-1 overflow-x-auto border-b border-border px-3 sm:px-5" role="tablist">
+      {/* `overflow-x-auto` alone computes the cross axis to `auto` as well, so
+          a fraction of a pixel of vertical overflow put a full scrollbar —
+          steppers and all — down the right edge of the card. The tabs never
+          need to scroll vertically, so that axis is clipped explicitly. */}
+      <div
+        className="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border px-3 sm:px-5"
+        role="tablist"
+      >
         {TABS.map((entry) => (
           <button
             key={entry.key}
