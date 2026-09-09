@@ -17,6 +17,7 @@ how to work on it, and where it goes next.
 | Deploying | [Deployment](./deployment.md) |
 | Wondering why something is the way it is | [Decision Log](./decision-log.md) |
 | Planning what comes next | [Future work](./reference/future-work.md) |
+| Picking up a task, or opening a PR | [Project workflow](./PROJECT_WORKFLOW.md) |
 
 ## Core documents
 
@@ -43,6 +44,9 @@ how to work on it, and where it goes next.
 ## Product and direction
 
 - **[Project Atlas HQ](./atlas-hq.md)** — vision, phased roadmap, principles.
+- **[Project workflow](./PROJECT_WORKFLOW.md)** — the GitHub board, issue and
+  branch conventions, Definition of Done, CI expectations, and the rules AI
+  assistants work under.
 - **[Decision Log](./decision-log.md)** — every accepted decision with rationale
   and consequences, identified as `D-nnn`.
 
