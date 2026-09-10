@@ -18,6 +18,7 @@ how to work on it, and where it goes next.
 | Wondering why something is the way it is | [Decision Log](./decision-log.md) |
 | Planning what comes next | [Future work](./reference/future-work.md) |
 | Picking up a task, or opening a PR | [Project workflow](./PROJECT_WORKFLOW.md) |
+| Choosing or budgeting cloud infrastructure | [Infrastructure brief](./infrastructure-brief.md) |
 
 ## Core documents
 
@@ -44,6 +45,10 @@ how to work on it, and where it goes next.
 ## Product and direction
 
 - **[Project Atlas HQ](./atlas-hq.md)** — vision, phased roadmap, principles.
+- **[Infrastructure brief](./infrastructure-brief.md)** — cloud architecture and
+  FinOps decision for Atlas, Vintrax and Mobile at 500 users: capacity model, the
+  Kubernetes question, cost model, security, DR and the FinOps policy. Pricing is
+  unverified — see its §00 before using any figure.
 - **[Project workflow](./PROJECT_WORKFLOW.md)** — the GitHub board, issue and
   branch conventions, Definition of Done, CI expectations, and the rules AI
   assistants work under.
