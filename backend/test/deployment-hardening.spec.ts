@@ -106,3 +106,89 @@ describe('the example environment', () => {
     expect(env).toMatch(/^REDIS_PASSWORD=/m);
   });
 });
+
+/**
+ * The production stack is a different file with the opposite defaults: nothing
+ * is reachable from outside the host, because Nginx is the only thing the
+ * internet talks to. These assertions are the ones that matter most — the
+ * development file above is a laptop, this one is a server.
+ */
+describe('the production stack', () => {
+  const PROD_PATH = join(__dirname, '..', '..', 'compose', 'docker-compose.prod.yml');
+  const prod = readFileSync(PROD_PATH, 'utf8');
+
+  function prodBlock(name: string): string {
+    const lines = prod.split('\n');
+    const start = lines.findIndex((line) => line === `  ${name}:`);
+    if (start === -1) throw new Error(`docker-compose.prod.yml has no service "${name}"`);
+    const rest = lines.slice(start + 1);
+    const end = rest.findIndex((line) => /^ {2}\S/.test(line));
+    return (end === -1 ? rest : rest.slice(0, end)).join('\n');
+  }
+
+  it('reads the real file, not an empty one', () => {
+    expect(prod).toContain('services:');
+    expect(prod).toContain('vintrax-api');
+  });
+
+  it.each(['postgres', 'redis'])('publishes no host port at all for %s', (name) => {
+    // Stronger than loopback: on a server there is no reason for either to be
+    // reachable from the host, and `docker compose exec` still works without it.
+    expect(prodBlock(name)).not.toMatch(/^ {4}ports:/m);
+  });
+
+  it.each(['api', 'web', 'mobile'])('binds %s to loopback, for Nginx to reach', (name) => {
+    const block = prodBlock(name);
+    const mappings = [...block.matchAll(/- '([^']+)'/g)].map((match) => match[1]!);
+
+    expect(mappings.length).toBeGreaterThan(0);
+    for (const mapping of mappings) {
+      expect(mapping).toMatch(/^127\.0\.0\.1:/);
+    }
+  });
+
+  it('builds nothing — the server runs what the registry holds', () => {
+    // A `build:` here would mean the artefact CI verified is not the artefact
+    // that runs, and that a rollback needs a working toolchain on the server.
+    expect(prod).not.toMatch(/^ {4}build:/m);
+  });
+
+  it('hard-codes no secret, and fails loudly when one is missing', () => {
+    for (const secret of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'POSTGRES_PASSWORD']) {
+      // `:?` makes compose refuse to start rather than substitute an empty
+      // string, which is how a JWT secret silently becomes "".
+      expect(prod).toContain(`\${${secret}:?`);
+    }
+  });
+
+  it('pins an image version rather than defaulting to a moving tag', () => {
+    // A `:-latest` default would mean `up -d` could quietly change versions.
+    expect(prod).toContain('${VINTRAX_VERSION:?');
+    expect(prod).not.toContain('VINTRAX_VERSION:-');
+  });
+
+  it('starts the API only after migrations have succeeded', () => {
+    expect(prodBlock('api')).toMatch(/migrate:\n\s+condition: service_completed_successfully/);
+  });
+
+  it('migrates with deploy, never with dev', () => {
+    expect(prodBlock('migrate')).toContain("'migrate', 'deploy'");
+
+    // Comments are stripped first: the file explains at length why `migrate
+    // dev` is not used here, and matching that prose would be the test reading
+    // its own documentation back.
+    const directives = prod
+      .split('\n')
+      .filter((line) => !/^\s*#/.test(line))
+      .join('\n');
+
+    expect(directives).not.toContain('migrate dev');
+    expect(directives).not.toContain('migrate reset');
+  });
+
+  it('keeps uploads and the database on named volumes', () => {
+    // The container filesystem is disposable; listing photos are not.
+    expect(prodBlock('api')).toContain('uploads-data:/app/backend/uploads');
+    expect(prodBlock('postgres')).toContain('postgres-data:/var/lib/postgresql/data');
+  });
+});

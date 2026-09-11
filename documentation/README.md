@@ -14,7 +14,8 @@ how to work on it, and where it goes next.
 | Working on the API                         | [Backend](./backend.md)                              |
 | Working on the UI                          | [Frontend](./frontend.md)                            |
 | Working on the mobile app                  | [Mobile](./mobile.md)                                |
-| Deploying                                  | [Deployment](./deployment.md)                        |
+| Deploying to a server                      | [Docker and production deployment](./docker.md)      |
+| Surveying the deployment options           | [Deployment](./deployment.md)                        |
 | Wondering why something is the way it is   | [Decision Log](./decision-log.md)                    |
 | Planning what comes next                   | [Future work](./reference/future-work.md)            |
 | Picking up a task, or opening a PR         | [Project workflow](./PROJECT_WORKFLOW.md)            |
@@ -37,6 +38,9 @@ how to work on it, and where it goes next.
   settlement.
 - **[API reference](./api-reference.md)** — every endpoint, its authorisation
   rule, and error semantics.
+- **[Docker and production deployment](./docker.md)** — images, GHCR, compose,
+  Ubuntu, Nginx, TLS, migrations, backups, rollback and troubleshooting. The
+  page to follow to put this on a server.
 - **[Deployment](./deployment.md)** — Docker, Kubernetes, cloud, and what is
   still missing before production.
 - **[Developer guide](./developer-guide.md)** — setup, demo accounts, workflows,

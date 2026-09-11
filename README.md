@@ -39,6 +39,14 @@ VINTRAX_PUBLIC_URL=http://203.0.113.10:3000 ./scripts/setup-ubuntu.sh --systemd
 `--systemd` runs Vintrax under systemd instead of the foreground. Full options in
 [deployment.md](./documentation/deployment.md#single-ubuntu-server).
 
+That script builds on the server. For a **container deployment** — the server
+pulls images CI already verified and builds nothing — follow
+[docker.md](./documentation/docker.md):
+
+```
+GitHub → Actions → ghcr.io/<owner>/vintrax-{api,web,mobile} → docker compose pull → up -d
+```
+
 ### Anywhere else
 
 Requires Node 20.11+, pnpm 10, and Docker (or local PostgreSQL 16 and Redis 7).
@@ -128,6 +136,7 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 | [Roles and transaction flows](./documentation/transaction-flow.md) | What each role can do, and how every process moves     |
 | [Security audit](./documentation/security-audit.md)                | Findings, evidence, what was fixed, what is still owed |
 | [API reference](./documentation/api-reference.md)                  | Every endpoint                                         |
+| [Docker and production deployment](./documentation/docker.md)      | Images, GHCR, Ubuntu, Nginx, TLS, backups, rollback    |
 | [Deployment](./documentation/deployment.md)                        | Docker, Kubernetes, cloud                              |
 | [Developer guide](./documentation/developer-guide.md)              | Setup, workflows, CI, troubleshooting                  |
 | [Decision Log](./documentation/decision-log.md)                    | Why things are the way they are                        |
@@ -137,8 +146,12 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 
 | Command                                    |                                                  |
 | ------------------------------------------ | ------------------------------------------------ |
-| `./scripts/setup-ubuntu.sh`                | Install everything and run (Ubuntu)              |
-| `./scripts/update-ubuntu.sh`               | Pull, build and restart a running server         |
+| `./scripts/setup-ubuntu.sh`                | Install everything and run from source (Ubuntu)  |
+| `./scripts/update-ubuntu.sh`               | Pull, build and restart a source-based server    |
+| `./scripts/deploy.sh sha-a1b2c3d`          | Deploy a published image version (containers)    |
+| `./scripts/rollback.sh`                    | Return to the previous deployed version          |
+| `./scripts/backup-db.sh`                   | Timestamped database backup                      |
+| `./scripts/restore-db.sh <file>`           | Restore a backup — overwrites the database       |
 | `pnpm dev`                                 | Run the API and web app                          |
 | `pnpm dev:mobile`                          | Run the API and Vintrax Mobile                   |
 | `pnpm dev:all`                             | Run all three                                    |
@@ -177,8 +190,9 @@ Deliberate boundaries, documented rather than hidden:
 - **WebSocket scaling needs a Redis adapter** before running more than one API
   replica; socket rooms are per-process today.
 - **Rate limits are per-instance and in-memory.**
-- **Docker and Kubernetes manifests have not been runtime-verified** — the
-  Docker daemon was unavailable in the environment where this was built.
+- **The Kubernetes manifests and Terraform have not been applied** to a live
+  cluster; they are reference examples. The container path in
+  [docker.md](./documentation/docker.md) has been built and run end to end.
 - **Tokens live in `localStorage`**, which is XSS-exposed; moving refresh tokens
   to `HttpOnly` cookies is planned hardening.
 

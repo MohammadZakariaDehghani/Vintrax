@@ -2,13 +2,21 @@
 
 Docker, Kubernetes and cloud deployment for Vintrax.
 
-> **Status:** Vintrax has not been deployed to a production environment. This
-> describes what the code supports and what still has to be built or chosen.
-> Items that do not exist yet are marked **not yet implemented**.
+> **Start here instead for a real deployment:** [docker.md](./docker.md) is the
+> complete path from a clean Ubuntu server to HTTPS — images, GHCR, compose,
+> Nginx, migrations, backups and rollback, with the exact commands in order.
+> This page is the wider survey: what each artefact is, and which of the other
+> options exist.
 >
-> The exception is [Single Ubuntu server](#single-ubuntu-server): that script
-> has been run end to end — clean machine to serving marketplace, including a
-> sign-in against the seeded data.
+> **Status:** Vintrax has not been deployed to a production environment. Items
+> that do not exist yet are marked **not yet implemented**.
+>
+> Two paths have been exercised end to end. `scripts/setup-ubuntu.sh` was run
+> from a clean machine to a serving marketplace including a sign-in against
+> seeded data. The container path in [docker.md](./docker.md) was built and run
+> as a stack — migrations applied, all services healthy, registration and login
+> against the real database, deploy and rollback between two published tags,
+> and a backup restored — against a local registry standing in for GHCR.
 
 ## Artefacts
 
@@ -154,6 +162,13 @@ hardened production deployment:
 
 ## Docker Compose
 
+There are two compose files, and they are not interchangeable.
+
+| File                              | Purpose                                                 |
+| --------------------------------- | ------------------------------------------------------- |
+| `docker-compose.yml`              | local development — **builds** from source              |
+| `compose/docker-compose.prod.yml` | production — **pulls** published images, builds nothing |
+
 ```bash
 cp .env.example .env
 # Set real JWT secrets — the API refuses to start with the placeholders
@@ -164,15 +179,20 @@ openssl rand -base64 48   # twice, into JWT_ACCESS_SECRET and JWT_REFRESH_SECRET
 # REDIS_URL as redis://:PASSWORD@redis:6379 — compose reads both.
 openssl rand -hex 24
 
-docker compose up -d                      # postgres, redis, api, web, mobile
+docker compose up -d --build              # postgres, redis, api, web, mobile
 docker compose --profile full up -d       # adds MinIO and OpenSearch
-docker compose exec api node_modules/.bin/prisma migrate deploy
-docker compose exec api node_modules/.bin/tsx prisma/seed.ts   # optional
+docker compose exec api node_modules/.bin/tsx prisma/seed.ts   # optional, dev image only
 ```
 
-The API container runs `prisma migrate deploy` before starting. With more than
-one replica that belongs in a separate pre-deploy job instead, to avoid a
-migration race.
+Migrations run as a one-shot `migrate` service that the API waits on with
+`depends_on: service_completed_successfully`, in both files. Running them inside
+the API's own command races with itself as soon as there is more than one
+replica, and a failure then crash-loops a container that keeps retrying a schema
+change against a live database.
+
+For production, see [docker.md](./docker.md) — the stack there publishes no port
+for PostgreSQL or Redis at all and binds the three app services to `127.0.0.1`
+behind Nginx.
 
 **PostgreSQL, Redis, MinIO and OpenSearch publish to `127.0.0.1` only.** Docker
 publishes ports through its own NAT rules, which sit _in front of_ the host
@@ -181,9 +201,8 @@ database on the internet whether or not `ufw` is running. Reach them over an
 SSH tunnel. The API, web and mobile services do bind every interface, because a
 reverse proxy or another host has to reach them.
 
-> **Not verified in this environment.** The Docker daemon was unavailable while
-> this was built, so the compose file and Dockerfiles are written and reviewed
-> but have not been run. Treat the first `docker compose up` as a smoke test.
+All three images have since been built and run. See [docker.md](./docker.md)
+for what was verified.
 
 ## Kubernetes
 
@@ -299,9 +318,15 @@ implemented**.
 
 ## Backups
 
-Terraform configures automated RDS backups with point-in-time recovery.
-**Restores have not been tested** — a backup you have never restored is a
-hypothesis. Rehearse it before launch.
+For a containerised PostgreSQL, `scripts/backup-db.sh` and
+`scripts/restore-db.sh` handle timestamped `pg_dump` output and restores —
+see [docker.md](./docker.md#7-backups). The restore path has been rehearsed:
+data written after a backup was gone after restoring it, and the pre-backup
+state came back intact.
+
+For a managed database, Terraform configures automated RDS backups with
+point-in-time recovery. **Those restores have not been tested** — a backup you
+have never restored is a hypothesis.
 
 S3 versioning protects media against accidental deletion.
 
@@ -313,17 +338,18 @@ S3 versioning protects media against accidental deletion.
 - [ ] `STORAGE_DRIVER=s3` with a CDN in front, and the bucket **private** —
       vehicle documents are authorized by the API, which cannot help if the
       objects are anonymously readable at their own URL
-- [ ] Migrations run as a discrete pre-deploy step
+- [x] Migrations run as a discrete pre-deploy step — the `migrate` service
 - [ ] Liveness and readiness probes wired correctly
-- [ ] TLS terminated; HTTP redirected
+- [ ] TLS terminated; HTTP redirected — `infrastructure/nginx/vintrax.conf.example` plus certbot
 - [ ] WebSocket scaling resolved (Redis adapter or session affinity)
 - [ ] Rate limiting backed by Redis if running more than one replica
 - [ ] Error tracking and log aggregation in place
-- [ ] Database restore rehearsed
+- [x] Database restore rehearsed — for the containerised database; not for RDS
 - [ ] A payment gateway actually integrated — orders currently record a
       reference that something else must produce
 - [ ] `SECURITY.md` published with a disclosure contact
 
-Related: [architecture](./architecture.md) ·
+Related: [Docker and production deployment](./docker.md) ·
+[architecture](./architecture.md) ·
 [security model](./architecture/security.md) ·
 [future work](./reference/future-work.md)
