@@ -1,0 +1,237 @@
+# Vintrax — Nginx reverse proxy.
+#
+#   sudo cp vintrax.conf.example /etc/nginx/sites-available/vintrax.conf
+#   sudo sed -i 's/vintrax.example.com/your-real-domain.com/g' /etc/nginx/sites-available/vintrax.conf
+#   sudo ln -s /etc/nginx/sites-available/vintrax.conf /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# Install this BEFORE running certbot. Certbot finds the server_name in an
+# existing server block, obtains the certificate and rewrites the file to add
+# the TLS directives and the port-80 redirect — so the HTTP block below is
+# deliberately plain, and the commented TLS block shows what certbot will add.
+#
+#   sudo certbot --nginx -d vintrax.example.com -d www.vintrax.example.com -d m.vintrax.example.com
+#
+# The topology this assumes:
+#
+#   Internet -> Nginx (:80/:443, the only public ports)
+#                 |-- /            -> 127.0.0.1:3000   web
+#                 |-- /api/        -> 127.0.0.1:3001   API
+#                 |-- /uploads/    -> 127.0.0.1:3001   uploaded media
+#                 |-- /socket.io/  -> 127.0.0.1:3001   live auctions
+#                 `-- m.  vhost    -> 127.0.0.1:3002   mobile
+#
+# Routing /api here rather than letting Next's rewrite do it is what makes the
+# API's host configurable at all: Next resolves rewrites() at build time, so
+# the destination baked into the image cannot be changed on a running
+# container. Nginx sees /api first, so the baked value is never reached.
+
+# Shared by every proxied location. In a `map` rather than repeated, so a fix
+# lands in one place.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+upstream vintrax_web    { server 127.0.0.1:3000; keepalive 32; }
+upstream vintrax_api    { server 127.0.0.1:3001; keepalive 32; }
+upstream vintrax_mobile { server 127.0.0.1:3002; keepalive 32; }
+
+# --- Marketplace -------------------------------------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name vintrax.example.com www.vintrax.example.com;
+
+    # certbot --nginx replaces this block's listen directives with:
+    #
+    #   listen 443 ssl http2;
+    #   listen [::]:443 ssl http2;
+    #   ssl_certificate     /etc/letsencrypt/live/vintrax.example.com/fullchain.pem;
+    #   ssl_certificate_key /etc/letsencrypt/live/vintrax.example.com/privkey.pem;
+    #   include /etc/letsencrypt/options-ssl-nginx.conf;
+    #   ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    #
+    # and adds a second server block on :80 that redirects to https.
+
+    # Listing photographs are the largest thing users send. The API enforces its
+    # own limit through MAX_UPLOAD_BYTES; this has to be at least as large or
+    # Nginx rejects the request with a 413 before the API can explain why.
+    client_max_body_size 12m;
+
+    # Only add headers the application does not already set. The API sends its
+    # own CSP, HSTS, X-Frame-Options and X-Content-Type-Options through helmet,
+    # and duplicating them here produces two headers, which some browsers treat
+    # as the intersection and others as a parse error.
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    # HSTS belongs on the TLS server block. Uncomment after certbot has run and
+    # you have confirmed every subdomain is on HTTPS — a wrong preload is very
+    # hard to undo.
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Do not advertise the exact nginx version in error pages and headers.
+    server_tokens off;
+
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/json application/javascript
+               application/x-javascript text/xml application/xml image/svg+xml;
+    gzip_min_length 1024;
+
+    # --- Live auctions -------------------------------------------------------
+    # Must come before the /api prefix would otherwise be considered, and must
+    # carry the upgrade headers: a proxy that does not forward them turns the
+    # WebSocket into an endless polling loop that looks like it works until
+    # someone watches the bid counter not move.
+    location /socket.io/ {
+        proxy_pass http://vintrax_api;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # An idle auction room sends nothing for minutes at a time. The default
+        # 60s read timeout would disconnect every spectator once a minute.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    # --- API -----------------------------------------------------------------
+    location /api/ {
+        proxy_pass http://vintrax_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        # The API sets `trust proxy 1`, so rate limiting and the audit trail
+        # read the client address from here. Without it every request appears
+        # to come from the proxy and one visitor can exhaust everyone's quota.
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection        "";
+        proxy_read_timeout 120s;
+    }
+
+    # --- Uploaded media ------------------------------------------------------
+    # Only reached with STORAGE_DRIVER=local. With S3 the bucket or its CDN
+    # serves these and this block is never used.
+    location /uploads/ {
+        proxy_pass http://vintrax_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header Connection "";
+        # Vehicle photographs are immutable once uploaded — the filename carries
+        # a hash — but documents are access-checked per request by the API and
+        # must never be cached by a shared proxy, which is why this is private.
+        proxy_cache_valid 200 1h;
+        add_header Cache-Control "private, max-age=3600";
+    }
+
+    # --- Next.js build output ------------------------------------------------
+    # Content-addressed filenames, so this is safe to cache forever and is the
+    # single biggest thing you can do for repeat-visit performance.
+    location /_next/static/ {
+        proxy_pass http://vintrax_web;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header Connection "";
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # --- Everything else: the web app ---------------------------------------
+    location / {
+        proxy_pass http://vintrax_web;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection        "";
+        proxy_read_timeout 120s;
+    }
+}
+
+# --- Mobile ------------------------------------------------------------------
+# Its own host rather than a path on the marketplace host. A PWA's service
+# worker scope and its manifest `start_url` are origin-scoped, so serving the
+# mobile app from a subdirectory would put it inside the web app's scope and
+# the install prompt would never appear.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name m.vintrax.example.com;
+
+    client_max_body_size 12m;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    server_tokens off;
+
+    gzip on;
+    gzip_vary on;
+    gzip_types text/plain text/css application/json application/javascript
+               image/svg+xml application/manifest+json;
+    gzip_min_length 1024;
+
+    location /socket.io/ {
+        proxy_pass http://vintrax_api;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    location /api/ {
+        proxy_pass http://vintrax_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection        "";
+    }
+
+    location /uploads/ {
+        proxy_pass http://vintrax_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header Connection "";
+        add_header Cache-Control "private, max-age=3600";
+    }
+
+    # The service worker must not be cached, or an install keeps serving the
+    # previous one and the app never updates. The app sets this header itself;
+    # it is repeated here so a proxy cache in front cannot override it.
+    location = /sw.js {
+        proxy_pass http://vintrax_mobile;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header Connection "";
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    location /_next/static/ {
+        proxy_pass http://vintrax_mobile;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header Connection "";
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location / {
+        proxy_pass http://vintrax_mobile;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection        "";
+    }
+}
