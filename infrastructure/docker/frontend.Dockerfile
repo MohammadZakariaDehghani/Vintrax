@@ -5,6 +5,7 @@
 #
 #   NEXT_PUBLIC_API_URL  inlined into the browser bundle by Next
 #   NEXT_PUBLIC_WS_URL   likewise
+#   NEXT_PUBLIC_BRAND_LOGO_SRC  likewise; optional brand artwork override
 #   API_ORIGIN           the rewrite destination in next.config.mjs
 #
 # The last one is the surprising one. Next resolves rewrites() at build time
@@ -38,8 +39,12 @@ FROM base AS build
 ARG NEXT_PUBLIC_API_URL=/api
 ARG NEXT_PUBLIC_WS_URL
 ARG API_ORIGIN=http://api:3001
+# Optional: a path under frontend/public to use as the brand lockup instead of
+# the drawn one, e.g. /vintrax-logo.png. Empty means use the drawing.
+ARG NEXT_PUBLIC_BRAND_LOGO_SRC
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_BRAND_LOGO_SRC=$NEXT_PUBLIC_BRAND_LOGO_SRC
 ENV API_ORIGIN=$API_ORIGIN
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -73,6 +78,14 @@ WORKDIR /app
 # copied alongside it.
 COPY --from=build --chown=node:node /app/frontend/.next/standalone ./
 COPY --from=build --chown=node:node /app/frontend/.next/static ./frontend/.next/static
+# public/ is not traced either. It is kept in the repository with a .gitkeep
+# even when empty, because this COPY fails on a path that is not there — and it
+# is where supplied brand artwork lands (see documentation/brand.md).
+#
+# Everything in it is served from the site root, so nothing explanatory goes
+# in here: a README dropped alongside the artwork would be readable at
+# /README.md by anyone who asked.
+COPY --from=build --chown=node:node /app/frontend/public ./frontend/public
 
 USER node
 EXPOSE 3000

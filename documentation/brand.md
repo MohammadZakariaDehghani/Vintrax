@@ -2,20 +2,58 @@
 
 The Vintrax identity, and the constraints it has to satisfy.
 
-## The mark
+## Two shapes, not one
 
-A **coupe in profile**, in brand green on carbon — Kamm tail, cabin set into the
-rear third, a long raked screen over a low nose.
+The identity has a **lockup** and an **icon**, and they are deliberately
+different drawings of the same car.
 
 ```
+frontend/src/components/logo.tsx       <Logo>     the lockup — header, footer, sign-in
+                                       <LogoMark> the icon
+mobile/src/components/logo.tsx         <LogoMark> the icon
 frontend/src/app/icon.svg              Favicon and web app icon
 mobile/public/icons/icon.svg           Mobile app icon
 mobile/public/icons/icon-maskable.svg  Launcher icon, croppable
-frontend/src/components/logo.tsx       In-app mark and lockup
-mobile/src/components/logo.tsx         In-app mark
 ```
 
-Every version is the same geometry. Five rules produced it:
+### The lockup
+
+The brand as supplied: a car drawn in **tapered sweeps** over the **VINTRAX**
+wordmark in chrome over **AUTOSALES** in green. This is what the page header
+shows.
+
+The car is seven filled crescents rather than stroked paths, because the source
+artwork's strokes are thick through the middle and come to a point at each end,
+and an SVG stroke cannot taper.
+
+AUTOSALES is part of the artwork, not a translated descriptor. The previous
+identity carried a translated line under the wordmark; this one does not, which
+is why `<Logo>` no longer takes a `descriptor`. The translatable tagline still
+sits beside the lockup in the footer, where it is prose rather than part of the
+mark.
+
+**The wordmark is set, not drawn as outlines**, with `textLength` pinning its
+width. Whichever face the browser actually has, the lockup keeps its
+proportions and nothing around it moves. Drawing seven letterforms as paths
+would remove the font dependency entirely, and is the upgrade to make if the
+substituted faces ever look wrong.
+
+**Every chrome stop is light.** On the header band the wordmark sits at about
+14px, and a chrome ramp with a genuinely dark mid-band cuts the glyphs in half
+at that size — it reads as damage, not as metal. The contrast _between_ stops
+is what says polished; the absolute darkness is not, and it costs legibility.
+The green edge is 3 units in a 780-wide viewBox for the same reason: thicker
+and the wordmark reads green rather than silver once it is small.
+
+### The icon
+
+A browser tab is 16 pixels. The lockup's tapered outlines close into a smudge
+well before that, and a 2:1 lockup cannot be squared for a PWA icon or cropped
+to a circle for a launcher. So the icon is a **solid silhouette** of the same
+car: Kamm tail, cabin set into the rear third, a long raked screen over a low
+nose.
+
+Every icon variant is the same geometry. Five rules produced it:
 
 - **Legible at 16px.** A browser tab is 16 pixels. The window line and the gap
   between tyre and arch both close up below about 32px, so neither is drawn —
@@ -77,10 +115,39 @@ distinguishable on the same screen.
 ## In the applications
 
 ```tsx
-<LogoMark />                       // the tile, for a neutral surface
-<LogoMark plain />                 // no tile, car in currentColor
-<Logo descriptor={t.brand.descriptor} />  // the full lockup
+<Logo tone="onDark" className="h-[54px]" />  // the lockup on the header band
+<Logo />                                     // the lockup on a light surface
+<LogoMark />                                 // the icon tile
+<LogoMark plain />                           // no tile, car in currentColor
 ```
+
+`tone="onDark"` is what gives the wordmark its chrome, and it needs a dark
+surface behind it — the same gradient on white is nearly invisible. The default
+`auto` sets the whole lockup in the theme's own colours instead: the car and
+wordmark in `--primary`, AUTOSALES in `--muted-foreground`.
+
+### Using the supplied artwork instead
+
+The lockup above is a drawing of the supplied logo, not the file itself: the
+original is a raster with a carbon-fibre weave, a chrome bevel and a lens
+flare, none of which survive being scaled down to a header.
+
+To use the real file, put it in `frontend/public/` and set
+**`NEXT_PUBLIC_BRAND_LOGO_SRC`** to its path:
+
+```bash
+NEXT_PUBLIC_BRAND_LOGO_SRC=/vintrax-logo.png
+```
+
+`<Logo>` then renders that image everywhere instead. Two consequences to know
+about. It is a `NEXT_PUBLIC_*` value, so it is compiled into the bundle and
+changing it is a rebuild, not a restart. And an image carries its own
+background, so it only sits correctly on the carbon band — the light-surface
+variant in the footer and on the sign-in page will show a dark slab. Supply a
+transparent PNG or SVG if those matter.
+
+The favicon and the PWA icons are separate files and are **not** affected by
+that variable.
 
 **The tile uses fixed hex values, not theme tokens.** `--primary` and
 `--primary-foreground` swap in dark mode, so a tile built from them inverts and

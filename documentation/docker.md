@@ -58,12 +58,13 @@ follows pnpm's symlinks out and misses the shared packages.
 
 This is the one thing about these images that surprises people.
 
-| Value                 | When                | Why                                                  |
-| --------------------- | ------------------- | ---------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL` | **build**           | Next inlines `NEXT_PUBLIC_*` into the browser bundle |
-| `NEXT_PUBLIC_WS_URL`  | **build**           | same                                                 |
-| `API_ORIGIN`          | **build _and_ run** | see below                                            |
-| everything else       | run                 | ordinary container environment                       |
+| Value                        | When                | Why                                                                                                                    |
+| ---------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`        | **build**           | Next inlines `NEXT_PUBLIC_*` into the browser bundle                                                                   |
+| `NEXT_PUBLIC_WS_URL`         | **build**           | same                                                                                                                   |
+| `NEXT_PUBLIC_BRAND_LOGO_SRC` | **build**           | optional; a file in `frontend/public` to use as the brand lockup instead of the drawn one — see [brand.md](./brand.md) |
+| `API_ORIGIN`                 | **build _and_ run** | see below                                                                                                              |
+| everything else              | run                 | ordinary container environment                                                                                         |
 
 `API_ORIGIN` has two separate consumers:
 
