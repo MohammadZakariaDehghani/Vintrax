@@ -20,7 +20,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 const en = {
   brand: {
-    descriptor: "Canada's auto marketplace",
+    descriptor: 'Auto sales and auctions',
     tagline:
       'A Canadian vehicle marketplace connecting buyers with dealerships and private sellers, with live auctions and independent inspection reports.',
   },
@@ -275,7 +275,7 @@ export type Dictionary = {
 
 const fr: Dictionary = {
   brand: {
-    descriptor: 'Le marché automobile du Canada',
+    descriptor: 'Ventes et enchères automobiles',
     tagline:
       'Un marché automobile canadien qui met en relation les acheteurs, les concessionnaires et les vendeurs particuliers, avec des enchères en direct et des rapports d’inspection indépendants.',
   },

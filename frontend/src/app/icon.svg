@@ -1,15 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
      role="img" aria-label="Vintrax">
-  <!-- The Vintrax mark: the summit and the road, from the brand lockup.
-       Simplified for small sizes — the lockup's notch in the peak and the
-       tapering hairline of the road both disappear below about 48px, so they
-       are not drawn here. What survives is the silhouette: a red peak crossed
-       by a road sweeping to the horizon.
-       The transform centres the composition in the tile; the artwork itself is
-       drawn to the same coordinates in every variant. -->
-  <rect width="512" height="512" rx="112" fill="#16295c"/>
-  <g transform="translate(256 256) scale(1.1) translate(-256 -265)">
-    <path d="M206 138 L108 392 L304 392 Z" fill="#d32027"/>
-    <path d="M120 392 C180 322, 288 236, 404 172 C312 266, 250 322, 240 392 Z" fill="#ffffff"/>
+  <!-- The Vintrax mark: a coupe in profile, on carbon, from the brand lockup.
+       Simplified for small sizes — the lockup's window line and the gap between
+       tyre and arch both close up below about 32px, so neither is drawn here.
+       What survives is the stance: Kamm tail, cabin set into the rear third,
+       long raked screen over a low nose.
+       The wheel arches are cut with fill-rule="evenodd" rather than painted in
+       the background colour, so the same geometry works on any surface.
+       The artwork is drawn oversize and bled past the tile edge: a car in
+       profile is about 2.4:1, and centred at its natural size it leaves so much
+       empty tile that the mark disappears in a 16px browser tab. -->
+  <rect width="512" height="512" rx="112" fill="#0c1210"/>
+  <g transform="translate(256 256) scale(1.3) translate(-265 -257)" fill="#21c45d">
+    <path fill-rule="evenodd" d="M44 318 L44 262 C44 252 48 246 58 242 L112 222 C140 180 176 163 216 162 L252 162 C306 162 356 186 404 222 L452 254 C474 266 486 280 486 298 L484 318 Z M94 312 a52 52 0 1 0 104 0 a52 52 0 1 0 -104 0 Z M334 312 a52 52 0 1 0 104 0 a52 52 0 1 0 -104 0 Z"/>
+    <path fill-rule="evenodd" d="M106 312 a40 40 0 1 0 80 0 a40 40 0 1 0 -80 0 Z M346 312 a40 40 0 1 0 80 0 a40 40 0 1 0 -80 0 Z"/>
   </g>
 </svg>

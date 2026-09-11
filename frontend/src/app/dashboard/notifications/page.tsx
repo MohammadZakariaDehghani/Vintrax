@@ -94,7 +94,7 @@ function Notifications() {
                   className={cn(
                     // An unread item is marked by a rule down its leading edge
                     // rather than a background wash, so the distinction still
-                    // reads in dark mode and does not fight the brand navy.
+                    // reads in dark mode and does not fight the brand green.
                     // The snapshot, not readAt: this page has just marked
                     // them read, and the reader still needs to see which ones
                     // were new when they arrived.

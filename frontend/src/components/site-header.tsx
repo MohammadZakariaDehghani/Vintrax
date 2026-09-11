@@ -29,7 +29,7 @@ import type { Dictionary } from '@/i18n/dictionary';
  * the account control, the language switch and one outlined pill for the
  * action the business most wants.
  *
- * The band is navy rather than the red the pattern usually comes in. Red is
+ * The band is carbon rather than the red the pattern usually comes in. Red is
  * reserved (D-020), and the point of following the layout was never to
  * reproduce someone else's identity.
  *
