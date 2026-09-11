@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import type { Article } from '@atlas/shared';
+import type { Article } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { ArticleBody } from '@/components/article-body';
 
@@ -17,10 +17,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticle(slug);
-  if (!article) return { title: 'Not found — Atlas' };
+  if (!article) return { title: 'Not found — Vintrax' };
 
   return {
-    title: `${article.title} — Atlas`,
+    title: `${article.title} — Vintrax`,
     description: article.subtitle ?? undefined,
     openGraph: {
       title: article.title,

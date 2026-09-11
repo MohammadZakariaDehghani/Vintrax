@@ -2,7 +2,7 @@
 
 What production needs that local development does not.
 
-> **Status:** Atlas has not been deployed. This is a plan, not a runbook — it describes what the code
+> **Status:** Vintrax has not been deployed. This is a plan, not a runbook — it describes what the code
 > currently supports and what still has to be built or chosen. Items that do not exist yet are marked
 > **not yet implemented**.
 
@@ -22,11 +22,11 @@ graph LR
 
 Three deployable artefacts:
 
-| Artefact | Build | Runtime |
-| --- | --- | --- |
-| Web bundle | `pnpm --filter @atlas/web build` → `apps/web/dist` | Any static host or CDN |
-| API service | `pnpm --filter @atlas/api build` → `apps/api/dist` | Node ≥ 20.11 |
-| Database | — | Managed PostgreSQL 16 |
+| Artefact    | Build                                                | Runtime                |
+| ----------- | ---------------------------------------------------- | ---------------------- |
+| Web bundle  | `pnpm --filter @vintrax/web build` → `apps/web/dist` | Any static host or CDN |
+| API service | `pnpm --filter @vintrax/api build` → `apps/api/dist` | Node ≥ 20.11           |
+| Database    | —                                                    | Managed PostgreSQL 16  |
 
 ## Build
 
@@ -37,12 +37,12 @@ pnpm build      # builds shared first, then both apps
 
 The root `build` script builds `packages/shared` before the applications, because the API compiles
 against its output. Running an app build in isolation without that step fails on
-`Cannot find module '@atlas/shared'`.
+`Cannot find module '@vintrax/shared'`.
 
 The API also needs its Prisma client generated for the deployment platform:
 
 ```bash
-pnpm --filter @atlas/api exec prisma generate
+pnpm --filter @vintrax/api exec prisma generate
 ```
 
 If you build on one platform and run on another — say building on macOS for Linux containers —
@@ -71,7 +71,7 @@ should not receive traffic.
 Always `deploy`, never `dev`:
 
 ```bash
-pnpm --filter @atlas/api exec prisma migrate deploy
+pnpm --filter @vintrax/api exec prisma migrate deploy
 ```
 
 `migrate dev` can reset the database. It exists for local development only.

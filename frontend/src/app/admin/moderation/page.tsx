@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ShieldCheck, X } from 'lucide-react';
-import type { Paginated, VehicleDetail, VehicleSummary } from '@atlas/shared';
+import type { Paginated, VehicleDetail, VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatKm, formatLocation, formatPrice, formatRelativeTime } from '@/lib/utils';
 import {
@@ -42,15 +42,7 @@ function ModerationQueue() {
   });
 
   const moderate = useMutation({
-    mutationFn: ({
-      id,
-      approved,
-      note,
-    }: {
-      id: string;
-      approved: boolean;
-      note?: string;
-    }) =>
+    mutationFn: ({ id, approved, note }: { id: string; approved: boolean; note?: string }) =>
       api.patch<VehicleDetail>(`/vehicles/${id}/moderate`, {
         approved,
         ...(note ? { reason: note } : {}),

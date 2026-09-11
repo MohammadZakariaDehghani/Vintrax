@@ -1,10 +1,10 @@
-import { ROLE_PERMISSIONS, articleSchema, updateArticleSchema } from '@atlas/shared';
+import { ROLE_PERMISSIONS, articleSchema, updateArticleSchema } from '@vintrax/shared';
 
 /**
  * Editorial posts are operator content on the busiest page of the site.
  *
  * Three rules matter, and all three are the kind that fail silently if nobody
- * pins them: only an operator may write one, the button may not leave Atlas,
+ * pins them: only an operator may write one, the button may not leave Vintrax,
  * and the payload may not carry anything the handler would spread into a
  * database write unexamined.
  */
@@ -26,7 +26,7 @@ describe('who may write a post', () => {
 });
 
 describe('the masthead button', () => {
-  it('accepts a path on Atlas', () => {
+  it('accepts a path on Vintrax', () => {
     const parsed = articleSchema.parse({
       ...valid,
       ctaLabel: 'Browse SUVs',
@@ -38,7 +38,7 @@ describe('the masthead button', () => {
 
   /**
    * The largest button on the site pointing at someone else's server is an
-   * open redirect wearing Atlas's branding.
+   * open redirect wearing Vintrax's branding.
    */
   it('refuses another origin', () => {
     expect(() =>

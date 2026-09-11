@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
-import type { Paginated, PublicUser, UserStatus } from '@atlas/shared';
-import { USER_ROLES, USER_STATUSES } from '@atlas/shared';
+import type { Paginated, PublicUser, UserStatus } from '@vintrax/shared';
+import { USER_ROLES, USER_STATUSES } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatDate, formatEnum } from '@/lib/utils';
 import {
@@ -78,8 +78,8 @@ function UserDirectory() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Users</h1>
         <p className="mt-1 text-muted-foreground">
-          Suspending an account revokes its live sessions immediately — the next request it makes
-          is rejected, rather than waiting for a token to expire.
+          Suspending an account revokes its live sessions immediately — the next request it makes is
+          rejected, rather than waiting for a token to expire.
         </p>
       </div>
 
@@ -182,9 +182,7 @@ function UserDirectory() {
                           variant={action.status === 'ACTIVE' ? 'default' : 'outline'}
                           size="sm"
                           loading={changeStatus.isPending}
-                          onClick={() =>
-                            changeStatus.mutate({ id: user.id, next: action.status })
-                          }
+                          onClick={() => changeStatus.mutate({ id: user.id, next: action.status })}
                         >
                           {action.label}
                         </Button>

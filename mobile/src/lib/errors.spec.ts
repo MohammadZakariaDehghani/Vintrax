@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError } from '@atlas/client';
+import { ApiError } from '@vintrax/client';
 import { describeError } from './errors';
 
 /**

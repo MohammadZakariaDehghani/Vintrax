@@ -6,4 +6,4 @@
  */
 import '@/lib/api-client';
 
-export { useAuctionSocket } from '@atlas/client';
+export { useAuctionSocket } from '@vintrax/client';

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart } from 'lucide-react';
-import type { ConversationDetail, TransactionSummary, VehicleDetail } from '@atlas/shared';
+import type { ConversationDetail, TransactionSummary, VehicleDetail } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
@@ -81,9 +81,7 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
           <p className="text-sm text-muted-foreground">This vehicle has been sold.</p>
         ) : vehicle.status === 'IN_AUCTION' && vehicle.activeAuction ? (
           <Link href={`/auctions/${vehicle.activeAuction.id}`}>
-            <Button className="w-full">
-              Go to live auction
-            </Button>
+            <Button className="w-full">Go to live auction</Button>
           </Link>
         ) : (
           <form
@@ -132,7 +130,10 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
               onClick={() => toggleFavourite.mutate(!vehicle.isFavourited)}
             >
               <Heart
-                className={cn('h-4 w-4', vehicle.isFavourited && 'fill-destructive text-destructive')}
+                className={cn(
+                  'h-4 w-4',
+                  vehicle.isFavourited && 'fill-destructive text-destructive',
+                )}
                 aria-hidden
               />
               {vehicle.isFavourited ? 'Saved' : 'Save this vehicle'}

@@ -10,7 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { type VehicleSummary, type Paginated, paginationSchema } from '@atlas/shared';
+import { type VehicleSummary, type Paginated, paginationSchema } from '@vintrax/shared';
 import { CurrentUser } from '../../common/decorators';
 import { zodQuery } from '../../common/pipes/zod-validation.pipe';
 import type { AuthUser } from '../../common/auth/auth-user';
@@ -34,10 +34,7 @@ export class FavouritesController {
   @Put('vehicles/:id/favourite')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Favourite a vehicle' })
-  async add(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: AuthUser,
-  ): Promise<void> {
+  async add(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser): Promise<void> {
     await this.favourites.add(id, user);
   }
 

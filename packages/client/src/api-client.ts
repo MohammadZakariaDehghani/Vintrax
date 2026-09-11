@@ -1,8 +1,8 @@
-import type { ApiErrorBody, AuthResponse } from '@atlas/shared';
-import { atlasClientConfig } from './config';
+import type { ApiErrorBody, AuthResponse } from '@vintrax/shared';
+import { vintraxClientConfig } from './config';
 
-const ACCESS_TOKEN_KEY = 'atlas.accessToken';
-const REFRESH_TOKEN_KEY = 'atlas.refreshToken';
+const ACCESS_TOKEN_KEY = 'vintrax.accessToken';
+const REFRESH_TOKEN_KEY = 'vintrax.refreshToken';
 
 /**
  * Error carrying the API's structured body, so forms can render field-level
@@ -74,7 +74,7 @@ async function refreshSession(): Promise<boolean> {
 
   inFlightRefresh ??= (async () => {
     try {
-      const response = await fetch(`${atlasClientConfig().apiBaseUrl}/auth/refresh`, {
+      const response = await fetch(`${vintraxClientConfig().apiBaseUrl}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -111,12 +111,13 @@ async function send(path: string, options: RequestOptions, retryOn401 = true): P
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
 
-  const base = options.baseUrl ?? atlasClientConfig().apiBaseUrl;
+  const base = options.baseUrl ?? vintraxClientConfig().apiBaseUrl;
 
   const response = await fetch(`${base}${path}`, {
     method: options.method ?? 'GET',
     headers,
-    body: options.rawBody ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
+    body:
+      options.rawBody ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
     signal: options.signal,
   });
 

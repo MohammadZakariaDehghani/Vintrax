@@ -11,7 +11,7 @@ import {
   BODY_TYPE_PLURAL_LABELS,
   type ArticleSummary,
   type Paginated,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useAuthStore, useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
@@ -33,7 +33,7 @@ import type { Dictionary } from '@/i18n/dictionary';
  * reserved (D-020), and the point of following the layout was never to
  * reproduce someone else's identity.
  *
- * Every item in every panel is a filter or a page Atlas actually has. The
+ * Every item in every panel is a filter or a page Vintrax actually has. The
  * reference menus carry boats, RVs and snowmobiles; those would be entries
  * leading nowhere, and a menu that lies is worse than a short one.
  */
@@ -325,7 +325,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40">
       <div className="bg-header text-header-foreground">
         <div ref={navRef} className="container relative flex h-16 items-center gap-2">
-          <Link href="/" aria-label="Atlas" className="shrink-0">
+          <Link href="/" aria-label="Vintrax" className="shrink-0">
             <Logo
               descriptor={t.brand.descriptor}
               className="hidden text-header-foreground lg:flex"
@@ -334,7 +334,10 @@ export function SiteHeader() {
             <Logo className="text-header-foreground lg:hidden" tone="onDark" />
           </Link>
 
-          <nav className="relative ml-3 hidden items-stretch self-stretch md:flex" aria-label="Main">
+          <nav
+            className="relative ml-3 hidden items-stretch self-stretch md:flex"
+            aria-label="Main"
+          >
             {MENUS.map((menu) => {
               const open = openMenu === menu.key;
               return (
@@ -346,9 +349,7 @@ export function SiteHeader() {
                   onClick={() => toggle(menu.key)}
                   className={cn(
                     'inline-flex items-center gap-1.5 whitespace-nowrap px-4 text-sm font-semibold transition-colors',
-                    open
-                      ? 'bg-card text-foreground'
-                      : 'text-header-foreground hover:bg-white/10',
+                    open ? 'bg-card text-foreground' : 'text-header-foreground hover:bg-white/10',
                   )}
                 >
                   {menu.label}
@@ -420,10 +421,7 @@ export function SiteHeader() {
               </IconLink>
             ) : null}
 
-            <span
-              className="mx-2 hidden h-6 w-px bg-header-border sm:block"
-              aria-hidden
-            />
+            <span className="mx-2 hidden h-6 w-px bg-header-border sm:block" aria-hidden />
 
             {user ? (
               <>
@@ -474,7 +472,6 @@ export function SiteHeader() {
               )}
             </button>
           </div>
-
         </div>
       </div>
 

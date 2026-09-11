@@ -1,10 +1,10 @@
-import type { BodyType } from '@atlas/shared';
+import type { BodyType } from '@vintrax/shared';
 import { cn } from '@/lib/utils';
 
 /**
  * Side profiles for the body-type shortcuts.
  *
- * The shortcuts show a photograph of a vehicle Atlas actually has of that
+ * The shortcuts show a photograph of a vehicle Vintrax actually has of that
  * shape. These stand in for the shapes nothing is listed under yet, so a new
  * deployment with an empty catalogue still gets a legible row instead of nine
  * grey boxes.
@@ -16,30 +16,23 @@ import { cn } from '@/lib/utils';
  */
 const BODIES: Record<BodyType, string> = {
   // Three boxes: bonnet, cabin, a boot deck below the roofline.
-  SEDAN:
-    'M6 38V30c0-3 2-4 5-4.5L26 24l18-10h30l18 10 13 1.5c3 .5 4 1.5 4 4.5v8Z',
+  SEDAN: 'M6 38V30c0-3 2-4 5-4.5L26 24l18-10h30l18 10 13 1.5c3 .5 4 1.5 4 4.5v8Z',
   // Roof peaks early and falls in one line to the tail — no boot step.
-  COUPE:
-    'M6 38V30c0-3 2-4 5-4.5L28 24l16-9h20l36 10 5 1c3 .5 4 1.5 4 4.5v8Z',
+  COUPE: 'M6 38V30c0-3 2-4 5-4.5L28 24l16-9h20l36 10 5 1c3 .5 4 1.5 4 4.5v8Z',
   // Short, and the cabin stops in a near-vertical hatch over the rear axle.
-  HATCHBACK:
-    'M12 38V30c0-3 2-4 5-4.5L30 24l16-11h34l6 13 8 .5c3 .5 4 1.5 4 4.5v8Z',
+  HATCHBACK: 'M12 38V30c0-3 2-4 5-4.5L30 24l16-11h34l6 13 8 .5c3 .5 4 1.5 4 4.5v8Z',
   // Sedan nose, but the roof is carried flat to a vertical tail.
-  WAGON:
-    'M6 38V30c0-3 2-4 5-4.5L26 24l16-11h58l6 11 3 .5c3 .5 4 1.5 4 4.5v8Z',
+  WAGON: 'M6 38V30c0-3 2-4 5-4.5L26 24l16-11h58l6 11 3 .5c3 .5 4 1.5 4 4.5v8Z',
   // Tall and upright, with a short bonnet and a squared-off back.
   SUV: 'M8 38V26c0-4 2-5 6-5.5L26 19l12-11h52l8 12 8 1c3 .5 4 1.5 4 5v12Z',
   // One box: a long raked windscreen running from a low nose to the roof.
-  MINIVAN:
-    'M8 38V26c0-4 2-5 6-5.5L22 19 40 7h52l8 13 8 1c3 .5 4 1.5 4 5v12Z',
+  MINIVAN: 'M8 38V26c0-4 2-5 6-5.5L22 19 40 7h52l8 13 8 1c3 .5 4 1.5 4 5v12Z',
   // The tallest, bluntest shape — a cargo box with a stub bonnet.
   VAN: 'M8 38V22c0-4 2-5 6-5.5L22 16 32 4h74l6 3c2 1 2 2 2 5v26Z',
   // Cab in front, then a step down to an open bed.
-  TRUCK:
-    'M6 38V28c0-3 2-4 5-4.5L24 22l12-11h28l6 11h36v16Z',
+  TRUCK: 'M6 38V28c0-3 2-4 5-4.5L24 22l12-11h28l6 11h36v16Z',
   // Low, with a raked screen and nothing but deck behind it.
-  CONVERTIBLE:
-    'M6 38V30c0-3 2-4 5-4.5L28 24l16-10h4l-2 10h56l4 1.5c3 .5 4 1.5 4 4.5v8Z',
+  CONVERTIBLE: 'M6 38V30c0-3 2-4 5-4.5L28 24l16-10h4l-2 10h56l4 1.5c3 .5 4 1.5 4 4.5v8Z',
 };
 
 /** Where the wheels sit. Shared, so the shapes line up as a row. */
@@ -48,13 +41,7 @@ const WHEELS: Array<[number, number]> = [
   [92, 38],
 ];
 
-export function BodyTypeIcon({
-  bodyType,
-  className,
-}: {
-  bodyType: BodyType;
-  className?: string;
-}) {
+export function BodyTypeIcon({ bodyType, className }: { bodyType: BodyType; className?: string }) {
   return (
     <svg
       viewBox="0 0 120 48"

@@ -10,7 +10,7 @@ import {
   TRANSMISSIONS,
   VEHICLE_CONDITIONS,
   type SearchFacets,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { formatEnum } from '@/lib/utils';
 import {
   EMPTY_FILTERS,
@@ -40,10 +40,7 @@ function CheckboxGroup({
         {options.map((option) => {
           const count = counts?.get(option);
           return (
-            <label
-              key={option}
-              className="flex cursor-pointer items-center gap-2 py-0.5 text-sm"
-            >
+            <label key={option} className="flex cursor-pointer items-center gap-2 py-0.5 text-sm">
               <input
                 type="checkbox"
                 checked={selected.includes(option)}
@@ -295,7 +292,9 @@ export function VehicleFilterPanel({
           <input
             type="checkbox"
             checked={filters.inspectedOnly === 'true'}
-            onChange={(event) => update({ inspectedOnly: event.target.checked ? 'true' : undefined })}
+            onChange={(event) =>
+              update({ inspectedOnly: event.target.checked ? 'true' : undefined })
+            }
             className="h-4 w-4 accent-[hsl(var(--primary))]"
           />
           Inspected vehicles only

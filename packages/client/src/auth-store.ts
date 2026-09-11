@@ -6,7 +6,7 @@ import type {
   Permission,
   PublicUser,
   RegisterInput,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { create } from 'zustand';
 import { api, tokenStore } from './api-client';
 

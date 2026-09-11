@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
  * A vehicle make's own mark, for the "popular makes" shortcuts.
  *
  * The marks are the makers' trademarks. They appear here to label a link to
- * that maker's actual vehicles in Atlas's inventory — which is what a mark is
+ * that maker's actual vehicles in Vintrax's inventory — which is what a mark is
  * for, and how every marketplace labels a make filter. Nothing implies
  * endorsement or affiliation.
  *
@@ -26,7 +26,12 @@ import { cn } from '@/lib/utils';
 function lettermark(make: string): string {
   const words = make.split(/[\s-]+/).filter(Boolean);
   if (make.length <= 3) return make.toUpperCase();
-  if (words.length > 1) return words.slice(0, 2).map((word) => word[0]).join('').toUpperCase();
+  if (words.length > 1)
+    return words
+      .slice(0, 2)
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase();
   return make.slice(0, 1).toUpperCase();
 }
 

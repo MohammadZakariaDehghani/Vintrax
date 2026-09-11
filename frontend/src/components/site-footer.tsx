@@ -68,7 +68,7 @@ export function SiteFooter() {
       <div className="border-t border-border py-5">
         <div className="container flex flex-col items-center justify-between gap-2 text-xs text-muted-foreground sm:flex-row">
           <p>
-            © {new Date().getFullYear()} Atlas. {t.footer.demonstration}
+            © {new Date().getFullYear()} Vintrax. {t.footer.demonstration}
           </p>
           <p>{t.footer.currency}</p>
         </div>

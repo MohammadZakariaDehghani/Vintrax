@@ -1,19 +1,19 @@
-# Atlas Platform Infrastructure Brief
+# Vintrax Platform Infrastructure Brief
 
 **Prepared 10 September 2026 · draft for decision**
 
-A cloud architecture and cost decision for Atlas, Vintrax and Mobile at 500 users,
+A cloud architecture and cost decision for Vintrax, Vintrax and Mobile at 500 users,
 operated by one developer. Covers the capacity model, the compute decision,
 security, disaster recovery, and the FinOps controls to put in place before
 go-live.
 
-| | |
-| --- | --- |
-| Scope | 3 applications |
-| Target | 500 users |
-| Team | 1 developer |
-| Residency | Canada |
-| Status | Draft for decision |
+|           |                    |
+| --------- | ------------------ |
+| Scope     | 3 applications     |
+| Target    | 500 users          |
+| Team      | 1 developer        |
+| Residency | Canada             |
+| Status    | Draft for decision |
 
 ---
 
@@ -36,12 +36,12 @@ go-live.
 
 ### Confidence markers
 
-| Marker | Means | Safe to act on? |
-| --- | --- | --- |
-| `[verified]` | Confirmed against vendor documentation during preparation. Source and figure given inline. | Yes |
-| `[derived]` | Calculated from this repository — schema, limits, module structure. Independent of vendor pricing. | Yes |
-| `[estimate]` | Order-of-magnitude from prior knowledge. Directionally right; assume ±30%. | Planning only |
-| `[look up]` | Materially affects the bill and must be confirmed in the provider calculator. | No — verify first |
+| Marker       | Means                                                                                              | Safe to act on?   |
+| ------------ | -------------------------------------------------------------------------------------------------- | ----------------- |
+| `[verified]` | Confirmed against vendor documentation during preparation. Source and figure given inline.         | Yes               |
+| `[derived]`  | Calculated from this repository — schema, limits, module structure. Independent of vendor pricing. | Yes               |
+| `[estimate]` | Order-of-magnitude from prior knowledge. Directionally right; assume ±30%.                         | Planning only     |
+| `[look up]`  | Materially affects the bill and must be confirmed in the provider calculator.                      | No — verify first |
 
 ### What was actually verified
 
@@ -101,14 +101,14 @@ to run Kubernetes at all.**
 Ranges, not point estimates, because §00. Production plus staging, one region,
 no Kubernetes. All rows `[estimate]`.
 
-| Scenario | Low USD/mo | Expected USD/mo | High USD/mo | Expected CAD/mo |
-| --- | ---: | ---: | ---: | ---: |
-| 500 users, low traffic | 150 | 230 | 330 | 315 |
-| 500 users, normal production | 220 | 340 | 480 | 466 |
-| 500 users, high traffic | 300 | 470 | 680 | 644 |
-| 2,000 users | 380 | 600 | 850 | 822 |
-| 10,000 users | 900 | 1,500 | 2,200 | 2,055 |
-| 50,000 users | 3,200 | 5,500 | 8,500 | 7,535 |
+| Scenario                     | Low USD/mo | Expected USD/mo | High USD/mo | Expected CAD/mo |
+| ---------------------------- | ---------: | --------------: | ----------: | --------------: |
+| 500 users, low traffic       |        150 |             230 |         330 |             315 |
+| 500 users, normal production |        220 |             340 |         480 |             466 |
+| 500 users, high traffic      |        300 |             470 |         680 |             644 |
+| 2,000 users                  |        380 |             600 |         850 |             822 |
+| 10,000 users                 |        900 |           1,500 |       2,200 |           2,055 |
+| 50,000 users                 |      3,200 |           5,500 |       8,500 |           7,535 |
 
 The 500-user rows are the ones to verify first; the 50,000-user row is a
 planning signal, not a budget.
@@ -117,20 +117,20 @@ planning signal, not a budget.
 
 ## 02 — Application landscape
 
-Taken from the Atlas repository directly, not from the brief's description.
+Taken from the Vintrax repository directly, not from the brief's description.
 Vintrax and Mobile were not available for inspection and are modelled from the
 brief. `[derived]`
 
-| Component | Stack | Shape | Statefulness |
-| --- | --- | --- | --- |
-| **Atlas API** | NestJS 11, Node 22 | 15 modules, REST + WebSocket, 25 runtime dependencies | Stateless, except WebSocket sessions |
-| **Atlas Web** | Next.js 15 App Router | 32 routes, server-rendered | Stateless |
-| **Atlas Mobile** | Next.js PWA | 16 routes, service worker, camera capture | Stateless |
-| **Vintrax API** | FastAPI / Python | Dealer workflows, document upload | Stateless `[estimate]` |
-| **Vintrax Admin + site** | Web | Admin console, marketing site | Stateless `[estimate]` |
-| **PostgreSQL 16** | Prisma 6 | ~25 models, serializable transactions on the bid path | **Stateful** |
-| **Redis 7** | ioredis + BullMQ | Cache, plus 4 queues | Semi-stateful |
-| **Object storage** | Local disk or S3 driver | 5 folders, 10 MB cap, 30 images/listing | **Stateful** |
+| Component                | Stack                   | Shape                                                 | Statefulness                         |
+| ------------------------ | ----------------------- | ----------------------------------------------------- | ------------------------------------ |
+| **Vintrax API**          | NestJS 11, Node 22      | 15 modules, REST + WebSocket, 25 runtime dependencies | Stateless, except WebSocket sessions |
+| **Vintrax Web**          | Next.js 15 App Router   | 32 routes, server-rendered                            | Stateless                            |
+| **Vintrax Mobile**       | Next.js PWA             | 16 routes, service worker, camera capture             | Stateless                            |
+| **Vintrax API**          | FastAPI / Python        | Dealer workflows, document upload                     | Stateless `[estimate]`               |
+| **Vintrax Admin + site** | Web                     | Admin console, marketing site                         | Stateless `[estimate]`               |
+| **PostgreSQL 16**        | Prisma 6                | ~25 models, serializable transactions on the bid path | **Stateful**                         |
+| **Redis 7**              | ioredis + BullMQ        | Cache, plus 4 queues                                  | Semi-stateful                        |
+| **Object storage**       | Local disk or S3 driver | 5 folders, 10 MB cap, 30 images/listing               | **Stateful**                         |
 
 ### Three facts that shape the architecture
 
@@ -138,7 +138,7 @@ brief. `[derived]`
   namespace. Any compute platform must support long-lived connections with
   session affinity — this rules some serverless options out and constrains others.
 - **Four background queues exist** — `notifications`, `search-indexing`,
-  `auction-lifecycle`, `email`. These are *long-running consumers*, not request
+  `auction-lifecycle`, `email`. These are _long-running consumers_, not request
   handlers. A scale-to-zero runtime cannot host them without a dedicated
   always-on service.
 - **Search already abstracts its backend.** `SEARCH_PROVIDER` defaults to
@@ -153,22 +153,22 @@ Everything downstream depends on these numbers. The brief's warning is correct �
 500 registered users is nowhere near 500 concurrent users. `[derived]` where the
 codebase constrains it, `[estimate]` for traffic shape.
 
-| Metric | Value | Basis |
-| --- | ---: | --- |
-| Registered users | 500 | Given |
-| Monthly active | 200 | 40% — marketplace norm; buyers return in bursts around a purchase |
-| Daily active | 35 | 7% of registered |
-| Peak concurrent | 12–20 | Weekday evening peak; auction close spikes higher |
-| Requests/second, average | 1–2 | Derived from DAU × session depth |
-| Requests/second, peak | 15–25 | Auction close is the peak, not browsing |
-| API requests/day | 120,000 | Includes SSR fetches and unread-count polling every 60 s |
-| DB transactions/day | 180,000 | ~1.5× requests; bid path uses serializable isolation |
-| Concurrent WebSockets | 5–40 | Only during live auctions; near zero otherwise |
-| Uploads/day | 60–150 | Listing photos, inspection photos, licences. 10 MB cap enforced |
-| Object storage, year 1 | 150–400 GB | See §11 for the growth calculation |
-| Database size, year 1 | 8–20 GB | Rows are small; images are not in Postgres |
-| CDN egress/month | 100–300 GB | Image-dominated. The single most volatile line |
-| Logs + metrics/month | 15–40 GB | The most commonly under-budgeted line item |
+| Metric                   |      Value | Basis                                                             |
+| ------------------------ | ---------: | ----------------------------------------------------------------- |
+| Registered users         |        500 | Given                                                             |
+| Monthly active           |        200 | 40% — marketplace norm; buyers return in bursts around a purchase |
+| Daily active             |         35 | 7% of registered                                                  |
+| Peak concurrent          |      12–20 | Weekday evening peak; auction close spikes higher                 |
+| Requests/second, average |        1–2 | Derived from DAU × session depth                                  |
+| Requests/second, peak    |      15–25 | Auction close is the peak, not browsing                           |
+| API requests/day         |    120,000 | Includes SSR fetches and unread-count polling every 60 s          |
+| DB transactions/day      |    180,000 | ~1.5× requests; bid path uses serializable isolation              |
+| Concurrent WebSockets    |       5–40 | Only during live auctions; near zero otherwise                    |
+| Uploads/day              |     60–150 | Listing photos, inspection photos, licences. 10 MB cap enforced   |
+| Object storage, year 1   | 150–400 GB | See §11 for the growth calculation                                |
+| Database size, year 1    |    8–20 GB | Rows are small; images are not in Postgres                        |
+| CDN egress/month         | 100–300 GB | Image-dominated. The single most volatile line                    |
+| Logs + metrics/month     |   15–40 GB | The most commonly under-budgeted line item                        |
 
 **Sensitivity.** Only three of these are worth monitoring closely. **CDN egress**
 scales with image bytes and is the first line to surprise you. **Log volume**
@@ -190,11 +190,11 @@ is the number that makes the Kubernetes question answer itself.
 The brief flags this comparison as important. It is the most important thing in
 this document.
 
-| Option | What it is | Cost `[estimate]` | Verdict |
-| --- | --- | --- | --- |
-| **Managed containers** | Cloud Run, App Runner, OCI Container Instances. Push an image, get TLS, a URL, autoscaling and health checks. No cluster. | ~US$180–320/mo | **Recommended** |
-| **Two VMs + Docker** | Cheapest. You patch the OS, manage TLS renewal, handle restarts, and own uptime personally. | ~US$120–200/mo | Viable, higher toil |
-| **Managed Kubernetes** | Control plane fee, minimum 3 nodes for HA, ingress controller, cert-manager, autoscaler, upgrades every ~4 months. | ~US$600–1,000/mo | Premature |
+| Option                 | What it is                                                                                                                | Cost `[estimate]` | Verdict             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------- | ------------------- |
+| **Managed containers** | Cloud Run, App Runner, OCI Container Instances. Push an image, get TLS, a URL, autoscaling and health checks. No cluster. | ~US$180–320/mo    | **Recommended**     |
+| **Two VMs + Docker**   | Cheapest. You patch the OS, manage TLS renewal, handle restarts, and own uptime personally.                               | ~US$120–200/mo    | Viable, higher toil |
+| **Managed Kubernetes** | Control plane fee, minimum 3 nodes for HA, ingress controller, cert-manager, autoscaler, upgrades every ~4 months.        | ~US$600–1,000/mo  | Premature           |
 
 ### Why Kubernetes costs more than its line items
 
@@ -229,26 +229,26 @@ artefact, expensive as a deployment target. Nothing here throws that work away.
 
 ## 05 — Three clouds, three designs
 
-| Layer | AWS · ca-central-1 | GCP · northamerica-northeast1 | OCI · ca-toronto-1 |
-| --- | --- | --- | --- |
-| Region city | Montreal | Montreal | Toronto |
-| Second Canadian region | Calgary | Toronto | Montreal |
-| Containers (recommended) | App Runner | **Cloud Run** | Container Instances |
-| Containers (K8s path) | EKS | GKE Autopilot | OKE |
-| PostgreSQL | RDS PostgreSQL | Cloud SQL | DB with PostgreSQL |
-| Redis | ElastiCache | Memorystore | OCI Cache with Redis |
-| Object storage | S3 | Cloud Storage | Object Storage |
-| CDN | CloudFront | Cloud CDN | OCI CDN |
-| WAF | AWS WAF | Cloud Armor | OCI WAF |
-| Secrets | Secrets Manager | Secret Manager | Vault |
-| Email | SES | via SendGrid/Resend | Email Delivery |
-| Egress posture | Charged per GB, NAT charged twice | Charged per GB | Large monthly allowance included |
+| Layer                    | AWS · ca-central-1                | GCP · northamerica-northeast1 | OCI · ca-toronto-1               |
+| ------------------------ | --------------------------------- | ----------------------------- | -------------------------------- |
+| Region city              | Montreal                          | Montreal                      | Toronto                          |
+| Second Canadian region   | Calgary                           | Toronto                       | Montreal                         |
+| Containers (recommended) | App Runner                        | **Cloud Run**                 | Container Instances              |
+| Containers (K8s path)    | EKS                               | GKE Autopilot                 | OKE                              |
+| PostgreSQL               | RDS PostgreSQL                    | Cloud SQL                     | DB with PostgreSQL               |
+| Redis                    | ElastiCache                       | Memorystore                   | OCI Cache with Redis             |
+| Object storage           | S3                                | Cloud Storage                 | Object Storage                   |
+| CDN                      | CloudFront                        | Cloud CDN                     | OCI CDN                          |
+| WAF                      | AWS WAF                           | Cloud Armor                   | OCI WAF                          |
+| Secrets                  | Secrets Manager                   | Secret Manager                | Vault                            |
+| Email                    | SES                               | via SendGrid/Resend           | Email Delivery                   |
+| Egress posture           | Charged per GB, NAT charged twice | Charged per GB                | Large monthly allowance included |
 
 ### The structural differences that matter
 
 **AWS** — deepest service catalogue and the best chance any given problem
 already has a public answer. Its networking is the most expensive of the three:
-NAT Gateway charges an hourly fee *and* a per-GB fee, and traffic through it
+NAT Gateway charges an hourly fee _and_ a per-GB fee, and traffic through it
 also pays egress — the same byte billed twice. App Runner is competent but less
 mature than Cloud Run.
 
@@ -265,11 +265,11 @@ answers, and managed services that lag their AWS and GCP equivalents.
 
 ### Three tiers, for each cloud
 
-| Tier | Shape | Availability | Fits |
-| --- | --- | --- | --- |
-| **A — Cost optimised** | Managed containers, single-zone Postgres with PITR, single Redis, CDN, WAF, daily backups. No K8s, no read replica, no cross-region DR. | ~99.5% real | 500 users. **Start here.** |
-| **B — Recommended enterprise** | Tier A plus HA Postgres with automatic failover, HA Redis, staging environment, full observability, cross-region backup copies. | ~99.9% | 500–10,000 users |
-| **C — HA / growth** | Tier B plus read replica, multi-zone everywhere, warm standby in the second Canadian region, aggressive autoscaling, tracing. | ~99.95% | 10,000+ users |
+| Tier                           | Shape                                                                                                                                   | Availability | Fits                       |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------ | -------------------------- |
+| **A — Cost optimised**         | Managed containers, single-zone Postgres with PITR, single Redis, CDN, WAF, daily backups. No K8s, no read replica, no cross-region DR. | ~99.5% real  | 500 users. **Start here.** |
+| **B — Recommended enterprise** | Tier A plus HA Postgres with automatic failover, HA Redis, staging environment, full observability, cross-region backup copies.         | ~99.9%       | 500–10,000 users           |
+| **C — HA / growth**            | Tier B plus read replica, multi-zone everywhere, warm standby in the second Canadian region, aggressive autoscaling, tracing.           | ~99.95%      | 10,000+ users              |
 
 **Deploy Tier A now, Tier B within 90 days.** Tier A alone is not enough for a
 platform handling payments: it has no database failover, so a zone incident is a
@@ -282,38 +282,38 @@ multi-hour outage. Tier B is the honest production target.
 Production plus staging, one region, no Kubernetes. Every figure is `[estimate]`
 or `[look up]` per §00. Use §07 to replace them.
 
-| Line item | Type | AWS | GCP | OCI | Confidence |
-| --- | --- | ---: | ---: | ---: | --- |
-| Container compute — 3 services, prod | Infra | 95 | 80 | 45 | `[look up]` |
-| Queue worker — always on | Infra | 25 | 25 | 12 | `[look up]` |
-| PostgreSQL — HA, 2 vCPU / 8 GB | Managed | 140 | 130 | 85 | `[look up]` |
-| PostgreSQL storage — 100 GB | Infra | 25 | 22 | 15 | `[estimate]` |
-| DB backup storage + PITR | Managed | 12 | 10 | 6 | `[estimate]` |
-| Redis — HA, ~2 GB | Managed | 55 | 50 | 30 | `[look up]` |
-| Object storage — 300 GB | Infra | 8 | 8 | 7 | `[estimate]` |
-| CDN — 200 GB egress | Transfer | 18 | 17 | 0 | `[look up]` |
-| Load balancer | Infra | 22 | 20 | 12 | `[estimate]` |
-| **NAT gateway / equivalent** | Infra | 35 | 32 | 0 | `[verified floor]` |
-| Egress beyond CDN | Transfer | 10 | 9 | 0 | `[estimate]` |
-| WAF | Managed | 20 | 18 | 12 | `[look up]` |
-| DNS | Managed | 2 | 2 | 1 | `[estimate]` |
-| Secrets + KMS | Managed | 8 | 7 | 3 | `[estimate]` |
-| Container registry | Infra | 5 | 5 | 3 | `[estimate]` |
-| **Logs + metrics — 25 GB** | Managed | 40 | 35 | 20 | `[look up]` |
-| Uptime + alerting | Managed | 5 | 3 | 3 | `[estimate]` |
-| Transactional email — 20k | Managed | 2 | 10 | 2 | `[estimate]` |
-| **Staging environment** | Infra | 70 | 60 | 35 | `[estimate]` |
-| **Subtotal, infrastructure** | | **597** | **543** | **291** | |
-| Cloud support plan | Support | 100 | 29 | 0 | `[look up]` |
-| Sentry / error tracking | Optional | 26 | 26 | 26 | `[estimate]` |
-| Domain registration | Fixed | 2 | 2 | 2 | `[estimate]` |
-| **Total USD / month** | | **725** | **600** | **319** | |
-| **Total CAD / month** | | **993** | **822** | **437** | |
+| Line item                            | Type     |     AWS |     GCP |     OCI | Confidence         |
+| ------------------------------------ | -------- | ------: | ------: | ------: | ------------------ |
+| Container compute — 3 services, prod | Infra    |      95 |      80 |      45 | `[look up]`        |
+| Queue worker — always on             | Infra    |      25 |      25 |      12 | `[look up]`        |
+| PostgreSQL — HA, 2 vCPU / 8 GB       | Managed  |     140 |     130 |      85 | `[look up]`        |
+| PostgreSQL storage — 100 GB          | Infra    |      25 |      22 |      15 | `[estimate]`       |
+| DB backup storage + PITR             | Managed  |      12 |      10 |       6 | `[estimate]`       |
+| Redis — HA, ~2 GB                    | Managed  |      55 |      50 |      30 | `[look up]`        |
+| Object storage — 300 GB              | Infra    |       8 |       8 |       7 | `[estimate]`       |
+| CDN — 200 GB egress                  | Transfer |      18 |      17 |       0 | `[look up]`        |
+| Load balancer                        | Infra    |      22 |      20 |      12 | `[estimate]`       |
+| **NAT gateway / equivalent**         | Infra    |      35 |      32 |       0 | `[verified floor]` |
+| Egress beyond CDN                    | Transfer |      10 |       9 |       0 | `[estimate]`       |
+| WAF                                  | Managed  |      20 |      18 |      12 | `[look up]`        |
+| DNS                                  | Managed  |       2 |       2 |       1 | `[estimate]`       |
+| Secrets + KMS                        | Managed  |       8 |       7 |       3 | `[estimate]`       |
+| Container registry                   | Infra    |       5 |       5 |       3 | `[estimate]`       |
+| **Logs + metrics — 25 GB**           | Managed  |      40 |      35 |      20 | `[look up]`        |
+| Uptime + alerting                    | Managed  |       5 |       3 |       3 | `[estimate]`       |
+| Transactional email — 20k            | Managed  |       2 |      10 |       2 | `[estimate]`       |
+| **Staging environment**              | Infra    |      70 |      60 |      35 | `[estimate]`       |
+| **Subtotal, infrastructure**         |          | **597** | **543** | **291** |                    |
+| Cloud support plan                   | Support  |     100 |      29 |       0 | `[look up]`        |
+| Sentry / error tracking              | Optional |      26 |      26 |      26 | `[estimate]`       |
+| Domain registration                  | Fixed    |       2 |       2 |       2 | `[estimate]`       |
+| **Total USD / month**                |          | **725** | **600** | **319** |                    |
+| **Total CAD / month**                |          | **993** | **822** | **437** |                    |
 
-> **Do not treat these totals as quotes.** The *relative ordering* — OCI
+> **Do not treat these totals as quotes.** The _relative ordering_ — OCI
 > cheapest, GCP middle, AWS highest — is robust and rests on structural
 > differences: ARM pricing, included egress, and NAT charging models. The
-> *absolute figures* are unverified and could each be wrong by 30%.
+> _absolute figures_ are unverified and could each be wrong by 30%.
 
 **Tier A, for comparison.** Dropping to single-zone database, single Redis, and
 no staging removes roughly US$250–300/month — putting GCP near US$300/month and
@@ -327,40 +327,40 @@ Tier B is the price of database failover and a place to test.
 The quantities are derived from this codebase and are sound. Take them to the
 three calculators and fill in the unit prices. Roughly 30 minutes per cloud.
 
-| Service | Unit | Quantity | Unit price | Monthly |
-| --- | --- | ---: | ---: | ---: |
-| Container compute — API | vCPU-hr + GB-hr | 1 vCPU / 2 GB × 730 | ___ | ___ |
-| Container compute — Web | vCPU-hr + GB-hr | 1 vCPU / 2 GB × 730 | ___ | ___ |
-| Container compute — Mobile | vCPU-hr + GB-hr | 0.5 vCPU / 1 GB × 730 | ___ | ___ |
-| Container compute — Worker | vCPU-hr + GB-hr | 0.5 vCPU / 1 GB × 730 | ___ | ___ |
-| Managed PostgreSQL, HA | instance-hr | 2 vCPU / 8 GB × 730 | ___ | ___ |
-| PostgreSQL storage | GB-month | 100 | ___ | ___ |
-| PostgreSQL backup | GB-month | 150 | ___ | ___ |
-| Managed Redis, HA | GB-hr | 2 GB × 730 | ___ | ___ |
-| Object storage — standard | GB-month | 300 | ___ | ___ |
-| Object storage — requests | per 10k | ~500k/mo | ___ | ___ |
-| CDN egress | GB | 200 | ___ | ___ |
-| Load balancer — base | hour | 730 | ___ | ___ |
-| Load balancer — capacity | LCU / unit-hr | ~2 × 730 | ___ | ___ |
-| NAT — hourly | hour | 730 | ___ | ___ |
-| NAT — data processed | GB | 100 | ___ | ___ |
-| Internet egress (non-CDN) | GB | 120 | ___ | ___ |
-| WAF — base + rules | month + per rule | 1 ACL, ~6 rules | ___ | ___ |
-| WAF — requests | per million | 4 | ___ | ___ |
-| DNS hosted zone + queries | zone + per M | 2 zones, ~3 M | ___ | ___ |
-| Secrets manager | secret-month | ~25 | ___ | ___ |
-| KMS keys | key-month | 3 | ___ | ___ |
-| Container registry | GB-month | 20 | ___ | ___ |
-| Log ingestion | GB | 25 | ___ | ___ |
-| Log retention — 30 days | GB-month | 25 | ___ | ___ |
-| Custom metrics | per metric-month | ~150 | ___ | ___ |
-| Uptime checks | per check | 6 | ___ | ___ |
-| Transactional email | per 1,000 | 20 | ___ | ___ |
-| Cross-region backup copy | GB + transfer | 150 | ___ | ___ |
-| Support plan | % of spend or flat | — | ___ | ___ |
-| **Production total** | | | | **___** |
-| **Staging (≈ 40% of production)** | | | | **___** |
-| **Grand total, USD/month** | | | | **___** |
+| Service                           | Unit               |              Quantity | Unit price |  Monthly |
+| --------------------------------- | ------------------ | --------------------: | ---------: | -------: |
+| Container compute — API           | vCPU-hr + GB-hr    |   1 vCPU / 2 GB × 730 |        ___ |      ___ |
+| Container compute — Web           | vCPU-hr + GB-hr    |   1 vCPU / 2 GB × 730 |        ___ |      ___ |
+| Container compute — Mobile        | vCPU-hr + GB-hr    | 0.5 vCPU / 1 GB × 730 |        ___ |      ___ |
+| Container compute — Worker        | vCPU-hr + GB-hr    | 0.5 vCPU / 1 GB × 730 |        ___ |      ___ |
+| Managed PostgreSQL, HA            | instance-hr        |   2 vCPU / 8 GB × 730 |        ___ |      ___ |
+| PostgreSQL storage                | GB-month           |                   100 |        ___ |      ___ |
+| PostgreSQL backup                 | GB-month           |                   150 |        ___ |      ___ |
+| Managed Redis, HA                 | GB-hr              |            2 GB × 730 |        ___ |      ___ |
+| Object storage — standard         | GB-month           |                   300 |        ___ |      ___ |
+| Object storage — requests         | per 10k            |              ~500k/mo |        ___ |      ___ |
+| CDN egress                        | GB                 |                   200 |        ___ |      ___ |
+| Load balancer — base              | hour               |                   730 |        ___ |      ___ |
+| Load balancer — capacity          | LCU / unit-hr      |              ~2 × 730 |        ___ |      ___ |
+| NAT — hourly                      | hour               |                   730 |        ___ |      ___ |
+| NAT — data processed              | GB                 |                   100 |        ___ |      ___ |
+| Internet egress (non-CDN)         | GB                 |                   120 |        ___ |      ___ |
+| WAF — base + rules                | month + per rule   |       1 ACL, ~6 rules |        ___ |      ___ |
+| WAF — requests                    | per million        |                     4 |        ___ |      ___ |
+| DNS hosted zone + queries         | zone + per M       |         2 zones, ~3 M |        ___ |      ___ |
+| Secrets manager                   | secret-month       |                   ~25 |        ___ |      ___ |
+| KMS keys                          | key-month          |                     3 |        ___ |      ___ |
+| Container registry                | GB-month           |                    20 |        ___ |      ___ |
+| Log ingestion                     | GB                 |                    25 |        ___ |      ___ |
+| Log retention — 30 days           | GB-month           |                    25 |        ___ |      ___ |
+| Custom metrics                    | per metric-month   |                  ~150 |        ___ |      ___ |
+| Uptime checks                     | per check          |                     6 |        ___ |      ___ |
+| Transactional email               | per 1,000          |                    20 |        ___ |      ___ |
+| Cross-region backup copy          | GB + transfer      |                   150 |        ___ |      ___ |
+| Support plan                      | % of spend or flat |                     — |        ___ |      ___ |
+| **Production total**              |                    |                       |            | **\___** |
+| **Staging (≈ 40% of production)** |                    |                       |            | **\___** |
+| **Grand total, USD/month**        |                    |                       |            | **\___** |
 
 ### Where to get the numbers
 
@@ -380,23 +380,23 @@ surprise people: **NAT data processing**, **log ingestion**, **CDN egress**, and
 
 All `[estimate]`, GCP Tier B basis.
 
-| Users | USD/mo | USD/yr | Dominant driver | Architecture change | Redesign? |
-| --- | ---: | ---: | --- | --- | --- |
-| 500 low | 230 | 2,760 | Fixed baseline | None — Tier A | No |
-| 500 normal | 340 | 4,080 | Database HA | Tier B | No |
-| 500 high | 470 | 5,640 | Egress, logs | Tune CDN cache | No |
-| 2,000 | 600 | 7,200 | Compute, egress | Larger DB tier | No |
-| 10,000 | 1,500 | 18,000 | Database, CDN | Read replica; consider OpenSearch | No |
-| 50,000 | 5,500 | 66,000 | Database, egress, logs | Kubernetes, sharded caching, multi-region | **Yes — planned** |
+| Users      | USD/mo | USD/yr | Dominant driver        | Architecture change                       | Redesign?         |
+| ---------- | -----: | -----: | ---------------------- | ----------------------------------------- | ----------------- |
+| 500 low    |    230 |  2,760 | Fixed baseline         | None — Tier A                             | No                |
+| 500 normal |    340 |  4,080 | Database HA            | Tier B                                    | No                |
+| 500 high   |    470 |  5,640 | Egress, logs           | Tune CDN cache                            | No                |
+| 2,000      |    600 |  7,200 | Compute, egress        | Larger DB tier                            | No                |
+| 10,000     |  1,500 | 18,000 | Database, CDN          | Read replica; consider OpenSearch         | No                |
+| 50,000     |  5,500 | 66,000 | Database, egress, logs | Kubernetes, sharded caching, multi-region | **Yes — planned** |
 
 ### Three-year TCO
 
-| Year | Assumption | Infra USD | Tooling USD | Total USD | Total CAD |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Year 1 | Tier A → B, 500 → 1,500 users | 4,300 | 700 | 5,000 | 6,850 |
-| Year 2 | Tier B, 1,500 → 6,000 users, 1-yr commit | 9,800 | 900 | 10,700 | 14,659 |
-| Year 3 | Tier B/C, 6,000 → 15,000 users | 21,000 | 1,400 | 22,400 | 30,688 |
-| **3-year total** | | **35,100** | **3,000** | **38,100** | **52,197** |
+| Year             | Assumption                               |  Infra USD | Tooling USD |  Total USD |  Total CAD |
+| ---------------- | ---------------------------------------- | ---------: | ----------: | ---------: | ---------: |
+| Year 1           | Tier A → B, 500 → 1,500 users            |      4,300 |         700 |      5,000 |      6,850 |
+| Year 2           | Tier B, 1,500 → 6,000 users, 1-yr commit |      9,800 |         900 |     10,700 |     14,659 |
+| Year 3           | Tier B/C, 6,000 → 15,000 users           |     21,000 |       1,400 |     22,400 |     30,688 |
+| **3-year total** |                                          | **35,100** |   **3,000** | **38,100** | **52,197** |
 
 **Not included:** engineering salary, which dwarfs all of it. That is exactly why
 §04 optimises for operational simplicity over invoice minimum — one day per
@@ -436,7 +436,7 @@ burst compute, and never on storage.
 ║  PRIVATE APPLICATION SUBNET — no inbound from internet              ║
 ║                          │                                          ║
 ║   ┌──────────┐   ┌───────┴────┐   ┌──────────┐   ┌──────────────┐  ║
-║   │ Atlas    │   │ Atlas API  │   │ Atlas    │   │ Queue worker │  ║
+║   │ Vintrax    │   │ Vintrax API  │   │ Vintrax    │   │ Queue worker │  ║
 ║   │ Web      │   │ REST + WS  │   │ Mobile   │   │ always on    │  ║
 ║   └────┬─────┘   └──────┬─────┘   └────┬─────┘   └──────┬───────┘  ║
 ║        │                │              │                │          ║
@@ -461,7 +461,7 @@ burst compute, and never on storage.
   OAuth token verification. It is a cost line and a chokepoint worth monitoring.
 - **Object storage is private.** Public read is never enabled. The CDN reads
   through an origin identity; the application issues time-limited signed URLs.
-- **Atlas and Vintrax share the network but not identity.** Separate service
+- **Vintrax and Vintrax share the network but not identity.** Separate service
   accounts, separate database roles, separate buckets. Logical isolation is
   sufficient at this size; separate accounts per product would triple the
   operational surface for one developer.
@@ -471,7 +471,7 @@ burst compute, and never on storage.
 ## 10 — Database architecture
 
 > **One instance, three databases.** Run **one managed PostgreSQL instance**
-> hosting separate logical databases for Atlas and Vintrax, each with its own
+> hosting separate logical databases for Vintrax and Vintrax, each with its own
 > role and no cross-database grants. Mobile has no database of its own — it is a
 > client of both APIs. Separate instances would roughly double the database bill
 > and double the patching, backup verification and connection management, to buy
@@ -481,14 +481,14 @@ burst compute, and never on storage.
 compliance obligation demands physical separation, or when one product's traffic
 can starve the other. None applies at 500 users.
 
-| Aspect | Tier A | Tier B (target) | Tier C |
-| --- | --- | --- | --- |
-| Instance | 2 vCPU / 8 GB, single zone | 2 vCPU / 8 GB, HA pair | 4 vCPU / 16 GB, HA + replica |
-| Failover | Manual restore | Automatic, 1–2 min | Automatic + read routing |
-| Backups | Daily automated | Daily + PITR 7 days | Daily + PITR 35 days |
-| Backup copy | Same region | Second Canadian region | Second region + quarterly export |
-| Read replica | No | No | Yes |
-| Storage | 100 GB, autogrow | 100 GB, autogrow | 250 GB |
+| Aspect       | Tier A                     | Tier B (target)        | Tier C                           |
+| ------------ | -------------------------- | ---------------------- | -------------------------------- |
+| Instance     | 2 vCPU / 8 GB, single zone | 2 vCPU / 8 GB, HA pair | 4 vCPU / 16 GB, HA + replica     |
+| Failover     | Manual restore             | Automatic, 1–2 min     | Automatic + read routing         |
+| Backups      | Daily automated            | Daily + PITR 7 days    | Daily + PITR 35 days             |
+| Backup copy  | Same region                | Second Canadian region | Second region + quarterly export |
+| Read replica | No                         | No                     | Yes                              |
+| Storage      | 100 GB, autogrow           | 100 GB, autogrow       | 250 GB                           |
 
 **Connection pooling is not optional.** Managed containers scale horizontally and
 each instance opens its own Prisma pool. Five instances × 10 connections
@@ -505,14 +505,14 @@ startup, where three parallel instances would race the same migration.
 
 ## 11 — Storage architecture
 
-| Bucket | Contents | Access | Lifecycle | Retention |
-| --- | --- | --- | --- | --- |
-| `atlas-vehicles` | Listing photos | CDN via origin identity | → infrequent at 90 d | Life of listing + 1 yr |
-| `atlas-inspections` | Inspection photos | CDN, public reports only | → infrequent at 90 d | 7 years |
-| `atlas-articles` | Editorial images | CDN | Standard | Indefinite |
-| `atlas-documents` | Titles, CarFax, bills of sale | **Private. Signed URL only** | → archive at 1 yr | 7 years |
-| `vintrax-licences` | **Driver's licence images** | **Private. Signed URL, short TTL** | **No tiering** | **30–90 days, auto-delete** |
-| `platform-backups` | DB dumps, config | No public access, versioned, locked | → archive at 30 d | 1 year |
+| Bucket                | Contents                      | Access                              | Lifecycle            | Retention                   |
+| --------------------- | ----------------------------- | ----------------------------------- | -------------------- | --------------------------- |
+| `vintrax-vehicles`    | Listing photos                | CDN via origin identity             | → infrequent at 90 d | Life of listing + 1 yr      |
+| `vintrax-inspections` | Inspection photos             | CDN, public reports only            | → infrequent at 90 d | 7 years                     |
+| `vintrax-articles`    | Editorial images              | CDN                                 | Standard             | Indefinite                  |
+| `vintrax-documents`   | Titles, CarFax, bills of sale | **Private. Signed URL only**        | → archive at 1 yr    | 7 years                     |
+| `vintrax-licences`    | **Driver's licence images**   | **Private. Signed URL, short TTL**  | **No tiering**       | **30–90 days, auto-delete** |
+| `platform-backups`    | DB dumps, config              | No public access, versioned, locked | → archive at 30 d    | 1 year                      |
 
 **Growth** `[derived]` — the upload cap is 10 MB and a listing takes up to 30
 images. Realistically: 2 MB average after processing × 12 images × 40 new
@@ -587,15 +587,15 @@ that needs an operator.
 > trades roughly US$30–40/month of managed cost for a distributed system you now
 > operate — one that, by construction, must stay up when everything else is down.
 
-| Need | Use | USD/mo | Why |
-| --- | --- | ---: | --- |
-| Metrics + dashboards | Native cloud monitoring | 10–20 | Already collecting; zero setup |
-| Logs | Native, 30-day retention | 20–35 | Structured JSON from the app |
-| Error tracking | **Sentry** | 26 | The one paid add-on worth it |
-| Uptime | Native checks, 6 endpoints | 3–5 | External view of what users see |
-| Alerting | Native → email + phone | 0–3 | One person on call; keep alerts few and real |
-| Tracing | **Defer** | 0 | Valuable across many services. There are six. |
-| APM | **Defer** | 0 | Sentry performance covers it to ~10,000 users |
+| Need                 | Use                        | USD/mo | Why                                           |
+| -------------------- | -------------------------- | -----: | --------------------------------------------- |
+| Metrics + dashboards | Native cloud monitoring    |  10–20 | Already collecting; zero setup                |
+| Logs                 | Native, 30-day retention   |  20–35 | Structured JSON from the app                  |
+| Error tracking       | **Sentry**                 |     26 | The one paid add-on worth it                  |
+| Uptime               | Native checks, 6 endpoints |    3–5 | External view of what users see               |
+| Alerting             | Native → email + phone     |    0–3 | One person on call; keep alerts few and real  |
+| Tracing              | **Defer**                  |      0 | Valuable across many services. There are six. |
+| APM                  | **Defer**                  |      0 | Sentry performance covers it to ~10,000 users |
 
 ### The five alerts worth waking up for
 
@@ -674,23 +674,23 @@ structurally from production means staging tests something that does not exist.
 
 ## 15 — SLA, RPO and RTO
 
-| Target | Downtime/month | Downtime/year | What it demands | Feasible with one developer? |
-| --- | ---: | ---: | --- | --- |
-| 99.9% | 43 min | 8.8 h | HA database, managed runtime, good alerting | **Yes** |
-| 99.95% | 22 min | 4.4 h | Multi-zone everywhere, tested failover, fast human response | Only in business hours |
-| 99.99% | 4.3 min | 53 min | Multi-region active-active, follow-the-sun on-call | **No** |
+| Target | Downtime/month | Downtime/year | What it demands                                             | Feasible with one developer? |
+| ------ | -------------: | ------------: | ----------------------------------------------------------- | ---------------------------- |
+| 99.9%  |         43 min |         8.8 h | HA database, managed runtime, good alerting                 | **Yes**                      |
+| 99.95% |         22 min |         4.4 h | Multi-zone everywhere, tested failover, fast human response | Only in business hours       |
+| 99.99% |        4.3 min |        53 min | Multi-region active-active, follow-the-sun on-call          | **No**                       |
 
 > **Recommended: 99.9%, and do not publish more.** A 99.99% target means the
 > entire yearly downtime budget is spent by one person sleeping through one
 > alert. Committing to it contractually creates an obligation you cannot meet.
 
-| Objective | Tier A | Tier B (target) | Tier C |
-| --- | --- | --- | --- |
-| **RPO** — data loss tolerated | 24 hours | **5 minutes** | 1 minute |
-| **RTO** — zone failure | 2–4 hours | **15 minutes** | 5 minutes |
-| **RTO** — region failure | Undefined | **4–8 hours** | 1 hour |
-| Backup frequency | Daily | Daily + continuous WAL | Daily + continuous |
-| Retention | 7 days | 30 days + monthly for 1 yr | 35 days + monthly for 7 yr |
+| Objective                     | Tier A    | Tier B (target)            | Tier C                     |
+| ----------------------------- | --------- | -------------------------- | -------------------------- |
+| **RPO** — data loss tolerated | 24 hours  | **5 minutes**              | 1 minute                   |
+| **RTO** — zone failure        | 2–4 hours | **15 minutes**             | 5 minutes                  |
+| **RTO** — region failure      | Undefined | **4–8 hours**              | 1 hour                     |
+| Backup frequency              | Daily     | Daily + continuous WAL     | Daily + continuous         |
+| Retention                     | 7 days    | 30 days + monthly for 1 yr | 35 days + monthly for 7 yr |
 
 Moving from Tier A to Tier B costs roughly US$250–300/month `[estimate]` and buys
 automatic database failover, a staging environment, and cross-region backup
@@ -703,17 +703,17 @@ copies. **That is the best-value increment in this entire document.**
 Scenario: the primary Canadian region is unavailable with no published
 restoration estimate. Target RTO 4–8 hours, RPO 5 minutes.
 
-| # | Step | Elapsed | Detail |
-| ---: | --- | ---: | --- |
-| 1 | Declare | 0:00 | Confirm via the provider status page and an external uptime check — not your own dashboard, which shares the failure. Post a status message. |
-| 2 | Recreate infrastructure | 0:15 | `cd environments/production-dr && terraform apply`. Same modules, second region variable. Works only if rehearsed. |
-| 3 | Restore database | 1:00 | Restore the cross-region backup copy to a new instance. Longest step — 30–90 min for 100 GB. Verify row counts. |
-| 4 | Object storage | 1:15 | Already replicated if cross-region replication was enabled. If not, this is where you learn that. |
-| 5 | Secrets | 1:30 | Recreate from the secret store's cross-region replica. Database credentials will differ — the new instance issues its own. |
-| 6 | Redeploy applications | 2:00 | Same images from the registry, pointed at new endpoints. Registry must be multi-region or this stalls. |
-| 7 | DNS cutover | 2:30 | Update records to the new load balancer. **Keep TTL at 60 seconds in normal operation** — a 3,600-second TTL adds an hour here. |
-| 8 | Validate | 3:00 | Sign in, load a listing, place a test bid, upload an image, send an email. Check the five alerts report. |
-| 9 | Fail back | +days | When the primary returns: replicate deltas back, cut DNS in a low-traffic window, decommission DR. |
+|   # | Step                    | Elapsed | Detail                                                                                                                                       |
+| --: | ----------------------- | ------: | -------------------------------------------------------------------------------------------------------------------------------------------- |
+|   1 | Declare                 |    0:00 | Confirm via the provider status page and an external uptime check — not your own dashboard, which shares the failure. Post a status message. |
+|   2 | Recreate infrastructure |    0:15 | `cd environments/production-dr && terraform apply`. Same modules, second region variable. Works only if rehearsed.                           |
+|   3 | Restore database        |    1:00 | Restore the cross-region backup copy to a new instance. Longest step — 30–90 min for 100 GB. Verify row counts.                              |
+|   4 | Object storage          |    1:15 | Already replicated if cross-region replication was enabled. If not, this is where you learn that.                                            |
+|   5 | Secrets                 |    1:30 | Recreate from the secret store's cross-region replica. Database credentials will differ — the new instance issues its own.                   |
+|   6 | Redeploy applications   |    2:00 | Same images from the registry, pointed at new endpoints. Registry must be multi-region or this stalls.                                       |
+|   7 | DNS cutover             |    2:30 | Update records to the new load balancer. **Keep TTL at 60 seconds in normal operation** — a 3,600-second TTL adds an hour here.              |
+|   8 | Validate                |    3:00 | Sign in, load a listing, place a test bid, upload an image, send an email. Check the five alerts report.                                     |
+|   9 | Fail back               |   +days | When the primary returns: replicate deltas back, cut DNS in a low-traffic window, decommission DR.                                           |
 
 > **An untested DR plan is a hope.** Rehearse **twice yearly** against a real
 > restore into a scratch environment, and time it. The first rehearsal always
@@ -729,21 +729,21 @@ is not justified below roughly 10,000 users.
 
 ## 17 — Scorecard
 
-Weighted per the brief. Cost is scored on the *structural* cost position — ARM
+Weighted per the brief. Cost is scored on the _structural_ cost position — ARM
 pricing, included egress, NAT model — which holds even though the absolute
 figures are unverified.
 
-| Criterion | Weight | AWS | GCP | OCI | Reasoning |
-| --- | ---: | ---: | ---: | ---: | --- |
-| Cost | 25% | 5 | 7 | 9 | OCI's ARM pricing and egress allowance are structurally cheaper; AWS's NAT and egress model is the most expensive |
-| Security | 15% | 9 | 9 | 7 | AWS and GCP have deeper tooling and more mature defaults |
-| Reliability | 15% | 9 | 9 | 7 | Longer public track records in Canadian regions |
-| Scalability | 10% | 9 | 9 | 8 | All three scale far past 50,000 users |
-| Operational simplicity | 15% | 6 | 9 | 7 | **Cloud Run is the decisive factor** |
-| Developer experience | 10% | 7 | 9 | 6 | GCP's CLI and console are cleanest; OCI has the thinnest community answers |
-| FinOps flexibility | 5% | 9 | 8 | 7 | AWS has the richest commitment instruments |
-| Canadian residency | 5% | 9 | 9 | 9 | All three have two Canadian regions |
-| **Weighted score** | **100%** | **7.4** | **8.5** | **7.7** | |
+| Criterion              |   Weight |     AWS |     GCP |     OCI | Reasoning                                                                                                         |
+| ---------------------- | -------: | ------: | ------: | ------: | ----------------------------------------------------------------------------------------------------------------- |
+| Cost                   |      25% |       5 |       7 |       9 | OCI's ARM pricing and egress allowance are structurally cheaper; AWS's NAT and egress model is the most expensive |
+| Security               |      15% |       9 |       9 |       7 | AWS and GCP have deeper tooling and more mature defaults                                                          |
+| Reliability            |      15% |       9 |       9 |       7 | Longer public track records in Canadian regions                                                                   |
+| Scalability            |      10% |       9 |       9 |       8 | All three scale far past 50,000 users                                                                             |
+| Operational simplicity |      15% |       6 |       9 |       7 | **Cloud Run is the decisive factor**                                                                              |
+| Developer experience   |      10% |       7 |       9 |       6 | GCP's CLI and console are cleanest; OCI has the thinnest community answers                                        |
+| FinOps flexibility     |       5% |       9 |       8 |       7 | AWS has the richest commitment instruments                                                                        |
+| Canadian residency     |       5% |       9 |       9 |       9 | All three have two Canadian regions                                                                               |
+| **Weighted score**     | **100%** | **7.4** | **8.5** | **7.7** |                                                                                                                   |
 
 **GCP wins on operational simplicity carrying its full 15% weight**, plus a
 respectable cost position. OCI's cost advantage is real and it finishes second —
@@ -760,22 +760,22 @@ services with no open equivalent.
 
 ## 18 — Recommendation
 
-> **For Atlas + Vintrax + Mobile with 500 users, I recommend Google Cloud,
+> **For Vintrax + Vintrax + Mobile with 500 users, I recommend Google Cloud,
 > Montreal, on Cloud Run — with no Kubernetes — because the binding constraint is
 > one developer's time, and Cloud Run removes an entire operational layer for
 > roughly the same money.**
 
-| | |
-| --- | --- |
-| Cloud | Google Cloud Platform |
-| Region | `northamerica-northeast1` (Montreal), DR in `northamerica-northeast2` (Toronto) |
-| Architecture | Cloud Run × 5 services · Cloud SQL PostgreSQL HA · Memorystore Redis · Cloud Storage · Cloud CDN · Cloud Armor · Secret Manager |
-| Monthly infra | US$340 expected (US$220–480) · CAD ~$466 |
-| Monthly operating | US$55 — Sentry, support, domains |
-| Annual | US$4,700 expected · CAD ~$6,440 |
-| 3-year TCO | US$38,100 · CAD ~$52,200 |
-| Target SLA | 99.9% |
-| RPO / RTO | 5 minutes / 15 min zone, 4–8 h region |
+|                   |                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Cloud             | Google Cloud Platform                                                                                                           |
+| Region            | `northamerica-northeast1` (Montreal), DR in `northamerica-northeast2` (Toronto)                                                 |
+| Architecture      | Cloud Run × 5 services · Cloud SQL PostgreSQL HA · Memorystore Redis · Cloud Storage · Cloud CDN · Cloud Armor · Secret Manager |
+| Monthly infra     | US$340 expected (US$220–480) · CAD ~$466                                                                                        |
+| Monthly operating | US$55 — Sentry, support, domains                                                                                                |
+| Annual            | US$4,700 expected · CAD ~$6,440                                                                                                 |
+| 3-year TCO        | US$38,100 · CAD ~$52,200                                                                                                        |
+| Target SLA        | 99.9%                                                                                                                           |
+| RPO / RTO         | 5 minutes / 15 min zone, 4–8 h region                                                                                           |
 
 **Choose OCI Toronto instead if** the monthly bill is the dominant constraint and
 you accept solving more problems without a community to ask. It is roughly 45%
@@ -822,17 +822,17 @@ compromise.
 
 ## 19 — Implementation roadmap
 
-| Phase | Deliverable | Effort | Cloud cost | Done when |
-| --- | --- | ---: | ---: | --- |
-| **0 — Architecture** | This document, signed off; pricing worksheet filled; cloud chosen | 2 d | $0 | Verified budget approved |
-| **1 — Foundation** | Organisation, billing, IAM, VPC, Terraform state, workload identity federation | 3 d | ~$20 | `terraform apply` from CI with no static keys |
-| **2 — Platform** | Cloud SQL, Memorystore, buckets, registry, secrets, load balancer, DNS, TLS | 4 d | ~$250 | Empty database reachable only from the app subnet |
-| **3 — Applications** | Five Cloud Run services, migrations, config, PgBouncer, WebSocket affinity | 5 d | ~$310 | All three apps serving on real domains |
-| **4 — CI/CD** | Build, scan, push, staging deploy, approval gate, canary, rollback | 3 d | ~$330 | A merge reaches production untouched by hand |
-| **5 — Security** | Cloud Armor, image scanning, CodeQL, audit alerts, backup lock, licence lifecycle | 3 d | ~$355 | Backup deletion attempt is refused |
-| **6 — Observability** | Dashboards, five alerts, uptime checks, Sentry, log retention | 2 d | ~$395 | A killed container pages you within 3 min |
-| **7 — Launch** | Load test, restore test, DR rehearsal, go-live checklist | 3 d | ~$400 | Restore verified with matching row counts |
-| **8 — FinOps** | Budgets, labels, shutdown schedule, first monthly review | 1 d | ~$400 | Bill attributable to app and environment |
+| Phase                 | Deliverable                                                                       | Effort | Cloud cost | Done when                                         |
+| --------------------- | --------------------------------------------------------------------------------- | -----: | ---------: | ------------------------------------------------- |
+| **0 — Architecture**  | This document, signed off; pricing worksheet filled; cloud chosen                 |    2 d |         $0 | Verified budget approved                          |
+| **1 — Foundation**    | Organisation, billing, IAM, VPC, Terraform state, workload identity federation    |    3 d |       ~$20 | `terraform apply` from CI with no static keys     |
+| **2 — Platform**      | Cloud SQL, Memorystore, buckets, registry, secrets, load balancer, DNS, TLS       |    4 d |      ~$250 | Empty database reachable only from the app subnet |
+| **3 — Applications**  | Five Cloud Run services, migrations, config, PgBouncer, WebSocket affinity        |    5 d |      ~$310 | All three apps serving on real domains            |
+| **4 — CI/CD**         | Build, scan, push, staging deploy, approval gate, canary, rollback                |    3 d |      ~$330 | A merge reaches production untouched by hand      |
+| **5 — Security**      | Cloud Armor, image scanning, CodeQL, audit alerts, backup lock, licence lifecycle |    3 d |      ~$355 | Backup deletion attempt is refused                |
+| **6 — Observability** | Dashboards, five alerts, uptime checks, Sentry, log retention                     |    2 d |      ~$395 | A killed container pages you within 3 min         |
+| **7 — Launch**        | Load test, restore test, DR rehearsal, go-live checklist                          |    3 d |      ~$400 | Restore verified with matching row counts         |
+| **8 — FinOps**        | Budgets, labels, shutdown schedule, first monthly review                          |    1 d |      ~$400 | Bill attributable to app and environment          |
 
 **Total: about 26 working days** for one developer with existing cloud
 familiarity — six to eight calendar weeks alongside feature work. Phases 1 and 2
@@ -850,7 +850,7 @@ cannot be created:
 
 ```
 env          = production | staging | dev
-app          = atlas | vintrax | mobile | shared
+app          = vintrax | vintrax | mobile | shared
 owner        = the responsible person
 cost-centre  = platform | product
 managed-by   = terraform
@@ -859,24 +859,24 @@ managed-by   = terraform
 **Schedules and expiry.** Staging scales to zero 19:00–07:00 and all weekend. Any
 resource tagged `temporary` carries an `expires` date and is reviewed monthly.
 
-**Review cadence.** *Monthly:* 20 minutes — top five line items, anything up more
-than 20%, anything unlabelled. *Quarterly:* rightsizing against actual
+**Review cadence.** _Monthly:_ 20 minutes — top five line items, anything up more
+than 20%, anything unlabelled. _Quarterly:_ rightsizing against actual
 utilisation, and a commitment review from month 9.
 
 ### Top cost drivers and their risks
 
-| # | Driver | Risk | Control |
-| ---: | --- | --- | --- |
-| 1 | Managed PostgreSQL | Over-sized on day one and never revisited | Start at 2 vCPU; resize on measured CPU |
-| 2 | Container compute | Min-instances set high "to be safe" | Min 1 on API only; others scale from zero |
-| 3 | CDN egress | Unoptimised images; low cache hit rate | WebP derivatives, long cache TTLs, monitor hit ratio |
-| 4 | Logs | Debug logging left on after an incident | Retention cap, dedicated budget alert |
-| 5 | Managed Redis | Sized for cache when it is mostly queues | 2 GB is ample; measure before growing |
-| 6 | NAT / egress | Charged twice on some paths; invisible until billed | Private service endpoints where offered |
-| 7 | Staging | Runs 24/7 for a team that sleeps | Scheduled shutdown — the biggest easy saving |
-| 8 | Object storage | Grows forever without lifecycle rules | Tiering at 90 days, licence auto-delete |
-| 9 | Backups | Long retention on large snapshots | 30 days plus monthly points |
-| 10 | Support plan | Percentage-of-spend plans grow silently | Start at the lowest paid tier; revisit annually |
+|   # | Driver             | Risk                                                | Control                                              |
+| --: | ------------------ | --------------------------------------------------- | ---------------------------------------------------- |
+|   1 | Managed PostgreSQL | Over-sized on day one and never revisited           | Start at 2 vCPU; resize on measured CPU              |
+|   2 | Container compute  | Min-instances set high "to be safe"                 | Min 1 on API only; others scale from zero            |
+|   3 | CDN egress         | Unoptimised images; low cache hit rate              | WebP derivatives, long cache TTLs, monitor hit ratio |
+|   4 | Logs               | Debug logging left on after an incident             | Retention cap, dedicated budget alert                |
+|   5 | Managed Redis      | Sized for cache when it is mostly queues            | 2 GB is ample; measure before growing                |
+|   6 | NAT / egress       | Charged twice on some paths; invisible until billed | Private service endpoints where offered              |
+|   7 | Staging            | Runs 24/7 for a team that sleeps                    | Scheduled shutdown — the biggest easy saving         |
+|   8 | Object storage     | Grows forever without lifecycle rules               | Tiering at 90 days, licence auto-delete              |
+|   9 | Backups            | Long retention on large snapshots                   | 30 days plus monthly points                          |
+|  10 | Support plan       | Percentage-of-spend plans grow silently             | Start at the lowest paid tier; revisit annually      |
 
 The two most likely wastes here are **a staging environment nobody turned off**
 and **a database sized for a traffic level that will not arrive for two years**.
@@ -886,16 +886,16 @@ Both are set-and-forget mistakes made in week one and discovered in month six.
 
 ## 21 — Risks and mitigations
 
-| Risk | Impact | Likelihood | Mitigation |
-| --- | --- | --- | --- |
-| **Pricing in this document proves materially wrong** | High | **High** | §07 worksheet before any commitment. See §00. |
-| Connection pool exhaustion on autoscale | High | High | PgBouncer from day one; alert on connection count |
-| Single developer unavailable during an incident | High | Medium | Runbooks in the repo; a second person with break-glass access; provider support plan |
-| WebSocket behaviour differs under managed containers | Medium | Medium | Load-test auctions in staging before launch; session affinity verified in Phase 3 |
-| Licence images retained beyond need | **High** | Medium | Lifecycle rule, not a cron job; audited quarterly |
-| DR plan never rehearsed | High | Medium | Twice-yearly drill as a calendar obligation |
-| Cost creep past budget | Medium | Medium | Four alert thresholds; monthly 20-minute review |
-| Vendor lock-in through convenience services | Medium | Low | Keep to containers, Postgres and S3-compatible storage |
+| Risk                                                 | Impact   | Likelihood | Mitigation                                                                           |
+| ---------------------------------------------------- | -------- | ---------- | ------------------------------------------------------------------------------------ |
+| **Pricing in this document proves materially wrong** | High     | **High**   | §07 worksheet before any commitment. See §00.                                        |
+| Connection pool exhaustion on autoscale              | High     | High       | PgBouncer from day one; alert on connection count                                    |
+| Single developer unavailable during an incident      | High     | Medium     | Runbooks in the repo; a second person with break-glass access; provider support plan |
+| WebSocket behaviour differs under managed containers | Medium   | Medium     | Load-test auctions in staging before launch; session affinity verified in Phase 3    |
+| Licence images retained beyond need                  | **High** | Medium     | Lifecycle rule, not a cron job; audited quarterly                                    |
+| DR plan never rehearsed                              | High     | Medium     | Twice-yearly drill as a calendar obligation                                          |
+| Cost creep past budget                               | Medium   | Medium     | Four alert thresholds; monthly 20-minute review                                      |
+| Vendor lock-in through convenience services          | Medium   | Low        | Keep to containers, Postgres and S3-compatible storage                               |
 
 ---
 
@@ -948,7 +948,7 @@ Both are set-and-forget mistakes made in week one and discovered in month six.
 
 ---
 
-*Cost figures are unverified except where marked `[verified]` — see §00. Complete
+_Cost figures are unverified except where marked `[verified]` — see §00. Complete
 the §07 worksheet in the three provider calculators before committing budget or
 signing an agreement. Architecture, security, DR and FinOps guidance is
-independent of pricing and stands on its own.*
+independent of pricing and stands on its own._

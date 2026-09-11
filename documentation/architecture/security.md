@@ -1,8 +1,8 @@
 # Security model
 
-How Atlas authenticates, authorises, and validates — and what it deliberately does not yet address.
+How Vintrax authenticates, authorises, and validates — and what it deliberately does not yet address.
 
-Security is a foundation concern per guiding principle 7 in the [HQ document](../atlas-hq.md), so
+Security is a foundation concern per guiding principle 7 in the [HQ document](../vintrax-hq.md), so
 these choices were made at build time rather than deferred.
 
 ## Authentication
@@ -36,10 +36,10 @@ cases: `Invalid email or password`.
 
 Two tokens, different lifetimes and different secrets:
 
-| Token | Default TTL | Secret | Purpose |
-| --- | --- | --- | --- |
-| Access | 15 minutes | `JWT_ACCESS_SECRET` | Sent on every request |
-| Refresh | 30 days | `JWT_REFRESH_SECRET` | Exchanged for a new pair |
+| Token   | Default TTL | Secret               | Purpose                  |
+| ------- | ----------- | -------------------- | ------------------------ |
+| Access  | 15 minutes  | `JWT_ACCESS_SECRET`  | Sent on every request    |
+| Refresh | 30 days     | `JWT_REFRESH_SECRET` | Exchanged for a new pair |
 
 Separate secrets mean a leaked access secret cannot be used to mint refresh tokens. The environment
 schema **rejects configurations where the two secrets are equal**.
@@ -127,12 +127,12 @@ account touch this row".
 
 Row-level rules live in the services, because only they know the data:
 
-| Rule | Where |
-| --- | --- |
-| Only the seller (or admin) may edit or delete a listing | `ListingsService.requireOwnedListing` |
-| Only participants may read or reply to a conversation | `MessagingService.assertParticipant` |
-| A seller cannot message their own listing | `MessagingService.startConversation` |
-| The message recipient is derived from the listing, never the client | `MessagingService.startConversation` |
+| Rule                                                                | Where                                 |
+| ------------------------------------------------------------------- | ------------------------------------- |
+| Only the seller (or admin) may edit or delete a listing             | `ListingsService.requireOwnedListing` |
+| Only participants may read or reply to a conversation               | `MessagingService.assertParticipant`  |
+| A seller cannot message their own listing                           | `MessagingService.startConversation`  |
+| The message recipient is derived from the listing, never the client | `MessagingService.startConversation`  |
 
 ### Enumeration resistance
 
@@ -142,7 +142,7 @@ drives the identical login error for unknown and wrong-password cases.
 
 ## Input validation
 
-Every request body and query string is parsed by a Zod schema from `@atlas/shared` before reaching a
+Every request body and query string is parsed by a Zod schema from `@vintrax/shared` before reaching a
 service. Handlers therefore receive data that is already typed, coerced, and range-checked.
 
 This matters beyond tidiness:
@@ -202,7 +202,7 @@ resolved against the upload directory and then checked to still be inside it, wh
 on the host.
 
 > With `STORAGE_DRIVER=s3` the objects are served by the bucket, so this authorization only governs
-> *disclosure of the URL*. The bucket must be private for it to mean anything; the development MinIO
+> _disclosure of the URL_. The bucket must be private for it to mean anything; the development MinIO
 > setup sets `mc anonymous set download`, which is fine for demo images and wrong for documents.
 
 ## Transport and headers
@@ -216,10 +216,10 @@ on the host.
 
 ## Rate limiting
 
-| Scope | Budget |
-| --- | --- |
-| Global | 300 requests / 60s |
-| Registration and login | 10 requests / 60s |
+| Scope                  | Budget             |
+| ---------------------- | ------------------ |
+| Global                 | 300 requests / 60s |
+| Registration and login | 10 requests / 60s  |
 
 The tighter credential budget is what makes online password guessing impractical. Limits are
 **per-instance and in-memory** — horizontal scaling needs a shared store, noted in
@@ -251,18 +251,18 @@ internals.
 
 Honest list of gaps. None are oversights — each is Phase 2 work.
 
-| Gap | Impact | Notes |
-| --- | --- | --- |
-| Tokens in `localStorage` | XSS can steal a session | Move refresh to `HttpOnly` cookies |
-| No email verification | Accounts can use addresses they do not own | Needs email delivery first |
-| No password reset | Users cannot recover accounts | Needs email delivery first |
-| No 2FA | Account takeover needs only a password | Consider for dealer accounts first |
-| No CSP | Reduces XSS defence in depth | Needs an audit of inline styles |
-| Rate limits are per-instance | Ineffective across replicas | Needs Redis-backed storage |
-| No audit log | Admin and moderation actions untraceable | Needed before real moderation |
-| MIME type is trusted, not sniffed | Mislabelled uploads possible | Add magic-byte inspection |
-| No account lockout | Slow distributed guessing possible | Rate limits only slow it |
-| Message content unmoderated | Spam and abuse vector | Trust and safety is Phase 2 |
+| Gap                               | Impact                                     | Notes                              |
+| --------------------------------- | ------------------------------------------ | ---------------------------------- |
+| Tokens in `localStorage`          | XSS can steal a session                    | Move refresh to `HttpOnly` cookies |
+| No email verification             | Accounts can use addresses they do not own | Needs email delivery first         |
+| No password reset                 | Users cannot recover accounts              | Needs email delivery first         |
+| No 2FA                            | Account takeover needs only a password     | Consider for dealer accounts first |
+| No CSP                            | Reduces XSS defence in depth               | Needs an audit of inline styles    |
+| Rate limits are per-instance      | Ineffective across replicas                | Needs Redis-backed storage         |
+| No audit log                      | Admin and moderation actions untraceable   | Needed before real moderation      |
+| MIME type is trusted, not sniffed | Mislabelled uploads possible               | Add magic-byte inspection          |
+| No account lockout                | Slow distributed guessing possible         | Rate limits only slow it           |
+| Message content unmoderated       | Spam and abuse vector                      | Trust and safety is Phase 2        |
 
 ## Reporting
 

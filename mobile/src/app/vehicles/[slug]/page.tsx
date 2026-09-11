@@ -4,7 +4,7 @@ import { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Gavel, Heart, MessageSquare, ShieldCheck } from 'lucide-react';
-import { atlas } from '@/lib/atlas';
+import { vintrax } from '@/lib/vintrax';
 import { useToggleFavourite, useVehicle } from '@/lib/queries';
 import { useUser } from '@/store/session';
 import { cn, formatEnum, formatKm, formatPrice, formatRelativeTime } from '@/lib/format';
@@ -49,7 +49,9 @@ export default function VehiclePage({ params }: { params: Promise<{ slug: string
     ['Drivetrain', formatEnum(vehicle.drivetrain)],
     ['Fuel', formatEnum(vehicle.fuelType)],
     ['Condition', formatEnum(vehicle.condition)],
-    ...(vehicle.exteriorColour ? ([['Exterior', vehicle.exteriorColour]] as Array<[string, string]>) : []),
+    ...(vehicle.exteriorColour
+      ? ([['Exterior', vehicle.exteriorColour]] as Array<[string, string]>)
+      : []),
     ...(vehicle.vin ? ([['VIN', vehicle.vin]] as Array<[string, string]>) : []),
   ];
 
@@ -105,11 +107,7 @@ export default function VehiclePage({ params }: { params: Promise<{ slug: string
                 <Countdown endsAt={auction.endsAt} className="text-base font-medium" />
               </div>
             </div>
-            <Button
-              size="large"
-              fullWidth
-              onClick={() => router.push(`/auctions/${auction.id}`)}
-            >
+            <Button size="large" fullWidth onClick={() => router.push(`/auctions/${auction.id}`)}>
               <Gavel aria-hidden className="h-4 w-4" />
               Go to auction
             </Button>
@@ -180,7 +178,9 @@ export default function VehiclePage({ params }: { params: Promise<{ slug: string
         <section className="space-y-2">
           <h2 className="text-base font-semibold">Seller</h2>
           <Card className="space-y-1 p-4">
-            <p className="font-medium">{vehicle.seller.dealer?.name ?? vehicle.seller.displayName}</p>
+            <p className="font-medium">
+              {vehicle.seller.dealer?.name ?? vehicle.seller.displayName}
+            </p>
             <p className="text-sm text-muted-foreground">
               {formatEnum(vehicle.seller.role)}
               {vehicle.seller.dealer?.verified ? ' · Verified dealer' : ''}
@@ -217,9 +217,7 @@ function ContactSeller({ vehicleId }: { vehicleId: string }) {
     return (
       <StateMessage
         title="Sign in to contact the seller"
-        action={
-          <Button onClick={() => router.push('/login?next=/messages')}>Sign in</Button>
-        }
+        action={<Button onClick={() => router.push('/login?next=/messages')}>Sign in</Button>}
       />
     );
   }
@@ -229,7 +227,7 @@ function ContactSeller({ vehicleId }: { vehicleId: string }) {
     setSending(true);
     setError(null);
     try {
-      const conversation = await atlas.conversations.start(vehicleId, body.trim());
+      const conversation = await vintrax.conversations.start(vehicleId, body.trim());
       router.push(`/messages/${conversation.id}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught : new Error('Could not send the message'));
@@ -262,7 +260,11 @@ function ContactSeller({ vehicleId }: { vehicleId: string }) {
         </form>
       </Card>
       <p className="text-center text-xs text-muted-foreground">
-        Replies arrive in <Link href="/messages" className="text-primary underline">Messages</Link>.
+        Replies arrive in{' '}
+        <Link href="/messages" className="text-primary underline">
+          Messages
+        </Link>
+        .
       </p>
     </section>
   );

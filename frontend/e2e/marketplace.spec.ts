@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const DEMO_PASSWORD = 'AtlasDemo123!';
+const DEMO_PASSWORD = 'VintraxDemo123!';
 
 async function signIn(page: import('@playwright/test').Page, email: string) {
   await page.goto('/login');
@@ -21,7 +21,10 @@ test.describe('public marketplace', () => {
     await page.goto('/vehicles');
     await expect(page.locator('article').first()).toBeVisible();
 
-    await page.getByRole('checkbox', { name: /^Electric/ }).first().click();
+    await page
+      .getByRole('checkbox', { name: /^Electric/ })
+      .first()
+      .click();
     await expect(page).toHaveURL(/fuelType=ELECTRIC/);
 
     // Reloading the shared URL must reproduce the same filtered view.

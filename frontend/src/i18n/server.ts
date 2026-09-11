@@ -13,7 +13,7 @@ import { DICTIONARIES, isLocale, type Dictionary, type Locale } from '@/i18n/dic
  * Reading a cookie opts the route out of static rendering. These pages already
  * fetch live inventory with `cache: 'no-store'`, so nothing is lost.
  */
-export const LOCALE_COOKIE = 'atlas.locale';
+export const LOCALE_COOKIE = 'vintrax.locale';
 
 export async function getServerLocale(): Promise<Locale> {
   const store = await cookies();

@@ -1,8 +1,8 @@
 {
-  "name": "@atlas/frontend",
+  "name": "@vintrax/frontend",
   "version": "1.0.0",
   "private": true,
-  "description": "Atlas marketplace and auction web application",
+  "description": "Vintrax marketplace and auction web application",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -13,8 +13,8 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@atlas/client": "workspace:*",
-    "@atlas/shared": "workspace:*",
+    "@vintrax/client": "workspace:*",
+    "@vintrax/shared": "workspace:*",
     "@tanstack/react-query": "^5.66.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

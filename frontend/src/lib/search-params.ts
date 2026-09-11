@@ -1,5 +1,5 @@
 /**
- * URL ⇄ filter translation lives in `@atlas/client` so a filtered search means
+ * URL ⇄ filter translation lives in `@vintrax/client` so a filtered search means
  * the same thing in both applications. Re-exported here for `@/lib/search-params`
  * callers.
  */
@@ -11,4 +11,4 @@ export {
   parseFilters,
   toggleInArray,
   type VehicleFilters,
-} from '@atlas/client';
+} from '@vintrax/client';

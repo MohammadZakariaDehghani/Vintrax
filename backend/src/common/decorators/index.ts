@@ -1,13 +1,13 @@
 import { SetMetadata, createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { Permission, UserRole } from '@atlas/shared';
+import type { Permission, UserRole } from '@vintrax/shared';
 import type { Request } from 'express';
 import type { AuthUser } from '../auth/auth-user';
 
-export const IS_PUBLIC_KEY = 'atlas:isPublic';
-export const ROLES_KEY = 'atlas:roles';
-export const PERMISSIONS_KEY = 'atlas:permissions';
-export const AUDIT_KEY = 'atlas:audit';
-export const VERIFIED_EMAIL_KEY = 'atlas:verifiedEmail';
+export const IS_PUBLIC_KEY = 'vintrax:isPublic';
+export const ROLES_KEY = 'vintrax:roles';
+export const PERMISSIONS_KEY = 'vintrax:permissions';
+export const AUDIT_KEY = 'vintrax:audit';
+export const VERIFIED_EMAIL_KEY = 'vintrax:verifiedEmail';
 
 /**
  * Marks a route as reachable without a token. A valid token is still decoded

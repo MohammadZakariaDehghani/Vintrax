@@ -1,6 +1,6 @@
 # System architecture
 
-How Atlas is put together, why the pieces are separated the way they are, and
+How Vintrax is put together, why the pieces are separated the way they are, and
 what happens when a request arrives.
 
 > Deeper material lives in [architecture/](./architecture/) — this document is
@@ -42,7 +42,7 @@ graph TB
 Four things are worth noticing.
 
 **No client talks to the database.** All persistence goes through the API,
-which is what made the second client — Atlas Mobile — a matter of calling the
+which is what made the second client — Vintrax Mobile — a matter of calling the
 same endpoints rather than reimplementing business rules. See
 [mobile.md](./mobile.md).
 
@@ -68,11 +68,11 @@ Domain vocabulary and wire contract. No I/O, no framework code, no environment
 access — pure data definitions, which is what lets a Node service and a browser
 bundle both consume it.
 
-| File | Contents |
-| --- | --- |
-| `src/domain.ts` | Enum value lists, the role/permission matrix, bid increment bands, fee rules, display labels |
-| `src/schemas.ts` | Zod schemas for every request payload and query string |
-| `src/contracts.ts` | TypeScript interfaces for every response body |
+| File               | Contents                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| `src/domain.ts`    | Enum value lists, the role/permission matrix, bid increment bands, fee rules, display labels |
+| `src/schemas.ts`   | Zod schemas for every request payload and query string                                       |
+| `src/contracts.ts` | TypeScript interfaces for every response body                                                |
 
 ### `packages/client`
 
@@ -207,14 +207,14 @@ serialization conflicts and one below-minimum rejection, leaving exactly one
 
 ## Boundaries kept open on purpose
 
-| Seam | Today | Enables |
-| --- | --- | --- |
-| API as a separate service | Serves the web app | Mobile clients, partner integrations |
-| Storage provider interface | Local disk | Object storage with no call-site changes |
-| Search provider interface | PostgreSQL full-text | A dedicated cluster when volume justifies it |
-| Queue driver | BullMQ over Redis | Inline execution in dev and CI |
-| Mail driver | Log | SMTP, or a transactional provider |
-| `@atlas/shared` contract | Two consumers | A third inherits validation for free |
+| Seam                       | Today                | Enables                                      |
+| -------------------------- | -------------------- | -------------------------------------------- |
+| API as a separate service  | Serves the web app   | Mobile clients, partner integrations         |
+| Storage provider interface | Local disk           | Object storage with no call-site changes     |
+| Search provider interface  | PostgreSQL full-text | A dedicated cluster when volume justifies it |
+| Queue driver               | BullMQ over Redis    | Inline execution in dev and CI               |
+| Mail driver                | Log                  | SMTP, or a transactional provider            |
+| `@vintrax/shared` contract | Two consumers        | A third inherits validation for free         |
 
 ## What this architecture does not do
 

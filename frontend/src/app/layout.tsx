@@ -7,8 +7,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Atlas — Canadian vehicle marketplace and auctions',
-    template: '%s · Atlas',
+    default: 'Vintrax — Canadian vehicle marketplace and auctions',
+    template: '%s · Vintrax',
   },
   description:
     'Buy and sell vehicles across Canada. Dealer inventory, private listings, live auctions and independent inspection reports.',

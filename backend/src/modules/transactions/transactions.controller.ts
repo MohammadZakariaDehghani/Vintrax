@@ -7,7 +7,7 @@ import {
   type TransactionSummary,
   confirmPaymentSchema,
   createOrderSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { z } from 'zod';
 import {
   Audit,

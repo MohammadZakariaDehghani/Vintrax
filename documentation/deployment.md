@@ -1,8 +1,8 @@
 # Deployment
 
-Docker, Kubernetes and cloud deployment for Atlas.
+Docker, Kubernetes and cloud deployment for Vintrax.
 
-> **Status:** Atlas has not been deployed to a production environment. This
+> **Status:** Vintrax has not been deployed to a production environment. This
 > describes what the code supports and what still has to be built or chosen.
 > Items that do not exist yet are marked **not yet implemented**.
 >
@@ -12,15 +12,15 @@ Docker, Kubernetes and cloud deployment for Atlas.
 
 ## Artefacts
 
-| Artefact | Build | Runtime |
-| --- | --- | --- |
-| API image | `infrastructure/docker/backend.Dockerfile` | Node 22 Alpine, non-root |
-| Web image | `infrastructure/docker/frontend.Dockerfile` | Node 22 Alpine, non-root |
-| Mobile image | `infrastructure/docker/mobile.Dockerfile` | Node 22 Alpine, non-root |
-| Database | — | Managed PostgreSQL 16 |
-| Cache and queues | — | Managed Redis 7 |
-| Media | — | S3-compatible storage behind a CDN |
-| Search | — | OpenSearch, optional |
+| Artefact         | Build                                       | Runtime                            |
+| ---------------- | ------------------------------------------- | ---------------------------------- |
+| API image        | `infrastructure/docker/backend.Dockerfile`  | Node 22 Alpine, non-root           |
+| Web image        | `infrastructure/docker/frontend.Dockerfile` | Node 22 Alpine, non-root           |
+| Mobile image     | `infrastructure/docker/mobile.Dockerfile`   | Node 22 Alpine, non-root           |
+| Database         | —                                           | Managed PostgreSQL 16              |
+| Cache and queues | —                                           | Managed Redis 7                    |
+| Media            | —                                           | S3-compatible storage behind a CDN |
+| Search           | —                                           | OpenSearch, optional               |
 
 All three images are multi-stage: the workspace installs once with the full
 lockfile so the shared packages resolve, then only build output and production
@@ -42,55 +42,54 @@ has been executed end to end. `scripts/setup-ubuntu.sh` takes a bare Ubuntu
 machine to a serving marketplace.
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Atlas.git
-cd Atlas
+git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
+cd Vintrax
 
-ATLAS_PUBLIC_URL=http://203.0.113.10:3000 \
+VINTRAX_PUBLIC_URL=http://203.0.113.10:3000 \
   ./scripts/setup-ubuntu.sh --no-seed --systemd
 ```
 
 What it does, in order:
 
-| Step | Detail |
-| --- | --- |
-| System packages | curl, gnupg, git, openssl, and a compiler for native modules |
-| Node.js | Installs 22.x from the NodeSource archive unless ≥ 20.11 is present |
-| pnpm | Enabled through corepack, at the version pinned in `packageManager` |
-| PostgreSQL | Installs 16 — adds the PGDG archive on releases that lack it |
-| Redis | Installs the distribution package and starts it |
-| Database | Creates the role and database, enables `pg_trgm` |
-| Environment | Writes `.env` with generated secrets, links `backend/.env`, writes `frontend/.env.local` and `mobile/.env.local` |
-| Application | `pnpm install`, `prisma generate`, `migrate deploy`, optional seed, `pnpm build` |
-| Run | Foreground, or systemd units with `--systemd` — `atlas-api`, `atlas-web`, `atlas-mobile` |
+| Step            | Detail                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| System packages | curl, gnupg, git, openssl, and a compiler for native modules                                                     |
+| Node.js         | Installs 22.x from the NodeSource archive unless ≥ 20.11 is present                                              |
+| pnpm            | Enabled through corepack, at the version pinned in `packageManager`                                              |
+| PostgreSQL      | Installs 16 — adds the PGDG archive on releases that lack it                                                     |
+| Redis           | Installs the distribution package and starts it                                                                  |
+| Database        | Creates the role and database, enables `pg_trgm`                                                                 |
+| Environment     | Writes `.env` with generated secrets, links `backend/.env`, writes `frontend/.env.local` and `mobile/.env.local` |
+| Application     | `pnpm install`, `prisma generate`, `migrate deploy`, optional seed, `pnpm build`                                 |
+| Run             | Foreground, or systemd units with `--systemd` — `vintrax-api`, `vintrax-web`, `vintrax-mobile`                   |
 
-Three ports: the API on 3001, the marketplace on 3000, and Atlas Mobile on
-3002. Each is overridable — `ATLAS_API_PORT`, `ATLAS_WEB_PORT`,
-`ATLAS_MOBILE_PORT`.
+Three ports: the API on 3001, the marketplace on 3000, and Vintrax Mobile on 3002. Each is overridable — `VINTRAX_API_PORT`, `VINTRAX_WEB_PORT`,
+`VINTRAX_MOBILE_PORT`.
 
 ### Options
 
-| Flag | Effect |
-| --- | --- |
-| `--mode dev` | Development servers with hot reload instead of a production build |
-| `--skip-system` | Leave apt alone — for containers, or a machine already provisioned |
-| `--no-seed` | Skip demo data. **Use this for anything real.** |
-| `--no-start` | Set everything up and stop |
-| `--systemd` | Install and enable the `atlas-api`, `atlas-web` and `atlas-mobile` units |
+| Flag            | Effect                                                                         |
+| --------------- | ------------------------------------------------------------------------------ |
+| `--mode dev`    | Development servers with hot reload instead of a production build              |
+| `--skip-system` | Leave apt alone — for containers, or a machine already provisioned             |
+| `--no-seed`     | Skip demo data. **Use this for anything real.**                                |
+| `--no-start`    | Set everything up and stop                                                     |
+| `--systemd`     | Install and enable the `vintrax-api`, `vintrax-web` and `vintrax-mobile` units |
 
-| Variable | Default |
-| --- | --- |
-| `ATLAS_PUBLIC_URL` | `http://localhost:3000` |
-| `ATLAS_API_URL` | Derived from `ATLAS_PUBLIC_URL` and the API port |
-| `ATLAS_DB_NAME` / `ATLAS_DB_USER` | `atlas` / `atlas` |
-| `ATLAS_DB_PASSWORD` | Generated — 192 bits of hex |
-| `ATLAS_DB_HOST` / `ATLAS_DB_PORT` | `localhost` / `5432` |
-| `ATLAS_API_PORT` / `ATLAS_WEB_PORT` / `ATLAS_MOBILE_PORT` | `3001` / `3000` / `3002` |
+| Variable                                                        | Default                                            |
+| --------------------------------------------------------------- | -------------------------------------------------- |
+| `VINTRAX_PUBLIC_URL`                                            | `http://localhost:3000`                            |
+| `VINTRAX_API_URL`                                               | Derived from `VINTRAX_PUBLIC_URL` and the API port |
+| `VINTRAX_DB_NAME` / `VINTRAX_DB_USER`                           | `vintrax` / `vintrax`                              |
+| `VINTRAX_DB_PASSWORD`                                           | Generated — 192 bits of hex                        |
+| `VINTRAX_DB_HOST` / `VINTRAX_DB_PORT`                           | `localhost` / `5432`                               |
+| `VINTRAX_API_PORT` / `VINTRAX_WEB_PORT` / `VINTRAX_MOBILE_PORT` | `3001` / `3000` / `3002`                           |
 
-**Adding Atlas Mobile to an existing installation** needs the mobile origin in
+**Adding Vintrax Mobile to an existing installation** needs the mobile origin in
 the API's `CORS_ORIGINS`, or the API refuses the WebSocket handshake and live
 bidding falls back to polling. Re-running the setup script adds it.
 
-**`ATLAS_PUBLIC_URL` is the one to get right.** It becomes `APP_URL`, the CORS
+**`VINTRAX_PUBLIC_URL` is the one to get right.** It becomes `APP_URL`, the CORS
 allowlist, and the WebSocket origin compiled into the browser bundle. Left at
 the default on a remote server, pages render but live bidding cannot connect,
 because the browser would be told to open a socket to its own machine.
@@ -118,7 +117,7 @@ touches `.env`, the database password or the seed.
 
 **A pull on its own is not a deployment.** Both web applications are compiled
 ahead of time, so a running server keeps serving the previous build until it is
-rebuilt *and* the process is replaced. The failure mode is quiet and easy to
+rebuilt _and_ the process is replaced. The failure mode is quiet and easy to
 misread: the page loads, the new controls are simply not on it, which looks
 exactly like a change that did not work. The script removes the previous
 `.next` output before building for the same reason — a server holding an old
@@ -133,7 +132,7 @@ pnpm install --frozen-lockfile
 pnpm db:migrate
 rm -rf frontend/.next mobile/.next
 NODE_ENV=production pnpm build
-sudo systemctl restart atlas-api atlas-web atlas-mobile
+sudo systemctl restart vintrax-api vintrax-web vintrax-mobile
 ```
 
 ### What it does not do
@@ -143,7 +142,7 @@ hardened production deployment:
 
 - **No reverse proxy and no TLS.** All three applications serve plain HTTP on
   their own ports. Put nginx or Caddy in front and terminate TLS there before
-  this is reachable from the internet. Atlas Mobile needs it for a second
+  this is reachable from the internet. Vintrax Mobile needs it for a second
   reason: a service worker will not register on an insecure origin, so the PWA
   is not installable over plain HTTP.
 - **No firewall rules.** Ports 3000, 3001 and 3002 bind `0.0.0.0`.
@@ -176,7 +175,7 @@ one replica that belongs in a separate pre-deploy job instead, to avoid a
 migration race.
 
 **PostgreSQL, Redis, MinIO and OpenSearch publish to `127.0.0.1` only.** Docker
-publishes ports through its own NAT rules, which sit *in front of* the host
+publishes ports through its own NAT rules, which sit _in front of_ the host
 firewall, so a plain `5432:5432` on a machine with a public interface is a
 database on the internet whether or not `ufw` is running. Reach them over an
 SSH tunnel. The API, web and mobile services do bind every interface, because a
@@ -215,7 +214,7 @@ load-balancer pool without being killed.
 **The ingress sets long proxy timeouts** on `/socket.io`, or the proxy cuts idle
 auction connections between bids.
 
-**Atlas Mobile gets its own host** (`m.atlas.example.com`) rather than a path on
+**Vintrax Mobile gets its own host** (`m.vintrax.example.com`) rather than a path on
 the web host. Its manifest scope is `/`, and a service worker cannot claim a
 scope above its own path.
 
@@ -256,14 +255,14 @@ with locking.
 Every variable is documented in [configuration](./guides/configuration.md). The
 ones that must change for production:
 
-| Variable | Production value |
-| --- | --- |
-| `NODE_ENV` | `production` |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Distinct, from `openssl rand -base64 48` |
-| `CORS_ORIGINS` | Real origins only, no wildcard |
-| `STORAGE_DRIVER` | `s3` — local disk is lost on restart and invisible across replicas |
-| `DATABASE_URL` | Include `connection_limit` sized to your replica count |
-| `MAIL_DRIVER` | `smtp` |
+| Variable                                   | Production value                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `NODE_ENV`                                 | `production`                                                       |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Distinct, from `openssl rand -base64 48`                           |
+| `CORS_ORIGINS`                             | Real origins only, no wildcard                                     |
+| `STORAGE_DRIVER`                           | `s3` — local disk is lost on restart and invisible across replicas |
+| `DATABASE_URL`                             | Include `connection_limit` sized to your replica count             |
+| `MAIL_DRIVER`                              | `smtp`                                                             |
 
 The API **refuses to start** in production with the example JWT secrets, and
 rejects a configuration where the two secrets match.

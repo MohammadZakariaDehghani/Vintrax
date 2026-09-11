@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import type { ArticleSummary } from '@atlas/shared';
+import type { ArticleSummary } from '@vintrax/shared';
 import { cn } from '@/lib/utils';
 
 /**

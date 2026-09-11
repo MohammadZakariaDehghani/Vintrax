@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Gavel, Radio, ShieldCheck, TrendingUp } from 'lucide-react';
-import type { AuctionDetail, AuctionEvent, BidSummary } from '@atlas/shared';
+import type { AuctionDetail, AuctionEvent, BidSummary } from '@vintrax/shared';
 import { ApiError, api } from '@/lib/api-client';
 import { cn, formatEnum, formatKm, formatPrice, formatRelativeTime } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
@@ -32,7 +32,11 @@ export function AuctionRoom({ auctionId }: { auctionId: string }) {
 
   const queryKey = ['auction', auctionId];
 
-  const { data: auction, isPending, error } = useQuery({
+  const {
+    data: auction,
+    isPending,
+    error,
+  } = useQuery({
     queryKey,
     queryFn: () => api.get<AuctionDetail>(`/auctions/${auctionId}`),
     // A slow poll backs up the socket, so a dropped connection degrades
@@ -114,7 +118,9 @@ export function AuctionRoom({ auctionId }: { auctionId: string }) {
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <CardTitle as="h1" className="text-2xl">{auction.title}</CardTitle>
+                  <CardTitle as="h1" className="text-2xl">
+                    {auction.title}
+                  </CardTitle>
                   {vehicle ? (
                     <p className="mt-1 text-sm text-muted-foreground">
                       {formatKm(vehicle.mileageKm)} · {formatEnum(vehicle.transmission)} ·{' '}
@@ -188,15 +194,11 @@ export function AuctionRoom({ auctionId }: { auctionId: string }) {
                       key={bid.id}
                       className={cn(
                         'flex items-center justify-between rounded-md border px-3 py-2 text-sm',
-                        index === 0
-                          ? 'border-primary/40 bg-primary/5'
-                          : 'border-border',
+                        index === 0 ? 'border-primary/40 bg-primary/5' : 'border-border',
                       )}
                     >
                       <span className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {bid.isOwn ? 'You' : bid.bidderHandle}
-                        </span>
+                        <span className="font-medium">{bid.isOwn ? 'You' : bid.bidderHandle}</span>
                         {index === 0 ? <Badge variant="primary">Leading</Badge> : null}
                       </span>
                       <span className="flex items-center gap-3">
@@ -355,10 +357,7 @@ export function AuctionRoom({ auctionId }: { auctionId: string }) {
                 </div>
               ) : null}
 
-              <ErrorAlert
-                error={conflictError ? null : placeBid.error}
-                className="mt-3"
-              />
+              <ErrorAlert error={conflictError ? null : placeBid.error} className="mt-3" />
             </CardContent>
           </Card>
         </div>

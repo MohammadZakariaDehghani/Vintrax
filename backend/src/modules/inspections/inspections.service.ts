@@ -9,7 +9,7 @@ import type {
   InspectionDetail,
   Paginated,
   SubmitInspectionInput,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { QueueService, QUEUE_NAMES } from '../../common/queue/queue.service';
@@ -152,9 +152,7 @@ export class InspectionsService {
       });
       const permitted =
         viewer &&
-        (isAdmin(viewer.role) ||
-          viewer.role === 'INSPECTOR' ||
-          vehicle?.sellerId === viewer.id);
+        (isAdmin(viewer.role) || viewer.role === 'INSPECTOR' || vehicle?.sellerId === viewer.id);
       if (!permitted) throw new NotFoundException('Inspection not found');
     }
 

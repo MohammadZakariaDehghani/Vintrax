@@ -1,16 +1,16 @@
-# Project Atlas
+# Project Vintrax
 
 ## Vehicle Marketplace Platform
 
 ### Purpose of This Document
 
-This document is the front door and high-level source of truth for Project Atlas. It summarizes what the project is, why it exists, what has been decided, and what the team should focus on next. Detailed requirements, research, technical specifications, and operating documents will live in their appropriate project folders.
+This document is the front door and high-level source of truth for Project Vintrax. It summarizes what the project is, why it exists, what has been decided, and what the team should focus on next. Detailed requirements, research, technical specifications, and operating documents will live in their appropriate project folders.
 
 ### Project Overview
 
-Project Atlas is a planned vehicle commerce platform for Canada. It will begin as a simple, trustworthy vehicle marketplace where dealerships and private sellers can publish listings and buyers can discover vehicles, compare options, and start conversations with sellers.
+Project Vintrax is a planned vehicle commerce platform for Canada. It will begin as a simple, trustworthy vehicle marketplace where dealerships and private sellers can publish listings and buyers can discover vehicles, compare options, and start conversations with sellers.
 
-The goal is not to reproduce AutoTrader feature for feature. Atlas should preserve the familiar parts of a vehicle marketplace while improving areas where buyers and sellers experience friction. The product should remain straightforward even as the underlying platform grows.
+The goal is not to reproduce AutoTrader feature for feature. Vintrax should preserve the familiar parts of a vehicle marketplace while improving areas where buyers and sellers experience friction. The product should remain straightforward even as the underlying platform grows.
 
 ### Vision
 
@@ -46,7 +46,7 @@ The preferred direction is a separate auction application on a subdomain or sepa
 
 ### Phased Development Approach
 
-Atlas will be released in phases rather than attempting to launch every planned capability at once.
+Vintrax will be released in phases rather than attempting to launch every planned capability at once.
 
 #### Phase 0: Foundation and Discovery
 
@@ -101,8 +101,8 @@ Internal users responsible for moderation, user management, listing quality, tru
 
 ### Key Decisions to Date
 
-- The internal project codename is Project Atlas.
-- Atlas will be positioned as a better vehicle marketplace, not as an exact AutoTrader replica.
+- The internal project codename is Project Vintrax.
+- Vintrax will be positioned as a better vehicle marketplace, not as an exact AutoTrader replica.
 - The product will be developed and released in phases.
 - Both dealerships and private sellers are intended to participate.
 - Buyer-to-seller messaging is considered a core product direction.
@@ -115,8 +115,8 @@ Internal users responsible for moderation, user management, listing quality, tru
 
 ### Open Questions
 
-- Which geographic market should Atlas launch in first?
-- What specific buyer or seller problem will be the strongest reason to choose Atlas over established alternatives?
+- Which geographic market should Vintrax launch in first?
+- What specific buyer or seller problem will be the strongest reason to choose Vintrax over established alternatives?
 - Should private-seller listings be included in the first public MVP or introduced immediately afterward?
 - What should be free, paid, or subscription-based for dealerships and private sellers?
 - What verification should be required for sellers and listings?

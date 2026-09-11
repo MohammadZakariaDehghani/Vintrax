@@ -1,4 +1,9 @@
-import { BODY_TYPES, type BodyType, type BodyTypeImage, type VehicleSummary } from '@atlas/shared';
+import {
+  BODY_TYPES,
+  type BodyType,
+  type BodyTypeImage,
+  type VehicleSummary,
+} from '@vintrax/shared';
 
 /**
  * A body-type shortcut on the home page: the picture, and how many are listed.

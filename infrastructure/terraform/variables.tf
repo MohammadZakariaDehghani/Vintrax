@@ -16,7 +16,7 @@ variable "environment" {
 variable "allowed_origins" {
   description = "Origins permitted to load media from the CDN."
   type        = list(string)
-  default     = ["https://atlas.example.com"]
+  default     = ["https://vintrax.example.com"]
 }
 
 # --- Database ---

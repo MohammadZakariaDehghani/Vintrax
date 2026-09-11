@@ -32,7 +32,7 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 /** Every demo account shares this password — local development only. */
-const DEMO_PASSWORD = 'AtlasDemo123!';
+const DEMO_PASSWORD = 'VintraxDemo123!';
 
 const UPLOAD_DIR = resolve(process.env['UPLOAD_DIR'] ?? './uploads');
 const SEED_IMAGE_DIR = join(UPLOAD_DIR, 'seed');
@@ -103,7 +103,7 @@ interface SeedUser {
 
 const USERS: SeedUser[] = [
   {
-    email: 'admin@atlas.test',
+    email: 'admin@vintrax.test',
     firstName: 'Ada',
     lastName: 'Okonkwo',
     role: UserRole.SUPER_ADMIN,
@@ -112,7 +112,7 @@ const USERS: SeedUser[] = [
     emailVerified: true,
   },
   {
-    email: 'moderator@atlas.test',
+    email: 'moderator@vintrax.test',
     firstName: 'Ben',
     lastName: 'Fortier',
     role: UserRole.ADMIN,
@@ -121,7 +121,7 @@ const USERS: SeedUser[] = [
     emailVerified: true,
   },
   {
-    email: 'inspector@atlas.test',
+    email: 'inspector@vintrax.test',
     firstName: 'Rae',
     lastName: 'Nakamura',
     role: UserRole.INSPECTOR,
@@ -288,7 +288,13 @@ const VEHICLES: SeedVehicle[] = [
     vin: '2T3W1RFV8NW123456',
     province: Province.BC,
     city: 'North Vancouver',
-    features: ['Sunroof', 'Heated seats', 'Apple CarPlay', 'Blind-spot monitoring', 'Backup camera'],
+    features: [
+      'Sunroof',
+      'Heated seats',
+      'Apple CarPlay',
+      'Blind-spot monitoring',
+      'Backup camera',
+    ],
     imageCount: 3,
     description:
       'One-owner RAV4 XLE with all-wheel drive, sunroof and heated seats. Certified pre-owned with a 160-point inspection completed in June. Clean history report, no accidents, service records available on request. Winter tires on steel rims included.',
@@ -902,7 +908,7 @@ async function main(): Promise<void> {
   }
 
   console.log('Seeding inspections...');
-  const inspector = usersByEmail.get('inspector@atlas.test')!;
+  const inspector = usersByEmail.get('inspector@vintrax.test')!;
   const inspectedVehicleIds = [vehicleIds[0]!, vehicleIds[3]!, vehicleIds[7]!];
 
   for (const [index, vehicleId] of inspectedVehicleIds.entries()) {
@@ -939,16 +945,40 @@ async function main(): Promise<void> {
     await prisma.inspectionSectionResult.deleteMany({ where: { inspectionId: inspection.id } });
     await prisma.inspectionSectionResult.createMany({
       data: [
-        { section: InspectionSection.EXTERIOR, rating: SectionRating.GOOD, notes: 'Minor stone chips on the front bumper.' },
+        {
+          section: InspectionSection.EXTERIOR,
+          rating: SectionRating.GOOD,
+          notes: 'Minor stone chips on the front bumper.',
+        },
         { section: InspectionSection.INTERIOR, rating: SectionRating.EXCELLENT, notes: null },
-        { section: InspectionSection.ENGINE, rating: SectionRating.EXCELLENT, notes: 'No leaks or abnormal noise.' },
+        {
+          section: InspectionSection.ENGINE,
+          rating: SectionRating.EXCELLENT,
+          notes: 'No leaks or abnormal noise.',
+        },
         { section: InspectionSection.TRANSMISSION, rating: SectionRating.GOOD, notes: null },
-        { section: InspectionSection.BRAKES, rating: index === 2 ? SectionRating.FAIR : SectionRating.GOOD, notes: index === 2 ? 'Front pads at approximately 30%.' : null },
+        {
+          section: InspectionSection.BRAKES,
+          rating: index === 2 ? SectionRating.FAIR : SectionRating.GOOD,
+          notes: index === 2 ? 'Front pads at approximately 30%.' : null,
+        },
         { section: InspectionSection.SUSPENSION, rating: SectionRating.GOOD, notes: null },
         { section: InspectionSection.ELECTRICAL, rating: SectionRating.EXCELLENT, notes: null },
-        { section: InspectionSection.TIRES, rating: SectionRating.GOOD, notes: 'All-season tires with even wear.' },
-        { section: InspectionSection.FRAME, rating: SectionRating.EXCELLENT, notes: 'No evidence of structural repair.' },
-        { section: InspectionSection.ROAD_TEST, rating: SectionRating.EXCELLENT, notes: 'Tracks straight, no vibration at highway speed.' },
+        {
+          section: InspectionSection.TIRES,
+          rating: SectionRating.GOOD,
+          notes: 'All-season tires with even wear.',
+        },
+        {
+          section: InspectionSection.FRAME,
+          rating: SectionRating.EXCELLENT,
+          notes: 'No evidence of structural repair.',
+        },
+        {
+          section: InspectionSection.ROAD_TEST,
+          rating: SectionRating.EXCELLENT,
+          notes: 'Tracks straight, no vibration at highway speed.',
+        },
       ].map((section) => ({ ...section, inspectionId: inspection.id })),
     });
   }
@@ -959,8 +989,20 @@ async function main(): Promise<void> {
 
   // Two live auctions with staggered close times, plus one already ended.
   const auctionSeeds = [
-    { vehicleIndex: 2, startingBidCad: 42000, reservePriceCad: 49000, endsInHours: 6, bids: [43000, 44500, 46000] },
-    { vehicleIndex: 3, startingBidCad: 40000, reservePriceCad: 44000, endsInHours: 26, bids: [41000, 42500] },
+    {
+      vehicleIndex: 2,
+      startingBidCad: 42000,
+      reservePriceCad: 49000,
+      endsInHours: 6,
+      bids: [43000, 44500, 46000],
+    },
+    {
+      vehicleIndex: 3,
+      startingBidCad: 40000,
+      reservePriceCad: 44000,
+      endsInHours: 26,
+      bids: [41000, 42500],
+    },
   ];
 
   for (const seed of auctionSeeds) {
@@ -1036,17 +1078,32 @@ async function main(): Promise<void> {
       buyerId: buyerJordan.id,
       vehicleIndex: 0,
       messages: [
-        { fromBuyer: true, body: 'Hi, is the RAV4 still available? I am interested in seeing it this weekend if so.' },
-        { fromBuyer: false, body: 'Hello Jordan, yes it is still available. We are open Saturday from 9 to 5 — would 11am work for a test drive?' },
-        { fromBuyer: true, body: 'Saturday at 11 works for me. Could you also send over the history report before then?' },
+        {
+          fromBuyer: true,
+          body: 'Hi, is the RAV4 still available? I am interested in seeing it this weekend if so.',
+        },
+        {
+          fromBuyer: false,
+          body: 'Hello Jordan, yes it is still available. We are open Saturday from 9 to 5 — would 11am work for a test drive?',
+        },
+        {
+          fromBuyer: true,
+          body: 'Saturday at 11 works for me. Could you also send over the history report before then?',
+        },
       ],
     },
     {
       buyerId: buyerSam.id,
       vehicleIndex: 11,
       messages: [
-        { fromBuyer: true, body: 'Hi Sofia, I saw your CR-V listing. Has the timing belt or any major service been done recently?' },
-        { fromBuyer: false, body: 'Hi Sam — the CR-V uses a timing chain so there is no belt to replace. It had a full brake service and new tires last spring, and I have all the receipts.' },
+        {
+          fromBuyer: true,
+          body: 'Hi Sofia, I saw your CR-V listing. Has the timing belt or any major service been done recently?',
+        },
+        {
+          fromBuyer: false,
+          body: 'Hi Sam — the CR-V uses a timing chain so there is no belt to replace. It had a full brake service and new tires last spring, and I have all the receipts.',
+        },
       ],
     },
   ];
@@ -1128,9 +1185,9 @@ async function main(): Promise<void> {
     console.log(`  ${label.padEnd(16)} ${value}`);
   }
   console.log(`\nAll demo accounts use the password: ${DEMO_PASSWORD}`);
-  console.log('  admin@atlas.test                 super admin');
-  console.log('  moderator@atlas.test             admin');
-  console.log('  inspector@atlas.test             inspector');
+  console.log('  admin@vintrax.test                 super admin');
+  console.log('  moderator@vintrax.test             admin');
+  console.log('  inspector@vintrax.test             inspector');
   console.log('  sales@northshoremotors.test      dealer (verified)');
   console.log('  contact@maplecityauto.test       dealer (pending verification)');
   console.log('  marc.tremblay@example.test       private seller');

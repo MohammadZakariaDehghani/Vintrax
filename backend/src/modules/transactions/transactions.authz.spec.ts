@@ -1,12 +1,12 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { ROLE_PERMISSIONS, USER_ROLES, type UserRole } from '@atlas/shared';
+import { ROLE_PERMISSIONS, USER_ROLES, type UserRole } from '@vintrax/shared';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { TransactionsService } from './transactions.service';
 
 /**
  * Who may record that an order was paid.
  *
- * Atlas records payments rather than processing them, so `POST /orders/:id/payment`
+ * Vintrax records payments rather than processing them, so `POST /orders/:id/payment`
  * is an assertion that money arrived. Letting the buyer make that assertion
  * about their own purchase would let anyone take a vehicle for free, which is
  * why this is tested at the service and not only through the route guard.

@@ -4,13 +4,28 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Car, DollarSign, Eye, MessageSquare, Plus } from 'lucide-react';
 import {
-  Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
-import type { DealerAnalytics } from '@atlas/shared';
+import type { DealerAnalytics } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatCompact, formatPrice } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
-import { Button, Card, CardContent, CardHeader, CardTitle, EmptyState, ErrorAlert, Spinner } from '@/components/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  ErrorAlert,
+  Spinner,
+} from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { StatTile } from '@/components/stat-tile';
@@ -52,10 +67,33 @@ function DealerDashboard() {
       <ErrorAlert error={error} className="mb-5" />
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Active listings" value={data?.activeListings ?? 0} hint={`${data?.draftListings ?? 0} drafts`} icon={Car} href="/dealer/inventory" />
-        <StatTile label="Sold this month" value={data?.soldThisMonth ?? 0} hint="Your sales" icon={DollarSign} href="/dashboard/purchases" />
-        <StatTile label="Gross sales" value={formatPrice(data?.grossSalesCadThisMonth ?? 0)} hint="This month" icon={DollarSign} />
-        <StatTile label="Total views" value={formatCompact(data?.totalViews ?? 0)} hint={`${data?.totalEnquiries ?? 0} enquiries`} icon={Eye} href="/dashboard/messages" />
+        <StatTile
+          label="Active listings"
+          value={data?.activeListings ?? 0}
+          hint={`${data?.draftListings ?? 0} drafts`}
+          icon={Car}
+          href="/dealer/inventory"
+        />
+        <StatTile
+          label="Sold this month"
+          value={data?.soldThisMonth ?? 0}
+          hint="Your sales"
+          icon={DollarSign}
+          href="/dashboard/purchases"
+        />
+        <StatTile
+          label="Gross sales"
+          value={formatPrice(data?.grossSalesCadThisMonth ?? 0)}
+          hint="This month"
+          icon={DollarSign}
+        />
+        <StatTile
+          label="Total views"
+          value={formatCompact(data?.totalViews ?? 0)}
+          hint={`${data?.totalEnquiries ?? 0} enquiries`}
+          icon={Eye}
+          href="/dashboard/messages"
+        />
       </div>
 
       <div className="mb-8 grid gap-6 lg:grid-cols-2">
@@ -68,8 +106,16 @@ function DealerDashboard() {
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={data.viewsSeries}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    allowDecimals={false}
+                  />
                   <Tooltip
                     contentStyle={{
                       background: 'hsl(var(--popover))',
@@ -78,11 +124,19 @@ function DealerDashboard() {
                       color: 'hsl(var(--popover-foreground))',
                     }}
                   />
-                  <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.18)" />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(var(--primary))"
+                    fill="hsl(var(--primary) / 0.18)"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyState title="No activity yet" description="Publish a listing to start collecting data." />
+              <EmptyState
+                title="No activity yet"
+                description="Publish a listing to start collecting data."
+              />
             )}
           </CardContent>
         </Card>
@@ -96,7 +150,11 @@ function DealerDashboard() {
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={data.salesSeries}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
                   <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <Tooltip
                     formatter={(value: number) => formatPrice(value)}
@@ -107,7 +165,12 @@ function DealerDashboard() {
                       color: 'hsl(var(--popover-foreground))',
                     }}
                   />
-                  <Area type="monotone" dataKey="value" stroke="hsl(var(--accent))" fill="hsl(var(--accent) / 0.18)" />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(var(--accent))"
+                    fill="hsl(var(--accent) / 0.18)"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -136,7 +199,11 @@ function DealerDashboard() {
               icon={<MessageSquare className="h-8 w-8" aria-hidden />}
               title="No published inventory"
               description="Add your first vehicle to start selling."
-              action={<Link href="/dealer/add-vehicle"><Button>Add vehicle</Button></Link>}
+              action={
+                <Link href="/dealer/add-vehicle">
+                  <Button>Add vehicle</Button>
+                </Link>
+              }
             />
           </Card>
         )}
@@ -146,5 +213,9 @@ function DealerDashboard() {
 }
 
 export default function DealerDashboardPage() {
-  return <RequireAuth sellersOnly><DealerDashboard /></RequireAuth>;
+  return (
+    <RequireAuth sellersOnly>
+      <DealerDashboard />
+    </RequireAuth>
+  );
 }

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell } from 'lucide-react';
-import type { NotificationDto, Paginated } from '@atlas/shared';
+import type { NotificationDto, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatEnum, formatRelativeTime } from '@/lib/utils';
 import {
@@ -59,9 +59,10 @@ function Notifications() {
   const markAll = markAllRead.mutate;
   useEffect(() => {
     if (!data) return;
-    setWasUnread((current) => current ?? new Set(
-      data.items.filter((item) => !item.readAt).map((item) => item.id),
-    ));
+    setWasUnread(
+      (current) =>
+        current ?? new Set(data.items.filter((item) => !item.readAt).map((item) => item.id)),
+    );
     if (data.items.some((item) => !item.readAt)) markAll();
     // `markAll` is stable and `data` is the trigger; re-running on every field
     // of `data` would re-issue the call after its own refetch.

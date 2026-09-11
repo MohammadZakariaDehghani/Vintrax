@@ -13,7 +13,7 @@ import type {
   VehicleDetail,
   VehicleSearchResponse,
   VehicleSummary,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 
 /**
@@ -22,7 +22,7 @@ import { api } from '@/lib/api-client';
  *
  * No component calls `fetch` or even `api` directly. That keeps paths, query
  * strings and response types in one file, so an endpoint change is one edit
- * rather than a search across screens. The types come from `@atlas/shared`, so
+ * rather than a search across screens. The types come from `@vintrax/shared`, so
  * a contract change is a compile error here rather than a runtime surprise on
  * someone's phone.
  */
@@ -51,7 +51,7 @@ export function buildQuery(
   return serialised ? `?${serialised}` : '';
 }
 
-export const atlas = {
+export const vintrax = {
   auth: {
     me: () => api.get<PublicUser>('/auth/me'),
     resendVerification: () => api.post<void>('/auth/email/resend'),

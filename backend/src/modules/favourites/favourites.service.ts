@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { VehicleSummary, Paginated } from '@atlas/shared';
+import type { VehicleSummary, Paginated } from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { vehicleSummarySelect, toVehicleSummary } from '../vehicles/vehicles.mapper';

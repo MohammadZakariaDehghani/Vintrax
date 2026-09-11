@@ -1,4 +1,4 @@
-# Multi-stage build for the Atlas web app.
+# Multi-stage build for the Vintrax web app.
 #
 # NEXT_PUBLIC_* values are compiled into the client bundle, so they are build
 # arguments rather than runtime environment variables.
@@ -17,7 +17,7 @@ COPY packages/client/package.json ./packages/client/
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 COPY mobile/package.json ./mobile/
-RUN pnpm install --frozen-lockfile --filter @atlas/frontend...
+RUN pnpm install --frozen-lockfile --filter @vintrax/frontend...
 
 # ---- Build ------------------------------------------------------------------
 FROM base AS build
@@ -32,7 +32,7 @@ COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_module
 COPY --from=deps /app/packages/client/node_modules ./packages/client/node_modules
 COPY --from=deps /app/frontend/node_modules ./frontend/node_modules
 COPY . .
-RUN pnpm --filter @atlas/frontend build
+RUN pnpm --filter @vintrax/frontend build
 
 # ---- Runtime ----------------------------------------------------------------
 FROM base AS runtime

@@ -1,5 +1,5 @@
 /**
- * Display formatting comes from `@atlas/client`, so a price, distance or
+ * Display formatting comes from `@vintrax/client`, so a price, distance or
  * countdown reads identically on mobile and on the web.
  */
 export {
@@ -16,4 +16,4 @@ export {
   formatRelativeTime,
   isClosingSoon,
   joinSpecs,
-} from '@atlas/client';
+} from '@vintrax/client';

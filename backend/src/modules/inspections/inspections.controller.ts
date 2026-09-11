@@ -7,7 +7,7 @@ import {
   type SubmitInspectionInput,
   createInspectionSchema,
   submitInspectionSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { z } from 'zod';
 import { Audit, CurrentUser, Public, RequirePermissions } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';

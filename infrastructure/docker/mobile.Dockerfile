@@ -1,4 +1,4 @@
-# Multi-stage build for Atlas Mobile.
+# Multi-stage build for Vintrax Mobile.
 #
 # Same shape as the web image, and the same rule applies: NEXT_PUBLIC_* values
 # are compiled into the client bundle, so they are build arguments rather than
@@ -19,7 +19,7 @@ COPY packages/client/package.json ./packages/client/
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 COPY mobile/package.json ./mobile/
-RUN pnpm install --frozen-lockfile --filter @atlas/mobile...
+RUN pnpm install --frozen-lockfile --filter @vintrax/mobile...
 
 # ---- Build ------------------------------------------------------------------
 FROM base AS build
@@ -34,7 +34,7 @@ COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_module
 COPY --from=deps /app/packages/client/node_modules ./packages/client/node_modules
 COPY --from=deps /app/mobile/node_modules ./mobile/node_modules
 COPY . .
-RUN pnpm --filter @atlas/mobile build
+RUN pnpm --filter @vintrax/mobile build
 
 # ---- Runtime ----------------------------------------------------------------
 FROM base AS runtime

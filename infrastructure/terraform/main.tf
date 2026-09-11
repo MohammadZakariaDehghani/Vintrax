@@ -1,4 +1,4 @@
-# Atlas infrastructure — reference example.
+# Vintrax infrastructure — reference example.
 #
 # Provisions the managed services the platform depends on: PostgreSQL, Redis,
 # object storage and a search domain. Compute (ECS/EKS) is intentionally left
@@ -19,10 +19,10 @@ terraform {
 
   # Configure remote state with locking before using this for anything real.
   # backend "s3" {
-  #   bucket         = "atlas-terraform-state"
-  #   key            = "atlas/terraform.tfstate"
+  #   bucket         = "vintrax-terraform-state"
+  #   key            = "vintrax/terraform.tfstate"
   #   region         = "ca-central-1"
-  #   dynamodb_table = "atlas-terraform-locks"
+  #   dynamodb_table = "vintrax-terraform-locks"
   #   encrypt        = true
   # }
 }
@@ -31,7 +31,7 @@ provider "aws" {
   region = var.aws_region
   default_tags {
     tags = {
-      Project     = "atlas"
+      Project     = "vintrax"
       Environment = var.environment
       ManagedBy   = "terraform"
     }
@@ -39,7 +39,7 @@ provider "aws" {
 }
 
 locals {
-  name = "atlas-${var.environment}"
+  name = "vintrax-${var.environment}"
 }
 
 # ---------------------------------------------------------------------------
@@ -62,8 +62,8 @@ resource "aws_db_instance" "postgres" {
   storage_type          = "gp3"
   storage_encrypted     = true
 
-  db_name  = "atlas"
-  username = "atlas"
+  db_name  = "vintrax"
+  username = "vintrax"
   password = random_password.database.result
 
   # Point-in-time recovery. A backup you have never restored is a hypothesis,
@@ -103,7 +103,7 @@ resource "aws_db_parameter_group" "postgres" {
 
 resource "aws_elasticache_replication_group" "redis" {
   replication_group_id = "${local.name}-redis"
-  description          = "Atlas cache, job queues and auction settlement locks"
+  description          = "Vintrax cache, job queues and auction settlement locks"
 
   engine         = "redis"
   engine_version = "7.1"

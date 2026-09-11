@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { AuditLogEntry, AuditLogQuery, Paginated } from '@atlas/shared';
+import type { AuditLogEntry, AuditLogQuery, Paginated } from '@vintrax/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 

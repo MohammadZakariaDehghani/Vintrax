@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Globe, MapPin, Phone, ShieldCheck } from 'lucide-react';
-import type { DealerDetail, Paginated, VehicleSummary } from '@atlas/shared';
+import type { DealerDetail, Paginated, VehicleSummary } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { formatDate, formatLocation } from '@/lib/utils';
 import { Badge, Card, CardContent, EmptyState } from '@/components/ui';
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: dealer.name,
     description:
       dealer.description?.slice(0, 160) ??
-      `${dealer.name} — inventory on Atlas, Canada's auto marketplace.`,
+      `${dealer.name} — inventory on Vintrax, Canada's auto marketplace.`,
   };
 }
 
@@ -100,7 +100,7 @@ export default async function DealerPage({ params }: PageProps) {
               <dd className="tabular text-2xl font-bold">{dealer.completedSaleCount}</dd>
             </div>
             <div>
-              <dt className="text-sm text-muted-foreground">On Atlas since</dt>
+              <dt className="text-sm text-muted-foreground">On Vintrax since</dt>
               <dd className="text-2xl font-bold">{formatDate(dealer.memberSince)}</dd>
             </div>
           </dl>

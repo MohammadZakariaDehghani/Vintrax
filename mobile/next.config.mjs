@@ -5,7 +5,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Workspace packages are TypeScript source, not build artefacts, so Next
   // compiles them like first-party code.
-  transpilePackages: ['@atlas/shared', '@atlas/client'],
+  transpilePackages: ['@vintrax/shared', '@vintrax/client'],
   eslint: { ignoreDuringBuilds: false },
   typescript: { ignoreBuildErrors: false },
   images: {

@@ -1,4 +1,4 @@
-# Labels for the Atlas repository.
+# Labels for the Vintrax repository.
 #
 # Applied by .github/workflows/project-setup.yml, which creates what is missing
 # and updates the colour and description of what already exists. It never
@@ -7,7 +7,7 @@
 # Four axes, and an issue normally carries one of each of the first three:
 #
 #   type:*      what kind of work it is
-#   area:*      where in Atlas it lives
+#   area:*      where in Vintrax it lives
 #   priority:*  how soon it matters
 #   status:*    why it is not moving (only when it is not)
 #
@@ -55,7 +55,7 @@ labels:
     description: backend/ — the NestJS API
   - name: 'area:api'
     color: '16a34a'
-    description: Endpoint contracts, shared schemas, @atlas/client
+    description: Endpoint contracts, shared schemas, @vintrax/client
   - name: 'area:database'
     color: '14532d'
     description: Prisma schema, migrations, seed data

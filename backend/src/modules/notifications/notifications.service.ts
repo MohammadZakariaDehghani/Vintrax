@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { NotificationDto, NotificationType, Paginated } from '@atlas/shared';
+import type { NotificationDto, NotificationType, Paginated } from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 

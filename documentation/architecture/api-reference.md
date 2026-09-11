@@ -1,6 +1,6 @@
 # API reference
 
-Every endpoint the Atlas API exposes, its authorisation rule, and its request and response shapes.
+Every endpoint the Vintrax API exposes, its authorisation rule, and its request and response shapes.
 
 **Base URL:** all routes are prefixed with `/api`.
 **Interactive docs:** `http://localhost:3000/api/docs` (Swagger UI, disabled when `NODE_ENV=production`).
@@ -20,40 +20,40 @@ Access tokens expire in 15 minutes by default. When one expires, exchange the re
 
 The **Auth** column below uses:
 
-| Marker | Meaning |
-| --- | --- |
-| — | No authentication required |
-| optional | Works anonymously; a valid token personalises the response |
-| ✅ | Any authenticated user |
-| seller | `DEALER` or `PRIVATE_SELLER` (or `ADMIN`) |
-| owner | The listing's seller (or `ADMIN`) |
-| participant | The conversation's buyer or seller |
+| Marker      | Meaning                                                    |
+| ----------- | ---------------------------------------------------------- |
+| —           | No authentication required                                 |
+| optional    | Works anonymously; a valid token personalises the response |
+| ✅          | Any authenticated user                                     |
+| seller      | `DEALER` or `PRIVATE_SELLER` (or `ADMIN`)                  |
+| owner       | The listing's seller (or `ADMIN`)                          |
+| participant | The conversation's buyer or seller                         |
 
 ## Endpoint summary
 
-| Method | Path | Auth | Purpose |
-| --- | --- | --- | --- |
-| `POST` | `/auth/register` | — | Create an account, receive tokens |
-| `POST` | `/auth/login` | — | Exchange credentials for tokens |
-| `POST` | `/auth/refresh` | — | Rotate a refresh token |
-| `POST` | `/auth/logout` | — | Revoke a refresh token |
-| `GET` | `/auth/me` | ✅ | The authenticated user |
-| `GET` | `/listings` | optional | Search listings |
-| `GET` | `/listings/mine` | seller | The caller's own listings |
-| `GET` | `/listings/:id` | optional | One listing |
-| `POST` | `/listings` | seller | Create a listing |
-| `PATCH` | `/listings/:id` | owner | Update a listing |
-| `DELETE` | `/listings/:id` | owner | Delete a listing |
-| `PUT` | `/listings/:id/favourite` | ✅ | Save a listing |
-| `DELETE` | `/listings/:id/favourite` | ✅ | Unsave a listing |
-| `GET` | `/me/favourites` | ✅ | Saved listings |
-| `GET` | `/conversations` | ✅ | Inbox |
-| `POST` | `/conversations` | ✅ | Start or continue a thread |
-| `GET` | `/conversations/:id` | participant | Read a thread |
-| `POST` | `/conversations/:id/messages` | participant | Reply |
-| `GET` | `/conversations/unread-count` | ✅ | Unread total |
-| `POST` | `/uploads/images` | seller | Upload a photo |
-| `GET` | `/health` | — | Liveness and DB readiness |
+| Method   | Path                          | Auth        | Purpose                           |
+| -------- | ----------------------------- | ----------- | --------------------------------- |
+| `POST`   | `/auth/register`              | —           | Create an account, receive tokens |
+| `POST`   | `/auth/login`                 | —           | Exchange credentials for tokens   |
+| `POST`   | `/auth/refresh`               | —           | Rotate a refresh token            |
+| `POST`   | `/auth/logout`                | —           | Revoke a refresh token            |
+| `GET`    | `/auth/me`                    | ✅          | The authenticated user            |
+| `GET`    | `/listings`                   | optional    | Search listings                   |
+| `GET`    | `/listings/mine`              | seller      | The caller's own listings         |
+| `GET`    | `/listings/:id`               | optional    | One listing                       |
+| `POST`   | `/listings`                   | seller      | Create a listing                  |
+| `PATCH`  | `/listings/:id`               | owner       | Update a listing                  |
+| `DELETE` | `/listings/:id`               | owner       | Delete a listing                  |
+| `PUT`    | `/listings/:id/favourite`     | ✅          | Save a listing                    |
+| `DELETE` | `/listings/:id/favourite`     | ✅          | Unsave a listing                  |
+| `GET`    | `/me/favourites`              | ✅          | Saved listings                    |
+| `GET`    | `/conversations`              | ✅          | Inbox                             |
+| `POST`   | `/conversations`              | ✅          | Start or continue a thread        |
+| `GET`    | `/conversations/:id`          | participant | Read a thread                     |
+| `POST`   | `/conversations/:id/messages` | participant | Reply                             |
+| `GET`    | `/conversations/unread-count` | ✅          | Unread total                      |
+| `POST`   | `/uploads/images`             | seller      | Upload a photo                    |
+| `GET`    | `/health`                     | —           | Liveness and DB readiness         |
 
 ---
 
@@ -76,14 +76,14 @@ Creates an account and returns a token pair. `ADMIN` is never self-assignable.
 }
 ```
 
-| Field | Rules |
-| --- | --- |
-| `email` | Valid email, max 254, lowercased automatically |
-| `password` | 10–128 characters |
-| `displayName` | 2–80 characters |
-| `role` | `BUYER` (default), `PRIVATE_SELLER`, or `DEALER` |
-| `dealershipName` | **Required when `role` is `DEALER`**, 2–120 characters |
-| `phone`, `province`, `city` | Optional. Omit rather than sending `""` |
+| Field                       | Rules                                                  |
+| --------------------------- | ------------------------------------------------------ |
+| `email`                     | Valid email, max 254, lowercased automatically         |
+| `password`                  | 10–128 characters                                      |
+| `displayName`               | 2–80 characters                                        |
+| `role`                      | `BUYER` (default), `PRIVATE_SELLER`, or `DEALER`       |
+| `dealershipName`            | **Required when `role` is `DEALER`**, 2–120 characters |
+| `phone`, `province`, `city` | Optional. Omit rather than sending `""`                |
 
 **201** → `AuthResponse`. **409** if the email is taken. **400** with field details on validation
 failure.
@@ -91,7 +91,7 @@ failure.
 ### `POST /api/auth/login`
 
 ```json
-{ "email": "jordan.lee@example.test", "password": "AtlasDemo123!" }
+{ "email": "jordan.lee@example.test", "password": "VintraxDemo123!" }
 ```
 
 **200** → `AuthResponse`. **401** `Invalid email or password` — deliberately identical whether the
@@ -146,25 +146,25 @@ Searches **active listings only**. Authentication is optional; with a token, eac
 
 **Query parameters**
 
-| Parameter | Type | Notes |
-| --- | --- | --- |
-| `q` | string | Keyword. See [keyword matching](#keyword-matching) below |
-| `make` | string | Exact, case-insensitive |
-| `model` | string | Substring, case-insensitive |
-| `minYear`, `maxYear` | int | `minYear` must be ≤ `maxYear` |
-| `minPrice`, `maxPrice` | int | Whole CAD; `minPrice` must be ≤ `maxPrice` |
-| `maxMileageKm` | int | Upper bound |
-| `bodyType` | enum list | Comma-separated or repeated |
-| `fuelType` | enum list | Comma-separated or repeated |
-| `transmission` | enum list | Comma-separated or repeated |
-| `drivetrain` | enum list | Comma-separated or repeated |
-| `condition` | enum list | Comma-separated or repeated |
-| `province` | enum | Single province code |
-| `city` | string | Substring, case-insensitive |
-| `sellerType` | enum | `DEALER` or `PRIVATE_SELLER` |
-| `sort` | enum | `RELEVANCE` (default), `NEWEST`, `PRICE_ASC`, `PRICE_DESC`, `MILEAGE_ASC`, `YEAR_DESC` |
-| `page` | int | Default 1 |
-| `pageSize` | int | Default 24, max 60 |
+| Parameter              | Type      | Notes                                                                                  |
+| ---------------------- | --------- | -------------------------------------------------------------------------------------- |
+| `q`                    | string    | Keyword. See [keyword matching](#keyword-matching) below                               |
+| `make`                 | string    | Exact, case-insensitive                                                                |
+| `model`                | string    | Substring, case-insensitive                                                            |
+| `minYear`, `maxYear`   | int       | `minYear` must be ≤ `maxYear`                                                          |
+| `minPrice`, `maxPrice` | int       | Whole CAD; `minPrice` must be ≤ `maxPrice`                                             |
+| `maxMileageKm`         | int       | Upper bound                                                                            |
+| `bodyType`             | enum list | Comma-separated or repeated                                                            |
+| `fuelType`             | enum list | Comma-separated or repeated                                                            |
+| `transmission`         | enum list | Comma-separated or repeated                                                            |
+| `drivetrain`           | enum list | Comma-separated or repeated                                                            |
+| `condition`            | enum list | Comma-separated or repeated                                                            |
+| `province`             | enum      | Single province code                                                                   |
+| `city`                 | string    | Substring, case-insensitive                                                            |
+| `sellerType`           | enum      | `DEALER` or `PRIVATE_SELLER`                                                           |
+| `sort`                 | enum      | `RELEVANCE` (default), `NEWEST`, `PRICE_ASC`, `PRICE_DESC`, `MILEAGE_ASC`, `YEAR_DESC` |
+| `page`                 | int       | Default 1                                                                              |
+| `pageSize`             | int       | Default 24, max 60                                                                     |
 
 Example:
 
@@ -176,7 +176,7 @@ GET /api/listings?fuelType=ELECTRIC,HYBRID&maxPrice=45000&province=ON&sort=PRICE
 
 ```json
 {
-  "items": [ /* ListingSummary[] */ ],
+  "items": [/* ListingSummary[] */],
   "page": 1,
   "pageSize": 24,
   "total": 19,
@@ -203,17 +203,17 @@ on prose is noisy: `ev` otherwise matches "Chevrolet", "seven", and "previous".
 
 Terms are additionally mapped onto enum columns, so category words behave like filter chips:
 
-| Term | Matches |
-| --- | --- |
-| `suv`, `truck`, `sedan`, … | `bodyType` |
-| `electric`, `hybrid`, `diesel`, … | `fuelType` |
-| `awd`, `fwd`, `rwd` | `drivetrain` |
-| `automatic`, `manual`, `cvt` | `transmission` |
-| `4x4`, `4wd` | `drivetrain = FOUR_WHEEL_DRIVE` |
-| `ev` | `fuelType = ELECTRIC` |
-| `phev` | `fuelType = PLUG_IN_HYBRID` |
-| `cpo` | `condition = CERTIFIED_PRE_OWNED` |
-| `pickup` | `bodyType = TRUCK` |
+| Term                              | Matches                           |
+| --------------------------------- | --------------------------------- |
+| `suv`, `truck`, `sedan`, …        | `bodyType`                        |
+| `electric`, `hybrid`, `diesel`, … | `fuelType`                        |
+| `awd`, `fwd`, `rwd`               | `drivetrain`                      |
+| `automatic`, `manual`, `cvt`      | `transmission`                    |
+| `4x4`, `4wd`                      | `drivetrain = FOUR_WHEEL_DRIVE`   |
+| `ev`                              | `fuelType = ELECTRIC`             |
+| `phev`                            | `fuelType = PLUG_IN_HYBRID`       |
+| `cpo`                             | `condition = CERTIFIED_PRE_OWNED` |
+| `pickup`                          | `bodyType = TRUCK`                |
 
 > **`RELEVANCE` currently orders by recency.** Genuine relevance scoring needs a `tsvector` column
 > with `ts_rank`; see [future work](../reference/future-work.md#search-quality).
@@ -261,16 +261,16 @@ Creates a listing owned by the caller.
 }
 ```
 
-| Field | Rules |
-| --- | --- |
-| `title` | 6–140 characters |
-| `description` | 20–6000 characters |
-| `year` | 1900 to next calendar year |
-| `priceCad` | 1 to 10,000,000, integer |
-| `mileageKm` | 0 to 2,000,000, integer |
-| `vin` | Optional. Exactly 17 chars, excluding I, O, Q per the VIN standard |
-| `status` | Defaults to `DRAFT` |
-| `images` | Up to 20, order preserved; index 0 is primary |
+| Field         | Rules                                                              |
+| ------------- | ------------------------------------------------------------------ |
+| `title`       | 6–140 characters                                                   |
+| `description` | 20–6000 characters                                                 |
+| `year`        | 1900 to next calendar year                                         |
+| `priceCad`    | 1 to 10,000,000, integer                                           |
+| `mileageKm`   | 0 to 2,000,000, integer                                            |
+| `vin`         | Optional. Exactly 17 chars, excluding I, O, Q per the VIN standard |
+| `status`      | Defaults to `DRAFT`                                                |
+| `images`      | Up to 20, order preserved; index 0 is primary                      |
 
 Setting `status: "ACTIVE"` stamps `publishedAt`. **201** → `ListingDetail`.
 
@@ -402,24 +402,24 @@ Every failure — validation, authorisation, database, unexpected — is normali
 refinements are attached to the field they concern — a dealer signup missing its dealership name
 reports under `dealershipName`, not at the root.
 
-| Status | Meaning |
-| --- | --- |
-| 400 | Validation failed, or a semantically invalid operation |
-| 401 | Missing, expired, or invalid token |
-| 403 | Authenticated but not permitted |
-| 404 | Not found, or not visible to this caller |
-| 409 | Conflict, e.g. email already registered |
-| 429 | Rate limit exceeded |
-| 500 | Unexpected — internal details are logged, never returned |
-| 503 | Database unreachable |
+| Status | Meaning                                                  |
+| ------ | -------------------------------------------------------- |
+| 400    | Validation failed, or a semantically invalid operation   |
+| 401    | Missing, expired, or invalid token                       |
+| 403    | Authenticated but not permitted                          |
+| 404    | Not found, or not visible to this caller                 |
+| 409    | Conflict, e.g. email already registered                  |
+| 429    | Rate limit exceeded                                      |
+| 500    | Unexpected — internal details are logged, never returned |
+| 503    | Database unreachable                                     |
 
 Unexpected errors return a generic message. Internal exception text never reaches the client.
 
 ## Rate limiting
 
-| Scope | Budget |
-| --- | --- |
-| Global | 300 requests / 60s |
-| `POST /auth/register`, `POST /auth/login` | 10 requests / 60s |
+| Scope                                     | Budget             |
+| ----------------------------------------- | ------------------ |
+| Global                                    | 300 requests / 60s |
+| `POST /auth/register`, `POST /auth/login` | 10 requests / 60s  |
 
 Exceeding a budget returns **429**.

@@ -1,14 +1,14 @@
 environment                = "production"
 aws_region                 = "ca-central-1"
-allowed_origins            = ["https://atlas.example.com"]
+allowed_origins            = ["https://vintrax.example.com"]
 
 database_instance_class    = "db.m6g.large"
 database_allocated_storage = 100
-database_subnet_group_name = "atlas-db-subnets"
+database_subnet_group_name = "vintrax-db-subnets"
 database_security_group_ids = ["sg-REPLACE"]
 
 redis_node_type          = "cache.m6g.large"
-redis_subnet_group_name  = "atlas-cache-subnets"
+redis_subnet_group_name  = "vintrax-cache-subnets"
 redis_security_group_ids = ["sg-REPLACE"]
 
 enable_opensearch        = true

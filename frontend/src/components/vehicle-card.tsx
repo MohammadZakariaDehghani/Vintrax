@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Gavel, Heart, ShieldCheck } from 'lucide-react';
-import type { VehicleSummary } from '@atlas/shared';
+import type { VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatEnum, formatKm, formatLocation, formatPrice, joinSpecs } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
@@ -97,7 +97,9 @@ export function VehicleCard({
             <Heart
               className={cn(
                 'h-4 w-4',
-                vehicle.isFavourited ? 'fill-destructive text-destructive' : 'text-muted-foreground',
+                vehicle.isFavourited
+                  ? 'fill-destructive text-destructive'
+                  : 'text-muted-foreground',
               )}
               aria-hidden
             />

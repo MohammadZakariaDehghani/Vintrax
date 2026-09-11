@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, Lock } from 'lucide-react';
-import type { VehicleDetail } from '@atlas/shared';
+import type { VehicleDetail } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';

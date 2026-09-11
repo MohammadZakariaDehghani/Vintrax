@@ -12,7 +12,7 @@ import { toVehicleDetail, type VehicleDetailRow } from './vehicles.mapper';
  * where a recorded URL is allowed to resolve to on disk.
  */
 
-const uploadDir = mkdtempSync(join(tmpdir(), 'atlas-storage-'));
+const uploadDir = mkdtempSync(join(tmpdir(), 'vintrax-storage-'));
 
 function storage(): StorageService {
   const values: Record<string, unknown> = {
@@ -130,9 +130,7 @@ describe('resolving a recorded storage URL', () => {
 
   it('refuses a relative path that climbs out of the upload directory', () => {
     // The URL arrives in the payload a seller sends, so this is attacker input.
-    expect(() => storage().resolveStored('/uploads/../../etc/passwd')).toThrow(
-      BadRequestException,
-    );
+    expect(() => storage().resolveStored('/uploads/../../etc/passwd')).toThrow(BadRequestException);
   });
 
   it('refuses an absolute path, which would otherwise override the join', () => {
@@ -146,9 +144,9 @@ describe('resolving a recorded storage URL', () => {
   });
 
   it('passes an object-storage URL through for the bucket to serve', () => {
-    expect(storage().resolveStored('https://cdn.example.test/atlas/documents/a.pdf')).toEqual({
+    expect(storage().resolveStored('https://cdn.example.test/vintrax/documents/a.pdf')).toEqual({
       kind: 'remote',
-      url: 'https://cdn.example.test/atlas/documents/a.pdf',
+      url: 'https://cdn.example.test/vintrax/documents/a.pdf',
     });
   });
 

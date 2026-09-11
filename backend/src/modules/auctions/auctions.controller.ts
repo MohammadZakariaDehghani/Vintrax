@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -24,7 +15,7 @@ import {
   placeBidSchema,
   searchAuctionsSchema,
   updateAuctionSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import {
   Audit,
   ClientIp,

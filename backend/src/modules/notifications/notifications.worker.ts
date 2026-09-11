@@ -176,16 +176,13 @@ export class NotificationsWorker implements OnModuleInit {
     });
   }
 
-  private async handleDealerVerified(data: {
-    userId: string;
-    approved: boolean;
-  }): Promise<void> {
+  private async handleDealerVerified(data: { userId: string; approved: boolean }): Promise<void> {
     await this.notifications.notify({
       userId: data.userId,
       type: 'DEALER_VERIFIED',
       title: data.approved ? 'Your dealership is verified' : 'Dealer verification unsuccessful',
       body: data.approved
-        ? 'You can now publish inventory and run auctions on Atlas.'
+        ? 'You can now publish inventory and run auctions on Vintrax.'
         : 'We could not verify your dealership. Contact support for details.',
       link: '/dealer/dashboard',
       email: true,

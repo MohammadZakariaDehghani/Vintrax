@@ -12,7 +12,7 @@ import {
   type CreateOrderInput,
   type Paginated,
   type TransactionSummary,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -164,7 +164,7 @@ export class TransactionsService {
   /**
    * Records a successful payment.
    *
-   * Atlas records payments rather than processing them, so this endpoint is an
+   * Vintrax records payments rather than processing them, so this endpoint is an
    * assertion that money arrived — which makes it the seller's to make, not the
    * buyer's. A buyer permitted to call it could mark their own order `PAID`
    * without paying, so the check is here and not only in the route guard.
@@ -204,10 +204,7 @@ export class TransactionsService {
         }),
       ]);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('This payment reference has already been recorded');
       }
       throw error;

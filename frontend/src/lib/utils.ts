@@ -1,5 +1,5 @@
 /**
- * Display formatting lives in `@atlas/client` so the web and mobile
+ * Display formatting lives in `@vintrax/client` so the web and mobile
  * applications render the same money, distances and countdowns. Re-exported
  * here because every component in this app imports it from `@/lib/utils`.
  */
@@ -19,4 +19,4 @@ export {
   formatRelativeTime,
   isClosingSoon,
   joinSpecs,
-} from '@atlas/client';
+} from '@vintrax/client';

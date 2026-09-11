@@ -1,31 +1,31 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: atlas-mobile
-  namespace: atlas
-  labels: { app: atlas-mobile }
+  name: vintrax-mobile
+  namespace: vintrax
+  labels: { app: vintrax-mobile }
 spec:
   # Fewer replicas than the web app: this serves a smaller audience and holds
   # no server-rendered data path of its own.
   replicas: 2
   selector:
-    matchLabels: { app: atlas-mobile }
+    matchLabels: { app: vintrax-mobile }
   template:
     metadata:
-      labels: { app: atlas-mobile }
+      labels: { app: vintrax-mobile }
     spec:
       containers:
         - name: mobile
           # NEXT_PUBLIC_* values are baked in at build time, so the image tag
           # is what carries the API and WebSocket URLs — not this manifest.
-          image: ghcr.io/atlas/mobile:latest
+          image: ghcr.io/vintrax/mobile:latest
           ports:
             - containerPort: 3002
           env:
             - name: NODE_ENV
               value: production
             - name: API_ORIGIN
-              value: http://atlas-api:3001
+              value: http://vintrax-api:3001
           resources:
             requests: { cpu: 100m, memory: 256Mi }
             limits: { cpu: 500m, memory: 512Mi }
@@ -41,10 +41,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: atlas-mobile
-  namespace: atlas
+  name: vintrax-mobile
+  namespace: vintrax
 spec:
-  selector: { app: atlas-mobile }
+  selector: { app: vintrax-mobile }
   ports:
     - port: 3002
       targetPort: 3002

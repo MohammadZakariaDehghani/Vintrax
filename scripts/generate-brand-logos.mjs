@@ -1,5 +1,5 @@
 /**
- * Extracts the vehicle-make logos Atlas needs out of `simple-icons`.
+ * Extracts the vehicle-make logos Vintrax needs out of `simple-icons`.
  *
  * The package carries about 3,500 icons. Importing it at runtime to use
  * fifteen of them would ship the rest, so the paths are lifted here into a
@@ -69,7 +69,7 @@ const out = `/**
  *
  * Paths come from simple-icons (CC0-1.0). The marks themselves are the
  * trademarks of their respective owners and appear here only to label links to
- * that maker's own vehicles in Atlas's inventory, which is what the mark is
+ * that maker's own vehicles in Vintrax's inventory, which is what the mark is
  * for. Nothing here implies endorsement by, or affiliation with, any maker.
  *
  * Every path is drawn in a 24x24 viewBox.

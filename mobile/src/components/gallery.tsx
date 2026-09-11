@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
-import type { VehicleImage } from '@atlas/shared';
+import type { VehicleImage } from '@vintrax/shared';
 import { cn } from '@/lib/format';
 
 /**

@@ -1,4 +1,4 @@
-# Multi-stage build for the Atlas API.
+# Multi-stage build for the Vintrax API.
 #
 # The workspace is installed once with the full lockfile so the shared contract
 # package resolves, then pruned to production dependencies for the runtime image.
@@ -17,7 +17,7 @@ COPY packages/client/package.json ./packages/client/
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 COPY mobile/package.json ./mobile/
-RUN pnpm install --frozen-lockfile --filter @atlas/backend...
+RUN pnpm install --frozen-lockfile --filter @vintrax/backend...
 
 # ---- Build ------------------------------------------------------------------
 FROM base AS build
@@ -25,9 +25,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=deps /app/backend/node_modules ./backend/node_modules
 COPY . .
-RUN pnpm --filter @atlas/shared build \
- && pnpm --filter @atlas/backend exec prisma generate \
- && pnpm --filter @atlas/backend build
+RUN pnpm --filter @vintrax/shared build \
+ && pnpm --filter @vintrax/backend exec prisma generate \
+ && pnpm --filter @vintrax/backend build
 
 # ---- Runtime ----------------------------------------------------------------
 FROM base AS runtime

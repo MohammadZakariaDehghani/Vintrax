@@ -1,6 +1,6 @@
 # Brand
 
-The Atlas identity, and the constraints it has to satisfy.
+The Vintrax identity, and the constraints it has to satisfy.
 
 ## The mark
 
@@ -31,12 +31,12 @@ Every version is the same geometry. Four rules produced it:
 
 ## Colour
 
-| Token | Value | Use |
-| --- | --- | --- |
-| Navy | `#16295c` | The tile, `--primary`, the manifest's `theme_color` |
-| Red | `#d32027` | The peak, `--accent` |
-| Grey | `--muted-foreground` | The lockup's descriptor and secondary text |
-| White | `#ffffff` | The road, and text on navy |
+| Token | Value                | Use                                                 |
+| ----- | -------------------- | --------------------------------------------------- |
+| Navy  | `#16295c`            | The tile, `--primary`, the manifest's `theme_color` |
+| Red   | `#d32027`            | The peak, `--accent`                                |
+| Grey  | `--muted-foreground` | The lockup's descriptor and secondary text          |
+| White | `#ffffff`            | The road, and text on navy                          |
 
 **Navy carries the product; red is a note, not a wash.** The lockup is roughly
 85% navy, and the interface follows: buttons, links and active navigation are
@@ -45,7 +45,7 @@ mark itself.
 
 ### Red and errors
 
-Red is the brand colour *and* the colour of a failed bid. That collision is
+Red is the brand colour _and_ the colour of a failed bid. That collision is
 real, and it is resolved by role rather than by hoping people notice a hue
 difference:
 
@@ -78,14 +78,14 @@ OS preference.
 
 ## The name
 
-**ATLAS**, with the descriptor **Canada's auto marketplace** —
-*Le marché automobile du Canada* in French.
+**VINTRAX**, with the descriptor **Canada's auto marketplace** —
+_Le marché automobile du Canada_ in French.
 
 The descriptor is live text rather than part of an image, which is what lets it
 translate at all. A flat logo file would have pinned the site to one language in
 a country with two.
 
-It says *marketplace*, not *dealership*. Atlas is where dealerships and private
+It says _marketplace_, not _dealership_. Vintrax is where dealerships and private
 sellers list to buyers ([D-004](./decision-log.md)); a dealer deciding whether
 to put inventory here should not see what looks like a competitor at the top of
 the page.

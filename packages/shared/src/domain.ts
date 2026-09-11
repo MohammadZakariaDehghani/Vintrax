@@ -1,5 +1,5 @@
 /**
- * Domain vocabulary for the Atlas marketplace.
+ * Domain vocabulary for the Vintrax marketplace.
  *
  * These constants are the single source of truth for the values the API accepts
  * and the frontend renders. The Prisma enums mirror them exactly, so a change
@@ -392,7 +392,7 @@ export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 // --- Geography ---------------------------------------------------------------
 
-/** Atlas launches in Canada, so location is modelled as province plus city. */
+/** Vintrax launches in Canada, so location is modelled as province plus city. */
 export const PROVINCES = [
   'AB',
   'BC',

@@ -3,17 +3,9 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { PenLine, Plus } from 'lucide-react';
-import type { ArticleStatus, ArticleSummary, Paginated } from '@atlas/shared';
+import type { ArticleStatus, ArticleSummary, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  EmptyState,
-  ErrorAlert,
-  Spinner,
-} from '@/components/ui';
+import { Badge, Button, Card, CardContent, EmptyState, ErrorAlert, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
 

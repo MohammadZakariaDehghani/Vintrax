@@ -1,18 +1,18 @@
 {
-  "name": "@atlas/client",
+  "name": "@vintrax/client",
   "version": "0.1.0",
   "private": true,
-  "description": "API client, session store and display formatting shared by the Atlas web and mobile applications",
+  "description": "API client, session store and display formatting shared by the Vintrax web and mobile applications",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "echo \"@atlas/client: consumed as TypeScript source\"",
+    "build": "echo \"@vintrax/client: consumed as TypeScript source\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"@atlas/client: lint covered by typecheck\"",
-    "test": "echo \"@atlas/client: covered by the consuming applications\""
+    "lint": "echo \"@vintrax/client: lint covered by typecheck\"",
+    "test": "echo \"@vintrax/client: covered by the consuming applications\""
   },
   "dependencies": {
-    "@atlas/shared": "workspace:*",
+    "@vintrax/shared": "workspace:*",
     "clsx": "^2.1.1",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.6.0",

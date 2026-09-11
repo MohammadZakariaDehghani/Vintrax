@@ -54,9 +54,7 @@ function BidList() {
             <Card className="flex items-center justify-between gap-3 p-3">
               <div className="min-w-0">
                 <p className="text-sm font-semibold tabular-nums">{formatPrice(bid.amountCad)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatRelativeTime(bid.placedAt)}
-                </p>
+                <p className="text-xs text-muted-foreground">{formatRelativeTime(bid.placedAt)}</p>
               </div>
               <Badge tone={toneFor(bid.status)}>{label(bid.status)}</Badge>
             </Card>

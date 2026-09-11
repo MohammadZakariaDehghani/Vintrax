@@ -11,7 +11,7 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@atlas/shared": ["../shared/src/index.ts"]
+      "@vintrax/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]

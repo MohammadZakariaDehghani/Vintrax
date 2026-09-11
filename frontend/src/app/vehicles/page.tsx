@@ -4,11 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { LayoutGrid, Rows3, SlidersHorizontal } from 'lucide-react';
-import {
-  LISTING_SORTS,
-  type ListingSort,
-  type VehicleSearchResponse,
-} from '@atlas/shared';
+import { LISTING_SORTS, type ListingSort, type VehicleSearchResponse } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
   EMPTY_FILTERS,
@@ -25,7 +21,7 @@ import { VehicleRow, VehicleRowSkeleton } from '@/components/vehicle-row';
 import { VehicleFilterPanel } from '@/components/vehicle-filter-panel';
 
 const PAGE_SIZE = 24;
-const VIEW_KEY = 'atlas.resultView';
+const VIEW_KEY = 'vintrax.resultView';
 
 const SORT_LABELS: Record<ListingSort, string> = {
   RELEVANCE: 'Most relevant',
@@ -106,15 +102,8 @@ function BrowseContent() {
             {activeCount > 0 ? ` (${activeCount})` : ''}
           </Button>
 
-          <div
-            id="filter-panel"
-            className={filtersOpen ? 'mt-4 lg:mt-0' : 'hidden lg:block'}
-          >
-            <VehicleFilterPanel
-              filters={filters}
-              facets={data?.facets}
-              onChange={applyFilters}
-            />
+          <div id="filter-panel" className={filtersOpen ? 'mt-4 lg:mt-0' : 'hidden lg:block'}>
+            <VehicleFilterPanel filters={filters} facets={data?.facets} onChange={applyFilters} />
           </div>
         </div>
 
@@ -169,10 +158,12 @@ function BrowseContent() {
                 role="group"
                 aria-label="Result layout"
               >
-                {([
-                  ['list', 'List', Rows3],
-                  ['grid', 'Grid', LayoutGrid],
-                ] as const).map(([value, label, Icon]) => (
+                {(
+                  [
+                    ['list', 'List', Rows3],
+                    ['grid', 'Grid', LayoutGrid],
+                  ] as const
+                ).map(([value, label, Icon]) => (
                   <button
                     key={value}
                     type="button"

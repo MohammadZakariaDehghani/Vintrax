@@ -3,26 +3,26 @@
 What Phase 1 deliberately left out, and what Phases 2 through 4 involve in enough detail to plan
 against.
 
-Phase definitions come from the [HQ document](../atlas-hq.md). This document adds implementation
+Phase definitions come from the [HQ document](../vintrax-hq.md). This document adds implementation
 detail; the HQ document remains the authority on direction.
 
 ## Carried forward from Phase 1
 
 These are deliberate boundaries, not defects. Each has a note in the code or the README.
 
-| Limitation | Impact | Effort to close |
-| --- | --- | --- |
-| `RELEVANCE` sort is recency | Keyword searches rank by date, not match quality | Medium |
-| Keyword search is `ILIKE` substring | No word boundaries, no stemming; short terms skip descriptions | Medium |
-| Uploads written to local disk | Breaks on more than one instance; lost on restart | Small |
-| Messaging polls, no push | Up to 60s before a new message appears | Medium |
-| No email delivery | No verification, password reset, or notifications | Medium |
-| Tokens in `localStorage` | XSS can steal a session | Small |
-| Rate limits in-memory | Ineffective across replicas | Small |
-| Dealer verification is a DB flag | No admin UI | Medium |
-| No moderation tooling | No way to action a report | Large |
-| No caching | Every read hits PostgreSQL | Medium |
-| No background jobs | Nothing can happen outside a request | Medium |
+| Limitation                          | Impact                                                         | Effort to close |
+| ----------------------------------- | -------------------------------------------------------------- | --------------- |
+| `RELEVANCE` sort is recency         | Keyword searches rank by date, not match quality               | Medium          |
+| Keyword search is `ILIKE` substring | No word boundaries, no stemming; short terms skip descriptions | Medium          |
+| Uploads written to local disk       | Breaks on more than one instance; lost on restart              | Small           |
+| Messaging polls, no push            | Up to 60s before a new message appears                         | Medium          |
+| No email delivery                   | No verification, password reset, or notifications              | Medium          |
+| Tokens in `localStorage`            | XSS can steal a session                                        | Small           |
+| Rate limits in-memory               | Ineffective across replicas                                    | Small           |
+| Dealer verification is a DB flag    | No admin UI                                                    | Medium          |
+| No moderation tooling               | No way to action a report                                      | Large           |
+| No caching                          | Every read hits PostgreSQL                                     | Medium          |
+| No background jobs                  | Nothing can happen outside a request                           | Medium          |
 
 ## Immediate hardening
 
@@ -157,13 +157,13 @@ guiding principle 8.
 Per [D-006](../decision-log.md), a separate application sharing foundational services. The current
 architecture was built with this in mind:
 
-| Shared | Status |
-| --- | --- |
-| Accounts and authentication | Ready — the API is standalone |
-| Vehicle data | Ready — listings are already a service |
-| Images | Ready once object storage lands |
-| Messaging | Threads key on `(listingId, buyerId)`; auction lots would need a generalised subject |
-| Notifications | Does not exist yet |
+| Shared                      | Status                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| Accounts and authentication | Ready — the API is standalone                                                        |
+| Vehicle data                | Ready — listings are already a service                                               |
+| Images                      | Ready once object storage lands                                                      |
+| Messaging                   | Threads key on `(listingId, buyerId)`; auction lots would need a generalised subject |
+| Notifications               | Does not exist yet                                                                   |
 
 New concerns auctions bring that the marketplace does not have:
 
@@ -187,25 +187,25 @@ matter of calling existing endpoints.
 
 Known compromises, with the condition that should trigger revisiting.
 
-| Item | Revisit when |
-| --- | --- |
-| No caching layer | Search latency becomes noticeable, or database load climbs |
-| Facets cost 3 queries per search | Search traffic makes it measurable |
-| Images replaced wholesale on update | Listings routinely carry many more images |
-| Cascade deletes everywhere | Retention or dispute resolution needs soft deletion |
-| No connection pooler | More than a handful of API instances |
-| SPA with no server rendering | SEO becomes a real acquisition channel |
-| Two test runners | Neither is a real inconvenience — probably never |
-| Single `styles.css` | The design surface outgrows one legible file |
-| Upload MIME type trusted, not sniffed | Any hardening pass |
-| `ADMIN` bypasses all checks | A real permission model is needed |
+| Item                                  | Revisit when                                               |
+| ------------------------------------- | ---------------------------------------------------------- |
+| No caching layer                      | Search latency becomes noticeable, or database load climbs |
+| Facets cost 3 queries per search      | Search traffic makes it measurable                         |
+| Images replaced wholesale on update   | Listings routinely carry many more images                  |
+| Cascade deletes everywhere            | Retention or dispute resolution needs soft deletion        |
+| No connection pooler                  | More than a handful of API instances                       |
+| SPA with no server rendering          | SEO becomes a real acquisition channel                     |
+| Two test runners                      | Neither is a real inconvenience — probably never           |
+| Single `styles.css`                   | The design surface outgrows one legible file               |
+| Upload MIME type trusted, not sniffed | Any hardening pass                                         |
+| `ADMIN` bypasses all checks           | A real permission model is needed                          |
 
 ## Open product questions
 
-Still open from the [HQ document](../atlas-hq.md), and each has architectural consequences:
+Still open from the [HQ document](../vintrax-hq.md), and each has architectural consequences:
 
 - **Launch market.** Affects provincial legal requirements and inventory strategy.
-- **Strongest reason to choose Atlas.** Should drive Phase 2 prioritisation more than this document
+- **Strongest reason to choose Vintrax.** Should drive Phase 2 prioritisation more than this document
   does.
 - **Free versus paid.** Payments infrastructure is a large, unstarted piece of work.
 - **Seller verification requirements.** Determines identity-verification integration.

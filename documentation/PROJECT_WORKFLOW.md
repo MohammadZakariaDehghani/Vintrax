@@ -1,9 +1,9 @@
-# How Atlas Is Run
+# How Vintrax Is Run
 
 GitHub is the single source of truth for what needs doing, what is being done,
 and what is finished. If a piece of work is not an Issue, it does not exist.
 
-Atlas has **one developer**, assisted by AI coding agents. Everything below is
+Vintrax has **one developer**, assisted by AI coding agents. Everything below is
 shaped by that. There is no reviewer to hand work to, no QA gate, no release
 manager. What replaces them is a written Definition of Done, automated CI, and
 the developer reading the diff before merging. Nothing here exists to satisfy a
@@ -11,16 +11,16 @@ process; each rule is there because skipping it has a cost.
 
 ## The board
 
-One GitHub Project — **Atlas Development** — with six columns.
+One GitHub Project — **Vintrax Development** — with six columns.
 
-| Column | Means |
-| --- | --- |
-| **Backlog** | Captured, not committed to. Most issues live here. |
-| **Todo** | Chosen for the current stretch of work. Refined enough to start. |
-| **In Progress** | Being worked on now. Keep this to one or two items. |
-| **Review** | Pull request open. Waiting on the developer's read of the diff. |
-| **Testing** | Merged or ready to merge, being exercised against a running instance. |
-| **Done** | Merged, deployed where relevant, verified. |
+| Column          | Means                                                                 |
+| --------------- | --------------------------------------------------------------------- |
+| **Backlog**     | Captured, not committed to. Most issues live here.                    |
+| **Todo**        | Chosen for the current stretch of work. Refined enough to start.      |
+| **In Progress** | Being worked on now. Keep this to one or two items.                   |
+| **Review**      | Pull request open. Waiting on the developer's read of the diff.       |
+| **Testing**     | Merged or ready to merge, being exercised against a running instance. |
+| **Done**        | Merged, deployed where relevant, verified.                            |
 
 `Testing` is a real column and not ceremony. Most of the bugs found in this
 project so far were found by clicking, not by the test suite — a stripped form
@@ -52,12 +52,12 @@ front door.
 Four axes. Defined in `.github/project/labels.yml`, applied by the
 **Project setup** workflow.
 
-| Axis | Question it answers |
-| --- | --- |
-| `type:` | What kind of work — feature, bug, task, improvement, refactor, documentation, security, devops, test |
-| `area:` | Where in Atlas — frontend, backend, api, database, marketplace, auctions, inspections, customer, dealer, admin, mobile, authentication, payments, messaging, infrastructure, deployment, monitoring |
-| `priority:` | How soon — critical, high, medium, low |
-| `status:` | Why it is stuck — blocked, needs-review, needs-testing |
+| Axis        | Question it answers                                                                                                                                                                                   |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type:`     | What kind of work — feature, bug, task, improvement, refactor, documentation, security, devops, test                                                                                                  |
+| `area:`     | Where in Vintrax — frontend, backend, api, database, marketplace, auctions, inspections, customer, dealer, admin, mobile, authentication, payments, messaging, infrastructure, deployment, monitoring |
+| `priority:` | How soon — critical, high, medium, low                                                                                                                                                                |
+| `status:`   | Why it is stuck — blocked, needs-review, needs-testing                                                                                                                                                |
 
 Two more: `epic` for the area issues, and `ai-assisted` for work an AI agent
 wrote, because that changes who has to look at it before it merges.
@@ -129,11 +129,11 @@ An issue is Done when all of it is true:
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
 
-| Job | Does |
-| --- | --- |
-| **verify** | Installs, generates the Prisma client, applies migrations against a real Postgres and Redis, then `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, and runs the seed twice to prove it is idempotent |
-| **security** | `pnpm audit --audit-level high` as a blocking gate, plus a Trivy filesystem scan for vulnerabilities, secrets and misconfiguration, published as an artifact |
-| **docker** | Builds the API, web and mobile images. Runs only after `verify` passes |
+| Job          | Does                                                                                                                                                                                                          |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **verify**   | Installs, generates the Prisma client, applies migrations against a real Postgres and Redis, then `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, and runs the seed twice to prove it is idempotent |
+| **security** | `pnpm audit --audit-level high` as a blocking gate, plus a Trivy filesystem scan for vulnerabilities, secrets and misconfiguration, published as an artifact                                                  |
+| **docker**   | Builds the API, web and mobile images. Runs only after `verify` passes                                                                                                                                        |
 
 Nothing deploys automatically. Deployment is `scripts/update-ubuntu.sh` on the
 server, run deliberately.

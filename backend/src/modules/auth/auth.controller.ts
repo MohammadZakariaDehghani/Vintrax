@@ -15,7 +15,7 @@ import {
   requestPasswordResetSchema,
   resetPasswordSchema,
   verifyEmailSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import type { Request } from 'express';
 import { ClientIp, CurrentUser, Public } from '../../common/decorators';
 import { zodBody } from '../../common/pipes/zod-validation.pipe';
@@ -121,9 +121,7 @@ export class AuthController {
   @Post('password/reset')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Complete a password reset' })
-  async resetPassword(
-    @Body(zodBody(resetPasswordSchema)) body: ResetPasswordInput,
-  ): Promise<void> {
+  async resetPassword(@Body(zodBody(resetPasswordSchema)) body: ResetPasswordInput): Promise<void> {
     await this.auth.resetPassword(body);
   }
 

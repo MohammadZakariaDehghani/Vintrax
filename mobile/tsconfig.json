@@ -21,8 +21,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@atlas/shared": ["../packages/shared/src/index.ts"],
-      "@atlas/client": ["../packages/client/src/index.ts"]
+      "@vintrax/shared": ["../packages/shared/src/index.ts"],
+      "@vintrax/client": ["../packages/client/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

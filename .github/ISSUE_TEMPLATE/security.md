@@ -1,6 +1,6 @@
 ---
 name: Security issue
-about: A weakness in Atlas, or hardening work arising from an audit
+about: A weakness in Vintrax, or hardening work arising from an audit
 title: ''
 labels: 'type:security'
 assignees: ''
@@ -13,7 +13,7 @@ assignees: ''
 > first.
 >
 > Use a **private security advisory** instead — repository → Security →
-> Advisories → *Report a vulnerability* — when the weakness is exploitable
+> Advisories → _Report a vulnerability_ — when the weakness is exploitable
 > against a running deployment and not yet fixed.
 >
 > A public issue is the right place for: hardening work with no live exposure,

@@ -6,7 +6,7 @@ import type {
   PublicUser,
   UpdateProfileInput,
   UpdateUserStatusInput,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';

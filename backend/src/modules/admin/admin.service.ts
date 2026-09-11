@@ -6,7 +6,7 @@ import {
   type BodyTypeImage,
   type BodyTypeImageInput,
   type TimeSeriesPoint,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { StorageService } from '../../common/storage/storage.service';

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Session state lives in `@atlas/client` so both applications share one
+ * Session state lives in `@vintrax/client` so both applications share one
  * implementation of sign-in, restore, token rotation and sign-out.
  *
  * Imported from `@/lib/api-client` first, so the shared client is configured
@@ -16,4 +16,4 @@ export {
   useIsAdmin,
   useIsSeller,
   useUser,
-} from '@atlas/client';
+} from '@vintrax/client';

@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { BODY_TYPES, FUEL_TYPES, PROVINCES, type SearchFacets } from '@atlas/shared';
-import { EMPTY_FILTERS, toggleInArray, type VehicleFilters } from '@atlas/client';
+import { BODY_TYPES, FUEL_TYPES, PROVINCES, type SearchFacets } from '@vintrax/shared';
+import { EMPTY_FILTERS, toggleInArray, type VehicleFilters } from '@vintrax/client';
 import { cn, formatEnum, formatNumber } from '@/lib/format';
 import { Button } from '@/components/ui';
 

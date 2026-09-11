@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { formatCountdown, formatEnum, formatKm, formatPrice, isClosingSoon, joinSpecs } from './utils';
+import {
+  formatCountdown,
+  formatEnum,
+  formatKm,
+  formatPrice,
+  isClosingSoon,
+  joinSpecs,
+} from './utils';
 
 describe('formatPrice', () => {
   it('renders whole Canadian dollars without cents', () => {

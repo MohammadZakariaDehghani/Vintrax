@@ -13,9 +13,9 @@ import {
   TRANSMISSIONS,
   VEHICLE_CONDITIONS,
   createVehicleSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { ApiError } from '@/lib/api-client';
-import { atlas } from '@/lib/atlas';
+import { vintrax } from '@/lib/vintrax';
 import { keys } from '@/lib/queries';
 import { formatEnum } from '@/lib/format';
 import { Button, Card, Field } from '@/components/ui';
@@ -84,7 +84,7 @@ function AddVehicleForm() {
     setPhotos((current) => [...current, placeholder]);
 
     try {
-      const stored = await atlas.uploads.image(file);
+      const stored = await vintrax.uploads.image(file);
       setPhotos((current) =>
         current.map((photo) =>
           photo.localUrl === localUrl ? { url: stored.url, uploading: false } : photo,
@@ -127,7 +127,7 @@ function AddVehicleForm() {
     }
 
     try {
-      const vehicle = await atlas.vehicles.create(parsed.data);
+      const vehicle = await vintrax.vehicles.create(parsed.data);
       await queryClient.invalidateQueries({ queryKey: keys.myVehicles() });
       router.replace(`/vehicles/${vehicle.slug}`);
     } catch (caught) {
@@ -249,7 +249,12 @@ function AddVehicleForm() {
               options={TRANSMISSIONS}
               onChange={set('transmission')}
             />
-            <Select label="Fuel" value={form.fuelType} options={FUEL_TYPES} onChange={set('fuelType')} />
+            <Select
+              label="Fuel"
+              value={form.fuelType}
+              options={FUEL_TYPES}
+              onChange={set('fuelType')}
+            />
             <Select
               label="Drivetrain"
               value={form.drivetrain}
@@ -307,8 +312,8 @@ function AddVehicleForm() {
 
         <Card className="p-3">
           <p className="text-xs text-muted-foreground">
-            The listing is created as a draft. Publishing and moderation stay where they already
-            are — this screen does not bypass either.
+            The listing is created as a draft. Publishing and moderation stay where they already are
+            — this screen does not bypass either.
           </p>
         </Card>
 
@@ -324,7 +329,10 @@ function AddVehicleForm() {
       </form>
 
       {cameraOpen ? (
-        <CameraCapture onCapture={(file) => void addPhoto(file)} onClose={() => setCameraOpen(false)} />
+        <CameraCapture
+          onCapture={(file) => void addPhoto(file)}
+          onClose={() => setCameraOpen(false)}
+        />
       ) : null}
     </>
   );

@@ -6,18 +6,18 @@ What is tested, at what level, and how to add to it.
 
 36 tests across four suites.
 
-| Suite | Location | Tests | Covers |
-| --- | --- | --- | --- |
-| Listings service | `apps/api/src/modules/listings/listings.service.spec.ts` | 11 | Search query construction, visibility rules, view counting |
-| Validation pipe | `apps/api/src/common/pipes/zod-validation.pipe.spec.ts` | 5 | Coercion, defaults, field-level error mapping |
-| Search params | `apps/web/src/lib/search-params.spec.ts` | 10 | URL ⇄ filter round-tripping |
-| Formatting | `apps/web/src/lib/format.spec.ts` | 10 | Currency, distance, relative time, enum labels |
+| Suite            | Location                                                 | Tests | Covers                                                     |
+| ---------------- | -------------------------------------------------------- | ----- | ---------------------------------------------------------- |
+| Listings service | `apps/api/src/modules/listings/listings.service.spec.ts` | 11    | Search query construction, visibility rules, view counting |
+| Validation pipe  | `apps/api/src/common/pipes/zod-validation.pipe.spec.ts`  | 5     | Coercion, defaults, field-level error mapping              |
+| Search params    | `apps/web/src/lib/search-params.spec.ts`                 | 10    | URL ⇄ filter round-tripping                                |
+| Formatting       | `apps/web/src/lib/format.spec.ts`                        | 10    | Currency, distance, relative time, enum labels             |
 
 ```bash
 pnpm test                        # everything
-pnpm --filter @atlas/api test    # API only
-pnpm --filter @atlas/web test    # web only
-pnpm --filter @atlas/api test -- --watch
+pnpm --filter @vintrax/api test    # API only
+pnpm --filter @vintrax/web test    # web only
+pnpm --filter @vintrax/api test -- --watch
 ```
 
 ## What is deliberately tested
@@ -29,7 +29,7 @@ production**:
   here silently returns wrong results rather than failing loudly.
 - **Visibility rules.** That a draft is invisible to a stranger, and that a seller viewing their own
   listing does not inflate its view count.
-- **Validation and error mapping.** That a bad payload reports *every* failing field, keyed by path,
+- **Validation and error mapping.** That a bad payload reports _every_ failing field, keyed by path,
   since the web app renders those inline.
 - **URL round-tripping.** A lossy filter conversion would silently drop a filter — the user sees
   wrong results with no error.
@@ -40,7 +40,7 @@ production**:
 
 **Framework wiring.** Testing that NestJS injects a provider tests NestJS.
 
-**Prisma query execution.** The generated client is not ours to verify. Tests assert the *shape* of
+**Prisma query execution.** The generated client is not ours to verify. Tests assert the _shape_ of
 the query passed to Prisma; whether Prisma turns that into correct SQL is Prisma's contract.
 
 **Simple mappers.** `toListingSummary` is field copying. It is exercised indirectly everywhere.
@@ -53,12 +53,12 @@ relative to its maintenance cost. Component tests become worthwhile when compone
 ### API — Jest with stubbed Prisma
 
 Service tests construct the service directly with a stubbed Prisma client, then assert on what the
-service *asked the database for*:
+service _asked the database for_:
 
 ```ts
 function createService() {
   const findMany = jest.fn().mockResolvedValue([]);
-  const prisma = { listing: { findMany, /* … */ } } as unknown as PrismaService;
+  const prisma = { listing: { findMany /* … */ } } as unknown as PrismaService;
   return { service: new ListingsService(prisma), findMany };
 }
 
@@ -73,13 +73,13 @@ Two things make this worth doing rather than reaching for a real database:
 hand-constructing a filter object, so they exercise the same coercion and defaults the API does. A
 test that fabricated already-parsed input would pass while the real path broke.
 
-The jest config maps `@atlas/shared` to its TypeScript source, so API tests do not require the
+The jest config maps `@vintrax/shared` to its TypeScript source, so API tests do not require the
 shared package to be built.
 
 ### Web — Vitest on pure functions
 
 Web tests target `lib/` — pure functions with no DOM. Vitest reads `vite.config.ts`, so the
-`@atlas/shared` alias applies automatically and tests import exactly what the app imports.
+`@vintrax/shared` alias applies automatically and tests import exactly what the app imports.
 
 ## Writing a good test here
 

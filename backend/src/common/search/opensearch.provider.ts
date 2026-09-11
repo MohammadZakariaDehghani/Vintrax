@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '@opensearch-project/opensearch';
-import type { SearchVehiclesQuery, VehicleSearchResponse } from '@atlas/shared';
+import type { SearchVehiclesQuery, VehicleSearchResponse } from '@vintrax/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { toVehicleSummary, vehicleSummarySelect } from '../../modules/vehicles/vehicles.mapper';
 import type { Env } from '../../config/env';
@@ -263,9 +263,7 @@ export class OpenSearchProvider implements SearchProvider, OnModuleInit {
   }
 
   private buildQuery(query: SearchVehiclesQuery): Record<string, unknown> {
-    const filter: Record<string, unknown>[] = [
-      { terms: { status: ['ACTIVE', 'IN_AUCTION'] } },
-    ];
+    const filter: Record<string, unknown>[] = [{ terms: { status: ['ACTIVE', 'IN_AUCTION'] } }];
     const must: Record<string, unknown>[] = [];
 
     if (query.q) {

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 /**
- * The Atlas mark and lockup.
+ * The Vintrax mark and lockup.
  *
  * Inline SVG rather than an `<img>` so the monochrome variant can inherit the
  * surface colour, which an image file cannot do — dark mode here is a class on
@@ -39,7 +39,7 @@ export function LogoMark({
       viewBox="0 0 512 512"
       className={cn('h-9 w-9', className)}
       role="img"
-      aria-label="Atlas"
+      aria-label="Vintrax"
       {...props}
     >
       {plain ? null : <rect width="512" height="512" rx="112" fill={NAVY} />}
@@ -52,7 +52,7 @@ export function LogoMark({
 }
 
 /**
- * The full lockup: mark, name, and the descriptor that says what Atlas is.
+ * The full lockup: mark, name, and the descriptor that says what Vintrax is.
  *
  * The name and descriptor are live text rather than outlines, so they stay
  * selectable and scale with the reader's font settings — and, unlike a flat
@@ -85,7 +85,7 @@ export function Logo({
             onDark ? 'text-current' : 'text-primary',
           )}
         >
-          ATLAS
+          VINTRAX
         </span>
         {descriptor ? (
           <span

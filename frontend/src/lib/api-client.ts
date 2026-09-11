@@ -1,26 +1,20 @@
-import { configureAtlasClient } from '@atlas/client';
+import { configureVintraxClient } from '@vintrax/client';
 
 /**
  * The web application's view of the shared client.
  *
- * Every caller in this app imports from here rather than from `@atlas/client`
+ * Every caller in this app imports from here rather than from `@vintrax/client`
  * directly, which is what guarantees the endpoints below are configured before
  * the first request goes out.
  */
-configureAtlasClient({
+configureVintraxClient({
   apiBaseUrl: process.env['NEXT_PUBLIC_API_URL'] ?? '/api',
   // WebSockets cannot go through Next's rewrite proxy — it does not forward the
   // upgrade handshake — so the socket addresses the API origin directly.
   socketUrl: process.env['NEXT_PUBLIC_WS_URL'] ?? '',
 });
 
-export {
-  ApiError,
-  api,
-  apiRequest,
-  setSessionExpiredHandler,
-  tokenStore,
-} from '@atlas/client';
+export { ApiError, api, apiRequest, setSessionExpiredHandler, tokenStore } from '@vintrax/client';
 
 /**
  * Server-side fetch for React Server Components, which cannot read

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Update a running Atlas server to the latest code.
+# Update a running Vintrax server to the latest code.
 #
 #   ./scripts/update-ubuntu.sh                 pull, build and restart
 #   ./scripts/update-ubuntu.sh --branch NAME   from a specific branch
@@ -96,7 +96,7 @@ pnpm install --frozen-lockfile
 ok "dependencies installed"
 
 step "Applying migrations"
-pnpm --filter @atlas/backend prisma:generate >/dev/null
+pnpm --filter @vintrax/backend prisma:generate >/dev/null
 pnpm db:migrate
 ok "database is at the latest migration"
 
@@ -114,7 +114,7 @@ ok "API, web and mobile built"
 
 step "Restarting"
 
-UNITS=(atlas-api atlas-web atlas-mobile)
+UNITS=(vintrax-api vintrax-web vintrax-mobile)
 installed=()
 for unit in "${UNITS[@]}"; do
   if has_systemd && systemctl list-unit-files "${unit}.service" >/dev/null 2>&1 &&
@@ -135,7 +135,7 @@ if (( ${#installed[@]} > 0 )); then
   done
 else
   skip "no systemd units installed"
-  info "Atlas is not managed by systemd here, so nothing was restarted."
+  info "Vintrax is not managed by systemd here, so nothing was restarted."
   info "Stop the running process and start it again with: pnpm start"
   info "A build alone changes nothing until the server process is replaced."
 fi

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BODY_TYPES, type BodyTypeImage, type VehicleSummary } from '@atlas/shared';
+import { BODY_TYPES, type BodyTypeImage, type VehicleSummary } from '@vintrax/shared';
 import { buildBodyTypeShortcuts } from './body-type-shortcuts';
 
 const vehicle = (bodyType: VehicleSummary['bodyType'], primaryImageUrl: string | null) =>

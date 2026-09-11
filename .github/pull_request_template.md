@@ -1,5 +1,5 @@
 <!--
-Atlas has one developer, and the reviewer is usually that same person a day
+Vintrax has one developer, and the reviewer is usually that same person a day
 later, or an AI assistant reading cold. Both need the same thing from this
 description: what changed, why, and what you actually ran. Fill it in for
 them, not for a process.

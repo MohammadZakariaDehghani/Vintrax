@@ -9,11 +9,20 @@ import type {
   Paginated,
   TransactionSummary,
   VehicleSummary,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatPrice, formatRelativeTime } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, EmptyState, Spinner } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  Spinner,
+} from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { StatTile } from '@/components/stat-tile';
@@ -44,7 +53,8 @@ function BuyerDashboard() {
 
   if (!user) return <Spinner />;
 
-  const winningBids = bids?.items.filter((bid) => bid.status === 'WINNING' || bid.status === 'WON').length ?? 0;
+  const winningBids =
+    bids?.items.filter((bid) => bid.status === 'WINNING' || bid.status === 'WON').length ?? 0;
 
   return (
     <div className="container py-8">
@@ -68,10 +78,32 @@ function BuyerDashboard() {
       ) : null}
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile label="Saved vehicles" value={favourites?.total ?? 0} icon={Heart} href="/dashboard/favorites" />
-        <StatTile label="Active bids" value={bids?.total ?? 0} hint={`${winningBids} leading`} icon={Gavel} href="/dashboard/my-bids" />
-        <StatTile label="Purchases" value={orders?.total ?? 0} icon={ShoppingBag} href="/dashboard/purchases" />
-        <StatTile label="Messages" value={conversations?.total ?? 0} hint="Conversations with sellers" icon={MessageSquare} href="/dashboard/messages" />
+        <StatTile
+          label="Saved vehicles"
+          value={favourites?.total ?? 0}
+          icon={Heart}
+          href="/dashboard/favorites"
+        />
+        <StatTile
+          label="Active bids"
+          value={bids?.total ?? 0}
+          hint={`${winningBids} leading`}
+          icon={Gavel}
+          href="/dashboard/my-bids"
+        />
+        <StatTile
+          label="Purchases"
+          value={orders?.total ?? 0}
+          icon={ShoppingBag}
+          href="/dashboard/purchases"
+        />
+        <StatTile
+          label="Messages"
+          value={conversations?.total ?? 0}
+          hint="Conversations with sellers"
+          icon={MessageSquare}
+          href="/dashboard/messages"
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -88,13 +120,23 @@ function BuyerDashboard() {
             {bids && bids.items.length > 0 ? (
               <ul className="flex flex-col gap-2">
                 {bids.items.map((bid) => (
-                  <li key={bid.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
-                    <Link href={`/auctions/${bid.auctionId}`} className="text-primary hover:underline">
+                  <li
+                    key={bid.id}
+                    className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
+                  >
+                    <Link
+                      href={`/auctions/${bid.auctionId}`}
+                      className="text-primary hover:underline"
+                    >
                       Auction {bid.auctionId.slice(0, 8)}
                     </Link>
                     <span className="flex items-center gap-3">
                       <span className="tabular font-semibold">{formatPrice(bid.amountCad)}</span>
-                      <Badge variant={bid.status === 'WINNING' || bid.status === 'WON' ? 'success' : 'outline'}>
+                      <Badge
+                        variant={
+                          bid.status === 'WINNING' || bid.status === 'WON' ? 'success' : 'outline'
+                        }
+                      >
                         {formatEnum(bid.status)}
                       </Badge>
                     </span>
@@ -105,7 +147,11 @@ function BuyerDashboard() {
               <EmptyState
                 title="No bids yet"
                 description="Find a live auction and place your first bid."
-                action={<Link href="/auctions"><Button variant="outline">Browse auctions</Button></Link>}
+                action={
+                  <Link href="/auctions">
+                    <Button variant="outline">Browse auctions</Button>
+                  </Link>
+                }
               />
             )}
           </CardContent>
@@ -137,7 +183,10 @@ function BuyerDashboard() {
                 ))}
               </ul>
             ) : (
-              <EmptyState title="No purchases yet" description="Vehicles you buy will appear here." />
+              <EmptyState
+                title="No purchases yet"
+                description="Vehicles you buy will appear here."
+              />
             )}
           </CardContent>
         </Card>
@@ -162,7 +211,11 @@ function BuyerDashboard() {
               icon={<Heart className="h-8 w-8" aria-hidden />}
               title="Nothing saved yet"
               description="Tap the heart on any vehicle to save it here for later."
-              action={<Link href="/vehicles"><Button variant="outline">Browse vehicles</Button></Link>}
+              action={
+                <Link href="/vehicles">
+                  <Button variant="outline">Browse vehicles</Button>
+                </Link>
+              }
             />
           </Card>
         )}

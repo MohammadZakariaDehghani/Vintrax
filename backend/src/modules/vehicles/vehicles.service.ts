@@ -17,8 +17,8 @@ import type {
   VehicleDetail,
   VehicleSearchResponse,
   VehicleSummary,
-} from '@atlas/shared';
-import { SELLER_STATUS_TRANSITIONS } from '@atlas/shared';
+} from '@vintrax/shared';
+import { SELLER_STATUS_TRANSITIONS } from '@vintrax/shared';
 import { Prisma, type ListingStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
@@ -195,8 +195,7 @@ export class VehiclesService {
     // A vehicle under an active auction cannot have its commercial terms moved
     // out from under the bidders.
     if (existing.status === 'IN_AUCTION') {
-      const changesTerms =
-        fields.priceCad !== undefined || fields.reservePriceCad !== undefined;
+      const changesTerms = fields.priceCad !== undefined || fields.reservePriceCad !== undefined;
       if (changesTerms && !isAdmin(user.role)) {
         throw new BadRequestException(
           'This vehicle is in a live auction. Cancel the auction before changing its price.',
@@ -339,9 +338,7 @@ export class VehiclesService {
       select: { id: true },
     });
     if (liveAuction) {
-      throw new BadRequestException(
-        'Cancel the auction on this vehicle before deleting it',
-      );
+      throw new BadRequestException('Cancel the auction on this vehicle before deleting it');
     }
 
     const sold = await this.prisma.transactionRecord.findFirst({
@@ -405,11 +402,7 @@ export class VehiclesService {
   }
 
   /** Admin moderation of a vehicle awaiting review. */
-  async moderate(
-    id: string,
-    input: ModerateListingInput,
-    actor: AuthUser,
-  ): Promise<VehicleDetail> {
+  async moderate(id: string, input: ModerateListingInput, actor: AuthUser): Promise<VehicleDetail> {
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id },
       select: { id: true, sellerId: true, title: true, publishedAt: true },
@@ -488,7 +481,13 @@ export class VehiclesService {
   private async requireOwnedVehicle(
     id: string,
     user: AuthUser,
-  ): Promise<{ id: string; sellerId: string; title: string; status: ListingStatus; publishedAt: Date | null }> {
+  ): Promise<{
+    id: string;
+    sellerId: string;
+    title: string;
+    status: ListingStatus;
+    publishedAt: Date | null;
+  }> {
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id },
       select: { id: true, sellerId: true, title: true, status: true, publishedAt: true },

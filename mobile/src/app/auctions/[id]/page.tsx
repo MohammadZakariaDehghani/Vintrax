@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { Radio, TriangleAlert } from 'lucide-react';
-import type { AuctionEvent } from '@atlas/shared';
+import type { AuctionEvent } from '@vintrax/shared';
 import { ApiError } from '@/lib/api-client';
-import { atlas } from '@/lib/atlas';
+import { vintrax } from '@/lib/vintrax';
 import { keys, useAuction, useAuctionBids } from '@/lib/queries';
 import { isSubmittableBid, quickBidLadder } from '@/lib/bidding';
 import { useAuctionSocket } from '@/hooks/use-auction-socket';
@@ -102,7 +102,7 @@ export default function AuctionPage({ params }: { params: Promise<{ id: string }
     setSubmitting(true);
     setBidError(null);
     try {
-      await atlas.auctions.placeBid(auction!.id, value);
+      await vintrax.auctions.placeBid(auction!.id, value);
       setAmount('');
       await queryClient.invalidateQueries({ queryKey: keys.auction(auction!.id) });
       await queryClient.invalidateQueries({ queryKey: keys.auctionBids(auction!.id) });
@@ -260,9 +260,7 @@ export default function AuctionPage({ params }: { params: Promise<{ id: string }
                 {(bidsQuery.data?.items ?? []).map((bid) => (
                   <li key={bid.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
                     <div>
-                      <p className="text-sm font-medium">
-                        {bid.isOwn ? 'You' : bid.bidderHandle}
-                      </p>
+                      <p className="text-sm font-medium">{bid.isOwn ? 'You' : bid.bidderHandle}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatRelativeTime(bid.placedAt)}
                       </p>
@@ -274,8 +272,7 @@ export default function AuctionPage({ params }: { params: Promise<{ id: string }
                 ))}
                 {(bidsQuery.data?.items.length ?? 0) === 0 ? (
                   <li className="px-4 py-6 text-center text-sm text-muted-foreground">
-                    No bids yet — the first one starts at{' '}
-                    {formatPrice(auction.startingBidCad)}.
+                    No bids yet — the first one starts at {formatPrice(auction.startingBidCad)}.
                   </li>
                 ) : null}
               </ul>
@@ -301,9 +298,7 @@ function BidError({ error }: { error: Error }) {
       role="alert"
       className={cn(
         'flex items-start gap-2 rounded-lg p-3 text-sm font-medium',
-        conflict
-          ? 'bg-warning/15 text-warning'
-          : 'bg-destructive/10 text-destructive',
+        conflict ? 'bg-warning/15 text-warning' : 'bg-destructive/10 text-destructive',
       )}
     >
       <TriangleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />

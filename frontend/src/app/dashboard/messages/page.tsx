@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MessagesSquare } from 'lucide-react';
-import type { ConversationSummary, Paginated } from '@atlas/shared';
+import type { ConversationSummary, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatPrice, formatRelativeTime } from '@/lib/utils';
 import {
@@ -66,9 +66,7 @@ function Conversations() {
                           {formatPrice(conversation.vehicle.priceCad)}
                         </p>
                         {conversation.unreadCount > 0 ? (
-                          <Badge className="mt-1">
-                            {conversation.unreadCount} unread
-                          </Badge>
+                          <Badge className="mt-1">{conversation.unreadCount} unread</Badge>
                         ) : null}
                       </div>
                     </CardContent>

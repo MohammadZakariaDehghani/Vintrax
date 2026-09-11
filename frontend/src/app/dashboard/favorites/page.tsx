@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Heart } from 'lucide-react';
-import type { Paginated, VehicleSummary } from '@atlas/shared';
+import type { Paginated, VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { Button, Card, EmptyState, ErrorAlert, Pagination } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
@@ -28,12 +28,16 @@ function Favorites() {
 
       {isPending ? (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }, (_, index) => <VehicleCardSkeleton key={index} />)}
+          {Array.from({ length: 4 }, (_, index) => (
+            <VehicleCardSkeleton key={index} />
+          ))}
         </div>
       ) : data && data.items.length > 0 ? (
         <>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {data.items.map((vehicle) => <VehicleCard key={vehicle.id} vehicle={vehicle} />)}
+            {data.items.map((vehicle) => (
+              <VehicleCard key={vehicle.id} vehicle={vehicle} />
+            ))}
           </div>
           <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />
         </>
@@ -43,7 +47,11 @@ function Favorites() {
             icon={<Heart className="h-8 w-8" aria-hidden />}
             title="No saved vehicles yet"
             description="Tap the heart on any vehicle to save it here."
-            action={<Link href="/vehicles"><Button>Browse vehicles</Button></Link>}
+            action={
+              <Link href="/vehicles">
+                <Button>Browse vehicles</Button>
+              </Link>
+            }
           />
         </Card>
       )}
@@ -52,5 +60,9 @@ function Favorites() {
 }
 
 export default function FavoritesPage() {
-  return <RequireAuth><Favorites /></RequireAuth>;
+  return (
+    <RequireAuth>
+      <Favorites />
+    </RequireAuth>
+  );
 }

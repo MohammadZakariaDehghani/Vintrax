@@ -12,15 +12,15 @@ administrators.
 
 ### Public
 
-| Route | Rendering | Purpose |
-| --- | --- | --- |
-| `/` | Server | Hero search, closing-soon auctions, recent inventory |
-| `/vehicles` | Client | Search: filter rail, dense result rows, sort, list/grid toggle |
-| `/vehicles/[slug]` | Server | Vehicle detail, gallery, inspection report, contact |
-| `/auctions` | Client | Auction browse with live countdowns |
-| `/auctions/[id]` | Client | Live auction room with real-time bidding |
-| `/dealers/[slug]` | Server | Dealership profile and its published inventory |
-| `/login`, `/register` | Client | Authentication |
+| Route                 | Rendering | Purpose                                                        |
+| --------------------- | --------- | -------------------------------------------------------------- |
+| `/`                   | Server    | Hero search, closing-soon auctions, recent inventory           |
+| `/vehicles`           | Client    | Search: filter rail, dense result rows, sort, list/grid toggle |
+| `/vehicles/[slug]`    | Server    | Vehicle detail, gallery, inspection report, contact            |
+| `/auctions`           | Client    | Auction browse with live countdowns                            |
+| `/auctions/[id]`      | Client    | Live auction room with real-time bidding                       |
+| `/dealers/[slug]`     | Server    | Dealership profile and its published inventory                 |
+| `/login`, `/register` | Client    | Authentication                                                 |
 
 ### Buyer
 
@@ -54,13 +54,13 @@ points at a route that does not exist. Six did, once.
 
 ### Administration
 
-| Route | Purpose |
-| --- | --- |
-| `/admin/dashboard` | Platform metrics, charts and the audit trail |
+| Route               | Purpose                                                            |
+| ------------------- | ------------------------------------------------------------------ |
+| `/admin/dashboard`  | Platform metrics, charts and the audit trail                       |
 | `/admin/moderation` | The review queue — approve and publish, or send back with a reason |
-| `/admin/dealers` | Dealer verification — grant or withdraw the verified badge |
-| `/admin/users` | Search accounts, suspend, reinstate, deactivate |
-| `/admin/revenue` | GMV, platform revenue, effective take rate, sales over time |
+| `/admin/dealers`    | Dealer verification — grant or withdraw the verified badge         |
+| `/admin/users`      | Search accounts, suspend, reinstate, deactivate                    |
+| `/admin/revenue`    | GMV, platform revenue, effective take rate, sales over time        |
 
 Every tile on the overview links to one of these, or to the marketplace and
 auction pages the number describes. A count an administrator is meant to act on
@@ -167,8 +167,8 @@ so the document keeps one top-level heading.
 ## Testing
 
 ```bash
-pnpm --filter @atlas/frontend test      # unit
-pnpm --filter @atlas/frontend test:e2e  # Playwright
+pnpm --filter @vintrax/frontend test      # unit
+pnpm --filter @vintrax/frontend test:e2e  # Playwright
 ```
 
 Unit tests cover `lib/` — URL round-tripping and display formatting, including

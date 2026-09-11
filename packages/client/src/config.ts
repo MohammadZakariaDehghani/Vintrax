@@ -10,7 +10,7 @@
  * The defaults match a same-origin deployment behind a proxy, which is how
  * both applications run today.
  */
-export interface AtlasClientConfig {
+export interface VintraxClientConfig {
   /** Base path or origin for REST calls, e.g. `/api` or `https://api.example.com/api`. */
   apiBaseUrl: string;
   /**
@@ -22,15 +22,15 @@ export interface AtlasClientConfig {
   socketUrl: string;
 }
 
-let config: AtlasClientConfig = {
+let config: VintraxClientConfig = {
   apiBaseUrl: '/api',
   socketUrl: '',
 };
 
-export function configureAtlasClient(next: Partial<AtlasClientConfig>): void {
+export function configureVintraxClient(next: Partial<VintraxClientConfig>): void {
   config = { ...config, ...next };
 }
 
-export function atlasClientConfig(): AtlasClientConfig {
+export function vintraxClientConfig(): VintraxClientConfig {
   return config;
 }

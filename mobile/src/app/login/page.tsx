@@ -55,7 +55,7 @@ function LoginForm() {
       <div className="space-y-4 p-4">
         <div className="flex flex-col items-center gap-2 pt-2">
           <LogoMark className="h-14 w-14" aria-hidden />
-          <p className="text-sm text-muted-foreground">Sign in to Atlas</p>
+          <p className="text-sm text-muted-foreground">Sign in to Vintrax</p>
         </div>
 
         <Card className="p-4">
@@ -96,7 +96,7 @@ function LoginForm() {
         </Card>
 
         <p className="text-center text-sm text-muted-foreground">
-          New to Atlas?{' '}
+          New to Vintrax?{' '}
           <Link href="/register" className="font-medium text-primary">
             Create an account
           </Link>

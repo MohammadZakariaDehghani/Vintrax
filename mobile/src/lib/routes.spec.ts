@@ -74,9 +74,7 @@ function serves(pattern: string[], link: string[]): boolean {
   if (catchAll !== -1) return link.length >= catchAll;
 
   if (pattern.length !== link.length) return false;
-  return pattern.every(
-    (segment, index) => segment.startsWith('[') || segment === link[index],
-  );
+  return pattern.every((segment, index) => segment.startsWith('[') || segment === link[index]);
 }
 
 describe('internal links', () => {

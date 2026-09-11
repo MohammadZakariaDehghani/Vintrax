@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   ConversationDetail,
   ConversationParticipant,
@@ -6,7 +11,7 @@ import type {
   MessageDto,
   Paginated,
   StartConversationInput,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { AuthUser } from '../../common/auth/auth-user';
@@ -44,7 +49,14 @@ const conversationSelect = {
     },
   },
   messages: {
-    select: { id: true, conversationId: true, senderId: true, body: true, readAt: true, createdAt: true },
+    select: {
+      id: true,
+      conversationId: true,
+      senderId: true,
+      body: true,
+      readAt: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: 'desc' },
     take: 1,
   },
@@ -227,7 +239,11 @@ export class MessagingService {
     }
   }
 
-  private toSummary(row: ConversationRow, viewerId: string, unreadCount: number): ConversationSummary {
+  private toSummary(
+    row: ConversationRow,
+    viewerId: string,
+    unreadCount: number,
+  ): ConversationSummary {
     const buyer = toParticipant(row.buyer);
     const seller = toParticipant(row.seller);
     const lastMessage = row.messages[0];

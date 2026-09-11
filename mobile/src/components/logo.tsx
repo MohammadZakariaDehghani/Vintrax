@@ -1,7 +1,7 @@
 import { cn } from '@/lib/format';
 
 /**
- * The Atlas mark, for the few places inside the application that should say
+ * The Vintrax mark, for the few places inside the application that should say
  * which app this is. Same geometry as `public/icons/icon.svg`, which stays a
  * standalone file because the manifest and the browser need one.
  */
@@ -34,7 +34,7 @@ export function LogoMark({
       viewBox="0 0 512 512"
       className={cn('h-7 w-7', className)}
       role="img"
-      aria-label="Atlas"
+      aria-label="Vintrax"
       {...props}
     >
       {plain ? null : <rect width="512" height="512" rx="112" fill={NAVY} />}

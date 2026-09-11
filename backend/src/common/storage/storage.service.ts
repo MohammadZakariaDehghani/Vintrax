@@ -43,8 +43,7 @@ const DOCUMENT_TYPES: Record<string, string> = {
 
 /** Where a stored object lives, once its recorded URL has been resolved. */
 export type StoredLocation =
-  | { kind: 'local'; path: string; contentType: string }
-  | { kind: 'remote'; url: string };
+  { kind: 'local'; path: string; contentType: string } | { kind: 'remote'; url: string };
 
 /**
  * Content type from the extension the upload path assigned. Anything else is
@@ -151,12 +150,13 @@ export class StorageService {
    * Used where an operator supplies a URL rather than a file. Accepting an
    * arbitrary address would let whoever set it put a request to a third-party
    * server on every visitor's page — a referer leak and an availability
-   * dependency Atlas does not control — so the answer has to come from here,
+   * dependency Vintrax does not control — so the answer has to come from here,
    * where the storage origin is actually known.
    */
   isOwnUrl(url: string): boolean {
     if (this.driver === 's3' && this.bucket) {
-      const base = this.publicUrl ?? `${this.config.get('S3_ENDPOINT', { infer: true })}/${this.bucket}`;
+      const base =
+        this.publicUrl ?? `${this.config.get('S3_ENDPOINT', { infer: true })}/${this.bucket}`;
       return url.startsWith(`${base.replace(/\/$/, '')}/`);
     }
     // Local storage serves from a fixed path. `//host` is excluded explicitly:
@@ -209,7 +209,8 @@ export class StorageService {
           CacheControl: 'public, max-age=31536000, immutable',
         }),
       );
-      const base = this.publicUrl ?? `${this.config.get('S3_ENDPOINT', { infer: true })}/${this.bucket}`;
+      const base =
+        this.publicUrl ?? `${this.config.get('S3_ENDPOINT', { infer: true })}/${this.bucket}`;
       return {
         url: `${base.replace(/\/$/, '')}/${key}`,
         key,

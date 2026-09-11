@@ -2,11 +2,29 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Building2, Car, DollarSign, Gavel, ShieldAlert, Users } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import type { AdminAnalytics, AuditLogEntry, Paginated } from '@atlas/shared';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import type { AdminAnalytics, AuditLogEntry, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatPrice, formatRelativeTime } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle, EmptyState, ErrorAlert, Spinner } from '@/components/ui';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  ErrorAlert,
+  Spinner,
+} from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { StatTile } from '@/components/stat-tile';
 import { AdminNav } from '@/components/admin-nav';
@@ -47,26 +65,78 @@ function AdminDashboard() {
           pending dealers and listings awaiting review — were exactly the two
           that needed acting on. */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <StatTile label="Total users" value={data?.totalUsers ?? 0} hint={`+${data?.newUsersThisMonth ?? 0} this month`} icon={Users} href="/admin/users" />
-        <StatTile label="Active listings" value={data?.activeListings ?? 0} hint="Browse the marketplace" icon={Car} href="/vehicles" />
-        <StatTile label="Live auctions" value={data?.liveAuctions ?? 0} hint="Watch the floor" icon={Gavel} href="/auctions" />
-        <StatTile label="Pending dealers" value={data?.pendingDealers ?? 0} hint="Awaiting verification" icon={Building2} href="/admin/dealers" />
-        <StatTile label="Awaiting review" value={data?.listingsPendingReview ?? 0} hint="Listings to moderate" icon={ShieldAlert} href="/admin/moderation" />
-        <StatTile label="Platform revenue" value={formatPrice(data?.platformRevenueCad ?? 0)} hint={`GMV ${formatPrice(data?.grossMerchandiseValueCad ?? 0)}`} icon={DollarSign} href="/admin/revenue" />
+        <StatTile
+          label="Total users"
+          value={data?.totalUsers ?? 0}
+          hint={`+${data?.newUsersThisMonth ?? 0} this month`}
+          icon={Users}
+          href="/admin/users"
+        />
+        <StatTile
+          label="Active listings"
+          value={data?.activeListings ?? 0}
+          hint="Browse the marketplace"
+          icon={Car}
+          href="/vehicles"
+        />
+        <StatTile
+          label="Live auctions"
+          value={data?.liveAuctions ?? 0}
+          hint="Watch the floor"
+          icon={Gavel}
+          href="/auctions"
+        />
+        <StatTile
+          label="Pending dealers"
+          value={data?.pendingDealers ?? 0}
+          hint="Awaiting verification"
+          icon={Building2}
+          href="/admin/dealers"
+        />
+        <StatTile
+          label="Awaiting review"
+          value={data?.listingsPendingReview ?? 0}
+          hint="Listings to moderate"
+          icon={ShieldAlert}
+          href="/admin/moderation"
+        />
+        <StatTile
+          label="Platform revenue"
+          value={formatPrice(data?.platformRevenueCad ?? 0)}
+          hint={`GMV ${formatPrice(data?.grossMerchandiseValueCad ?? 0)}`}
+          icon={DollarSign}
+          href="/admin/revenue"
+        />
       </div>
 
       <div className="mb-8 grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>New users</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>New users</CardTitle>
+          </CardHeader>
           <CardContent>
             {data && data.usersSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height={230}>
                 <LineChart data={data.usersSeries}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    allowDecimals={false}
+                  />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -76,14 +146,24 @@ function AdminDashboard() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Listings published</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Listings published</CardTitle>
+          </CardHeader>
           <CardContent>
             {data && data.listingsSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={data.listingsSeries}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    allowDecimals={false}
+                  />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -96,17 +176,27 @@ function AdminDashboard() {
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Recent audit trail</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Recent audit trail</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           {audit && audit.items.length > 0 ? (
             <table className="w-full text-sm">
               <caption className="sr-only">Recent audited actions</caption>
               <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th scope="col" className="px-4 py-3">Action</th>
-                  <th scope="col" className="px-4 py-3">Entity</th>
-                  <th scope="col" className="px-4 py-3">Actor</th>
-                  <th scope="col" className="px-4 py-3">When</th>
+                  <th scope="col" className="px-4 py-3">
+                    Action
+                  </th>
+                  <th scope="col" className="px-4 py-3">
+                    Entity
+                  </th>
+                  <th scope="col" className="px-4 py-3">
+                    Actor
+                  </th>
+                  <th scope="col" className="px-4 py-3">
+                    When
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -115,13 +205,18 @@ function AdminDashboard() {
                     <td className="px-4 py-2.5 font-medium">{entry.action}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{entry.entityType}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{entry.actorEmail ?? '—'}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{formatRelativeTime(entry.createdAt)}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {formatRelativeTime(entry.createdAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <EmptyState title="No audited actions yet" description="Security- and money-relevant actions appear here." />
+            <EmptyState
+              title="No audited actions yet"
+              description="Security- and money-relevant actions appear here."
+            />
           )}
         </CardContent>
       </Card>
@@ -130,5 +225,9 @@ function AdminDashboard() {
 }
 
 export default function AdminDashboardPage() {
-  return <RequireAuth adminOnly><AdminDashboard /></RequireAuth>;
+  return (
+    <RequireAuth adminOnly>
+      <AdminDashboard />
+    </RequireAuth>
+  );
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
-import { PROVINCES, PROVINCE_LABELS } from '@atlas/shared';
+import { PROVINCES, PROVINCE_LABELS } from '@vintrax/shared';
 import { ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth-store';
 import { useT } from '@/i18n/provider';
@@ -133,7 +133,11 @@ function RegisterForm() {
               ) : null}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label={t.auth.firstName} htmlFor="firstName" error={apiError?.fieldError('firstName')}>
+                <Field
+                  label={t.auth.firstName}
+                  htmlFor="firstName"
+                  error={apiError?.fieldError('firstName')}
+                >
                   <Input
                     id="firstName"
                     autoComplete="given-name"
@@ -142,7 +146,11 @@ function RegisterForm() {
                     onChange={(event) => set('firstName', event.target.value)}
                   />
                 </Field>
-                <Field label={t.auth.lastName} htmlFor="lastName" error={apiError?.fieldError('lastName')}>
+                <Field
+                  label={t.auth.lastName}
+                  htmlFor="lastName"
+                  error={apiError?.fieldError('lastName')}
+                >
                   <Input
                     id="lastName"
                     autoComplete="family-name"

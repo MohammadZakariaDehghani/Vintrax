@@ -31,7 +31,7 @@ import {
   searchVehiclesSchema,
   updateListingStatusSchema,
   updateVehicleSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { z } from 'zod';
 import {
   Audit,
@@ -67,7 +67,7 @@ export class VehiclesController {
   @ApiOperation({
     summary: 'Search vehicles',
     description:
-      'Filters, sorting and pagination follow the searchVehiclesSchema contract in @atlas/shared. ' +
+      'Filters, sorting and pagination follow the searchVehiclesSchema contract in @vintrax/shared. ' +
       'Authenticating is optional; with a token each result carries its isFavourited flag.',
   })
   search(
