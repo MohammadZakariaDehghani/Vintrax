@@ -326,12 +326,11 @@ export function SiteHeader() {
       <div className="bg-header text-header-foreground">
         <div ref={navRef} className="container relative flex h-16 items-center gap-2">
           <Link href="/" aria-label="Vintrax" className="shrink-0">
-            <Logo
-              descriptor={t.brand.descriptor}
-              className="hidden text-header-foreground lg:flex"
-              tone="onDark"
-            />
-            <Logo className="text-header-foreground lg:hidden" tone="onDark" />
+            {/* One lockup at one size. The previous mark dropped its
+                descriptor line on narrow screens; this one carries AUTOSALES
+                inside the artwork, so there is nothing to drop — and at 107px
+                wide it still leaves room for the menu button on a phone. */}
+            <Logo className="h-[54px]" tone="onDark" />
           </Link>
 
           <nav

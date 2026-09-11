@@ -41,7 +41,7 @@ export function SiteFooter() {
     <footer className="border-t border-border bg-card">
       <div className="container grid gap-8 py-12 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <Logo descriptor={t.brand.descriptor} />
+          <Logo className="h-14" />
           <p className="mt-3 max-w-xs text-sm text-muted-foreground">{t.brand.tagline}</p>
           <LanguageSwitcher className="mt-4" />
         </div>
