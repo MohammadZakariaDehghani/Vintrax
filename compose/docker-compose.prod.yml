@@ -1,0 +1,193 @@
+# Vintrax production stack.
+#
+# This file runs published images. It never builds: the deployment path is
+# GitHub -> GHCR -> `docker compose pull` -> `docker compose up -d`, so the
+# production server needs neither the source tree nor a toolchain, and the
+# artefact that was tested in CI is the artefact that runs.
+#
+# Nothing here is published to a public interface. Every port binds to
+# 127.0.0.1 and Nginx on the host terminates TLS and proxies inward — see
+# infrastructure/nginx/vintrax.conf.example. Docker publishes through its own
+# NAT rules, which sit in front of the host firewall, so a bare '3000:3000' on
+# a machine with a public interface is a service on the internet whether or not
+# ufw is running.
+#
+#   docker compose --env-file env/vintrax.env -f compose/docker-compose.prod.yml up -d
+#
+# PostgreSQL and Redis are behind the `bundled` profile. Leave it off and the
+# stack expects managed services reachable at DATABASE_URL and REDIS_URL; turn
+# it on with COMPOSE_PROFILES=bundled to run them here with persistent volumes.
+
+name: vintrax
+
+x-image-defaults: &image-defaults
+  restart: unless-stopped
+  # Docker's own init at PID 1, to reap orphans. Both runtimes handle SIGTERM
+  # themselves, so this is about zombie processes, not shutdown.
+  init: true
+  logging:
+    driver: json-file
+    # Without a cap, container logs grow until the disk is full and every
+    # service on the host fails at once, which is a worse outage than the one
+    # that filled them.
+    options: { max-size: '20m', max-file: '5' }
+
+services:
+  # --- Backing services, optional -------------------------------------------
+  postgres:
+    <<: *image-defaults
+    profiles: ['bundled']
+    image: postgres:16-alpine
+    container_name: vintrax-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # No `ports`. The API reaches it over the compose network; nothing on the
+    # host needs to, and `docker compose exec postgres psql` still works.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  redis:
+    <<: *image-defaults
+    profiles: ['bundled']
+    image: redis:7-alpine
+    container_name: vintrax-redis
+    # Append-only persistence so queued jobs survive a restart. Redis holds
+    # queued jobs and rate-limit counters, and it authenticates: left open it is
+    # a remote-code-execution primitive, not just a cache.
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --requirepass
+      - ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', '--no-auth-warning', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  # --- Migrations ------------------------------------------------------------
+  # A one-shot job, not a step in the API's command. Two reasons: with more than
+  # one API replica an inline migration is a race, and a failed migration should
+  # stop the deployment rather than crash-loop a container that keeps retrying
+  # a schema change against a live database.
+  #
+  # `prisma migrate deploy` only applies pending migrations. It never resets,
+  # never generates, and never prompts, which is why it and not `migrate dev`
+  # is what production runs.
+  migrate:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:?set IMAGE_NAMESPACE}/vintrax-api:${VINTRAX_VERSION:?set VINTRAX_VERSION}
+    container_name: vintrax-migrate
+    restart: 'no'
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+        # False so the stack still starts when PostgreSQL is a managed service
+        # and the `bundled` profile is off.
+        required: false
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+    command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
+
+  # --- Application -----------------------------------------------------------
+  api:
+    <<: *image-defaults
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:?set IMAGE_NAMESPACE}/vintrax-api:${VINTRAX_VERSION:?set VINTRAX_VERSION}
+    container_name: vintrax-api
+    depends_on:
+      # The API does not start until migrations have finished successfully. A
+      # failed migration leaves the previous version running.
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+        required: false
+    environment:
+      NODE_ENV: production
+      API_PORT: 3001
+      APP_URL: ${APP_URL:?set APP_URL}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:?set REDIS_URL}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      UPLOAD_DIR: /app/backend/uploads
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10485760}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-ca-central-1}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      SEARCH_PROVIDER: ${SEARCH_PROVIDER:-postgres}
+      OPENSEARCH_NODE: ${OPENSEARCH_NODE:-}
+      OPENSEARCH_INDEX: ${OPENSEARCH_INDEX:-vintrax-vehicles}
+      QUEUE_DRIVER: ${QUEUE_DRIVER:-redis}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-60}
+      MAIL_DRIVER: ${MAIL_DRIVER:-log}
+      MAIL_FROM: ${MAIL_FROM:-Vintrax <no-reply@localhost>}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      RATE_LIMIT_TTL_MS: ${RATE_LIMIT_TTL_MS:-60000}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+    ports:
+      # Loopback only. Nginx proxies /api and the /auctions WebSocket here.
+      - '127.0.0.1:${API_BIND_PORT:-3001}:3001'
+    volumes:
+      # STORAGE_DRIVER=local writes uploads here. A named volume, because the
+      # container filesystem is disposable and these are the listing photos.
+      - uploads-data:/app/backend/uploads
+
+  web:
+    <<: *image-defaults
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:?set IMAGE_NAMESPACE}/vintrax-web:${VINTRAX_VERSION:?set VINTRAX_VERSION}
+    container_name: vintrax-web
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      # Read per request by serverFetch() for server components. This one is a
+      # genuine runtime value. The rewrite destination with the same name is
+      # baked at build time and cannot be changed here — in this topology Nginx
+      # routes /api before Next sees it, so the baked value is never used.
+      API_ORIGIN: http://api:3001
+    ports:
+      - '127.0.0.1:${WEB_BIND_PORT:-3000}:3000'
+
+  mobile:
+    <<: *image-defaults
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:?set IMAGE_NAMESPACE}/vintrax-mobile:${VINTRAX_VERSION:?set VINTRAX_VERSION}
+    container_name: vintrax-mobile
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      API_ORIGIN: http://api:3001
+    ports:
+      - '127.0.0.1:${MOBILE_BIND_PORT:-3002}:3002'
+
+volumes:
+  postgres-data:
+  redis-data:
+  uploads-data:

@@ -122,15 +122,35 @@ services:
       retries: 12
     profiles: ['search', 'full']
 
+  # Migrations, as a one-shot job the API waits on. Running them inside the
+  # API's own command races with itself the moment there is more than one
+  # replica, and a failed migration then crash-loops a container that keeps
+  # retrying a schema change against a live database.
+  migrate:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    container_name: vintrax-migrate
+    restart: 'no'
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://vintrax:${POSTGRES_PASSWORD:-vintrax}@postgres:5432/vintrax?schema=public
+    command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
+
   api:
     build:
       context: .
       dockerfile: infrastructure/docker/backend.Dockerfile
     container_name: vintrax-api
     restart: unless-stopped
+    init: true
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     environment:
@@ -156,10 +176,6 @@ services:
       - '3001:3001'
     volumes:
       - uploads-data:/app/backend/uploads
-    # Migrations run before the process starts. With more than one replica this
-    # belongs in a separate pre-deploy job instead, to avoid a migration race.
-    command: >
-      /bin/sh -c "node_modules/.bin/prisma migrate deploy && node dist/main"
 
   web:
     build:
@@ -168,13 +184,20 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:3001}
+        # Next resolves rewrites() at build time into routes-manifest.json, so
+        # the /api proxy destination is fixed here and not by the environment
+        # variable of the same name below.
+        API_ORIGIN: http://api:3001
     container_name: vintrax-web
     restart: unless-stopped
+    init: true
     depends_on:
       - api
     environment:
       NODE_ENV: production
-      # Server components address the API over the compose network.
+      # Read per request by serverFetch() for server components. The rewrite
+      # destination is the build argument above; these are two different uses
+      # of one name and both are needed.
       API_ORIGIN: http://api:3001
     ports:
       - '3000:3000'
@@ -188,13 +211,19 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:3001}
+        # Next resolves rewrites() at build time into routes-manifest.json, so
+        # the /api proxy destination is fixed here and not by the environment
+        # variable of the same name below.
+        API_ORIGIN: http://api:3001
     container_name: vintrax-mobile
     restart: unless-stopped
+    init: true
     depends_on:
       - api
     environment:
       NODE_ENV: production
-      # The rewrite proxy addresses the API over the compose network.
+      # Read per request for server-rendered data. The rewrite destination is
+      # the build argument above.
       API_ORIGIN: http://api:3001
     ports:
       - '3002:3002'

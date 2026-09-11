@@ -1,7 +1,16 @@
 # Multi-stage build for the Vintrax API.
 #
-# The workspace is installed once with the full lockfile so the shared contract
-# package resolves, then pruned to production dependencies for the runtime image.
+# Four stages, because the dependency set the build needs and the set the
+# runtime needs are different and the difference is most of the image:
+#
+#   deps      full workspace install, so the build has the Nest CLI and tsc
+#   build     compile @vintrax/shared, generate the Prisma client, nest build
+#   proddeps  a second, production-only install
+#   runtime   compiled output + production dependencies, nothing else
+#
+# The alternative — build, then copy build's node_modules — ships the Nest CLI,
+# TypeScript, ESLint and Jest in the production image. A second install costs
+# one cached layer and removes all of it.
 
 FROM node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
@@ -25,20 +34,47 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=deps /app/backend/node_modules ./backend/node_modules
 COPY . .
+# @vintrax/shared resolves through its `main` field to dist/, so it is a real
+# build artefact the API cannot start without.
 RUN pnpm --filter @vintrax/shared build \
  && pnpm --filter @vintrax/backend exec prisma generate \
  && pnpm --filter @vintrax/backend build
 
-# ---- Runtime ----------------------------------------------------------------
-FROM base AS runtime
-ENV NODE_ENV=production
+# ---- Production dependencies ------------------------------------------------
+FROM base AS proddeps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/client/package.json ./packages/client/
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+COPY mobile/package.json ./mobile/
+RUN pnpm install --frozen-lockfile --filter @vintrax/backend... --prod
+# The Prisma client is generated code, not a published artefact, so it has to be
+# generated again against this install rather than copied from the build stage —
+# pnpm's store paths differ between the two and a copied client resolves to a
+# directory that is not there.
+COPY backend/prisma ./backend/prisma
+RUN pnpm --filter @vintrax/backend exec prisma generate
 
-COPY --from=build /app/node_modules ./node_modules
+# ---- Runtime ----------------------------------------------------------------
+FROM node:22-alpine AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+
+# PID 1 in a container does not get the kernel's default signal handlers. Both
+# runtimes register their own SIGTERM handler — Nest through enableShutdownHooks(),
+# Next inside its standalone server — so the process does stop on a signal. The
+# compose services additionally set `init: true`, which puts Docker's own init
+# at PID 1 to reap orphans; `docker run --init` is the equivalent by hand.
+
+COPY --from=proddeps /app/node_modules ./node_modules
+COPY --from=proddeps /app/backend/node_modules ./backend/node_modules
+COPY --from=proddeps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/packages/shared/package.json ./packages/shared/
-COPY --from=build /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/package.json ./backend/
+# Schema and migrations: `prisma migrate deploy` reads both at deploy time.
 COPY --from=build /app/backend/prisma ./backend/prisma
 
 # Run unprivileged. The node image already provides this user.

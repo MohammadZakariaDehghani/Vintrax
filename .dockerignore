@@ -1,0 +1,52 @@
+# Build context for every image. All three Dockerfiles use the repository root
+# as their context, because the pnpm workspace only resolves as a whole.
+#
+# A denylist rather than an allowlist on purpose: an allowlist that forgets a
+# file the build needs fails loudly, but it also has to be updated every time a
+# config file is added, and the failure then looks like a broken build rather
+# than a stale ignore file.
+
+# Version control and CI. Never in an image: .git carries every previous
+# revision of every secret that was ever committed and then removed.
+.git
+.gitignore
+.github
+
+# Installed per-stage inside the image from the lockfile. Copying the host's
+# would defeat layer caching and can carry native modules built for the host.
+node_modules
+**/node_modules
+
+# Build output. Rebuilt inside the image; a stale local copy silently wins.
+dist
+**/dist
+.next
+**/.next
+out
+**/out
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Local environment. These hold real credentials.
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Local runtime state. Uploads live in a volume, not in the image.
+backend/uploads
+coverage
+**/coverage
+*.log
+test-results
+playwright-report
+
+# Not part of any build.
+documentation
+scripts
+infrastructure/kubernetes
+infrastructure/terraform
+README.md
+**/.DS_Store
+.idea
+.vscode
