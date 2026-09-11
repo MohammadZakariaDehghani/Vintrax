@@ -9,7 +9,7 @@ import {
   paginationSchema,
   sendMessageSchema,
   startConversationSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { CurrentUser } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
 import type { AuthUser } from '../../common/auth/auth-user';
@@ -31,7 +31,7 @@ export class MessagingController {
 
   // Declared before ':id' so the literal segment is not captured as a UUID.
   @Get('unread-count')
-  @ApiOperation({ summary: 'Return the caller\'s total unread message count' })
+  @ApiOperation({ summary: "Return the caller's total unread message count" })
   unreadCount(@CurrentUser() user: AuthUser): Promise<{ unread: number }> {
     return this.messaging.unreadTotal(user);
   }

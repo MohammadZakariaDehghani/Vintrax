@@ -1,4 +1,4 @@
-import type { SearchVehiclesQuery, VehicleSearchResponse } from '@atlas/shared';
+import type { SearchVehiclesQuery, VehicleSearchResponse } from '@vintrax/shared';
 
 /**
  * Contract every search backend implements.

@@ -1,6 +1,6 @@
 output "database_url" {
   description = "Connection string for DATABASE_URL. Store it in a secret manager."
-  value       = "postgresql://atlas:${random_password.database.result}@${aws_db_instance.postgres.endpoint}/atlas?schema=public"
+  value       = "postgresql://vintrax:${random_password.database.result}@${aws_db_instance.postgres.endpoint}/vintrax?schema=public"
   sensitive   = true
 }
 

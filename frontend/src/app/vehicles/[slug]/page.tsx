@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { MapPin, ShieldCheck } from 'lucide-react';
-import type { VehicleDetail } from '@atlas/shared';
+import type { VehicleDetail } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { formatDate, formatEnum, formatKm, formatLocation, formatPrice } from '@/lib/utils';
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
@@ -47,10 +47,16 @@ export default async function VehicleDetailPage({ params }: PageProps) {
     ['Drivetrain', formatEnum(vehicle.drivetrain)],
     ['Condition', formatEnum(vehicle.condition)],
     ...(vehicle.engine ? ([['Engine', vehicle.engine]] as Array<[string, string]>) : []),
-    ...(vehicle.cylinders ? ([['Cylinders', String(vehicle.cylinders)]] as Array<[string, string]>) : []),
+    ...(vehicle.cylinders
+      ? ([['Cylinders', String(vehicle.cylinders)]] as Array<[string, string]>)
+      : []),
     ...(vehicle.seats ? ([['Seats', String(vehicle.seats)]] as Array<[string, string]>) : []),
-    ...(vehicle.exteriorColour ? ([['Exterior', vehicle.exteriorColour]] as Array<[string, string]>) : []),
-    ...(vehicle.interiorColour ? ([['Interior', vehicle.interiorColour]] as Array<[string, string]>) : []),
+    ...(vehicle.exteriorColour
+      ? ([['Exterior', vehicle.exteriorColour]] as Array<[string, string]>)
+      : []),
+    ...(vehicle.interiorColour
+      ? ([['Interior', vehicle.interiorColour]] as Array<[string, string]>)
+      : []),
     ...(vehicle.vin ? ([['VIN', vehicle.vin]] as Array<[string, string]>) : []),
   ];
 
@@ -68,11 +74,14 @@ export default async function VehicleDetailPage({ params }: PageProps) {
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <CardTitle as="h1" className="text-2xl">{vehicle.title}</CardTitle>
+                  <CardTitle as="h1" className="text-2xl">
+                    {vehicle.title}
+                  </CardTitle>
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" aria-hidden />
                     {formatLocation(vehicle.city, vehicle.province)} ·{' '}
-                    <span className="tabular">{vehicle.viewCount.toLocaleString('en-CA')}</span> views
+                    <span className="tabular">{vehicle.viewCount.toLocaleString('en-CA')}</span>{' '}
+                    views
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -103,7 +112,9 @@ export default async function VehicleDetailPage({ params }: PageProps) {
               <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {specs.map(([label, value]) => (
                   <div key={label} className="border-b border-border pb-2">
-                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </dt>
                     <dd className="mt-0.5 font-medium">{value}</dd>
                   </div>
                 ))}

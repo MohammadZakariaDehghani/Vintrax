@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import type { ApiErrorBody } from '@atlas/shared';
+import type { ApiErrorBody } from '@vintrax/shared';
 import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
 

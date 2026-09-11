@@ -15,7 +15,7 @@ import {
   type NotificationPreferencesInput,
   type Paginated,
   notificationPreferencesSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { z } from 'zod';
 import { CurrentUser } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';

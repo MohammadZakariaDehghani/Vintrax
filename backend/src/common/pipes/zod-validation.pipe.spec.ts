@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { createVehicleSchema, registerSchema, searchVehiclesSchema } from '@atlas/shared';
+import { createVehicleSchema, registerSchema, searchVehiclesSchema } from '@vintrax/shared';
 import { ZodValidationPipe } from './zod-validation.pipe';
 
 describe('ZodValidationPipe', () => {

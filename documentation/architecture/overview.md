@@ -1,11 +1,11 @@
 # Architecture overview
 
-How Atlas is put together, why the pieces are separated the way they are, and what happens when a
+How Vintrax is put together, why the pieces are separated the way they are, and what happens when a
 request arrives.
 
 ## System shape
 
-Atlas is a pnpm workspace containing two deployable applications over one shared contract package.
+Vintrax is a pnpm workspace containing two deployable applications over one shared contract package.
 
 ```mermaid
 graph TB
@@ -62,11 +62,11 @@ The domain vocabulary and the wire contract. It contains no I/O, no framework co
 environment access — it is pure data definitions, which is what lets both a Node service and a
 browser bundle consume it.
 
-| File | Contents |
-| --- | --- |
-| `src/domain.ts` | Enum value lists (`BODY_TYPES`, `PROVINCES`, …), display labels, domain constants |
-| `src/schemas.ts` | Zod schemas for every request payload and query string |
-| `src/contracts.ts` | TypeScript interfaces for every response body |
+| File               | Contents                                                                          |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `src/domain.ts`    | Enum value lists (`BODY_TYPES`, `PROVINCES`, …), display labels, domain constants |
+| `src/schemas.ts`   | Zod schemas for every request payload and query string                            |
+| `src/contracts.ts` | TypeScript interfaces for every response body                                     |
 
 The enum lists here and the Prisma enums in `apps/api/prisma/schema.prisma` mirror each other
 exactly. Changing one without the other is a bug; see
@@ -172,13 +172,13 @@ Worth tracing once, because search is the most involved read path.
 
 These are places where the current implementation is simple but the seam is already cut.
 
-| Seam | Today | Enables |
-| --- | --- | --- |
-| API as a separate service | Serves one web client | Auction app, mobile app ([D-006](../decision-log.md)) |
-| `POST /uploads/images` returns a URL | Writes to local disk | Swap to object storage without touching listing code |
-| `@atlas/shared` holds the contract | Two consumers | A third consumer inherits validation for free |
-| Messaging keyed by `(listingId, buyerId)` | Marketplace listings | Auction lots could reuse the thread model |
-| `RefreshToken` rows are revocable | Rotation and replay detection | Session management UI, forced logout |
+| Seam                                      | Today                         | Enables                                               |
+| ----------------------------------------- | ----------------------------- | ----------------------------------------------------- |
+| API as a separate service                 | Serves one web client         | Auction app, mobile app ([D-006](../decision-log.md)) |
+| `POST /uploads/images` returns a URL      | Writes to local disk          | Swap to object storage without touching listing code  |
+| `@vintrax/shared` holds the contract      | Two consumers                 | A third consumer inherits validation for free         |
+| Messaging keyed by `(listingId, buyerId)` | Marketplace listings          | Auction lots could reuse the thread model             |
+| `RefreshToken` rows are revocable         | Rotation and replay detection | Session management UI, forced logout                  |
 
 ## What this architecture does not do
 

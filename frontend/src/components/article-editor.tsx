@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, ImagePlus, Trash2 } from 'lucide-react';
-import type { Article, ArticleStatus } from '@atlas/shared';
+import type { Article, ArticleStatus } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
   Button,
@@ -89,11 +89,17 @@ export function ArticleEditor({ article }: { article?: Article }) {
   function choose(file: File | undefined) {
     if (!file) return;
     if (!ACCEPTED.includes(file.type)) {
-      setFailure(new Error(`${file.name} is a ${file.type || 'unknown type'}. Use JPEG, PNG, WebP or AVIF.`));
+      setFailure(
+        new Error(`${file.name} is a ${file.type || 'unknown type'}. Use JPEG, PNG, WebP or AVIF.`),
+      );
       return;
     }
     if (file.size > MAX_BYTES) {
-      setFailure(new Error(`${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 10 MB.`));
+      setFailure(
+        new Error(
+          `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 10 MB.`,
+        ),
+      );
       return;
     }
     setFailure(null);
@@ -105,7 +111,11 @@ export function ArticleEditor({ article }: { article?: Article }) {
   const ctaIncomplete = Boolean(ctaLabel.trim()) !== Boolean(ctaHref.trim());
   const ctaExternal = ctaHref.trim() !== '' && !/^\/(?!\/)/.test(ctaHref.trim());
   const canSave =
-    title.trim().length >= 4 && body.trim().length > 0 && heroImageUrl !== '' && !ctaIncomplete && !ctaExternal;
+    title.trim().length >= 4 &&
+    body.trim().length > 0 &&
+    heroImageUrl !== '' &&
+    !ctaIncomplete &&
+    !ctaExternal;
 
   return (
     <div className="space-y-6">
@@ -153,12 +163,30 @@ export function ArticleEditor({ article }: { article?: Article }) {
 
         <Card>
           <CardContent className="space-y-4 p-5">
-            <Field label="Headline" htmlFor="title" hint="Shown on the masthead. Keep it short enough to read at a glance.">
-              <Input id="title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={140} />
+            <Field
+              label="Headline"
+              htmlFor="title"
+              hint="Shown on the masthead. Keep it short enough to read at a glance."
+            >
+              <Input
+                id="title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                maxLength={140}
+              />
             </Field>
 
-            <Field label="Standfirst" htmlFor="subtitle" hint="Optional. One line under the headline.">
-              <Input id="subtitle" value={subtitle} onChange={(event) => setSubtitle(event.target.value)} maxLength={180} />
+            <Field
+              label="Standfirst"
+              htmlFor="subtitle"
+              hint="Optional. One line under the headline."
+            >
+              <Input
+                id="subtitle"
+                value={subtitle}
+                onChange={(event) => setSubtitle(event.target.value)}
+                maxLength={180}
+              />
             </Field>
 
             <Field
@@ -178,7 +206,12 @@ export function ArticleEditor({ article }: { article?: Article }) {
                     event.target.value = '';
                   }}
                 />
-                <Button type="button" size="sm" loading={upload.isPending} onClick={() => fileInput.current?.click()}>
+                <Button
+                  type="button"
+                  size="sm"
+                  loading={upload.isPending}
+                  onClick={() => fileInput.current?.click()}
+                >
                   <ImagePlus className="mr-1.5 h-4 w-4" aria-hidden />
                   {heroImageUrl ? 'Replace photograph' : 'Upload photograph'}
                 </Button>
@@ -190,12 +223,30 @@ export function ArticleEditor({ article }: { article?: Article }) {
               </div>
             </Field>
 
-            <Field label="Photograph description" htmlFor="heroAlt" hint="Optional. Read aloud by screen readers; leave blank if the photo is purely decorative.">
-              <Input id="heroAlt" value={heroAlt} onChange={(event) => setHeroAlt(event.target.value)} maxLength={160} />
+            <Field
+              label="Photograph description"
+              htmlFor="heroAlt"
+              hint="Optional. Read aloud by screen readers; leave blank if the photo is purely decorative."
+            >
+              <Input
+                id="heroAlt"
+                value={heroAlt}
+                onChange={(event) => setHeroAlt(event.target.value)}
+                maxLength={160}
+              />
             </Field>
 
-            <Field label="Article" htmlFor="body" hint="Plain text. Leave a blank line between paragraphs.">
-              <Textarea id="body" rows={16} value={body} onChange={(event) => setBody(event.target.value)} />
+            <Field
+              label="Article"
+              htmlFor="body"
+              hint="Plain text. Leave a blank line between paragraphs."
+            >
+              <Textarea
+                id="body"
+                rows={16}
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+              />
             </Field>
           </CardContent>
         </Card>
@@ -204,31 +255,57 @@ export function ArticleEditor({ article }: { article?: Article }) {
           <CardContent className="space-y-4 p-5">
             <h2 className="font-semibold">Button</h2>
             <p className="-mt-2 text-sm text-muted-foreground">
-              Optional, and both fields go together. It points somewhere on Atlas — the front page
+              Optional, and both fields go together. It points somewhere on Vintrax — the front page
               should send people into the catalogue, not off the site.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Button text" htmlFor="ctaLabel">
-                <Input id="ctaLabel" value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} maxLength={40} placeholder="Browse winter-ready SUVs" />
+                <Input
+                  id="ctaLabel"
+                  value={ctaLabel}
+                  onChange={(event) => setCtaLabel(event.target.value)}
+                  maxLength={40}
+                  placeholder="Browse winter-ready SUVs"
+                />
               </Field>
               <Field
                 label="Button link"
                 htmlFor="ctaHref"
-                hint={ctaExternal ? 'Must start with “/” — an Atlas page.' : 'For example /vehicles?bodyType=SUV'}
+                hint={
+                  ctaExternal
+                    ? 'Must start with “/” — an Vintrax page.'
+                    : 'For example /vehicles?bodyType=SUV'
+                }
               >
-                <Input id="ctaHref" value={ctaHref} onChange={(event) => setCtaHref(event.target.value)} maxLength={200} placeholder="/vehicles?bodyType=SUV" />
+                <Input
+                  id="ctaHref"
+                  value={ctaHref}
+                  onChange={(event) => setCtaHref(event.target.value)}
+                  maxLength={200}
+                  placeholder="/vehicles?bodyType=SUV"
+                />
               </Field>
             </div>
             {ctaIncomplete ? (
-              <p className="text-sm text-destructive">Give the button both a text and a link, or leave both blank.</p>
+              <p className="text-sm text-destructive">
+                Give the button both a text and a link, or leave both blank.
+              </p>
             ) : null}
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="flex flex-wrap items-end justify-between gap-4 p-5">
-            <Field label="Status" htmlFor="status" hint="Only a published post appears on the site. Archived keeps the writing but takes it off.">
-              <Select id="status" value={status} onChange={(event) => setStatus(event.target.value as ArticleStatus)}>
+            <Field
+              label="Status"
+              htmlFor="status"
+              hint="Only a published post appears on the site. Archived keeps the writing but takes it off."
+            >
+              <Select
+                id="status"
+                value={status}
+                onChange={(event) => setStatus(event.target.value as ArticleStatus)}
+              >
                 <option value="DRAFT">Draft</option>
                 <option value="PUBLISHED">Published</option>
                 <option value="ARCHIVED">Archived</option>
@@ -255,14 +332,18 @@ export function ArticleEditor({ article }: { article?: Article }) {
                   </Button>
                 </>
               ) : null}
-              <Button type="button" loading={save.isPending} disabled={!canSave} onClick={() => save.mutate()}>
+              <Button
+                type="button"
+                loading={save.isPending}
+                disabled={!canSave}
+                onClick={() => save.mutate()}
+              >
                 {article ? 'Save changes' : 'Create post'}
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
-
     </div>
   );
 }

@@ -63,10 +63,10 @@ export class MailService {
     const link = `${this.appUrl}/verify-email?token=${encodeURIComponent(token)}`;
     await this.send({
       to,
-      subject: 'Verify your Atlas account',
+      subject: 'Verify your Vintrax account',
       text:
         `Hi ${firstName},\n\n` +
-        `Confirm your email address to finish setting up your Atlas account:\n\n${link}\n\n` +
+        `Confirm your email address to finish setting up your Vintrax account:\n\n${link}\n\n` +
         `This link expires in 24 hours. If you did not create an account, ignore this message.`,
     });
   }
@@ -75,7 +75,7 @@ export class MailService {
     const link = `${this.appUrl}/reset-password?token=${encodeURIComponent(token)}`;
     await this.send({
       to,
-      subject: 'Reset your Atlas password',
+      subject: 'Reset your Vintrax password',
       text:
         `Hi ${firstName},\n\n` +
         `Use this link to choose a new password:\n\n${link}\n\n` +

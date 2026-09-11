@@ -1,4 +1,4 @@
-// Atlas marketplace schema.
+// Vintrax marketplace schema.
 //
 // The enums here mirror packages/shared/src/domain.ts exactly. If you change one,
 // change the other and generate a migration — the API validates input against the
@@ -850,7 +850,7 @@ model Article {
   heroImageUrl String
   heroAlt      String?
 
-  /// Where the masthead button goes. An Atlas path, never another origin —
+  /// Where the masthead button goes. An Vintrax path, never another origin —
   /// the front page should send traffic into the catalogue, not out of it.
   ctaLabel String?
   ctaHref  String?

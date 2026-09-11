@@ -59,12 +59,12 @@ const baseEnvSchema = z.object({
   OPENSEARCH_NODE: z.string().optional(),
   OPENSEARCH_USERNAME: z.string().optional(),
   OPENSEARCH_PASSWORD: z.string().optional(),
-  OPENSEARCH_INDEX: z.string().default('atlas-vehicles'),
+  OPENSEARCH_INDEX: z.string().default('vintrax-vehicles'),
 
   // --- Email ---
   /** `log` prints messages to the server log, which is what development uses. */
   MAIL_DRIVER: z.enum(['log', 'smtp']).default('log'),
-  MAIL_FROM: z.string().default('Atlas <no-reply@atlas.local>'),
+  MAIL_FROM: z.string().default('Vintrax <no-reply@vintrax.local>'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),
   SMTP_USER: z.string().optional(),

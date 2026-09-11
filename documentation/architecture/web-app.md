@@ -46,17 +46,17 @@ re-renders from fresh data.
 
 Query keys follow a hierarchy so invalidation can be broad or narrow:
 
-| Key | Covers |
-| --- | --- |
-| `['listings']` | Every listing query |
+| Key                                      | Covers                 |
+| ---------------------------------------- | ---------------------- |
+| `['listings']`                           | Every listing query    |
 | `['listings', 'search', <query string>]` | One search result page |
-| `['listings', 'featured']` | Home page carousel |
-| `['listing', id]` | One listing's detail |
-| `['my-listings', status, page]` | Dashboard tabs |
-| `['favourites', page]` | Saved listings |
-| `['conversations']` | Inbox |
-| `['conversation', id]` | One thread |
-| `['unread-count']` | Navbar badge |
+| `['listings', 'featured']`               | Home page carousel     |
+| `['listing', id]`                        | One listing's detail   |
+| `['my-listings', status, page]`          | Dashboard tabs         |
+| `['favourites', page]`                   | Saved listings         |
+| `['conversations']`                      | Inbox                  |
+| `['conversation', id]`                   | One thread             |
+| `['unread-count']`                       | Navbar badge           |
 
 Invalidating `['listings']` refreshes every listing view at once, which is what favouriting does.
 
@@ -95,7 +95,9 @@ request once. Callers never see the expiry.
 **Deduplicated refresh.** Concurrent 401s share one in-flight refresh promise:
 
 ```ts
-inFlightRefresh ??= (async () => { /* ... */ })();
+inFlightRefresh ??= (async () => {
+  /* ... */
+})();
 ```
 
 Without this, three parallel requests failing together would each rotate the refresh token, and the
@@ -128,7 +130,7 @@ refresh on a protected route would bounce a signed-in user to the login page bef
 restored. It preserves the attempted path in router state so login can return the user there.
 
 `sellersOnly` routes render an explanatory panel rather than redirecting, because a buyer landing on
-`/dashboard` benefits from knowing *why* they cannot list a vehicle.
+`/dashboard` benefits from knowing _why_ they cannot list a vehicle.
 
 ## Styling
 
@@ -151,9 +153,17 @@ them near the top and prices rendered near-invisible in dark mode — dark navy 
 Where a colour differs between themes, prefer a **semantic token** over a component override:
 
 ```css
-:root { --price-color: var(--brand-900); }
-@media (prefers-color-scheme: dark) { :root { --price-color: #7db3ea; } }
-.listing-price { color: var(--price-color); }
+:root {
+  --price-color: var(--brand-900);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --price-color: #7db3ea;
+  }
+}
+.listing-price {
+  color: var(--price-color);
+}
 ```
 
 Tokens are immune to ordering problems. Reach for a late override only when the property is not a
@@ -189,11 +199,11 @@ Vite with the React plugin.
 
 ```ts
 resolve: {
-  alias: { '@atlas/shared': '../../packages/shared/src/index.ts' },
+  alias: { '@vintrax/shared': '../../packages/shared/src/index.ts' },
 }
 ```
 
-**`@atlas/shared` resolves to TypeScript source, not its compiled output.** The first version used
+**`@vintrax/shared` resolves to TypeScript source, not its compiled output.** The first version used
 `optimizeDeps.include` to pre-bundle the linked package, which caches it once — edits to the shared
 contracts were then served stale until the cache was manually cleared. Aliasing to source removes
 that class of bug entirely and gives correct HMR. `tsconfig.json` mirrors the alias in `paths` so
@@ -209,7 +219,7 @@ URLs resolve without rewriting and CORS is not exercised in development.
   exception — it owns its favourite mutation so every listing grid gets the behaviour for free.
 - **Format at the edge.** Currency, distances, and dates are formatted only at render, via
   `lib/format.ts`. Raw numbers flow through the app.
-- **Enum labels come from `@atlas/shared`**, not local maps, so "Certified pre-owned" reads
+- **Enum labels come from `@vintrax/shared`**, not local maps, so "Certified pre-owned" reads
   identically everywhere.
 - **Optional fields are omitted, not blanked.** Sending `""` for an optional string fails a
   `min(1)` check; the forms strip empties before submitting.

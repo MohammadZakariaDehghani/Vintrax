@@ -33,7 +33,8 @@ function OrderList() {
     );
   }
 
-  if (orders.isError) return <ErrorState error={orders.error} onRetry={() => void orders.refetch()} />;
+  if (orders.isError)
+    return <ErrorState error={orders.error} onRetry={() => void orders.refetch()} />;
 
   if (items.length === 0) {
     return (

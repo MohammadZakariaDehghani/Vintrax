@@ -51,7 +51,7 @@ emit the metadata with `@swc/plugin-transform-imports` configured correctly; pla
 passed with the new values — and the browser kept rendering the old ones. Restarting the dev server
 and deleting `node_modules/.vite` did not help consistently.
 
-**Cause:** `optimizeDeps.include: ['@atlas/shared']` in `vite.config.ts`. Vite pre-bundles listed
+**Cause:** `optimizeDeps.include: ['@vintrax/shared']` in `vite.config.ts`. Vite pre-bundles listed
 dependencies **once** and caches the result. For a linked workspace package under active development
 that is exactly wrong — edits to the shared contracts are invisible until the cache is manually
 cleared.
@@ -59,10 +59,10 @@ cleared.
 The original reason for the include was real: the shared package compiles to CommonJS, and a browser
 cannot consume CommonJS directly.
 
-**Fix:** alias `@atlas/shared` to its TypeScript source instead.
+**Fix:** alias `@vintrax/shared` to its TypeScript source instead.
 
 ```ts
-resolve: { alias: { '@atlas/shared': sharedSrc } }
+resolve: { alias: { '@vintrax/shared': sharedSrc } }
 ```
 
 Vite compiles it as project source with correct HMR, and `tsconfig.json` mirrors the alias in `paths`
@@ -131,7 +131,7 @@ not. If this becomes a bottleneck, the fix is caching, not a join.
 ### Search facets share the results' `where` clause
 
 Facet counts are computed with the same filters as the results, so they describe what is reachable
-from the current search rather than the whole catalogue. Selecting *Electric* and seeing
+from the current search rather than the whole catalogue. Selecting _Electric_ and seeing
 "Gasoline (14)" would be actively misleading.
 
 Cost: three extra `groupBy` queries per search, five queries total including count and page. The

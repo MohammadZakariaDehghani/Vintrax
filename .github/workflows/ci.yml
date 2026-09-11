@@ -1,10 +1,11 @@
+# Pull-request gate.
+#
+# Pushes to main are covered by release.yml, which runs this same verification
+# before it publishes anything — so this workflow deliberately does not trigger
+# on push, or every merge would run the suite twice.
 name: CI
 
 on:
-  # Pull requests cover feature branches; limiting push to the default branch
-  # stops every PR commit from running the suite twice.
-  push:
-    branches: [main]
   pull_request:
 
 concurrency:
@@ -13,132 +14,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Typecheck, test and build
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: atlas
-          POSTGRES_PASSWORD: atlas
-          POSTGRES_DB: atlas_test
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U atlas -d atlas_test"
-          --health-interval 5s --health-timeout 5s --health-retries 12
-
-      redis:
-        image: redis:7-alpine
-        ports: ['6379:6379']
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 3s --health-retries 12
-
-    env:
-      DATABASE_URL: postgresql://atlas:atlas@localhost:5432/atlas_test?schema=public
-      REDIS_URL: redis://localhost:6379
-      # CI-only values; the API refuses the .env.example placeholders in production.
-      JWT_ACCESS_SECRET: ci-access-secret-not-used-in-production
-      JWT_REFRESH_SECRET: ci-refresh-secret-not-used-in-production
-      SEARCH_PROVIDER: postgres
-      QUEUE_DRIVER: inline
-      STORAGE_DRIVER: local
-
-    steps:
-      - uses: actions/checkout@v4
-
-      # No version pin here on purpose: the action reads packageManager from
-      # package.json, and specifying both is a hard error.
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm --filter @atlas/backend exec prisma generate
-
-      - name: Apply migrations
-        run: pnpm --filter @atlas/backend exec prisma migrate deploy
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
-
-      - name: Verify the seed runs and is idempotent
-        run: |
-          pnpm db:seed
-          pnpm db:seed
-
-  security:
-    name: Security scanning
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # Fails the job on high or critical advisories. Lower severities are
-      # reported without blocking, so a transitive low-severity finding does
-      # not stop a security fix from shipping. Fixes for the advisories this
-      # catches go in the pnpm overrides block in the root package.json.
-      - name: Audit dependencies
-        run: pnpm audit --audit-level high
-
-      # Trivy runs from its published image rather than the marketplace action:
-      # the runner already has Docker, and this pins the scanner itself to an
-      # exact version instead of pinning an action that wraps it.
-      - name: Scan filesystem for vulnerabilities, secrets and misconfiguration
-        run: |
-          mkdir -p trivy-report
-          docker run --rm \
-            -v "$PWD:/workspace:ro" \
-            -v "$PWD/trivy-report:/report" \
-            aquasec/trivy:0.73.0 filesystem /workspace \
-              --scanners vuln,secret,misconfig \
-              --severity HIGH,CRITICAL \
-              --ignore-unfixed \
-              --exit-code 0 \
-              --format json \
-              --output /report/trivy.json
-          docker run --rm \
-            -v "$PWD/trivy-report:/report" \
-            aquasec/trivy:0.73.0 convert --format table /report/trivy.json
-
-      # Reported, not enforced. Code scanning would be the natural home for
-      # these findings, but SARIF upload needs Advanced Security, which this
-      # repository does not have — so the report is kept as an artifact and
-      # `pnpm audit` remains the blocking gate.
-      - name: Publish the scan report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-report
-          path: trivy-report/trivy.json
-          if-no-files-found: warn
-          retention-days: 14
+    uses: ./.github/workflows/verify.yml
 
   docker:
     name: Build container images
@@ -146,36 +22,26 @@ jobs:
     # Images are only worth building once the code is known good.
     needs: verify
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: api, dockerfile: infrastructure/docker/backend.Dockerfile }
+          - { name: web, dockerfile: infrastructure/docker/frontend.Dockerfile }
+          - { name: mobile, dockerfile: infrastructure/docker/mobile.Dockerfile }
+
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build API image
+      # Built and thrown away: a pull request proves the Dockerfile still works,
+      # but nothing from an unreviewed branch belongs in the registry.
+      - name: Build ${{ matrix.name }} image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: infrastructure/docker/backend.Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: false
-          tags: atlas/api:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: infrastructure/docker/frontend.Dockerfile
-          push: false
-          tags: atlas/web:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build mobile image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: infrastructure/docker/mobile.Dockerfile
-          push: false
-          tags: atlas/mobile:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: vintrax-${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

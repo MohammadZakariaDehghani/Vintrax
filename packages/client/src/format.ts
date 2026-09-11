@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { PROVINCE_LABELS, labelize, type Province } from '@atlas/shared';
+import { PROVINCE_LABELS, labelize, type Province } from '@vintrax/shared';
 
 /** Merges Tailwind classes, letting later classes win over earlier conflicts. */
 export function cn(...inputs: ClassValue[]): string {
@@ -111,7 +111,10 @@ export function estimateMonthlyPayment(
 ): number {
   const apr = options.aprPercent ?? PAYMENT_ESTIMATE.aprPercent;
   const months = options.termMonths ?? PAYMENT_ESTIMATE.termMonths;
-  const principal = Math.max(0, priceCad - (options.downPaymentCad ?? PAYMENT_ESTIMATE.downPaymentCad));
+  const principal = Math.max(
+    0,
+    priceCad - (options.downPaymentCad ?? PAYMENT_ESTIMATE.downPaymentCad),
+  );
 
   if (principal <= 0 || months <= 0) return 0;
 

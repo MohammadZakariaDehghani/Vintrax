@@ -1,12 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"
-     role="img" aria-label="Atlas">
+     role="img" aria-label="Vintrax">
   <!-- Maskable variant. The launcher crops this to whatever shape it likes, so
        the background bleeds to the full square with no corner radius of its own
-       and the mark is scaled to sit inside the safe zone — the middle 80%, all
-       that is guaranteed to survive the crop. -->
-  <rect width="512" height="512" fill="#16295c"/>
-  <g transform="translate(256 256) scale(0.88) translate(-256 -265)">
-    <path d="M206 138 L108 392 L304 392 Z" fill="#d32027"/>
-    <path d="M120 392 C180 322, 288 236, 404 172 C312 266, 250 322, 240 392 Z" fill="#ffffff"/>
+       and the mark is scaled down to sit inside the safe zone — the middle 80%,
+       all that is guaranteed to survive the crop. The web icon bleeds past the
+       tile edge; this one must not, or the crop takes the nose and the tail. -->
+  <rect width="512" height="512" fill="#0c1210"/>
+  <g transform="translate(256 256) scale(0.92) translate(-265 -257)" fill="#21c45d">
+    <path fill-rule="evenodd" d="M44 318 L44 262 C44 252 48 246 58 242 L112 222 C140 180 176 163 216 162 L252 162 C306 162 356 186 404 222 L452 254 C474 266 486 280 486 298 L484 318 Z M94 312 a52 52 0 1 0 104 0 a52 52 0 1 0 -104 0 Z M334 312 a52 52 0 1 0 104 0 a52 52 0 1 0 -104 0 Z"/>
+    <path fill-rule="evenodd" d="M106 312 a40 40 0 1 0 80 0 a40 40 0 1 0 -80 0 Z M346 312 a40 40 0 1 0 80 0 a40 40 0 1 0 -80 0 Z"/>
   </g>
 </svg>

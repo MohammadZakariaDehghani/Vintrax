@@ -1,6 +1,6 @@
-# Atlas Mobile
+# Vintrax Mobile
 
-An installable, mobile-first client of the Atlas platform. It adds no backend,
+An installable, mobile-first client of the Vintrax platform. It adds no backend,
 no database and no second authentication system — every screen calls the same
 API the web application calls.
 
@@ -12,9 +12,9 @@ bidder standing on a lot needs the current price, a countdown and a bid button
 without pinching, and a dealer photographing a trade-in needs the camera two
 taps from the home screen. Recorded as [D-019](./decision-log.md).
 
-What is emphatically *not* duplicated is behaviour. Session handling, token
+What is emphatically _not_ duplicated is behaviour. Session handling, token
 refresh, error mapping, the auction socket protocol and money formatting all
-come from `@atlas/client`, which both applications import.
+come from `@vintrax/client`, which both applications import.
 
 ```
 packages/client/     API client · session store · auction socket · formatting
@@ -26,20 +26,20 @@ packages/client/     API client · session store · auction socket · formatting
 
 Five destinations in the tab bar, everything else one tap from them.
 
-| Route | What it does |
-| --- | --- |
-| `/` | Search, quick actions, live auctions, recent inventory |
-| `/browse` | Inventory search, filter sheet, infinite scroll |
-| `/vehicles/[slug]` | Gallery, specifications, inspection report, message the seller |
-| `/auctions` | Live, upcoming and ended auctions |
-| `/auctions/[id]` | Live bidding room |
-| `/saved` | Favourited vehicles |
-| `/messages`, `/messages/[id]` | Buyer–seller conversations |
-| `/account` | Profile, email verification, dark mode, sign out |
-| `/account/bids`, `/account/orders` | Bid standings and purchases |
-| `/dealer/inventory` | Own listings and dealership analytics |
-| `/dealer/inventory/new` | Add a vehicle, photographed with the camera |
-| `/offline` | Served by the service worker when a navigation fails |
+| Route                              | What it does                                                   |
+| ---------------------------------- | -------------------------------------------------------------- |
+| `/`                                | Search, quick actions, live auctions, recent inventory         |
+| `/browse`                          | Inventory search, filter sheet, infinite scroll                |
+| `/vehicles/[slug]`                 | Gallery, specifications, inspection report, message the seller |
+| `/auctions`                        | Live, upcoming and ended auctions                              |
+| `/auctions/[id]`                   | Live bidding room                                              |
+| `/saved`                           | Favourited vehicles                                            |
+| `/messages`, `/messages/[id]`      | Buyer–seller conversations                                     |
+| `/account`                         | Profile, email verification, dark mode, sign out               |
+| `/account/bids`, `/account/orders` | Bid standings and purchases                                    |
+| `/dealer/inventory`                | Own listings and dealership analytics                          |
+| `/dealer/inventory/new`            | Add a vehicle, photographed with the camera                    |
+| `/offline`                         | Served by the service worker when a navigation fails           |
 
 ## Design constraints
 
@@ -97,12 +97,12 @@ worse than a failure the user saw.
 No host, port or domain appears in the source. Two variables, read from the
 environment:
 
-| Variable | Purpose |
-| --- | --- |
+| Variable              | Purpose                                                                |
+| --------------------- | ---------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_URL` | REST base. Defaults to `/api`, proxied to the API by `next.config.mjs` |
-| `NEXT_PUBLIC_WS_URL` | WebSocket origin — the proxy cannot carry an upgrade handshake |
-| `API_ORIGIN` | Where the rewrite proxy forwards, server-side only |
-| `MOBILE_PORT` | Listening port, default 3002 |
+| `NEXT_PUBLIC_WS_URL`  | WebSocket origin — the proxy cannot carry an upgrade handshake         |
+| `API_ORIGIN`          | Where the rewrite proxy forwards, server-side only                     |
+| `MOBILE_PORT`         | Listening port, default 3002                                           |
 
 `NEXT_PUBLIC_*` values are compiled into the bundle, so changing one is a
 rebuild rather than a restart. `scripts/setup-ubuntu.sh` writes
@@ -122,7 +122,7 @@ pnpm dev:mobile      # API on :3001, mobile on :3002
 pnpm dev:all         # API, web and mobile together
 ```
 
-In production it is a third service on its own port — `atlas-mobile` in
+In production it is a third service on its own port — `vintrax-mobile` in
 `docker-compose.yml`, a systemd unit from the setup script, or
 `infrastructure/kubernetes/mobile-deployment.yaml` behind its own host.
 

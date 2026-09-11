@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import type { Permission } from '@atlas/shared';
+import type { Permission } from '@vintrax/shared';
 import { useAuthLoading, useUser } from '@/store/session';
 import { Spinner, StateMessage, Button } from '@/components/ui';
 

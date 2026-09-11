@@ -35,7 +35,7 @@ export default function HomePage() {
         className="bg-primary px-4 pb-5 pt-4 text-primary-foreground"
         style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
       >
-        <p className="text-sm opacity-90">{user ? `Hello, ${user.firstName}` : 'Atlas'}</p>
+        <p className="text-sm opacity-90">{user ? `Hello, ${user.firstName}` : 'Vintrax'}</p>
         <h1 className="mb-3 text-xl font-semibold">Find your next vehicle</h1>
 
         <form

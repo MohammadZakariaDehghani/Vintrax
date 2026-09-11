@@ -1,6 +1,13 @@
 'use client';
 
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,8 +40,7 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   loading?: boolean;
 }
 
@@ -58,7 +64,10 @@ Button.displayName = 'Button';
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('rounded-lg border border-border bg-card text-card-foreground shadow-sm', className)}
+      className={cn(
+        'rounded-lg border border-border bg-card text-card-foreground shadow-sm',
+        className,
+      )}
       {...props}
     />
   );
@@ -78,10 +87,18 @@ export function CardTitle({
   as: Tag = 'h3',
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement> & { as?: 'h1' | 'h2' | 'h3' | 'h4' }) {
-  return <Tag className={cn('text-lg font-semibold leading-tight tracking-tight', className)} {...props} />;
+  return (
+    <Tag
+      className={cn('text-lg font-semibold leading-tight tracking-tight', className)}
+      {...props}
+    />
+  );
 }
 
-export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+export function CardDescription({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLParagraphElement>) {
   return <p className={cn('text-sm text-muted-foreground', className)} {...props} />;
 }
 
@@ -114,8 +131,7 @@ const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof badgeVariants> {}
+  extends React.HTMLAttributes<HTMLSpanElement>, VariantProps<typeof badgeVariants> {}
 
 export function Badge({ className, variant, ...props }: BadgeProps) {
   return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
@@ -139,20 +155,21 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 );
 Input.displayName = 'Input';
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className, ...props }, ref) => (
-    <textarea
-      ref={ref}
-      className={cn(
-        'flex min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
-        'placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
-        'aria-[invalid=true]:border-destructive',
-        className,
-      )}
-      {...props}
-    />
-  ),
-);
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className, ...props }, ref) => (
+  <textarea
+    ref={ref}
+    className={cn(
+      'flex min-h-[110px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
+      'placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
+      'aria-[invalid=true]:border-destructive',
+      className,
+    )}
+    {...props}
+  />
+));
 Textarea.displayName = 'Textarea';
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
@@ -229,9 +246,7 @@ export function EmptyState({
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
       {icon ? <div className="text-muted-foreground">{icon}</div> : null}
       <h3 className="text-lg font-semibold">{title}</h3>
-      {description ? (
-        <p className="max-w-md text-sm text-muted-foreground">{description}</p>
-      ) : null}
+      {description ? <p className="max-w-md text-sm text-muted-foreground">{description}</p> : null}
       {action}
     </div>
   );

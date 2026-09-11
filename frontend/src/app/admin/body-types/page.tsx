@@ -8,7 +8,7 @@ import {
   BODY_TYPE_PLURAL_LABELS,
   type BodyType,
   type BodyTypeImage,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { Button, Card, CardContent, ErrorAlert, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
@@ -70,11 +70,17 @@ function BodyTypeImages() {
   function choose(bodyType: BodyType, file: File | undefined) {
     if (!file) return;
     if (!ACCEPTED.includes(file.type)) {
-      setFailure(new Error(`${file.name} is a ${file.type || 'unknown type'}. Use JPEG, PNG, WebP or AVIF.`));
+      setFailure(
+        new Error(`${file.name} is a ${file.type || 'unknown type'}. Use JPEG, PNG, WebP or AVIF.`),
+      );
       return;
     }
     if (file.size > MAX_BYTES) {
-      setFailure(new Error(`${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 10 MB.`));
+      setFailure(
+        new Error(
+          `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 10 MB.`,
+        ),
+      );
       return;
     }
     setFailure(null);

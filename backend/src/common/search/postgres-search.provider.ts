@@ -1,11 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { SearchVehiclesQuery, VehicleSearchResponse } from '@atlas/shared';
+import type { SearchVehiclesQuery, VehicleSearchResponse } from '@vintrax/shared';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  toVehicleSummary,
-  vehicleSummarySelect,
-} from '../../modules/vehicles/vehicles.mapper';
+import { toVehicleSummary, vehicleSummarySelect } from '../../modules/vehicles/vehicles.mapper';
 import type { SearchProvider } from './search.types';
 
 /**

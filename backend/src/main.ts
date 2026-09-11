@@ -17,7 +17,13 @@ import { parseCorsOrigins, type Env } from './config/env';
  * `documents/` is deliberately not here, and nothing should be added without
  * asking whether every anonymous visitor may read it.
  */
-const PUBLIC_UPLOAD_FOLDERS = ['vehicles', 'inspections', 'seed', 'body-types', 'articles'] as const;
+const PUBLIC_UPLOAD_FOLDERS = [
+  'vehicles',
+  'inspections',
+  'seed',
+  'body-types',
+  'articles',
+] as const;
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -74,10 +80,10 @@ async function bootstrap(): Promise<void> {
 
   if (nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('Atlas Marketplace API')
+      .setTitle('Vintrax Marketplace API')
       .setDescription(
-        'REST and WebSocket API for the Atlas automotive marketplace and auction platform. ' +
-          'Request and response shapes are defined as Zod schemas in the @atlas/shared package, ' +
+        'REST and WebSocket API for the Vintrax automotive marketplace and auction platform. ' +
+          'Request and response shapes are defined as Zod schemas in the @vintrax/shared package, ' +
           'which the frontend validates against too.',
       )
       .setVersion('1.0.0')
@@ -97,7 +103,7 @@ async function bootstrap(): Promise<void> {
   await app.listen(port, '0.0.0.0');
 
   const logger = new Logger('Bootstrap');
-  logger.log(`Atlas API listening on http://localhost:${port}/api`);
+  logger.log(`Vintrax API listening on http://localhost:${port}/api`);
   logger.log(`WebSocket namespace: ws://localhost:${port}/auctions`);
   if (nodeEnv !== 'production') {
     logger.log(`API documentation at http://localhost:${port}/api/docs`);

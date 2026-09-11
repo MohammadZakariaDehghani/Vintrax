@@ -7,8 +7,8 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query';
-import type { Paginated, VehicleSummary } from '@atlas/shared';
-import { atlas, type PageQuery } from '@/lib/atlas';
+import type { Paginated, VehicleSummary } from '@vintrax/shared';
+import { vintrax, type PageQuery } from '@/lib/vintrax';
 import { withPage } from '@/lib/paging';
 
 /**
@@ -49,7 +49,7 @@ export function useVehicleSearch(apiQuery: string) {
   return useInfiniteQuery({
     queryKey: keys.vehicleSearch(apiQuery),
     initialPageParam: 1,
-    queryFn: ({ pageParam }) => atlas.vehicles.search(withPage(apiQuery, pageParam)),
+    queryFn: ({ pageParam }) => vintrax.vehicles.search(withPage(apiQuery, pageParam)),
     getNextPageParam: nextPageParam,
   });
 }
@@ -57,7 +57,7 @@ export function useVehicleSearch(apiQuery: string) {
 export function useVehicle(idOrSlug: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: keys.vehicle(idOrSlug),
-    queryFn: () => atlas.vehicles.byIdOrSlug(idOrSlug),
+    queryFn: () => vintrax.vehicles.byIdOrSlug(idOrSlug),
     enabled: options?.enabled ?? Boolean(idOrSlug),
   });
 }
@@ -65,7 +65,7 @@ export function useVehicle(idOrSlug: string, options?: { enabled?: boolean }) {
 export function useMyVehicles(params: PageQuery = {}) {
   return useQuery({
     queryKey: [...keys.myVehicles(), params] as const,
-    queryFn: () => atlas.vehicles.mine({ pageSize: PAGE_SIZE, ...params }),
+    queryFn: () => vintrax.vehicles.mine({ pageSize: PAGE_SIZE, ...params }),
   });
 }
 
@@ -74,7 +74,7 @@ export function useAuctions(status: string) {
     queryKey: keys.auctionList(status),
     initialPageParam: 1,
     queryFn: ({ pageParam }) =>
-      atlas.auctions.list({ status, page: pageParam, pageSize: PAGE_SIZE }),
+      vintrax.auctions.list({ status, page: pageParam, pageSize: PAGE_SIZE }),
     getNextPageParam: nextPageParam,
     // Auction lists carry prices and end times, so they go stale fast. The
     // detail page holds a socket; a list refresh is the cheaper equivalent.
@@ -85,7 +85,7 @@ export function useAuctions(status: string) {
 export function useAuction(id: string) {
   return useQuery({
     queryKey: keys.auction(id),
-    queryFn: () => atlas.auctions.byId(id),
+    queryFn: () => vintrax.auctions.byId(id),
     enabled: Boolean(id),
     staleTime: 0,
   });
@@ -94,7 +94,7 @@ export function useAuction(id: string) {
 export function useAuctionBids(id: string) {
   return useQuery({
     queryKey: keys.auctionBids(id),
-    queryFn: () => atlas.auctions.bids(id, { pageSize: 20 }),
+    queryFn: () => vintrax.auctions.bids(id, { pageSize: 20 }),
     enabled: Boolean(id),
     staleTime: 0,
   });
@@ -103,14 +103,14 @@ export function useAuctionBids(id: string) {
 export function useMyBids() {
   return useQuery({
     queryKey: keys.myBids(),
-    queryFn: () => atlas.auctions.myBids({ pageSize: 50 }),
+    queryFn: () => vintrax.auctions.myBids({ pageSize: 50 }),
   });
 }
 
 export function useFavourites(options?: Partial<UseQueryOptions<Paginated<VehicleSummary>>>) {
   return useQuery({
     queryKey: keys.favourites,
-    queryFn: () => atlas.favourites.list({ pageSize: 50 }),
+    queryFn: () => vintrax.favourites.list({ pageSize: 50 }),
     ...options,
   });
 }
@@ -125,7 +125,7 @@ export function useToggleFavourite() {
 
   return useMutation({
     mutationFn: ({ vehicleId, favourited }: { vehicleId: string; favourited: boolean }) =>
-      favourited ? atlas.favourites.remove(vehicleId) : atlas.favourites.add(vehicleId),
+      favourited ? vintrax.favourites.remove(vehicleId) : vintrax.favourites.add(vehicleId),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: keys.favourites });
       void queryClient.invalidateQueries({ queryKey: keys.vehicles });
@@ -136,14 +136,14 @@ export function useToggleFavourite() {
 export function useConversations() {
   return useQuery({
     queryKey: keys.conversations,
-    queryFn: () => atlas.conversations.list({ pageSize: 30 }),
+    queryFn: () => vintrax.conversations.list({ pageSize: 30 }),
   });
 }
 
 export function useConversation(id: string) {
   return useQuery({
     queryKey: keys.conversation(id),
-    queryFn: () => atlas.conversations.byId(id),
+    queryFn: () => vintrax.conversations.byId(id),
     enabled: Boolean(id),
     staleTime: 10_000,
   });
@@ -152,21 +152,21 @@ export function useConversation(id: string) {
 export function useOrders() {
   return useQuery({
     queryKey: keys.orders,
-    queryFn: () => atlas.orders.list({ pageSize: 30 }),
+    queryFn: () => vintrax.orders.list({ pageSize: 30 }),
   });
 }
 
 export function useNotifications() {
   return useQuery({
     queryKey: keys.notifications,
-    queryFn: () => atlas.notifications.list({ pageSize: 20 }),
+    queryFn: () => vintrax.notifications.list({ pageSize: 20 }),
   });
 }
 
 export function useDealerAnalytics(enabled: boolean) {
   return useQuery({
     queryKey: keys.dealerAnalytics,
-    queryFn: () => atlas.dealers.myAnalytics(),
+    queryFn: () => vintrax.dealers.myAnalytics(),
     enabled,
   });
 }

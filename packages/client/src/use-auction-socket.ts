@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import type { AuctionEvent } from '@atlas/shared';
+import type { AuctionEvent } from '@vintrax/shared';
 import { tokenStore } from './api-client';
-import { atlasClientConfig } from './config';
+import { vintraxClientConfig } from './config';
 
 /**
  * Subscribes to live updates for one auction.
@@ -31,7 +31,7 @@ export function useAuctionSocket(
   useEffect(() => {
     if (!auctionId) return;
 
-    const socket: Socket = io(`${atlasClientConfig().socketUrl}/auctions`, {
+    const socket: Socket = io(`${vintraxClientConfig().socketUrl}/auctions`, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       // Authentication is optional — anonymous visitors may watch an auction.

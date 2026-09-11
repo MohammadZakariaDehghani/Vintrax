@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Camera, Gavel, Heart, MapPin, ShieldCheck } from 'lucide-react';
-import type { VehicleSummary } from '@atlas/shared';
+import type { VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
   PAYMENT_ESTIMATE,
@@ -151,8 +151,7 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
             </p>
           ) : null}
           <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
-            {PAYMENT_ESTIMATE.termMonths} mo at {PAYMENT_ESTIMATE.aprPercent}%, taxes and fees
-            extra
+            {PAYMENT_ESTIMATE.termMonths} mo at {PAYMENT_ESTIMATE.aprPercent}%, taxes and fees extra
           </p>
         </div>
 

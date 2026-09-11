@@ -1,0 +1,121 @@
+# Publish container images to the GitHub Container Registry.
+#
+#   GitHub -> GHCR -> production server: `docker compose pull` -> `up -d`
+#
+# The production server never builds. It pulls the exact image this workflow
+# published, which is the image CI verified — the artefact that was tested is
+# the artefact that runs.
+#
+# Authentication is GITHUB_TOKEN with `packages: write`, scoped to this run and
+# expiring with it. A personal access token in repository secrets would be a
+# long-lived registry credential with nothing rotating it, so there is not one.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Not cancel-in-progress: cancelling a half-finished push leaves some of the
+  # three images published at a tag and the rest not, which is a deployment
+  # that cannot be reasoned about.
+  cancel-in-progress: false
+
+jobs:
+  # The same suite the pull request ran. Nothing is published without it.
+  verify:
+    uses: ./.github/workflows/verify.yml
+
+  publish:
+    name: Publish ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    needs: verify
+
+    permissions:
+      contents: read
+      # The only elevated permission this workflow has, and the reason it does
+      # not need a stored registry credential.
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: api, dockerfile: infrastructure/docker/backend.Dockerfile }
+          - { name: web, dockerfile: infrastructure/docker/frontend.Dockerfile }
+          - { name: mobile, dockerfile: infrastructure/docker/mobile.Dockerfile }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR rejects an uppercase path, and a GitHub owner may contain capitals.
+      # Derived rather than hard-coded so a fork publishes under its own owner.
+      - name: Resolve the image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/vintrax-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # sha- is the tag deployments pin and the tag rollback moves between. It
+      # is immutable: it names one commit and is never reused, which is exactly
+      # what `latest` is not. `latest` is published as a convenience for
+      # "whatever main is now" and must never be what a deployment pins, or
+      # there is nothing to roll back to.
+      - name: Derive tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          # NEXT_PUBLIC_* values and the rewrite destination are compiled into
+          # the bundle, so they are fixed here and cannot be changed by the
+          # running container. NEXT_PUBLIC_WS_URL is a repository variable
+          # because WebSockets cannot go through Next's rewrite proxy and must
+          # address the API's public origin directly — set it under
+          # Settings -> Secrets and variables -> Actions -> Variables. It is a
+          # public URL, not a secret; no secret is ever passed to a build.
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api
+            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL }}
+            API_ORIGIN=http://api:3001
+
+      - name: Summarise what was published
+        run: |
+          {
+            echo "### ${{ steps.image.outputs.name }}"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo
+            echo "Deploy this build:"
+            echo '```bash'
+            echo "./scripts/deploy.sh sha-$(git rev-parse --short HEAD)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

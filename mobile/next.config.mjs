@@ -1,11 +1,22 @@
-/** @type {import('next').NextConfig} */
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
 const API_ORIGIN = process.env.API_ORIGIN ?? 'http://127.0.0.1:3001';
 
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Traced production server: the runtime image gets server.js plus only the
+  // dependencies actually reached, instead of the whole workspace's
+  // node_modules. Tracing has to start at the workspace root or it follows
+  // pnpm's symlinks out of the app and misses the shared packages.
+  output: 'standalone',
+  outputFileTracingRoot: path.join(here, '..'),
   // Workspace packages are TypeScript source, not build artefacts, so Next
   // compiles them like first-party code.
-  transpilePackages: ['@atlas/shared', '@atlas/client'],
+  transpilePackages: ['@vintrax/shared', '@vintrax/client'],
   eslint: { ignoreDuringBuilds: false },
   typescript: { ignoreBuildErrors: false },
   images: {

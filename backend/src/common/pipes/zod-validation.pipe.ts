@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 import type { ZodTypeAny, z } from 'zod';
 
 /**
- * Validates a request body or query against a schema from `@atlas/shared`, so the
+ * Validates a request body or query against a schema from `@vintrax/shared`, so the
  * API and the web app enforce exactly the same rules.
  *
  * Failures become a 400 whose `details` map field paths to messages, which the

@@ -9,10 +9,19 @@ import type {
   Paginated,
   SellerSettableListingStatus,
   VehicleSummary,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatKm, formatPrice } from '@/lib/utils';
-import { Badge, Button, Card, CardContent, EmptyState, ErrorAlert, Pagination, Spinner } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  EmptyState,
+  ErrorAlert,
+  Pagination,
+  Spinner,
+} from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 
@@ -29,8 +38,12 @@ const TABS: Array<{ label: string; status?: ListingStatus }> = [
 ];
 
 const STATUS_VARIANT = {
-  DRAFT: 'outline', PENDING_REVIEW: 'warning', ACTIVE: 'success',
-  IN_AUCTION: 'accent', SOLD: 'default', ARCHIVED: 'outline',
+  DRAFT: 'outline',
+  PENDING_REVIEW: 'warning',
+  ACTIVE: 'success',
+  IN_AUCTION: 'accent',
+  SOLD: 'default',
+  ARCHIVED: 'outline',
 } as const;
 
 function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
@@ -81,11 +94,17 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
 
           <div className="mt-3 flex flex-wrap gap-2">
             <Link href={`/dealer/inventory/${vehicle.id}`}>
-              <Button variant="outline" size="sm">Edit</Button>
+              <Button variant="outline" size="sm">
+                Edit
+              </Button>
             </Link>
 
             {vehicle.status === 'DRAFT' ? (
-              <Button size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('PENDING_REVIEW')}>
+              <Button
+                size="sm"
+                loading={changeStatus.isPending}
+                onClick={() => changeStatus.mutate('PENDING_REVIEW')}
+              >
                 Submit for review
               </Button>
             ) : null}
@@ -95,7 +114,12 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
                 <span className="self-center text-sm text-muted-foreground">
                   Awaiting moderation
                 </span>
-                <Button variant="ghost" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={changeStatus.isPending}
+                  onClick={() => changeStatus.mutate('DRAFT')}
+                >
                   Withdraw
                 </Button>
               </>
@@ -104,22 +128,39 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
             {vehicle.status === 'ACTIVE' ? (
               <>
                 <Link href={`/auctions/new?vehicleId=${vehicle.id}`}>
-                  <Button variant="accent" size="sm">Run auction</Button>
+                  <Button variant="accent" size="sm">
+                    Run auction
+                  </Button>
                 </Link>
                 {/* Cars get sold off the platform. Marking it sold here takes
                     it off the market without pretending the sale went through
-                    Atlas. */}
-                <Button variant="outline" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('SOLD')}>
+                    Vintrax. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={changeStatus.isPending}
+                  onClick={() => changeStatus.mutate('SOLD')}
+                >
                   Mark as sold
                 </Button>
-                <Button variant="ghost" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  loading={changeStatus.isPending}
+                  onClick={() => changeStatus.mutate('DRAFT')}
+                >
                   Unpublish
                 </Button>
               </>
             ) : null}
 
             {vehicle.status === 'ARCHIVED' ? (
-              <Button variant="outline" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
+              <Button
+                variant="outline"
+                size="sm"
+                loading={changeStatus.isPending}
+                onClick={() => changeStatus.mutate('DRAFT')}
+              >
                 Restore to draft
               </Button>
             ) : null}
@@ -127,7 +168,12 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
             {vehicle.status === 'SOLD' ? (
               // Refused by the API when a real order exists, which is the
               // case that must not be undone by relabelling.
-              <Button variant="ghost" size="sm" loading={changeStatus.isPending} onClick={() => changeStatus.mutate('DRAFT')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                loading={changeStatus.isPending}
+                onClick={() => changeStatus.mutate('DRAFT')}
+              >
                 Reopen as draft
               </Button>
             ) : null}
@@ -135,13 +181,22 @@ function InventoryRow({ vehicle }: { vehicle: VehicleSummary }) {
             {confirming ? (
               <>
                 <span className="self-center text-sm">Delete permanently?</span>
-                <Button variant="destructive" size="sm" loading={remove.isPending} onClick={() => remove.mutate()}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  loading={remove.isPending}
+                  onClick={() => remove.mutate()}
+                >
                   Yes, delete
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>Cancel</Button>
+                <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
+                  Cancel
+                </Button>
               </>
             ) : (
-              <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>Delete</Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>
+                Delete
+              </Button>
             )}
           </div>
         </div>
@@ -170,7 +225,10 @@ function Inventory() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
         <Link href="/dealer/add-vehicle">
-          <Button><Plus className="h-4 w-4" aria-hidden />Add vehicle</Button>
+          <Button>
+            <Plus className="h-4 w-4" aria-hidden />
+            Add vehicle
+          </Button>
         </Link>
       </div>
 
@@ -181,9 +239,14 @@ function Inventory() {
             type="button"
             role="tab"
             aria-selected={index === tab}
-            onClick={() => { setTab(index); setPage(1); }}
+            onClick={() => {
+              setTab(index);
+              setPage(1);
+            }}
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-              index === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              index === tab
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             {entry.label}
@@ -198,7 +261,9 @@ function Inventory() {
       ) : data && data.items.length > 0 ? (
         <>
           <div className="flex flex-col gap-3">
-            {data.items.map((vehicle) => <InventoryRow key={vehicle.id} vehicle={vehicle} />)}
+            {data.items.map((vehicle) => (
+              <InventoryRow key={vehicle.id} vehicle={vehicle} />
+            ))}
           </div>
           <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />
         </>
@@ -207,7 +272,11 @@ function Inventory() {
           <EmptyState
             title="Nothing here yet"
             description="Vehicles you create appear here, including drafts that are not yet public."
-            action={<Link href="/dealer/add-vehicle"><Button>Create your first listing</Button></Link>}
+            action={
+              <Link href="/dealer/add-vehicle">
+                <Button>Create your first listing</Button>
+              </Link>
+            }
           />
         </Card>
       )}
@@ -216,5 +285,9 @@ function Inventory() {
 }
 
 export default function InventoryPage() {
-  return <RequireAuth sellersOnly><Inventory /></RequireAuth>;
+  return (
+    <RequireAuth sellersOnly>
+      <Inventory />
+    </RequireAuth>
+  );
 }

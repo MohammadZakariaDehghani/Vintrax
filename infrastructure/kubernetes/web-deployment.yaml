@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: atlas-web
-  namespace: atlas
-  labels: { app: atlas-web }
+  name: vintrax-web
+  namespace: vintrax
+  labels: { app: vintrax-web }
 spec:
   replicas: 2
   selector:
-    matchLabels: { app: atlas-web }
+    matchLabels: { app: vintrax-web }
   template:
     metadata:
-      labels: { app: atlas-web }
+      labels: { app: vintrax-web }
     spec:
       containers:
         - name: web
-          image: ghcr.io/atlas/web:latest
+          image: ghcr.io/OWNER/vintrax-web:sha-REPLACE_ME
           ports:
             - containerPort: 3000
           env:
             - name: NODE_ENV
               value: production
             - name: API_ORIGIN
-              value: http://atlas-api:3001
+              value: http://vintrax-api:3001
           resources:
             requests: { cpu: 100m, memory: 256Mi }
             limits: { cpu: 500m, memory: 512Mi }
@@ -37,10 +37,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: atlas-web
-  namespace: atlas
+  name: vintrax-web
+  namespace: vintrax
 spec:
-  selector: { app: atlas-web }
+  selector: { app: vintrax-web }
   ports:
     - port: 3000
       targetPort: 3000

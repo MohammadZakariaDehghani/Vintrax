@@ -12,7 +12,7 @@ import {
   PROVINCE_LABELS,
   type BodyType,
   type VehicleSearchResponse,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatNumber } from '@/lib/utils';
 import { BodyTypeIcon } from '@/components/body-type-icon';
@@ -23,8 +23,8 @@ import { useT } from '@/i18n/provider';
  * The tabs across the top.
  *
  * The site this pattern comes from uses them for vehicle categories — boats,
- * RVs, snowmobiles. Atlas sells cars, so those would be tabs leading nowhere.
- * These are the four cuts Atlas actually has, and each one is a filter the API
+ * RVs, snowmobiles. Vintrax sells cars, so those would be tabs leading nowhere.
+ * These are the four cuts Vintrax actually has, and each one is a filter the API
  * already supports.
  */
 const TABS = [

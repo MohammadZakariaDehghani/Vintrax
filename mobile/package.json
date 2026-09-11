@@ -1,8 +1,8 @@
 {
-  "name": "@atlas/mobile",
+  "name": "@vintrax/mobile",
   "version": "1.0.0",
   "private": true,
-  "description": "Atlas Mobile — installable mobile-first client for the Atlas marketplace and auction platform",
+  "description": "Vintrax Mobile — installable mobile-first client for the Vintrax marketplace and auction platform",
   "scripts": {
     "dev": "next dev -p 3002",
     "build": "next build",
@@ -12,8 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@atlas/client": "workspace:*",
-    "@atlas/shared": "workspace:*",
+    "@vintrax/client": "workspace:*",
+    "@vintrax/shared": "workspace:*",
     "@tanstack/react-query": "^5.66.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.474.0",

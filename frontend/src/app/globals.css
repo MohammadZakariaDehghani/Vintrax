@@ -16,28 +16,28 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 13%;
 
-    /* Brand navy — the wordmark's colour, and what carries every action. */
-    --primary: 222 62% 22%;
+    /* Brand green — the wordmark's colour, and what carries every action. */
+    --primary: 148 78% 22%;
     --primary-foreground: 0 0% 100%;
 
     /* The masthead bar.
        Its own token rather than `--primary`, because a brand bar must not
-       invert with the theme: `--primary` becomes a pale blue in dark mode,
+       invert with the theme: `--primary` becomes a pale green in dark mode,
        which is right for a button on a dark page and wrong for the band that
        carries the wordmark. These two values are close in both themes on
-       purpose — the bar is navy at midnight the same way a red bar stays red. */
-    --header: 222 62% 20%;
+       purpose — the bar is carbon at noon the same way a red bar stays red. */
+    --header: 156 22% 9%;
     --header-foreground: 0 0% 100%;
     /* Secondary text and idle triggers on the bar. */
-    --header-muted: 214 40% 82%;
+    --header-muted: 150 12% 76%;
     /* Hairlines and the divider before the account controls. */
-    --header-border: 222 40% 34%;
+    --header-border: 152 14% 24%;
 
     --secondary: 218 24% 95%;
     --secondary-foreground: 222 47% 18%;
 
     --muted: 218 24% 96%;
-    /* The lockup's third colour: the grey of "Canada's Auto Marketplace". */
+    /* The lockup's third colour: the grey of the descriptor under the wordmark. */
     --muted-foreground: 218 11% 46%;
 
     /* Brand red. Reserved for brand and live-auction moments — see the note
@@ -60,7 +60,7 @@
 
     --border: 218 20% 89%;
     --input: 218 20% 84%;
-    --ring: 222 62% 34%;
+    --ring: 148 62% 32%;
 
     --radius: 0.5rem;
   }
@@ -75,15 +75,15 @@
     --popover: 222 38% 12%;
     --popover-foreground: 214 28% 93%;
 
-    /* Lifted from the near-black brand navy, which fails contrast on a dark
+    /* Lifted from the near-black brand green, which fails contrast on a dark
        surface. */
-    --primary: 217 72% 66%;
-    --primary-foreground: 222 42% 8%;
+    --primary: 145 62% 58%;
+    --primary-foreground: 156 30% 7%;
 
-    --header: 222 52% 13%;
+    --header: 156 24% 7%;
     --header-foreground: 0 0% 100%;
-    --header-muted: 214 26% 76%;
-    --header-border: 222 32% 28%;
+    --header-muted: 150 10% 72%;
+    --header-border: 152 14% 20%;
 
     --secondary: 222 26% 18%;
     --secondary-foreground: 214 28% 93%;
@@ -105,7 +105,7 @@
 
     --border: 222 22% 22%;
     --input: 222 22% 26%;
-    --ring: 217 72% 60%;
+    --ring: 145 58% 52%;
   }
 
   * {

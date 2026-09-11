@@ -13,19 +13,19 @@
     --card: 0 0% 100%;
     --card-foreground: 222 47% 13%;
 
-    /* Brand navy — the wordmark's colour, and what carries every action. */
-    --primary: 222 62% 22%;
+    /* Brand green — the wordmark's colour, and what carries every action. */
+    --primary: 148 78% 22%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 218 24% 95%;
     --secondary-foreground: 222 47% 18%;
 
     --muted: 218 24% 96%;
-    /* The lockup's third colour: the grey of "Canada's Auto Marketplace". */
+    /* The lockup's third colour: the grey of the descriptor under the wordmark. */
     --muted-foreground: 218 11% 46%;
 
     /* Brand red, reserved for brand and live-auction moments. Actions use
-       navy, so red never competes with an error message on the same screen. */
+       green, so red never competes with an error message on the same screen. */
     --accent: 358 74% 49%;
     --accent-foreground: 0 0% 100%;
 
@@ -42,7 +42,7 @@
 
     --border: 218 20% 89%;
     --input: 218 20% 84%;
-    --ring: 222 62% 34%;
+    --ring: 148 62% 32%;
 
     --radius: 0.75rem;
   }
@@ -54,10 +54,10 @@
     --card: 222 38% 12%;
     --card-foreground: 214 28% 93%;
 
-    /* Lifted from the near-black brand navy, which fails contrast against a
+    /* Lifted from the near-black brand green, which fails contrast against a
        dark surface. */
-    --primary: 217 72% 66%;
-    --primary-foreground: 222 42% 8%;
+    --primary: 145 62% 58%;
+    --primary-foreground: 156 30% 7%;
 
     --secondary: 222 26% 18%;
     --secondary-foreground: 214 28% 93%;
@@ -79,7 +79,7 @@
 
     --border: 222 22% 22%;
     --input: 222 22% 26%;
-    --ring: 217 72% 60%;
+    --ring: 145 58% 52%;
   }
 
   * {

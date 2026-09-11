@@ -5,7 +5,16 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth-store';
-import { Button, Card, CardContent, CardHeader, CardTitle, ErrorAlert, Field, Input } from '@/components/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  ErrorAlert,
+  Field,
+  Input,
+} from '@/components/ui';
 import { Logo } from '@/components/logo';
 import { useT } from '@/i18n/provider';
 
@@ -66,7 +75,11 @@ function LoginForm() {
                 />
               </Field>
 
-              <Field label={t.auth.password} htmlFor="password" error={apiError?.fieldError('password')}>
+              <Field
+                label={t.auth.password}
+                htmlFor="password"
+                error={apiError?.fieldError('password')}
+              >
                 <Input
                   id="password"
                   type="password"

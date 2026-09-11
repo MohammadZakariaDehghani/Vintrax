@@ -1,23 +1,20 @@
-import { BODY_TYPES, ROLE_PERMISSIONS, bodyTypeImageSchema } from '@atlas/shared';
+import { BODY_TYPES, ROLE_PERMISSIONS, bodyTypeImageSchema } from '@vintrax/shared';
 
 /**
  * The body-type photographs are operator content on a public page.
  *
  * Two things have to hold. Only an operator may set one — a dealer with a
  * marketing idea must not be able to put a picture on the home page. And the
- * picture must come from Atlas's own storage: an arbitrary URL here would put
+ * picture must come from Vintrax's own storage: an arbitrary URL here would put
  * a request to a third-party server into every visitor's first paint, leaking
  * the referer and handing that server an outage it can pass on. These tests
  * pin both, plus the shape the write endpoint accepts.
  */
 
 describe('who may set a body-type photograph', () => {
-  it.each(['BUYER', 'SELLER', 'DEALER', 'INSPECTOR'] as const)(
-    'refuses %s',
-    (role) => {
-      expect(ROLE_PERMISSIONS[role]).not.toContain('content:manage');
-    },
-  );
+  it.each(['BUYER', 'SELLER', 'DEALER', 'INSPECTOR'] as const)('refuses %s', (role) => {
+    expect(ROLE_PERMISSIONS[role]).not.toContain('content:manage');
+  });
 
   it.each(['ADMIN', 'SUPER_ADMIN'] as const)('allows %s', (role) => {
     expect(ROLE_PERMISSIONS[role]).toContain('content:manage');
@@ -59,7 +56,7 @@ describe('the write payload', () => {
 
 describe('the shortcut row', () => {
   it('has a plural label for every body type', async () => {
-    const { BODY_TYPE_PLURAL_LABELS } = await import('@atlas/shared');
+    const { BODY_TYPE_PLURAL_LABELS } = await import('@vintrax/shared');
 
     for (const bodyType of BODY_TYPES) {
       expect(BODY_TYPE_PLURAL_LABELS[bodyType]).toBeTruthy();

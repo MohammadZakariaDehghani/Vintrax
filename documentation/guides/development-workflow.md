@@ -24,7 +24,7 @@ git checkout -B <branch-name> origin/main
 
 ## Commits
 
-Write the *why*, not a restatement of the diff. The diff already says what changed; the message
+Write the _why_, not a restatement of the diff. The diff already says what changed; the message
 should explain the reasoning a reviewer cannot reconstruct six months later.
 
 ```
@@ -75,12 +75,12 @@ CI runs against a fresh database, which catches things a long-lived development 
 most often a migration that only applies cleanly on top of existing state.
 
 ```bash
-createdb -O atlas atlas_ci
-export DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas_ci?schema=public"
+createdb -O vintrax vintrax_ci
+export DATABASE_URL="postgresql://vintrax:vintrax@localhost:5432/vintrax_ci?schema=public"
 
 pnpm install --frozen-lockfile
-pnpm --filter @atlas/api exec prisma generate
-pnpm --filter @atlas/api exec prisma migrate deploy
+pnpm --filter @vintrax/api exec prisma generate
+pnpm --filter @vintrax/api exec prisma migrate deploy
 pnpm typecheck && pnpm test && pnpm build
 pnpm db:seed && pnpm db:seed
 ```
@@ -90,7 +90,7 @@ pnpm db:seed && pnpm db:seed
 1. Edit `apps/api/prisma/schema.prisma`.
 2. Generate a migration:
    ```bash
-   pnpm --filter @atlas/api exec prisma migrate dev --name describe_the_change
+   pnpm --filter @vintrax/api exec prisma migrate dev --name describe_the_change
    ```
 3. **Read the generated SQL** in `apps/api/prisma/migrations/`. Prisma occasionally produces a
    destructive plan — a column rename can become drop-and-add, silently discarding data.
@@ -118,11 +118,11 @@ This is the point of the package, but it means the order of operations matters.
 
 For a **domain enum**, three files must change together:
 
-| File | Change |
-| --- | --- |
+| File                            | Change                  |
+| ------------------------------- | ----------------------- |
 | `packages/shared/src/domain.ts` | The exported value list |
-| `apps/api/prisma/schema.prisma` | The Prisma enum |
-| `apps/api/prisma/migrations/…` | The generated migration |
+| `apps/api/prisma/schema.prisma` | The Prisma enum         |
+| `apps/api/prisma/migrations/…`  | The generated migration |
 
 Getting these out of sync produces a confusing failure: the API accepts a value that Prisma then
 rejects at write time.
@@ -140,7 +140,7 @@ pnpm shared:build   # then typecheck both apps
 pnpm typecheck
 ```
 
-The web app aliases `@atlas/shared` to its TypeScript source, so it picks changes up immediately.
+The web app aliases `@vintrax/shared` to its TypeScript source, so it picks changes up immediately.
 The API compiles against `dist`, which is why the build step matters there.
 
 ## Adding an API endpoint
@@ -189,15 +189,15 @@ What reviewers should look for, roughly in priority order:
 4. **Query cost.** Any N+1 introduced? Any unindexed filter on a large table?
 5. **Contract sync.** If an enum changed, did all three places change?
 6. **Tests.** Is the branch logic covered, or only the happy path?
-7. **Comments.** Do they explain *why*, or restate *what*?
+7. **Comments.** Do they explain _why_, or restate _what_?
 
 ## Dependencies
 
 Add to the package that uses it, not the root:
 
 ```bash
-pnpm --filter @atlas/api add <package>
-pnpm --filter @atlas/web add -D <package>
+pnpm --filter @vintrax/api add <package>
+pnpm --filter @vintrax/web add -D <package>
 ```
 
 Commit the updated `pnpm-lock.yaml` — CI installs with `--frozen-lockfile` and fails if the lockfile

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Session state comes from `@atlas/client` — the same store, sign-in flow and
+ * Session state comes from `@vintrax/client` — the same store, sign-in flow and
  * token rotation the web application uses. Importing the local API client
  * module first configures it with this application's endpoints.
  */
@@ -14,4 +14,4 @@ export {
   useIsAdmin,
   useIsSeller,
   useUser,
-} from '@atlas/client';
+} from '@vintrax/client';

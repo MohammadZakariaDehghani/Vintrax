@@ -8,7 +8,7 @@ import {
   type VehicleSummary,
   type VerifyDealerInput,
   verifyDealerSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { z } from 'zod';
 import { Audit, CurrentUser, Public, RequirePermissions } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
@@ -47,7 +47,7 @@ export class DealersController {
   // Declared before ':slug' so the literal segment is not captured as a slug.
   @Get('analytics/me')
   @RequirePermissions('vehicle:write')
-  @ApiOperation({ summary: "Dashboard metrics for the calling seller" })
+  @ApiOperation({ summary: 'Dashboard metrics for the calling seller' })
   analytics(@CurrentUser() user: AuthUser): Promise<DealerAnalytics> {
     return this.dealers.analytics(user);
   }

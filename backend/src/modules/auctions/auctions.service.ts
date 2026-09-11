@@ -19,7 +19,7 @@ import {
   type Paginated,
   type SearchAuctionsQuery,
   type UpdateAuctionInput,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { Prisma, type Auction, type Bid } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { QueueService, QUEUE_NAMES } from '../../common/queue/queue.service';
@@ -119,9 +119,7 @@ export class AuctionsService {
         input.reservePriceCad !== undefined ||
         input.buyNowPriceCad !== undefined;
       if (changesTerms) {
-        throw new BadRequestException(
-          'Auction terms cannot change once bidding has started',
-        );
+        throw new BadRequestException('Auction terms cannot change once bidding has started');
       }
     }
 
@@ -136,9 +134,7 @@ export class AuctionsService {
         ...(input.startingBidCad !== undefined
           ? { startingBidCad: input.startingBidCad, currentBidCad: input.startingBidCad }
           : {}),
-        ...(input.reservePriceCad !== undefined
-          ? { reservePriceCad: input.reservePriceCad }
-          : {}),
+        ...(input.reservePriceCad !== undefined ? { reservePriceCad: input.reservePriceCad } : {}),
         ...(input.buyNowPriceCad !== undefined ? { buyNowPriceCad: input.buyNowPriceCad } : {}),
         ...(input.startsAt !== undefined ? { startsAt: input.startsAt } : {}),
         ...(input.endsAt !== undefined ? { endsAt: input.endsAt } : {}),
@@ -259,8 +255,7 @@ export class AuctionsService {
       });
 
       const reserveMet =
-        auction.reservePriceCad === null ||
-        (topBid?.amountCad ?? 0) >= auction.reservePriceCad;
+        auction.reservePriceCad === null || (topBid?.amountCad ?? 0) >= auction.reservePriceCad;
       const hasWinner = Boolean(topBid) && reserveMet;
 
       await tx.auction.update({
@@ -383,9 +378,7 @@ export class AuctionsService {
             );
           }
           if (input.maxProxyAmountCad && input.maxProxyAmountCad < input.amountCad) {
-            throw new BadRequestException(
-              'Your maximum proxy amount cannot be below your bid',
-            );
+            throw new BadRequestException('Your maximum proxy amount cannot be below your bid');
           }
 
           // Previous leaders are marked outbid before the new bid lands.
@@ -657,7 +650,9 @@ export class AuctionsService {
 
   async search(query: SearchAuctionsQuery, viewer?: AuthUser): Promise<Paginated<AuctionSummary>> {
     const where: Prisma.AuctionWhereInput = {
-      ...(query.status ? { status: { in: query.status } } : { status: { in: ['SCHEDULED', 'LIVE'] } }),
+      ...(query.status
+        ? { status: { in: query.status } }
+        : { status: { in: ['SCHEDULED', 'LIVE'] } }),
       ...(query.make ? { vehicle: { make: { equals: query.make, mode: 'insensitive' } } } : {}),
       ...(query.province ? { vehicle: { province: query.province } } : {}),
       ...(query.participatingOnly && viewer ? { bids: { some: { bidderId: viewer.id } } } : {}),

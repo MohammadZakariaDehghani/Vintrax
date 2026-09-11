@@ -1,4 +1,4 @@
-import type { AuctionDetail } from '@atlas/shared';
+import type { AuctionDetail } from '@vintrax/shared';
 
 /**
  * The one-tap bid amounts offered above the keypad.
@@ -8,14 +8,20 @@ import type { AuctionDetail } from '@atlas/shared';
  * recomputes the minimum increment — that rule lives in the platform, and a
  * second copy on a phone would eventually disagree with it.
  */
-export function quickBidLadder(auction: Pick<AuctionDetail, 'currentBidCad' | 'minimumNextBidCad'>): number[] {
+export function quickBidLadder(
+  auction: Pick<AuctionDetail, 'currentBidCad' | 'minimumNextBidCad'>,
+): number[] {
   const step = auction.minimumNextBidCad - auction.currentBidCad;
 
   // A non-positive step would produce a ladder of identical or falling
   // amounts, every one of which the API would reject.
   if (step <= 0) return [auction.minimumNextBidCad];
 
-  return [auction.minimumNextBidCad, auction.minimumNextBidCad + step, auction.minimumNextBidCad + step * 4];
+  return [
+    auction.minimumNextBidCad,
+    auction.minimumNextBidCad + step,
+    auction.minimumNextBidCad + step * 4,
+  ];
 }
 
 /**

@@ -21,7 +21,7 @@ import {
   articleQuerySchema,
   articleSchema,
   updateArticleSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
 import { AuditService } from '../../common/audit/audit.service';
@@ -54,7 +54,9 @@ export class ArticlesController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Published posts, newest first' })
-  list(@Query(zodQuery(articleQuerySchema)) query: ArticleQuery): Promise<Paginated<ArticleSummary>> {
+  list(
+    @Query(zodQuery(articleQuerySchema)) query: ArticleQuery,
+  ): Promise<Paginated<ArticleSummary>> {
     return this.articles.list(query);
   }
 
@@ -82,7 +84,9 @@ export class AdminArticlesController {
   @Get()
   @RequirePermissions('content:manage')
   @ApiOperation({ summary: 'All posts including drafts, most recently edited first' })
-  list(@Query(zodQuery(articleQuerySchema)) query: ArticleQuery): Promise<Paginated<ArticleSummary>> {
+  list(
+    @Query(zodQuery(articleQuerySchema)) query: ArticleQuery,
+  ): Promise<Paginated<ArticleSummary>> {
     return this.articles.list(query, { includeUnpublished: true });
   }
 

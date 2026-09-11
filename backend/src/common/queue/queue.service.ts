@@ -49,7 +49,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     await Promise.all(this.workers.map((worker) => worker.close().catch(() => undefined)));
-    await Promise.all([...this.queues.values()].map((queue) => queue.close().catch(() => undefined)));
+    await Promise.all(
+      [...this.queues.values()].map((queue) => queue.close().catch(() => undefined)),
+    );
   }
 
   /** Registers the processor for a queue. Called once per queue at startup. */

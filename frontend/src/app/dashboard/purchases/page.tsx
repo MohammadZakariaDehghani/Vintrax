@@ -4,10 +4,19 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ShoppingBag } from 'lucide-react';
-import type { Paginated, TransactionSummary } from '@atlas/shared';
+import type { Paginated, TransactionSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatPrice, formatRelativeTime } from '@/lib/utils';
-import { Badge, Button, Card, CardContent, EmptyState, ErrorAlert, Pagination, Spinner } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  EmptyState,
+  ErrorAlert,
+  Pagination,
+  Spinner,
+} from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 
@@ -16,7 +25,8 @@ function Purchases() {
 
   const { data, isPending, error } = useQuery({
     queryKey: ['orders', 'buyer', page],
-    queryFn: () => api.get<Paginated<TransactionSummary>>(`/orders?role=buyer&page=${page}&pageSize=20`),
+    queryFn: () =>
+      api.get<Paginated<TransactionSummary>>(`/orders?role=buyer&page=${page}&pageSize=20`),
   });
 
   return (
@@ -38,22 +48,24 @@ function Purchases() {
                 className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <Card className="transition-colors hover:border-primary/40">
-                <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5">
-                  <div>
-                    <p className="font-semibold">{order.vehicle?.title ?? 'Vehicle'}</p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      Reference {order.reference} · {formatRelativeTime(order.createdAt)}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Sale {formatPrice(order.salePriceCad)} + platform fee{' '}
-                      {formatPrice(order.platformFeeCad)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="tabular text-lg font-bold">{formatPrice(order.totalCad)}</p>
-                    <Badge variant="outline" className="mt-1">{formatEnum(order.status)}</Badge>
-                  </div>
-                </CardContent>
+                  <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5">
+                    <div>
+                      <p className="font-semibold">{order.vehicle?.title ?? 'Vehicle'}</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        Reference {order.reference} · {formatRelativeTime(order.createdAt)}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Sale {formatPrice(order.salePriceCad)} + platform fee{' '}
+                        {formatPrice(order.platformFeeCad)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="tabular text-lg font-bold">{formatPrice(order.totalCad)}</p>
+                      <Badge variant="outline" className="mt-1">
+                        {formatEnum(order.status)}
+                      </Badge>
+                    </div>
+                  </CardContent>
                 </Card>
               </Link>
             ))}
@@ -66,7 +78,11 @@ function Purchases() {
             icon={<ShoppingBag className="h-8 w-8" aria-hidden />}
             title="No purchases yet"
             description="Vehicles you buy or win at auction will appear here."
-            action={<Link href="/vehicles"><Button>Browse vehicles</Button></Link>}
+            action={
+              <Link href="/vehicles">
+                <Button>Browse vehicles</Button>
+              </Link>
+            }
           />
         </Card>
       )}
@@ -75,5 +91,9 @@ function Purchases() {
 }
 
 export default function PurchasesPage() {
-  return <RequireAuth><Purchases /></RequireAuth>;
+  return (
+    <RequireAuth>
+      <Purchases />
+    </RequireAuth>
+  );
 }

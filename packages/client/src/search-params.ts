@@ -1,4 +1,4 @@
-import { LISTING_SORTS, type ListingSort } from '@atlas/shared';
+import { LISTING_SORTS, type ListingSort } from '@vintrax/shared';
 
 /**
  * Browse-page filter state lives in the URL, so a search is shareable, survives

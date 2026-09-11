@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Permission, UserRole } from '@atlas/shared';
+import type { Permission, UserRole } from '@vintrax/shared';
 import type { Request } from 'express';
 import { PERMISSIONS_KEY, ROLES_KEY, VERIFIED_EMAIL_KEY } from '../decorators';
 import { hasPermission, isAdmin, type AuthUser } from '../auth/auth-user';
@@ -46,9 +46,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     if (requiresVerifiedEmail && !user.emailVerified) {
-      throw new ForbiddenException(
-        'Verify your email address before performing this action',
-      );
+      throw new ForbiddenException('Verify your email address before performing this action');
     }
 
     // Admins satisfy every role and permission requirement.

@@ -6,7 +6,7 @@ import type {
   BodyTypeImage,
   Paginated,
   VehicleSearchResponse,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent } from '@/components/ui';
@@ -106,7 +106,7 @@ export default async function HomePage() {
 
       {/* Makes in stock, each under its own mark. The count is the point of
           difference from the site this follows: a marque here is a promise
-          that Atlas has that many of them right now, not a brand billboard. */}
+          that Vintrax has that many of them right now, not a brand billboard. */}
       {featured && featured.facets.makes.length > 0 ? (
         <section className="container pt-10">
           <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.popularMakes}</h2>
@@ -143,9 +143,7 @@ export default async function HomePage() {
 
           <div className="overflow-hidden rounded-lg border border-border bg-card">
             {auctions.items.map((auction) =>
-              auction.vehicle ? (
-                <VehicleRow key={auction.id} vehicle={auction.vehicle} />
-              ) : null,
+              auction.vehicle ? <VehicleRow key={auction.id} vehicle={auction.vehicle} /> : null,
             )}
           </div>
         </section>
@@ -197,9 +195,7 @@ export default async function HomePage() {
         <Card className="overflow-hidden">
           <CardContent className="flex flex-col items-center gap-4 p-10 text-center">
             <h2 className="text-2xl font-bold tracking-tight">{t.home.sellingTitle}</h2>
-            <p className="max-w-xl text-muted-foreground">
-              {t.home.sellingBody}
-            </p>
+            <p className="max-w-xl text-muted-foreground">{t.home.sellingBody}</p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link href="/register?role=SELLER">
                 <Button size="lg">{t.home.sellCta}</Button>

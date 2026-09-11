@@ -1,5 +1,5 @@
 /*
- * Atlas Mobile service worker.
+ * Vintrax Mobile service worker.
  *
  * Scope is deliberately narrow. It caches the application shell so a cold
  * launch works without network, and it never caches API responses: inventory,
@@ -9,7 +9,7 @@
  * Navigations are network-first with the offline page as the fallback, so the
  * app opens to an honest message rather than a browser error.
  */
-const VERSION = 'atlas-mobile-v1';
+const VERSION = 'vintrax-mobile-v1';
 const SHELL_CACHE = `${VERSION}-shell`;
 const OFFLINE_URL = '/offline';
 
@@ -31,7 +31,9 @@ self.addEventListener('activate', (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => !key.startsWith(VERSION)).map((key) => caches.delete(key))),
+        Promise.all(
+          keys.filter((key) => !key.startsWith(VERSION)).map((key) => caches.delete(key)),
+        ),
       )
       .then(() => self.clients.claim()),
   );

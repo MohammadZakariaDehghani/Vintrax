@@ -1,6 +1,6 @@
 # Terraform examples
 
-Reference infrastructure for running Atlas on AWS. **These are examples, not a
+Reference infrastructure for running Vintrax on AWS. **These are examples, not a
 production module** — they show the shape of the infrastructure and the
 decisions that matter, and deliberately omit VPC/networking, which varies too
 much between organisations to guess at.

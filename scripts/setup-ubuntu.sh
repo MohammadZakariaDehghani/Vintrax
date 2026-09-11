@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Atlas — one command from a bare Ubuntu server to a running platform.
+# Vintrax — one command from a bare Ubuntu server to a running platform.
 #
 # Installs Node.js, pnpm, PostgreSQL and Redis, provisions the database,
 # writes environment files with generated secrets, installs dependencies,
@@ -36,16 +36,16 @@ readonly REPO_ROOT
 
 # --- Settings, all overridable from the environment ------------------------
 
-DB_NAME=${ATLAS_DB_NAME:-atlas}
-DB_USER=${ATLAS_DB_USER:-atlas}
-DB_HOST=${ATLAS_DB_HOST:-localhost}
-DB_PORT=${ATLAS_DB_PORT:-5432}
-DB_PASSWORD=${ATLAS_DB_PASSWORD:-}
-API_PORT=${ATLAS_API_PORT:-3001}
-WEB_PORT=${ATLAS_WEB_PORT:-3000}
-MOBILE_PORT=${ATLAS_MOBILE_PORT:-3002}
-PUBLIC_URL=${ATLAS_PUBLIC_URL:-}
-API_URL=${ATLAS_API_URL:-}
+DB_NAME=${VINTRAX_DB_NAME:-vintrax}
+DB_USER=${VINTRAX_DB_USER:-vintrax}
+DB_HOST=${VINTRAX_DB_HOST:-localhost}
+DB_PORT=${VINTRAX_DB_PORT:-5432}
+DB_PASSWORD=${VINTRAX_DB_PASSWORD:-}
+API_PORT=${VINTRAX_API_PORT:-3001}
+WEB_PORT=${VINTRAX_WEB_PORT:-3000}
+MOBILE_PORT=${VINTRAX_MOBILE_PORT:-3002}
+PUBLIC_URL=${VINTRAX_PUBLIC_URL:-}
+API_URL=${VINTRAX_API_URL:-}
 MOBILE_URL=
 
 MODE=production
@@ -81,7 +81,7 @@ trap 'die "failed at line ${LINENO}: ${BASH_COMMAND}"' ERR
 
 usage() {
   cat <<'USAGE'
-Atlas setup for Ubuntu.
+Vintrax setup for Ubuntu.
 
 Usage: ./scripts/setup-ubuntu.sh [options]
 
@@ -97,22 +97,22 @@ Options:
   -h, --help              This message.
 
 Environment overrides:
-  ATLAS_DB_NAME           Database name.               Default: atlas
-  ATLAS_DB_USER           Database role.               Default: atlas
-  ATLAS_DB_PASSWORD       Database password.           Default: generated
-  ATLAS_DB_HOST           Database host.               Default: localhost
-  ATLAS_DB_PORT           Database port.               Default: 5432
-  ATLAS_API_PORT          API port.                    Default: 3001
-  ATLAS_WEB_PORT          Web port.                    Default: 3000
-  ATLAS_MOBILE_PORT       Atlas Mobile port.           Default: 3002
-  ATLAS_PUBLIC_URL        Browser-facing web URL.      Default: http://localhost:3000
-  ATLAS_API_URL           Browser-facing API URL.      Default: derived from ATLAS_PUBLIC_URL
+  VINTRAX_DB_NAME           Database name.               Default: vintrax
+  VINTRAX_DB_USER           Database role.               Default: vintrax
+  VINTRAX_DB_PASSWORD       Database password.           Default: generated
+  VINTRAX_DB_HOST           Database host.               Default: localhost
+  VINTRAX_DB_PORT           Database port.               Default: 5432
+  VINTRAX_API_PORT          API port.                    Default: 3001
+  VINTRAX_WEB_PORT          Web port.                    Default: 3000
+  VINTRAX_MOBILE_PORT       Vintrax Mobile port.           Default: 3002
+  VINTRAX_PUBLIC_URL        Browser-facing web URL.      Default: http://localhost:3000
+  VINTRAX_API_URL           Browser-facing API URL.      Default: derived from VINTRAX_PUBLIC_URL
 
-On a server reachable by hostname or address, set ATLAS_PUBLIC_URL — it becomes
+On a server reachable by hostname or address, set VINTRAX_PUBLIC_URL — it becomes
 the CORS allowlist, the links in outgoing email, and the WebSocket origin the
 browser bundle is compiled against.
 
-  ATLAS_PUBLIC_URL=http://203.0.113.10:3000 ./scripts/setup-ubuntu.sh
+  VINTRAX_PUBLIC_URL=http://203.0.113.10:3000 ./scripts/setup-ubuntu.sh
 USAGE
 }
 
@@ -241,7 +241,7 @@ preflight() {
   fi
 
   [[ -f "${REPO_ROOT}/pnpm-workspace.yaml" ]] ||
-    die "run this from a checkout of the Atlas repository (looked in ${REPO_ROOT})"
+    die "run this from a checkout of the Vintrax repository (looked in ${REPO_ROOT})"
 
   # Identifiers are interpolated into SQL, so they are constrained rather than
   # escaped — a name outside this set is a mistake, not something to quote.
@@ -259,7 +259,7 @@ preflight() {
     if [[ $PUBLIC_URL =~ ^(https?)://([^/:]+) ]]; then
       API_URL="${BASH_REMATCH[1]}://${BASH_REMATCH[2]}:${API_PORT}"
     else
-      die "ATLAS_PUBLIC_URL must look like http://host[:port], got '${PUBLIC_URL}'"
+      die "VINTRAX_PUBLIC_URL must look like http://host[:port], got '${PUBLIC_URL}'"
     fi
   fi
   API_URL=${API_URL%/}
@@ -588,7 +588,7 @@ write_env_files() {
         local joined
         joined=$(printf '%s\n' "${missing[@]}" | awk '!seen[$0]++' | paste -sd,)
         set_env_var "$ENV_FILE" CORS_ORIGINS "${existing_origins},${joined}"
-        ok "added the Atlas Mobile origins to CORS_ORIGINS"
+        ok "added the Vintrax Mobile origins to CORS_ORIGINS"
       fi
     fi
 
@@ -717,7 +717,7 @@ install_dependencies() {
 prepare_database() {
   step "Applying migrations"
   cd "$REPO_ROOT"
-  pnpm --filter @atlas/backend prisma:generate >/dev/null
+  pnpm --filter @vintrax/backend prisma:generate >/dev/null
   ok "Prisma client generated"
 
   pnpm db:migrate
@@ -727,7 +727,7 @@ prepare_database() {
     step "Seeding demo data"
     # The seed is idempotent, so a re-run refreshes rather than duplicates.
     pnpm db:seed
-    ok "demo data loaded — every account uses the password AtlasDemo123!"
+    ok "demo data loaded — every account uses the password VintraxDemo123!"
   else
     skip "seeding skipped (--no-seed)"
   fi
@@ -755,10 +755,10 @@ install_systemd_units() {
   run_user=${SUDO_USER:-$(id -un)}
   node_bin=$(command -v node)
 
-  as_root tee /etc/systemd/system/atlas-api.service >/dev/null <<UNIT
+  as_root tee /etc/systemd/system/vintrax-api.service >/dev/null <<UNIT
 [Unit]
-Description=Atlas API
-Documentation=https://github.com/MohammadZakariaDehghani/Atlas
+Description=Vintrax API
+Documentation=https://github.com/MohammadZakariaDehghani/Vintrax
 After=network-online.target postgresql.service redis-server.service
 Wants=network-online.target postgresql.service redis-server.service
 
@@ -777,11 +777,11 @@ StandardError=journal
 WantedBy=multi-user.target
 UNIT
 
-  as_root tee /etc/systemd/system/atlas-web.service >/dev/null <<UNIT
+  as_root tee /etc/systemd/system/vintrax-web.service >/dev/null <<UNIT
 [Unit]
-Description=Atlas web
-Documentation=https://github.com/MohammadZakariaDehghani/Atlas
-After=network-online.target atlas-api.service
+Description=Vintrax web
+Documentation=https://github.com/MohammadZakariaDehghani/Vintrax
+After=network-online.target vintrax-api.service
 Wants=network-online.target
 
 [Service]
@@ -800,11 +800,11 @@ StandardError=journal
 WantedBy=multi-user.target
 UNIT
 
-  as_root tee /etc/systemd/system/atlas-mobile.service >/dev/null <<UNIT
+  as_root tee /etc/systemd/system/vintrax-mobile.service >/dev/null <<UNIT
 [Unit]
-Description=Atlas Mobile
-Documentation=https://github.com/MohammadZakariaDehghani/Atlas
-After=network-online.target atlas-api.service
+Description=Vintrax Mobile
+Documentation=https://github.com/MohammadZakariaDehghani/Vintrax
+After=network-online.target vintrax-api.service
 Wants=network-online.target
 
 [Service]
@@ -824,10 +824,10 @@ WantedBy=multi-user.target
 UNIT
 
   as_root systemctl daemon-reload
-  as_root systemctl enable --now atlas-api.service atlas-web.service atlas-mobile.service
-  ok "atlas-api, atlas-web and atlas-mobile enabled and started"
-  info "logs:    journalctl -u atlas-api -f"
-  info "restart: sudo systemctl restart atlas-api atlas-web atlas-mobile"
+  as_root systemctl enable --now vintrax-api.service vintrax-web.service vintrax-mobile.service
+  ok "vintrax-api, vintrax-web and vintrax-mobile enabled and started"
+  info "logs:    journalctl -u vintrax-api -f"
+  info "restart: sudo systemctl restart vintrax-api vintrax-web vintrax-mobile"
 }
 
 # --- Summary and start -----------------------------------------------------
@@ -835,10 +835,10 @@ UNIT
 summary() {
   cat <<SUMMARY
 
-${C_GREEN}${C_BOLD}Atlas is ready.${C_RESET}
+${C_GREEN}${C_BOLD}Vintrax is ready.${C_RESET}
 
   Marketplace   ${PUBLIC_URL}
-  Atlas Mobile  ${MOBILE_URL}
+  Vintrax Mobile  ${MOBILE_URL}
   API docs      ${API_URL}/api/docs
   Health        ${API_URL}/api/health
 
@@ -846,12 +846,12 @@ SUMMARY
 
   if [[ $RUN_SEED == true ]]; then
     cat <<SUMMARY
-  Demo accounts, all with the password ${C_BOLD}AtlasDemo123!${C_RESET}
+  Demo accounts, all with the password ${C_BOLD}VintraxDemo123!${C_RESET}
 
     jordan.lee@example.test         buyer
     sales@northshoremotors.test     dealer
-    inspector@atlas.test            inspector
-    admin@atlas.test                super admin
+    inspector@vintrax.test            inspector
+    admin@vintrax.test                super admin
 
 SUMMARY
   fi
@@ -874,7 +874,7 @@ start_platform() {
   fi
 
   summary
-  step "Starting Atlas — press Ctrl-C to stop"
+  step "Starting Vintrax — press Ctrl-C to stop"
   if [[ $MODE == dev ]]; then
     exec pnpm dev
   else

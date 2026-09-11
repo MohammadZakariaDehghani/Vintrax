@@ -6,7 +6,7 @@ import type {
   ArticleSummary,
   Paginated,
   UpdateArticleInput,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
@@ -80,7 +80,9 @@ export class ArticlesService {
     { includeUnpublished = false } = {},
   ): Promise<Paginated<ArticleSummary>> {
     const where: Prisma.ArticleWhereInput = includeUnpublished
-      ? (query.status ? { status: query.status } : {})
+      ? query.status
+        ? { status: query.status }
+        : {}
       : { status: 'PUBLISHED' };
 
     const [total, rows] = await Promise.all([
@@ -173,11 +175,11 @@ export class ArticlesService {
   }
 
   /**
-   * The hero has to be an image Atlas issued.
+   * The hero has to be an image Vintrax issued.
    *
    * The same rule as the body-type photographs, for the same reason: this
    * picture loads on the front page for every visitor, and an address on
-   * someone else's server is a referer leak and an outage Atlas cannot fix.
+   * someone else's server is a referer leak and an outage Vintrax cannot fix.
    */
   private requireOwnImage(url: string): void {
     if (!this.storage.isOwnUrl(url)) {

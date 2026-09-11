@@ -38,7 +38,16 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'default', loading, fullWidth, className, children, disabled, ...props },
+  {
+    variant = 'primary',
+    size = 'default',
+    loading,
+    fullWidth,
+    className,
+    children,
+    disabled,
+    ...props
+  },
   ref,
 ) {
   return (
@@ -155,10 +164,7 @@ export function Badge({
 /** Skeleton block for a list that is still loading. */
 export function Skeleton({ className }: { className?: string }) {
   return (
-    <div
-      aria-hidden
-      className={cn('relative overflow-hidden rounded-lg bg-muted', className)}
-    >
+    <div aria-hidden className={cn('relative overflow-hidden rounded-lg bg-muted', className)}>
       <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-background/60 to-transparent" />
     </div>
   );
@@ -166,7 +172,10 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function Spinner({ label = 'Loading' }: { label?: string }) {
   return (
-    <div role="status" className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+    <div
+      role="status"
+      className="flex items-center justify-center gap-2 py-8 text-muted-foreground"
+    >
       <Loader2 aria-hidden className="h-5 w-5 animate-spin" />
       <span className="text-sm">{label}</span>
     </div>
@@ -194,7 +203,9 @@ export function StateMessage({
       role={tone === 'error' ? 'alert' : undefined}
       className="flex flex-col items-center gap-2 px-6 py-12 text-center"
     >
-      <p className={cn('text-base font-semibold', tone === 'error' && 'text-destructive')}>{title}</p>
+      <p className={cn('text-base font-semibold', tone === 'error' && 'text-destructive')}>
+        {title}
+      </p>
       {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       {action ? <div className="pt-2">{action}</div> : null}
     </div>

@@ -7,7 +7,7 @@ import {
   minimumBidIncrement,
   placeBidSchema,
   createAuctionSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 
 /**
  * The auction rules that decide who wins and what they pay. These are pure

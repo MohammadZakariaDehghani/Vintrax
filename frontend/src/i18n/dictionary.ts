@@ -20,7 +20,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 const en = {
   brand: {
-    descriptor: "Canada's auto marketplace",
+    descriptor: 'Auto sales and auctions',
     tagline:
       'A Canadian vehicle marketplace connecting buyers with dealerships and private sellers, with live auctions and independent inspection reports.',
   },
@@ -129,11 +129,10 @@ const en = {
     signInSubtitle: 'Welcome back. Sign in to bid, save vehicles and message sellers.',
     registerTitle: 'Create your account',
     registerSubtitle: 'One account for buying, selling and bidding.',
-    noAccount: 'New to Atlas?',
+    noAccount: 'New to Vintrax?',
     haveAccount: 'Already have an account?',
     invalidCredentials: 'That email and password do not match an account.',
-    passwordHint:
-      'At least 10 characters, with upper and lower case, a number and a symbol.',
+    passwordHint: 'At least 10 characters, with upper and lower case, a number and a symbol.',
     iWantTo: 'I want to',
     dealershipName: 'Dealership name',
     businessNumber: 'Business number (optional)',
@@ -229,7 +228,7 @@ const en = {
     notAllowed: 'Not allowed',
     sessionEnded: 'Please sign in again',
     sessionEndedHelp: 'Your session has ended.',
-    serverError: 'Atlas is having trouble',
+    serverError: 'Vintrax is having trouble',
     serverErrorHelp: 'The server could not complete that request.',
     offline: 'No connection',
     offlineHelp: 'Check your signal and try again.',
@@ -276,7 +275,7 @@ export type Dictionary = {
 
 const fr: Dictionary = {
   brand: {
-    descriptor: 'Le marché automobile du Canada',
+    descriptor: 'Ventes et enchères automobiles',
     tagline:
       'Un marché automobile canadien qui met en relation les acheteurs, les concessionnaires et les vendeurs particuliers, avec des enchères en direct et des rapports d’inspection indépendants.',
   },
@@ -387,7 +386,7 @@ const fr: Dictionary = {
       'Bon retour. Connectez-vous pour enchérir, enregistrer des véhicules et écrire aux vendeurs.',
     registerTitle: 'Créer votre compte',
     registerSubtitle: 'Un seul compte pour acheter, vendre et enchérir.',
-    noAccount: 'Nouveau sur Atlas ?',
+    noAccount: 'Nouveau sur Vintrax ?',
     haveAccount: 'Vous avez déjà un compte ?',
     invalidCredentials: 'Ce courriel et ce mot de passe ne correspondent à aucun compte.',
     passwordHint:
@@ -487,7 +486,7 @@ const fr: Dictionary = {
     notAllowed: 'Non autorisé',
     sessionEnded: 'Veuillez vous reconnecter',
     sessionEndedHelp: 'Votre session a pris fin.',
-    serverError: 'Atlas éprouve des difficultés',
+    serverError: 'Vintrax éprouve des difficultés',
     serverErrorHelp: 'Le serveur n’a pas pu traiter cette demande.',
     offline: 'Aucune connexion',
     offlineHelp: 'Vérifiez votre signal et réessayez.',

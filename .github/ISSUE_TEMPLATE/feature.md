@@ -27,8 +27,8 @@ assignees: ''
 
 ## Technical notes
 
-<!-- Affected packages (@atlas/backend, @atlas/frontend, @atlas/mobile,
-     @atlas/shared, @atlas/client), endpoints, Prisma models, permissions.
+<!-- Affected packages (@vintrax/backend, @vintrax/frontend, @vintrax/mobile,
+     @vintrax/shared, @vintrax/client), endpoints, Prisma models, permissions.
 
      A field a caller must not control belongs out of the schema rather than
      ignored in the handler — see D-022 in the decision log. If this touches

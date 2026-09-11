@@ -4,7 +4,7 @@ import {
   createVehicleSchema,
   updateListingStatusSchema,
   updateVehicleSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 
 /**
  * Publication is a moderation decision.

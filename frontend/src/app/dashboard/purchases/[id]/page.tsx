@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { use, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
-import type { TransactionSummary } from '@atlas/shared';
+import type { TransactionSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatDate, formatEnum, formatPrice, formatRelativeTime } from '@/lib/utils';
 import {
@@ -76,9 +76,7 @@ function Order({ id }: { id: string }) {
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {record.vehicle?.title ?? 'Order'}
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight">{record.vehicle?.title ?? 'Order'}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Order {record.reference} · {formatRelativeTime(record.createdAt)}
           </p>
@@ -145,7 +143,7 @@ function Order({ id }: { id: string }) {
           )}
 
           <p className="mt-4 text-sm text-muted-foreground">
-            Atlas records payments; it does not process them. Arrange payment with the seller
+            Vintrax records payments; it does not process them. Arrange payment with the seller
             directly — the seller marks the order paid once the funds arrive.
           </p>
         </CardContent>

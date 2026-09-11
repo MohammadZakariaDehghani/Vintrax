@@ -1,5 +1,5 @@
 /**
- * The Atlas client contract: everything the web and mobile applications need
+ * The Vintrax client contract: everything the web and mobile applications need
  * to talk to the API and render its values consistently.
  *
  * Nothing here renders UI or knows about a framework's router. That is what
@@ -7,15 +7,9 @@
  * and money formatting serve two applications — a second client inherits the
  * behaviour rather than reimplementing it slightly differently.
  */
-export { configureAtlasClient, atlasClientConfig, type AtlasClientConfig } from './config';
+export { configureVintraxClient, vintraxClientConfig, type VintraxClientConfig } from './config';
 
-export {
-  ApiError,
-  api,
-  apiRequest,
-  setSessionExpiredHandler,
-  tokenStore,
-} from './api-client';
+export { ApiError, api, apiRequest, setSessionExpiredHandler, tokenStore } from './api-client';
 
 export {
   useAuthStore,

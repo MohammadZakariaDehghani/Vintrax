@@ -5,8 +5,8 @@ import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Gavel } from 'lucide-react';
-import type { AuctionDetail, Paginated, VehicleSummary } from '@atlas/shared';
-import { createAuctionSchema } from '@atlas/shared';
+import type { AuctionDetail, Paginated, VehicleSummary } from '@vintrax/shared';
+import { createAuctionSchema } from '@vintrax/shared';
 import { api, ApiError } from '@/lib/api-client';
 import { formatKm, formatPrice } from '@/lib/utils';
 import {
@@ -141,7 +141,11 @@ function NewAuction() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <Field label="Listing" htmlFor="vehicleId" error={fieldError('vehicleId')}>
-              <Select id="vehicleId" value={form.vehicleId} onChange={(event) => set('vehicleId', event.target.value)}>
+              <Select
+                id="vehicleId"
+                value={form.vehicleId}
+                onChange={(event) => set('vehicleId', event.target.value)}
+              >
                 <option value="">Choose a published vehicle</option>
                 {candidates.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>
@@ -178,7 +182,11 @@ function NewAuction() {
             <CardTitle>Pricing</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-3">
-            <Field label="Starting bid" htmlFor="startingBidCad" error={fieldError('startingBidCad')}>
+            <Field
+              label="Starting bid"
+              htmlFor="startingBidCad"
+              error={fieldError('startingBidCad')}
+            >
               <Input
                 id="startingBidCad"
                 type="number"
@@ -203,7 +211,12 @@ function NewAuction() {
                 onChange={(event) => set('reservePriceCad', event.target.value)}
               />
             </Field>
-            <Field label="Buy now" htmlFor="buyNowPriceCad" hint="Optional." error={fieldError('buyNowPriceCad')}>
+            <Field
+              label="Buy now"
+              htmlFor="buyNowPriceCad"
+              hint="Optional."
+              error={fieldError('buyNowPriceCad')}
+            >
               <Input
                 type="number"
                 min={0}

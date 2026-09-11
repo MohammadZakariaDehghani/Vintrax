@@ -1,14 +1,14 @@
 {
-  "name": "Atlas Mobile — vehicle marketplace and auctions",
-  "short_name": "Atlas",
+  "name": "Vintrax Mobile — vehicle marketplace and auctions",
+  "short_name": "Vintrax",
   "description": "Browse inventory, bid in live auctions and manage listings from your phone.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f7f9fb",
-  "theme_color": "#16295c",
+  "background_color": "#f6f9f7",
+  "theme_color": "#0c1210",
   "categories": ["business", "shopping"],
   "icons": [
     {

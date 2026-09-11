@@ -13,7 +13,7 @@ import {
   Package,
   Receipt,
 } from 'lucide-react';
-import { atlas } from '@/lib/atlas';
+import { vintrax } from '@/lib/vintrax';
 import { useAuthStore, useIsSeller, useUser } from '@/store/session';
 import { formatEnum } from '@/lib/format';
 import { Button, Card } from '@/components/ui';
@@ -68,7 +68,7 @@ function Account() {
             fullWidth
             onClick={async () => {
               try {
-                await atlas.auth.resendVerification();
+                await vintrax.auth.resendVerification();
                 setResent('sent');
               } catch {
                 setResent('failed');
@@ -131,15 +131,7 @@ function Account() {
   );
 }
 
-function Row({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: typeof Gavel;
-  label: string;
-}) {
+function Row({ href, icon: Icon, label }: { href: string; icon: typeof Gavel; label: string }) {
   return (
     <li>
       <Link

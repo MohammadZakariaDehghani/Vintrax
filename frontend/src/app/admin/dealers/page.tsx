@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Check, X } from 'lucide-react';
-import type { DealerStatus, DealerSummary, Paginated } from '@atlas/shared';
+import type { DealerStatus, DealerSummary, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatLocation } from '@/lib/utils';
 import {
@@ -83,8 +83,8 @@ function DealerQueue() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Dealerships</h1>
         <p className="mt-1 text-muted-foreground">
-          Verifying a dealership gives it the verified badge on every listing. A pending
-          dealership can already sell — verification is about buyer trust, not permission.
+          Verifying a dealership gives it the verified badge on every listing. A pending dealership
+          can already sell — verification is about buyer trust, not permission.
         </p>
       </div>
 

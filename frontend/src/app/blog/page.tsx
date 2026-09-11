@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import type { ArticleSummary, Paginated } from '@atlas/shared';
+import type { ArticleSummary, Paginated } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { Card, CardContent, EmptyState } from '@/components/ui';
 
 export const metadata: Metadata = {
-  title: 'Editorial — Atlas',
-  description: 'Buying guides, market notes and vehicle writing from Atlas.',
+  title: 'Editorial — Vintrax',
+  description: 'Buying guides, market notes and vehicle writing from Vintrax.',
 };
 
 /** Server-rendered so posts are indexable, which is most of the point of writing them. */

@@ -38,7 +38,7 @@ at nothing.
 PostgreSQL connection string.
 
 ```
-postgresql://atlas:atlas@localhost:5432/atlas_dev?schema=public
+postgresql://vintrax:vintrax@localhost:5432/vintrax_dev?schema=public
 ```
 
 Read by both the Prisma CLI (migrations, seeding) and the runtime client. In production, append
@@ -81,7 +81,7 @@ Default `30d`. How long a user stays signed in without re-entering credentials.
 Comma-separated allowlist. Default `http://localhost:5173`.
 
 ```
-CORS_ORIGINS="https://atlas.example.com,https://www.atlas.example.com"
+CORS_ORIGINS="https://vintrax.example.com,https://www.vintrax.example.com"
 ```
 
 Not a wildcard. Include the scheme; exclude the trailing slash. Every origin that will call the API
@@ -126,7 +126,7 @@ it if you changed `API_PORT`.
 Local development — this is `.env.example`:
 
 ```bash
-DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas_dev?schema=public"
+DATABASE_URL="postgresql://vintrax:vintrax@localhost:5432/vintrax_dev?schema=public"
 
 API_PORT=3000
 NODE_ENV=development
@@ -150,16 +150,16 @@ Production:
 NODE_ENV=production
 API_PORT=3000
 
-DATABASE_URL="postgresql://atlas:<password>@db.internal:5432/atlas?schema=public&connection_limit=10"
+DATABASE_URL="postgresql://vintrax:<password>@db.internal:5432/vintrax?schema=public&connection_limit=10"
 
 JWT_ACCESS_SECRET="<openssl rand -base64 48>"
 JWT_REFRESH_SECRET="<a different openssl rand -base64 48>"
 JWT_ACCESS_TTL="15m"
 JWT_REFRESH_TTL="30d"
 
-CORS_ORIGINS="https://atlas.example.com"
+CORS_ORIGINS="https://vintrax.example.com"
 
-UPLOAD_DIR="/var/lib/atlas/uploads"
+UPLOAD_DIR="/var/lib/vintrax/uploads"
 MAX_UPLOAD_BYTES=5242880
 ```
 
@@ -175,11 +175,11 @@ Invalid environment configuration:
 
 Common causes:
 
-| Message | Cause |
-| --- | --- |
-| `DATABASE_URL is required` | No `.env`, or the variable is absent |
-| `must be at least 16 characters` | Secret too short |
-| `must be different values` | Both JWT secrets are the same string |
+| Message                                             | Cause                                                  |
+| --------------------------------------------------- | ------------------------------------------------------ |
+| `DATABASE_URL is required`                          | No `.env`, or the variable is absent                   |
+| `must be at least 16 characters`                    | Secret too short                                       |
+| `must be different values`                          | Both JWT secrets are the same string                   |
 | `Refusing to start in production with the example…` | `.env.example` placeholder left in a production deploy |
 
 ## Adding a variable

@@ -4,24 +4,24 @@ Every technology in use, its role, and why it was chosen over the obvious altern
 
 ## At a glance
 
-| Layer | Choice | Version |
-| --- | --- | --- |
-| Language | TypeScript | 5.7 |
-| Runtime | Node.js | ≥ 20.11 (CI runs 22) |
-| Package manager | pnpm workspaces | 10.33 |
-| API framework | NestJS | 11 |
-| ORM | Prisma | 6 |
-| Database | PostgreSQL | 16 |
-| Validation | Zod | 3.24 |
-| Auth | Passport JWT + bcryptjs | — |
-| Web framework | React | 19 |
-| Build tool | Vite | 6 |
-| Routing | React Router | 7 |
-| Server state | TanStack Query | 5 |
-| Styling | Hand-written CSS | — |
-| API tests | Jest + ts-jest | 29 |
-| Web tests | Vitest | 3 |
-| CI | GitHub Actions | — |
+| Layer           | Choice                  | Version              |
+| --------------- | ----------------------- | -------------------- |
+| Language        | TypeScript              | 5.7                  |
+| Runtime         | Node.js                 | ≥ 20.11 (CI runs 22) |
+| Package manager | pnpm workspaces         | 10.33                |
+| API framework   | NestJS                  | 11                   |
+| ORM             | Prisma                  | 6                    |
+| Database        | PostgreSQL              | 16                   |
+| Validation      | Zod                     | 3.24                 |
+| Auth            | Passport JWT + bcryptjs | —                    |
+| Web framework   | React                   | 19                   |
+| Build tool      | Vite                    | 6                    |
+| Routing         | React Router            | 7                    |
+| Server state    | TanStack Query          | 5                    |
+| Styling         | Hand-written CSS        | —                    |
+| API tests       | Jest + ts-jest          | 29                   |
+| Web tests       | Vitest                  | 3                    |
+| CI              | GitHub Actions          | —                    |
 
 ## Foundation
 
@@ -97,7 +97,7 @@ definition — they cannot drift.
 
 Chosen over `class-validator`, which is Nest's default pairing. `class-validator` needs decorated
 classes, and classes do not travel well into a browser bundle. Zod schemas are plain values that both
-the API and the web app import from `@atlas/shared`. That is the whole reason the contract package
+the API and the web app import from `@vintrax/shared`. That is the whole reason the contract package
 works, so it drove the choice.
 
 The cost is losing automatic Swagger schema generation from decorators. Acceptable: the shared
@@ -171,7 +171,7 @@ is a genuine footgun of this approach.
 **Jest with ts-jest** for the API, because it handles decorators and `emitDecoratorMetadata`
 correctly — the same reason the API does not build with esbuild.
 
-**Vitest** for the web app, because it reads `vite.config.ts` directly, so the `@atlas/shared` alias
+**Vitest** for the web app, because it reads `vite.config.ts` directly, so the `@vintrax/shared` alias
 applies automatically and tests import exactly what the app imports.
 
 Two runners is mild inconsistency; each is the right tool for its side.
@@ -188,17 +188,17 @@ empty database on every change.
 
 ## Considered and not chosen
 
-| Technology | Instead of | Why not |
-| --- | --- | --- |
-| Next.js | Vite + React | Blurs the API boundary [D-006](../decision-log.md) needs |
-| Express/Fastify alone | NestJS | Cross-cutting concerns assembled by hand |
-| Drizzle | Prisma | Weaker migration tooling for a greenfield schema |
-| TypeORM | Prisma | Weaker type inference |
-| Tailwind | Plain CSS | Extra build step for a small design system |
-| Redux / Zustand | TanStack Query | Server state is not client state |
-| `class-validator` | Zod | Decorated classes do not travel to the browser |
-| argon2 / native bcrypt | bcryptjs | Native build complexity, not yet justified |
-| Elasticsearch | Postgres full-text | Premature at this catalogue size |
-| Nx / Turborepo | pnpm scripts | Orchestration a three-package workspace does not need |
-| GraphQL | REST | No client-shaped-query problem to solve yet |
-| WebSockets | Polling | [D-005](../decision-log.md) chose async messaging first |
+| Technology             | Instead of         | Why not                                                  |
+| ---------------------- | ------------------ | -------------------------------------------------------- |
+| Next.js                | Vite + React       | Blurs the API boundary [D-006](../decision-log.md) needs |
+| Express/Fastify alone  | NestJS             | Cross-cutting concerns assembled by hand                 |
+| Drizzle                | Prisma             | Weaker migration tooling for a greenfield schema         |
+| TypeORM                | Prisma             | Weaker type inference                                    |
+| Tailwind               | Plain CSS          | Extra build step for a small design system               |
+| Redux / Zustand        | TanStack Query     | Server state is not client state                         |
+| `class-validator`      | Zod                | Decorated classes do not travel to the browser           |
+| argon2 / native bcrypt | bcryptjs           | Native build complexity, not yet justified               |
+| Elasticsearch          | Postgres full-text | Premature at this catalogue size                         |
+| Nx / Turborepo         | pnpm scripts       | Orchestration a three-package workspace does not need    |
+| GraphQL                | REST               | No client-shaped-query problem to solve yet              |
+| WebSockets             | Polling            | [D-005](../decision-log.md) chose async messaging first  |

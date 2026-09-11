@@ -1,4 +1,4 @@
-import { ROLE_PERMISSIONS, type Permission, type UserRole, type UserStatus } from '@atlas/shared';
+import { ROLE_PERMISSIONS, type Permission, type UserRole, type UserStatus } from '@vintrax/shared';
 
 /** The authenticated principal attached to `request.user` by the JWT strategy. */
 export interface AuthUser {

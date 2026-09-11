@@ -28,10 +28,10 @@ Two tokens with different lifetimes and **different secrets** — the environmen
 schema rejects a configuration where they match, so a leaked access secret
 cannot mint refresh tokens.
 
-| Token | Default TTL | Purpose |
-| --- | --- | --- |
-| Access | 15 minutes | Sent as `Authorization: Bearer` on every request |
-| Refresh | 30 days | Exchanged for a new pair, rotated on every use |
+| Token   | Default TTL | Purpose                                          |
+| ------- | ----------- | ------------------------------------------------ |
+| Access  | 15 minutes  | Sent as `Authorization: Bearer` on every request |
+| Refresh | 30 days     | Exchanged for a new pair, rotated on every use   |
 
 **Passwords** are bcrypt at cost 12. A login for an unknown email still performs
 a comparison against a dummy hash, so a bad email and a bad password take about
@@ -39,7 +39,7 @@ the same time — without that, an attacker can enumerate registered addresses b
 timing alone. The error message is identical in both cases.
 
 **Refresh rotation with replay detection.** The presented token is revoked and a
-fresh pair issued. Presenting an already-revoked token revokes *every* token for
+fresh pair issued. Presenting an already-revoked token revokes _every_ token for
 that user, so a stolen refresh token becomes a detectable, self-limiting event.
 The web client deduplicates concurrent refreshes into one in-flight call, or it
 would trip its own replay detection.
@@ -72,24 +72,24 @@ request, because a token outlives a suspension.
 
 **3. Ownership checks in services**, because only they can see the row:
 
-| Rule | Where |
-| --- | --- |
-| Only the seller or an admin may edit a vehicle | `VehiclesService.requireOwnedVehicle` |
-| Only participants may read a conversation | `MessagingService` |
-| A seller cannot bid on their own vehicle | `AuctionsService.placeBid` |
-| Only the winning bidder may settle an ended auction | `TransactionsService.createOrder` |
-| An inspector may only submit their own assignment | `InspectionsService.requireAssigned` |
+| Rule                                                | Where                                 |
+| --------------------------------------------------- | ------------------------------------- |
+| Only the seller or an admin may edit a vehicle      | `VehiclesService.requireOwnedVehicle` |
+| Only participants may read a conversation           | `MessagingService`                    |
+| A seller cannot bid on their own vehicle            | `AuctionsService.placeBid`            |
+| Only the winning bidder may settle an ended auction | `TransactionsService.createOrder`     |
+| An inspector may only submit their own assignment   | `InspectionsService.requireAssigned`  |
 
 ### Role and permission matrix
 
-| Role | Can do |
-| --- | --- |
-| `BUYER` | Browse, save, message, bid |
-| `SELLER` | Everything a buyer can, plus publish and auction own vehicles |
-| `DEALER` | Everything a seller can, plus dealer profile, analytics, payments |
-| `INSPECTOR` | Read vehicles, create and submit inspection reports — nothing else |
-| `ADMIN` | Moderation, dealer verification, user management, reports, audit |
-| `SUPER_ADMIN` | Everything, including platform settings |
+| Role          | Can do                                                             |
+| ------------- | ------------------------------------------------------------------ |
+| `BUYER`       | Browse, save, message, bid                                         |
+| `SELLER`      | Everything a buyer can, plus publish and auction own vehicles      |
+| `DEALER`      | Everything a seller can, plus dealer profile, analytics, payments  |
+| `INSPECTOR`   | Read vehicles, create and submit inspection reports — nothing else |
+| `ADMIN`       | Moderation, dealer verification, user management, reports, audit   |
+| `SUPER_ADMIN` | Everything, including platform settings                            |
 
 A dealer deliberately **cannot** verify their own dealership; self-verification
 would make the badge meaningless.
@@ -101,13 +101,13 @@ accumulates rounding error.
 
 Key invariants enforced by the schema rather than trusted to application code:
 
-| Constraint | Effect |
-| --- | --- |
-| `Favourite(userId, vehicleId)` unique | Favouriting is idempotent |
-| `Conversation(vehicleId, buyerId)` unique | One thread per buyer per vehicle |
-| `InspectionSectionResult(inspectionId, section)` unique | One result per section |
-| `Payment.providerReference` unique | A retried provider callback cannot pay twice |
-| `RefreshToken.tokenHash` unique | Rotation and replay detection |
+| Constraint                                              | Effect                                       |
+| ------------------------------------------------------- | -------------------------------------------- |
+| `Favourite(userId, vehicleId)` unique                   | Favouriting is idempotent                    |
+| `Conversation(vehicleId, buyerId)` unique               | One thread per buyer per vehicle             |
+| `InspectionSectionResult(inspectionId, section)` unique | One result per section                       |
+| `Payment.providerReference` unique                      | A retried provider callback cannot pay twice |
+| `RefreshToken.tokenHash` unique                         | Rotation and replay detection                |
 
 `status` leads every composite index on `Vehicle`, because search always
 constrains it first. See [data-model.md](./architecture/data-model.md).
@@ -145,12 +145,12 @@ The rules:
 BullMQ over Redis, with an `inline` driver that runs handlers in-process so
 development and CI need no broker. Handlers must be idempotent either way.
 
-| Queue | Work |
-| --- | --- |
-| `auction-lifecycle` | Start and close auctions on schedule |
-| `notifications` | Outbid, won, lost, moderation and verification fan-out |
-| `search-indexing` | Keep OpenSearch in step with vehicle writes |
-| `email` | Reserved for bulk sends |
+| Queue               | Work                                                   |
+| ------------------- | ------------------------------------------------------ |
+| `auction-lifecycle` | Start and close auctions on schedule                   |
+| `notifications`     | Outbid, won, lost, moderation and verification fan-out |
+| `search-indexing`   | Keep OpenSearch in step with vehicle writes            |
+| `email`             | Reserved for bulk sends                                |
 
 ## Errors and observability
 
@@ -167,7 +167,7 @@ attempt is a log signal, not a record that something happened.
 ## Testing
 
 ```bash
-pnpm --filter @atlas/backend test
+pnpm --filter @vintrax/backend test
 ```
 
 Tests concentrate on the rules that decide who wins and what they pay — bid

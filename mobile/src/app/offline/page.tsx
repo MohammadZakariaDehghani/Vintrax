@@ -14,8 +14,8 @@ export default function OfflinePage() {
       <WifiOff aria-hidden className="h-10 w-10 text-muted-foreground" />
       <h1 className="text-xl font-semibold">You are offline</h1>
       <p className="text-sm text-muted-foreground">
-        Atlas needs a connection to show inventory and auctions. Pages you already opened are still
-        available.
+        Vintrax needs a connection to show inventory and auctions. Pages you already opened are
+        still available.
       </p>
       <p className="text-sm text-muted-foreground">This page will work again once you reconnect.</p>
     </div>

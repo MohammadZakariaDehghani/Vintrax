@@ -10,7 +10,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import type { AuctionEvent } from '@atlas/shared';
+import type { AuctionEvent } from '@vintrax/shared';
 import type { Server, Socket } from 'socket.io';
 import { parseCorsOrigins, type Env } from '../../config/env';
 import type { AccessTokenPayload } from '../../common/auth/auth-user';

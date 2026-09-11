@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Send } from 'lucide-react';
-import { atlas } from '@/lib/atlas';
+import { vintrax } from '@/lib/vintrax';
 import { keys, useConversation } from '@/lib/queries';
 import { useUser } from '@/store/session';
 import { cn, formatRelativeTime } from '@/lib/format';
@@ -64,7 +64,7 @@ function Thread({ id }: { id: string }) {
     setSending(true);
     setError(null);
     try {
-      await atlas.conversations.reply(id, text);
+      await vintrax.conversations.reply(id, text);
       setBody('');
       await queryClient.invalidateQueries({ queryKey: keys.conversation(id) });
       await queryClient.invalidateQueries({ queryKey: keys.conversations });
@@ -93,7 +93,12 @@ function Thread({ id }: { id: string }) {
                 )}
               >
                 <p className="whitespace-pre-line text-sm">{message.body}</p>
-                <p className={cn('pt-1 text-[0.6875rem]', own ? 'opacity-75' : 'text-muted-foreground')}>
+                <p
+                  className={cn(
+                    'pt-1 text-[0.6875rem]',
+                    own ? 'opacity-75' : 'text-muted-foreground',
+                  )}
+                >
                   {formatRelativeTime(message.createdAt)}
                 </p>
               </div>

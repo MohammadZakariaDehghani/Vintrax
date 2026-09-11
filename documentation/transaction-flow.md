@@ -1,6 +1,6 @@
 # Roles and transaction flows
 
-Who can do what in Atlas, and how each process actually moves through the
+Who can do what in Vintrax, and how each process actually moves through the
 system. Every permission, endpoint and status in this document is taken from
 the code — `packages/shared/src/domain.ts` for the matrix,
 `backend/prisma/schema.prisma` for the state machines, and the controllers for
@@ -36,35 +36,35 @@ Two properties worth stating plainly:
   needs both. This is what keeps a dealer — who has `vehicle:publish` for their
   own listings — out of the moderation queue.
 - **The guard is not the last line.** Ownership is checked in the service. A
-  seller with `vehicle:write` can write *their* vehicles; the service throws
+  seller with `vehicle:write` can write _their_ vehicles; the service throws
   `ForbiddenException` for anyone else's.
 
 ## The permission matrix
 
 The complete matrix, verbatim from `ROLE_PERMISSIONS`.
 
-| Permission | Buyer | Seller | Dealer | Inspector | Admin | Super admin |
-| --- | :-: | :-: | :-: | :-: | :-: | :-: |
-| `vehicle:read` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `vehicle:write` | | ✅ | ✅ | | ✅ | ✅ |
-| `vehicle:publish` | | ✅ | ✅ | | ✅ | ✅ |
-| `vehicle:delete` | | ✅ | ✅ | | ✅ | ✅ |
-| `auction:read` | ✅ | ✅ | ✅ | | ✅ | ✅ |
-| `auction:create` | | ✅ | ✅ | | ✅ | ✅ |
-| `auction:manage` | | | | | ✅ | ✅ |
-| `bid:place` | ✅ | ✅ | ✅ | | | ✅ |
-| `inspection:read` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `inspection:write` | | | | ✅ | ✅ | ✅ |
-| `dealer:read` | | | ✅ | | ✅ | ✅ |
-| `dealer:manage` | | | | | ✅ | ✅ |
-| `dealer:verify` | | | | | ✅ | ✅ |
-| `user:read` | | | | | ✅ | ✅ |
-| `user:manage` | | | | | ✅ | ✅ |
-| `payment:read` | | | ✅ | | ✅ | ✅ |
-| `payment:manage` | | ✅ | ✅ | | ✅ | ✅ |
-| `report:read` | | | ✅ | | ✅ | ✅ |
-| `settings:manage` | | | | | | ✅ |
-| `audit:read` | | | | | ✅ | ✅ |
+| Permission         | Buyer | Seller | Dealer | Inspector | Admin | Super admin |
+| ------------------ | :---: | :----: | :----: | :-------: | :---: | :---------: |
+| `vehicle:read`     |  ✅   |   ✅   |   ✅   |    ✅     |  ✅   |     ✅      |
+| `vehicle:write`    |       |   ✅   |   ✅   |           |  ✅   |     ✅      |
+| `vehicle:publish`  |       |   ✅   |   ✅   |           |  ✅   |     ✅      |
+| `vehicle:delete`   |       |   ✅   |   ✅   |           |  ✅   |     ✅      |
+| `auction:read`     |  ✅   |   ✅   |   ✅   |           |  ✅   |     ✅      |
+| `auction:create`   |       |   ✅   |   ✅   |           |  ✅   |     ✅      |
+| `auction:manage`   |       |        |        |           |  ✅   |     ✅      |
+| `bid:place`        |  ✅   |   ✅   |   ✅   |           |       |     ✅      |
+| `inspection:read`  |  ✅   |   ✅   |   ✅   |    ✅     |  ✅   |     ✅      |
+| `inspection:write` |       |        |        |    ✅     |  ✅   |     ✅      |
+| `dealer:read`      |       |        |   ✅   |           |  ✅   |     ✅      |
+| `dealer:manage`    |       |        |        |           |  ✅   |     ✅      |
+| `dealer:verify`    |       |        |        |           |  ✅   |     ✅      |
+| `user:read`        |       |        |        |           |  ✅   |     ✅      |
+| `user:manage`      |       |        |        |           |  ✅   |     ✅      |
+| `payment:read`     |       |        |   ✅   |           |  ✅   |     ✅      |
+| `payment:manage`   |       |   ✅   |   ✅   |           |  ✅   |     ✅      |
+| `report:read`      |       |        |   ✅   |           |  ✅   |     ✅      |
+| `settings:manage`  |       |        |        |           |       |     ✅      |
+| `audit:read`       |       |        |        |           |  ✅   |     ✅      |
 
 Four deliberate gaps:
 
@@ -89,14 +89,14 @@ Four deliberate gaps:
 The default role. Anyone who registers is a buyer until they ask to be
 something else.
 
-| Can | Cannot |
-| --- | --- |
-| Search and view listings, including as a guest | Create or edit a listing |
-| Save vehicles to favourites | Run an auction |
-| Message sellers | See another buyer's identity in a bid history |
-| Bid in live auctions | See a reserve price |
-| Buy at a fixed price, pay, complete an order | Read inspection reports before they are published |
-| Read published inspection reports | |
+| Can                                            | Cannot                                            |
+| ---------------------------------------------- | ------------------------------------------------- |
+| Search and view listings, including as a guest | Create or edit a listing                          |
+| Save vehicles to favourites                    | Run an auction                                    |
+| Message sellers                                | See another buyer's identity in a bid history     |
+| Bid in live auctions                           | See a reserve price                               |
+| Buy at a fixed price, pay, complete an order   | Read inspection reports before they are published |
+| Read published inspection reports              |                                                   |
 
 ```mermaid
 flowchart TD
@@ -134,14 +134,14 @@ flowchart TD
 A private individual selling their own vehicles. Everything a buyer can do,
 plus inventory.
 
-| Can | Cannot |
-| --- | --- |
-| Everything a buyer can | Moderate anyone's listing, including their own |
-| Create, edit, delete their own listings | See the moderation queue |
-| Submit a listing for review | Verify a dealership |
-| Publish their own listing once approved | See platform analytics |
-| Create and cancel auctions on their own vehicles | Read another seller's inventory |
-| Set a reserve price, never shown to bidders | |
+| Can                                              | Cannot                                         |
+| ------------------------------------------------ | ---------------------------------------------- |
+| Everything a buyer can                           | Moderate anyone's listing, including their own |
+| Create, edit, delete their own listings          | See the moderation queue                       |
+| Submit a listing for review                      | Verify a dealership                            |
+| Publish their own listing once approved          | See platform analytics                         |
+| Create and cancel auctions on their own vehicles | Read another seller's inventory                |
+| Set a reserve price, never shown to bidders      |                                                |
 
 ```mermaid
 flowchart TD
@@ -177,13 +177,13 @@ flowchart TD
 A dealership. A seller with a business identity attached, plus the reporting
 that comes with it.
 
-| Can | Cannot |
-| --- | --- |
-| Everything a seller can | Verify their own dealership |
-| Hold a dealership profile with a public page | Verify any dealership |
-| See their own sales and inventory analytics | See platform-wide analytics |
-| Read payment records for their own sales | Manage other users |
-| Carry a verified badge once an admin approves it | Read the audit log |
+| Can                                              | Cannot                      |
+| ------------------------------------------------ | --------------------------- |
+| Everything a seller can                          | Verify their own dealership |
+| Hold a dealership profile with a public page     | Verify any dealership       |
+| See their own sales and inventory analytics      | See platform-wide analytics |
+| Read payment records for their own sales         | Manage other users          |
+| Carry a verified badge once an admin approves it | Read the audit log          |
 
 ```mermaid
 flowchart TD
@@ -214,13 +214,13 @@ an oversight — a new dealership can start working the day it registers.
 Independent condition reporting. The narrowest role in the system, and
 deliberately so.
 
-| Can | Cannot |
-| --- | --- |
-| See inspections assigned to them | List a vehicle |
-| Create an inspection record | Bid on anything |
-| Grade each section and submit the report | Edit a submitted report |
-| Read any published report | See dealer or platform analytics |
-| | Moderate listings |
+| Can                                      | Cannot                           |
+| ---------------------------------------- | -------------------------------- |
+| See inspections assigned to them         | List a vehicle                   |
+| Create an inspection record              | Bid on anything                  |
+| Grade each section and submit the report | Edit a submitted report          |
+| Read any published report                | See dealer or platform analytics |
+|                                          | Moderate listings                |
 
 ```mermaid
 flowchart TD
@@ -246,15 +246,15 @@ the thing they graded. `INSPECTOR` holds exactly three permissions:
 
 Platform operations. Everything except the keys to the platform itself.
 
-| Can | Cannot |
-| --- | --- |
-| Moderate listings — approve or reject | Change platform settings |
-| Verify, reject or suspend a dealership | Manage payments |
-| Suspend or deactivate a user account | Bid |
-| Manage any auction | |
-| Write inspections | |
-| Read platform-wide analytics | |
-| Read the append-only audit log | |
+| Can                                    | Cannot                   |
+| -------------------------------------- | ------------------------ |
+| Moderate listings — approve or reject  | Change platform settings |
+| Verify, reject or suspend a dealership | Manage payments          |
+| Suspend or deactivate a user account   | Bid                      |
+| Manage any auction                     |                          |
+| Write inspections                      |                          |
+| Read platform-wide analytics           |                          |
+| Read the append-only audit log         |                          |
 
 ```mermaid
 flowchart TD
@@ -292,12 +292,12 @@ later.
 
 Holds every permission, including the one nobody else has: `settings:manage`.
 
-| Can | Notes |
-| --- | --- |
-| Everything an admin can | |
-| Manage platform settings | The only role with `settings:manage` |
+| Can                                    | Notes                                                                                                     |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Everything an admin can                |                                                                                                           |
+| Manage platform settings               | The only role with `settings:manage`                                                                      |
 | Manage payments — refunds, corrections | Shares `payment:manage` with sellers, dealers and admins, who use it to record payment on their own sales |
-| Place bids | An artefact of holding every permission |
+| Place bids                             | An artefact of holding every permission                                                                   |
 
 ```mermaid
 flowchart TD
@@ -507,10 +507,10 @@ Cancelling releases the vehicle: the order goes `CANCELLED`, the payment goes
 
 Charged on the sale price, added to the buyer's total:
 
-| Sale price | Fee |
-| --- | --- |
-| $1,000 | $150 — the floor |
-| $20,000 | $1,000 |
+| Sale price | Fee                  |
+| ---------- | -------------------- |
+| $1,000     | $150 — the floor     |
+| $20,000    | $1,000               |
 | $1,000,000 | $2,500 — the ceiling |
 
 The floor keeps small lots worth processing; the ceiling stops a percentage
@@ -577,13 +577,13 @@ serialization conflicts and one below-minimum rejection, leaving exactly one
 
 ### Minimum increments
 
-| Current price | Minimum raise |
-| --- | --- |
-| Below $5,000 | $100 |
-| $5,000 – $19,999 | $250 |
-| $20,000 – $49,999 | $500 |
-| $50,000 – $99,999 | $1,000 |
-| $100,000 and above | $2,500 |
+| Current price      | Minimum raise |
+| ------------------ | ------------- |
+| Below $5,000       | $100          |
+| $5,000 – $19,999   | $250          |
+| $20,000 – $49,999  | $500          |
+| $50,000 – $99,999  | $1,000        |
+| $100,000 and above | $2,500        |
 
 ### Bid states
 
@@ -728,16 +728,16 @@ read the trail and a dealer cannot.
 
 # Status reference
 
-| Entity | States |
-| --- | --- |
-| User | `PENDING` · `ACTIVE` · `SUSPENDED` · `DEACTIVATED` |
-| Dealer | `PENDING` · `VERIFIED` · `REJECTED` · `SUSPENDED` |
-| Vehicle | `DRAFT` · `PENDING_REVIEW` · `ACTIVE` · `IN_AUCTION` · `SOLD` · `ARCHIVED` |
-| Auction | `DRAFT` · `SCHEDULED` · `LIVE` · `ENDED` · `SETTLED` · `CANCELLED` |
-| Bid | `ACTIVE` · `OUTBID` · `WINNING` · `WON` · `LOST` · `RETRACTED` |
-| Order | `INITIATED` · `AWAITING_PAYMENT` · `PAID` · `AWAITING_DELIVERY` · `COMPLETED` · `CANCELLED` · `DISPUTED` |
-| Payment | `PENDING` · `AUTHORIZED` · `PAID` · `PARTIALLY_REFUNDED` · `REFUNDED` · `FAILED` · `CANCELLED` |
-| Inspection | `SCHEDULED` · `IN_PROGRESS` · `COMPLETED` · `CANCELLED` |
+| Entity     | States                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------- |
+| User       | `PENDING` · `ACTIVE` · `SUSPENDED` · `DEACTIVATED`                                                       |
+| Dealer     | `PENDING` · `VERIFIED` · `REJECTED` · `SUSPENDED`                                                        |
+| Vehicle    | `DRAFT` · `PENDING_REVIEW` · `ACTIVE` · `IN_AUCTION` · `SOLD` · `ARCHIVED`                               |
+| Auction    | `DRAFT` · `SCHEDULED` · `LIVE` · `ENDED` · `SETTLED` · `CANCELLED`                                       |
+| Bid        | `ACTIVE` · `OUTBID` · `WINNING` · `WON` · `LOST` · `RETRACTED`                                           |
+| Order      | `INITIATED` · `AWAITING_PAYMENT` · `PAID` · `AWAITING_DELIVERY` · `COMPLETED` · `CANCELLED` · `DISPUTED` |
+| Payment    | `PENDING` · `AUTHORIZED` · `PAID` · `PARTIALLY_REFUNDED` · `REFUNDED` · `FAILED` · `CANCELLED`           |
+| Inspection | `SCHEDULED` · `IN_PROGRESS` · `COMPLETED` · `CANCELLED`                                                  |
 
 # What these flows do not cover
 

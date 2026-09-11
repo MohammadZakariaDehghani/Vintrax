@@ -289,14 +289,14 @@ export const createAuctionSchema = z
     message: 'endsAt must be after startsAt',
     path: ['endsAt'],
   })
-  .refine(
-    (data) => !data.buyNowPriceCad || data.buyNowPriceCad > data.startingBidCad,
-    { message: 'Buy-now price must exceed the starting bid', path: ['buyNowPriceCad'] },
-  )
-  .refine(
-    (data) => !data.reservePriceCad || data.reservePriceCad >= data.startingBidCad,
-    { message: 'Reserve cannot be below the starting bid', path: ['reservePriceCad'] },
-  );
+  .refine((data) => !data.buyNowPriceCad || data.buyNowPriceCad > data.startingBidCad, {
+    message: 'Buy-now price must exceed the starting bid',
+    path: ['buyNowPriceCad'],
+  })
+  .refine((data) => !data.reservePriceCad || data.reservePriceCad >= data.startingBidCad, {
+    message: 'Reserve cannot be below the starting bid',
+    path: ['reservePriceCad'],
+  });
 export type CreateAuctionInput = z.infer<typeof createAuctionSchema>;
 
 export const updateAuctionSchema = z
@@ -434,7 +434,7 @@ export type AuditLogQuery = z.infer<typeof auditLogQuerySchema>;
 /**
  * The photograph an administrator sets for a body-type shortcut.
  *
- * The URL is one Atlas issued from its own upload endpoint, not an arbitrary
+ * The URL is one Vintrax issued from its own upload endpoint, not an arbitrary
  * address: an administrator pasting a third-party URL here would put a request
  * to someone else's server on every shopper's home page, which is a privacy
  * leak and an availability dependency neither of us controls. The check lives
@@ -453,9 +453,9 @@ export type BodyTypeImageInput = z.infer<typeof bodyTypeImageSchema>;
 /**
  * Where a masthead's button may point.
  *
- * An Atlas path, never another origin. The front page exists to move people
+ * An Vintrax path, never another origin. The front page exists to move people
  * into the catalogue, and an operator who could aim the largest button on the
- * site at an arbitrary address turns it into an open redirect wearing Atlas's
+ * site at an arbitrary address turns it into an open redirect wearing Vintrax's
  * branding. `//evil.example` is excluded explicitly: it is a protocol-relative
  * URL that a naive "starts with /" check would wave through.
  */
@@ -464,7 +464,7 @@ const internalPath = z
   .trim()
   .max(200)
   .refine((value) => value.startsWith('/') && !value.startsWith('//'), {
-    message: 'Link to a page on Atlas, starting with "/". External addresses are not accepted.',
+    message: 'Link to a page on Vintrax, starting with "/". External addresses are not accepted.',
   });
 
 export const articleSchema = z

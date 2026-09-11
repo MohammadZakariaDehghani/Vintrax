@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
-import type { Article } from '@atlas/shared';
+import type { Article } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { ErrorAlert, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';

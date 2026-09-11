@@ -1,0 +1,139 @@
+# The verification suite, as a reusable workflow.
+#
+# Called by ci.yml for pull requests and by release.yml before anything is
+# pushed to the registry. One definition rather than two, because a release
+# gate that has drifted from the pull-request gate is worse than no gate: it
+# passes what the other would have caught, on the one run where it matters.
+name: Verify
+
+on:
+  workflow_call:
+
+jobs:
+  verify:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vintrax
+          POSTGRES_PASSWORD: vintrax
+          POSTGRES_DB: vintrax_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U vintrax -d vintrax_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+
+    env:
+      DATABASE_URL: postgresql://vintrax:vintrax@localhost:5432/vintrax_test?schema=public
+      REDIS_URL: redis://localhost:6379
+      # CI-only values; the API refuses the .env.example placeholders in production.
+      JWT_ACCESS_SECRET: ci-access-secret-not-used-in-production
+      JWT_REFRESH_SECRET: ci-refresh-secret-not-used-in-production
+      SEARCH_PROVIDER: postgres
+      QUEUE_DRIVER: inline
+      STORAGE_DRIVER: local
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # No version pin here on purpose: the action reads packageManager from
+      # package.json, and specifying both is a hard error.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @vintrax/backend exec prisma generate
+
+      - name: Apply migrations
+        run: pnpm --filter @vintrax/backend exec prisma migrate deploy
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify the seed runs and is idempotent
+        run: |
+          pnpm db:seed
+          pnpm db:seed
+
+  security:
+    name: Security scanning
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fails the job on high or critical advisories. Lower severities are
+      # reported without blocking, so a transitive low-severity finding does
+      # not stop a security fix from shipping. Fixes for the advisories this
+      # catches go in the pnpm overrides block in the root package.json.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
+
+      # Trivy runs from its published image rather than the marketplace action:
+      # the runner already has Docker, and this pins the scanner itself to an
+      # exact version instead of pinning an action that wraps it.
+      - name: Scan filesystem for vulnerabilities, secrets and misconfiguration
+        run: |
+          mkdir -p trivy-report
+          docker run --rm \
+            -v "$PWD:/workspace:ro" \
+            -v "$PWD/trivy-report:/report" \
+            aquasec/trivy:0.73.0 filesystem /workspace \
+              --scanners vuln,secret,misconfig \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 0 \
+              --format json \
+              --output /report/trivy.json
+          docker run --rm \
+            -v "$PWD/trivy-report:/report" \
+            aquasec/trivy:0.73.0 convert --format table /report/trivy.json
+
+      # Reported, not enforced. Code scanning would be the natural home for
+      # these findings, but SARIF upload needs Advanced Security, which this
+      # repository does not have — so the report is kept as an artifact and
+      # `pnpm audit` remains the blocking gate.
+      - name: Publish the scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report/trivy.json
+          if-no-files-found: warn
+          retention-days: 14

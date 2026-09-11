@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Camera, Heart, ShieldCheck } from 'lucide-react';
-import type { VehicleSummary } from '@atlas/shared';
+import type { VehicleSummary } from '@vintrax/shared';
 import { cn, formatKm, formatPrice, joinSpecs } from '@/lib/format';
 import { useToggleFavourite } from '@/lib/queries';
 import { useUser } from '@/store/session';

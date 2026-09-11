@@ -4,13 +4,13 @@ From a clean machine to a running platform, and the workflows for changing it.
 
 ## Prerequisites
 
-| Requirement | Version |
-| --- | --- |
-| Node.js | ≥ 20.11 (CI runs 22) |
-| pnpm | 10.x — the repo pins it via `packageManager` |
-| PostgreSQL | 16 |
-| Redis | 7 |
-| Docker | Optional, for the full stack |
+| Requirement | Version                                      |
+| ----------- | -------------------------------------------- |
+| Node.js     | ≥ 20.11 (CI runs 22)                         |
+| pnpm        | 10.x — the repo pins it via `packageManager` |
+| PostgreSQL  | 16                                           |
+| Redis       | 7                                            |
+| Docker      | Optional, for the full stack                 |
 
 ```bash
 corepack enable && corepack prepare pnpm@10.33.0 --activate
@@ -21,8 +21,8 @@ corepack enable && corepack prepare pnpm@10.33.0 --activate
 ### Ubuntu
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Atlas.git
-cd Atlas
+git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
+cd Vintrax
 ./scripts/setup-ubuntu.sh --mode dev
 ```
 
@@ -35,8 +35,8 @@ never overwrites an existing `.env`. See
 ### Every other platform
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Atlas.git
-cd Atlas
+git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
+cd Vintrax
 
 pnpm install
 cp .env.example .env
@@ -47,7 +47,7 @@ pnpm db:migrate     # apply migrations
 pnpm db:seed        # load demo data
 
 pnpm dev            # API on :3001, web on :3000
-pnpm dev:all        # adds Atlas Mobile on :3002
+pnpm dev:all        # adds Vintrax Mobile on :3002
 ```
 
 **Why the symlink.** The API reads `.env` or `../.env`, so the root file is
@@ -62,11 +62,11 @@ in `frontend/.env.local` and `mobile/.env.local`. Defaults cover localhost, so
 this only matters once the platform is reachable at a real address.
 `setup-ubuntu.sh` writes both files.
 
-| URL | Contents |
-| --- | --- |
-| <http://localhost:3000> | Marketplace |
-| <http://localhost:3002> | Atlas Mobile |
-| <http://localhost:3001/api/docs> | Swagger |
+| URL                                | Contents             |
+| ---------------------------------- | -------------------- |
+| <http://localhost:3000>            | Marketplace          |
+| <http://localhost:3002>            | Vintrax Mobile       |
+| <http://localhost:3001/api/docs>   | Swagger              |
 | <http://localhost:3001/api/health> | Dependency readiness |
 
 Without Docker, point `DATABASE_URL` and `REDIS_URL` at local services and skip
@@ -74,18 +74,18 @@ Without Docker, point `DATABASE_URL` and `REDIS_URL` at local services and skip
 
 ## Demo accounts
 
-All use the password **`AtlasDemo123!`**.
+All use the password **`VintraxDemo123!`**.
 
-| Email | Role | Good for |
-| --- | --- | --- |
-| `jordan.lee@example.test` | Buyer | Favourites, bidding, messaging |
-| `sam.okafor@example.test` | Buyer | A second bidder |
-| `unverified.buyer@example.test` | Buyer | The verified-email gate |
-| `sales@northshoremotors.test` | Dealer (verified) | Inventory, analytics |
-| `contact@maplecityauto.test` | Dealer (pending) | Verification workflow |
-| `marc.tremblay@example.test` | Private seller | Seller flow |
-| `inspector@atlas.test` | Inspector | Condition reports |
-| `admin@atlas.test` | Super admin | Everything |
+| Email                           | Role              | Good for                       |
+| ------------------------------- | ----------------- | ------------------------------ |
+| `jordan.lee@example.test`       | Buyer             | Favourites, bidding, messaging |
+| `sam.okafor@example.test`       | Buyer             | A second bidder                |
+| `unverified.buyer@example.test` | Buyer             | The verified-email gate        |
+| `sales@northshoremotors.test`   | Dealer (verified) | Inventory, analytics           |
+| `contact@maplecityauto.test`    | Dealer (pending)  | Verification workflow          |
+| `marc.tremblay@example.test`    | Private seller    | Seller flow                    |
+| `inspector@vintrax.test`        | Inspector         | Condition reports              |
+| `admin@vintrax.test`            | Super admin       | Everything                     |
 
 The seed creates 20 vehicles across four provinces, three dealerships, three
 completed inspections, two live auctions with bid history, favourites,
@@ -94,43 +94,43 @@ identical counts.
 
 ## A tour worth taking
 
-1. **Browse anonymously** at `/vehicles`, tick *Electric* — results narrow and
+1. **Browse anonymously** at `/vehicles`, tick _Electric_ — results narrow and
    the URL becomes `?fuelType=ELECTRIC`. Copy it into a new tab; it persists.
 2. **Search `teslla`** — the misspelling still finds the Tesla, via the trigram
    fallback.
 3. **Open a vehicle** with an inspection report and read the section grades.
-4. **Sign in as `jordan.lee@example.test`**, save a vehicle, check *Saved*.
+4. **Sign in as `jordan.lee@example.test`**, save a vehicle, check _Saved_.
 5. **Open a live auction** in two browsers, signed in as different buyers. Bid
    in one and watch the other update without reloading.
 6. **Try bidding as `unverified.buyer@example.test`** — blocked with a clear
    message.
-7. **Sign in as the dealer**, open *My listings*, unpublish a vehicle, then
+7. **Sign in as the dealer**, open _My listings_, unpublish a vehicle, then
    visit its public URL in a private window — a 404, because drafts are not
    discoverable.
-8. **Sign in as `admin@atlas.test`** and open `/admin/dashboard` for platform
+8. **Sign in as `admin@vintrax.test`** and open `/admin/dashboard` for platform
    metrics and the audit trail.
 
 ## Commands
 
-| Command | Effect |
-| --- | --- |
-| `./scripts/setup-ubuntu.sh` | Install dependencies, set up and run (Ubuntu) |
-| `pnpm dev` | Run API and web together |
-| `pnpm dev:mobile` / `pnpm dev:all` | Add Atlas Mobile, on its own or with the web app |
-| `pnpm start` | Run all three from a production build |
-| `pnpm build` | Production build of every package |
-| `pnpm test` | All test suites |
-| `pnpm typecheck` | Typecheck every package |
-| `pnpm lint` | Lint every package |
-| `pnpm db:migrate` / `db:seed` / `db:reset` | Database lifecycle |
-| `pnpm db:studio` | Browse the database |
-| `pnpm stack:up` | Full Docker stack including MinIO and OpenSearch |
+| Command                                    | Effect                                             |
+| ------------------------------------------ | -------------------------------------------------- |
+| `./scripts/setup-ubuntu.sh`                | Install dependencies, set up and run (Ubuntu)      |
+| `pnpm dev`                                 | Run API and web together                           |
+| `pnpm dev:mobile` / `pnpm dev:all`         | Add Vintrax Mobile, on its own or with the web app |
+| `pnpm start`                               | Run all three from a production build              |
+| `pnpm build`                               | Production build of every package                  |
+| `pnpm test`                                | All test suites                                    |
+| `pnpm typecheck`                           | Typecheck every package                            |
+| `pnpm lint`                                | Lint every package                                 |
+| `pnpm db:migrate` / `db:seed` / `db:reset` | Database lifecycle                                 |
+| `pnpm db:studio`                           | Browse the database                                |
+| `pnpm stack:up`                            | Full Docker stack including MinIO and OpenSearch   |
 
 Target one package with `--filter`:
 
 ```bash
-pnpm --filter @atlas/backend test
-pnpm --filter @atlas/frontend dev
+pnpm --filter @vintrax/backend test
+pnpm --filter @vintrax/frontend dev
 ```
 
 ## Optional infrastructure
@@ -154,7 +154,7 @@ unreachable, so a search outage degrades relevance rather than breaking browse.
 pull request. A merged pull request is finished — follow-up work starts from a
 fresh branch off the updated `main`.
 
-Write commit messages that explain *why*. The diff already says what changed.
+Write commit messages that explain _why_. The diff already says what changed.
 
 Before pushing:
 
@@ -166,7 +166,7 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm build
 
 ```bash
 # Edit backend/prisma/schema.prisma, then:
-pnpm --filter @atlas/backend exec prisma migrate dev --name describe_the_change
+pnpm --filter @vintrax/backend exec prisma migrate dev --name describe_the_change
 ```
 
 **Read the generated SQL before committing.** Prisma occasionally produces a
@@ -181,11 +181,11 @@ which never resets data.
 `packages/shared` is imported by both applications, so the order matters. For a
 **domain enum**, three things change together:
 
-| File | Change |
-| --- | --- |
+| File                            | Change                  |
+| ------------------------------- | ----------------------- |
 | `packages/shared/src/domain.ts` | The exported value list |
-| `backend/prisma/schema.prisma` | The Prisma enum |
-| `backend/prisma/migrations/…` | The generated migration |
+| `backend/prisma/schema.prisma`  | The Prisma enum         |
+| `backend/prisma/migrations/…`   | The generated migration |
 
 Out of sync, the API accepts a value that Prisma then rejects at write time.
 
@@ -242,13 +242,13 @@ CI runs against a fresh database, which catches migrations that only apply on
 top of existing state.
 
 ```bash
-createdb -O atlas atlas_ci
-export DATABASE_URL="postgresql://atlas:atlas@localhost:5432/atlas_ci?schema=public"
+createdb -O vintrax vintrax_ci
+export DATABASE_URL="postgresql://vintrax:vintrax@localhost:5432/vintrax_ci?schema=public"
 export QUEUE_DRIVER=inline SEARCH_PROVIDER=postgres
 
 pnpm install --frozen-lockfile
-pnpm --filter @atlas/backend exec prisma generate
-pnpm --filter @atlas/backend exec prisma migrate deploy
+pnpm --filter @vintrax/backend exec prisma generate
+pnpm --filter @vintrax/backend exec prisma migrate deploy
 pnpm typecheck && pnpm lint && pnpm test && pnpm build
 pnpm db:seed && pnpm db:seed
 ```
@@ -267,13 +267,13 @@ In priority order:
 
 ## Troubleshooting
 
-**`Cannot find module '@atlas/shared'`** — the shared package has not been
+**`Cannot find module '@vintrax/shared'`** — the shared package has not been
 built. The root scripts build it first; run `pnpm shared:build` if you invoked a
 package script directly.
 
 **WebSocket shows "Reconnecting"** — `NEXT_PUBLIC_WS_URL` must point at the API
 origin (Next's proxy does not forward upgrades), and **the page's own origin**
-must be in the API's `CORS_ORIGINS`. Adding Atlas Mobile to an existing install
+must be in the API's `CORS_ORIGINS`. Adding Vintrax Mobile to an existing install
 trips this: port 3002 is not in an allowlist written before the app existed, and
 the API logs `Rejected socket from disallowed origin`. Re-run
 `scripts/setup-ubuntu.sh` to add it, then restart the API.

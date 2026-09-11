@@ -1,17 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import type { AdminAnalytics } from '@atlas/shared';
-import { PLATFORM_FEE_MAX, PLATFORM_FEE_MIN, PLATFORM_FEE_RATE } from '@atlas/shared';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { AdminAnalytics } from '@vintrax/shared';
+import { PLATFORM_FEE_MAX, PLATFORM_FEE_MIN, PLATFORM_FEE_RATE } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatPrice } from '@/lib/utils';
 import {
@@ -52,7 +44,7 @@ function Revenue() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Revenue</h1>
         <p className="mt-1 text-muted-foreground">
-          Completed sales over the last 30 days. Atlas records payments rather than processing
+          Completed sales over the last 30 days. Vintrax records payments rather than processing
           them, so these are settled orders, not cleared funds.
         </p>
       </div>
@@ -75,7 +67,7 @@ function Revenue() {
               Platform revenue
             </p>
             <p className="tabular mt-1 text-2xl font-bold">{formatPrice(revenue)}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Fees Atlas kept</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Fees Vintrax kept</p>
           </CardContent>
         </Card>
         <Card>

@@ -7,16 +7,15 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Atlas Mobile',
-    template: '%s · Atlas',
+    default: 'Vintrax Mobile',
+    template: '%s · Vintrax',
   },
-  description:
-    'Browse inventory, bid in live auctions and manage listings from your phone.',
+  description: 'Browse inventory, bid in live auctions and manage listings from your phone.',
   manifest: '/manifest.webmanifest',
-  applicationName: 'Atlas Mobile',
+  applicationName: 'Vintrax Mobile',
   appleWebApp: {
     capable: true,
-    title: 'Atlas',
+    title: 'Vintrax',
     // Translucent lets the page background show through the status bar, which
     // is why the layout pads for the safe-area inset itself.
     statusBarStyle: 'black-translucent',
@@ -40,7 +39,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b1220' },
+    { media: '(prefers-color-scheme: dark)', color: '#0d1512' },
   ],
 };
 

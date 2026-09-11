@@ -11,30 +11,30 @@
 # do bind every interface, because a reverse proxy or another host has to reach
 # them; nothing else does.
 
-name: atlas
+name: vintrax
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: atlas-postgres
+    container_name: vintrax-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: atlas
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-atlas}
-      POSTGRES_DB: atlas
+      POSTGRES_USER: vintrax
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vintrax}
+      POSTGRES_DB: vintrax
     ports:
       - '127.0.0.1:5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U atlas -d atlas']
+      test: ['CMD-SHELL', 'pg_isready -U vintrax -d vintrax']
       interval: 5s
       timeout: 5s
       retries: 12
 
   redis:
     image: redis:7-alpine
-    container_name: atlas-redis
+    container_name: vintrax-redis
     restart: unless-stopped
     # Append-only persistence so queued jobs survive a restart.
     #
@@ -47,13 +47,13 @@ services:
       - --appendonly
       - 'yes'
       - --requirepass
-      - ${REDIS_PASSWORD:-atlas}
+      - ${REDIS_PASSWORD:-vintrax}
     ports:
       - '127.0.0.1:6379:6379'
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-atlas}', '--no-auth-warning', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-vintrax}', '--no-auth-warning', 'ping']
       interval: 5s
       timeout: 3s
       retries: 12
@@ -61,12 +61,12 @@ services:
   # S3-compatible object storage. Optional: STORAGE_DRIVER=local writes to disk.
   minio:
     image: minio/minio:latest
-    container_name: atlas-minio
+    container_name: vintrax-minio
     restart: unless-stopped
     command: ['server', '/data', '--console-address', ':9001']
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-atlasadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-atlasadmin}
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-vintraxadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-vintraxadmin}
     ports:
       - '127.0.0.1:9000:9000'
       - '127.0.0.1:9001:9001'
@@ -87,9 +87,9 @@ services:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID:-atlasadmin} ${S3_SECRET_ACCESS_KEY:-atlasadmin} &&
-      mc mb --ignore-existing local/${S3_BUCKET:-atlas-media} &&
-      mc anonymous set download local/${S3_BUCKET:-atlas-media} &&
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID:-vintraxadmin} ${S3_SECRET_ACCESS_KEY:-vintraxadmin} &&
+      mc mb --ignore-existing local/${S3_BUCKET:-vintrax-media} &&
+      mc anonymous set download local/${S3_BUCKET:-vintrax-media} &&
       echo 'MinIO bucket ready'
       "
     profiles: ['storage', 'full']
@@ -98,7 +98,7 @@ services:
   # and needs none of this.
   opensearch:
     image: opensearchproject/opensearch:2.18.0
-    container_name: atlas-opensearch
+    container_name: vintrax-opensearch
     restart: unless-stopped
     environment:
       discovery.type: single-node
@@ -122,32 +122,52 @@ services:
       retries: 12
     profiles: ['search', 'full']
 
+  # Migrations, as a one-shot job the API waits on. Running them inside the
+  # API's own command races with itself the moment there is more than one
+  # replica, and a failed migration then crash-loops a container that keeps
+  # retrying a schema change against a live database.
+  migrate:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/backend.Dockerfile
+    container_name: vintrax-migrate
+    restart: 'no'
+    init: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://vintrax:${POSTGRES_PASSWORD:-vintrax}@postgres:5432/vintrax?schema=public
+    command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
+
   api:
     build:
       context: .
       dockerfile: infrastructure/docker/backend.Dockerfile
-    container_name: atlas-api
+    container_name: vintrax-api
     restart: unless-stopped
+    init: true
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     environment:
       NODE_ENV: production
       API_PORT: 3001
       APP_URL: ${APP_URL:-http://localhost:3000}
-      DATABASE_URL: postgresql://atlas:${POSTGRES_PASSWORD:-atlas}@postgres:5432/atlas?schema=public
-      REDIS_URL: redis://:${REDIS_PASSWORD:-atlas}@redis:6379
+      DATABASE_URL: postgresql://vintrax:${POSTGRES_PASSWORD:-vintrax}@postgres:5432/vintrax?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:-vintrax}@redis:6379
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       UPLOAD_DIR: /app/backend/uploads
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
-      S3_BUCKET: ${S3_BUCKET:-atlas-media}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-atlasadmin}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-atlasadmin}
+      S3_BUCKET: ${S3_BUCKET:-vintrax-media}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-vintraxadmin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-vintraxadmin}
       SEARCH_PROVIDER: ${SEARCH_PROVIDER:-postgres}
       OPENSEARCH_NODE: ${OPENSEARCH_NODE:-http://opensearch:9200}
       QUEUE_DRIVER: redis
@@ -156,10 +176,6 @@ services:
       - '3001:3001'
     volumes:
       - uploads-data:/app/backend/uploads
-    # Migrations run before the process starts. With more than one replica this
-    # belongs in a separate pre-deploy job instead, to avoid a migration race.
-    command: >
-      /bin/sh -c "node_modules/.bin/prisma migrate deploy && node dist/main"
 
   web:
     build:
@@ -168,18 +184,25 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:3001}
-    container_name: atlas-web
+        # Next resolves rewrites() at build time into routes-manifest.json, so
+        # the /api proxy destination is fixed here and not by the environment
+        # variable of the same name below.
+        API_ORIGIN: http://api:3001
+    container_name: vintrax-web
     restart: unless-stopped
+    init: true
     depends_on:
       - api
     environment:
       NODE_ENV: production
-      # Server components address the API over the compose network.
+      # Read per request by serverFetch() for server components. The rewrite
+      # destination is the build argument above; these are two different uses
+      # of one name and both are needed.
       API_ORIGIN: http://api:3001
     ports:
       - '3000:3000'
 
-  # Atlas Mobile. A separate service on its own port so the existing web
+  # Vintrax Mobile. A separate service on its own port so the existing web
   # container, its port and its build are untouched.
   mobile:
     build:
@@ -188,13 +211,19 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:3001}
-    container_name: atlas-mobile
+        # Next resolves rewrites() at build time into routes-manifest.json, so
+        # the /api proxy destination is fixed here and not by the environment
+        # variable of the same name below.
+        API_ORIGIN: http://api:3001
+    container_name: vintrax-mobile
     restart: unless-stopped
+    init: true
     depends_on:
       - api
     environment:
       NODE_ENV: production
-      # The rewrite proxy addresses the API over the compose network.
+      # Read per request for server-rendered data. The rewrite destination is
+      # the build argument above.
       API_ORIGIN: http://api:3001
     ports:
       - '3002:3002'

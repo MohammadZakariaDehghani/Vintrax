@@ -7,8 +7,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Atlas — Canadian vehicle marketplace and auctions',
-    template: '%s · Atlas',
+    default: 'Vintrax — Canadian vehicle marketplace and auctions',
+    template: '%s · Vintrax',
   },
   description:
     'Buy and sell vehicles across Canada. Dealer inventory, private listings, live auctions and independent inspection reports.',
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b1220' },
+    { media: '(prefers-color-scheme: dark)', color: '#0d1512' },
   ],
 };
 

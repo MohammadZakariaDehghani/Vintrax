@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { use, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Send } from 'lucide-react';
-import type { ConversationDetail, MessageDto } from '@atlas/shared';
+import type { ConversationDetail, MessageDto } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatPrice, formatRelativeTime } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
@@ -38,7 +38,8 @@ function Thread({ id }: { id: string }) {
   }, [conversation.data, queryClient]);
 
   const send = useMutation({
-    mutationFn: (text: string) => api.post<MessageDto>(`/conversations/${id}/messages`, { body: text }),
+    mutationFn: (text: string) =>
+      api.post<MessageDto>(`/conversations/${id}/messages`, { body: text }),
     onSuccess: () => {
       setBody('');
       void queryClient.invalidateQueries({ queryKey: ['conversation', id] });
@@ -94,12 +95,7 @@ function Thread({ id }: { id: string }) {
                 )}
               >
                 <p className="whitespace-pre-line text-sm">{message.body}</p>
-                <p
-                  className={cn(
-                    'pt-1 text-xs',
-                    own ? 'opacity-75' : 'text-muted-foreground',
-                  )}
-                >
+                <p className={cn('pt-1 text-xs', own ? 'opacity-75' : 'text-muted-foreground')}>
                   {formatRelativeTime(message.createdAt)}
                 </p>
               </div>

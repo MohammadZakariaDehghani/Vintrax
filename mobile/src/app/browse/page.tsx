@@ -10,7 +10,7 @@ import {
   filtersToParams,
   parseFilters,
   type VehicleFilters,
-} from '@atlas/client';
+} from '@vintrax/client';
 import { useVehicleSearch } from '@/lib/queries';
 import { formatNumber } from '@/lib/format';
 import { Button, Spinner, StateMessage } from '@/components/ui';

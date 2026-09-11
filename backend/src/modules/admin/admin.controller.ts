@@ -1,4 +1,13 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Put, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   BODY_TYPES,
@@ -11,7 +20,7 @@ import {
   type Paginated,
   auditLogQuerySchema,
   bodyTypeImageSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
 import { AuditService } from '../../common/audit/audit.service';

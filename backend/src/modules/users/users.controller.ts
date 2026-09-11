@@ -22,7 +22,7 @@ import {
   addressSchema,
   updateProfileSchema,
   updateUserStatusSchema,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import { z } from 'zod';
 import { Audit, CurrentUser, RequirePermissions } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';

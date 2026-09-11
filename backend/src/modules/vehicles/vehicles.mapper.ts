@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import type { AuctionSummary, VehicleDetail, VehicleSummary } from '@atlas/shared';
+import type { AuctionSummary, VehicleDetail, VehicleSummary } from '@vintrax/shared';
 
 /** Fields needed to render a vehicle card in search results and inventory grids. */
 export const vehicleSummarySelect = {

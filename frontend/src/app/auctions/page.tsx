@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Gavel } from 'lucide-react';
-import type { AuctionSummary, Paginated } from '@atlas/shared';
+import type { AuctionSummary, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatPrice } from '@/lib/utils';
 import {

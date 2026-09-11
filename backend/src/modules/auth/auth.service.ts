@@ -15,7 +15,7 @@ import type {
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';

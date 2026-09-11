@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
-import type { InspectionDetail } from '@atlas/shared';
+import type { InspectionDetail } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatDate, formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { Badge, Card, CardContent, CardHeader, CardTitle, Skeleton } from '@/components/ui';

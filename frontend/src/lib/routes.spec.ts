@@ -74,9 +74,7 @@ function serves(pattern: string[], link: string[]): boolean {
   if (catchAll !== -1) return link.length >= catchAll;
 
   if (pattern.length !== link.length) return false;
-  return pattern.every(
-    (segment, index) => segment.startsWith('[') || segment === link[index],
-  );
+  return pattern.every((segment, index) => segment.startsWith('[') || segment === link[index]);
 }
 
 describe('internal links', () => {
@@ -102,7 +100,9 @@ describe('internal links', () => {
   });
 
   it('serves() distinguishes a real match from a near miss', () => {
-    expect(serves(['dashboard', 'messages', '[id]'], ['dashboard', 'messages', ':param'])).toBe(true);
+    expect(serves(['dashboard', 'messages', '[id]'], ['dashboard', 'messages', ':param'])).toBe(
+      true,
+    );
     expect(serves(['dashboard', 'messages'], ['dashboard', 'messages', ':param'])).toBe(false);
     expect(serves(['vehicles', '[slug]'], ['vehicles', 'a-b-c'])).toBe(true);
     expect(serves(['vehicles', '[slug]'], ['auctions', 'a-b-c'])).toBe(false);

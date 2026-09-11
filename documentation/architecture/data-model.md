@@ -141,12 +141,12 @@ Duplicate-VIN detection belongs in moderation tooling, not a database constraint
 
 **`status`** governs visibility:
 
-| Status | In search | Direct link (public) | Direct link (owner/admin) | Accepts messages |
-| --- | --- | --- | --- | --- |
-| `DRAFT` | No | 404 | Yes | No |
-| `ACTIVE` | Yes | Yes | Yes | Yes |
-| `SOLD` | No | Yes | Yes | No |
-| `ARCHIVED` | No | 404 | Yes | No |
+| Status     | In search | Direct link (public) | Direct link (owner/admin) | Accepts messages |
+| ---------- | --------- | -------------------- | ------------------------- | ---------------- |
+| `DRAFT`    | No        | 404                  | Yes                       | No               |
+| `ACTIVE`   | Yes       | Yes                  | Yes                       | Yes              |
+| `SOLD`     | No        | Yes                  | Yes                       | No               |
+| `ARCHIVED` | No        | 404                  | Yes                       | No               |
 
 Unpublished listings return **404 rather than 403** so their existence cannot be confirmed by
 probing IDs.
@@ -200,19 +200,19 @@ revoked, so a replayed token is distinguishable from an unknown one.
 
 Chosen for the queries that actually run, not speculatively.
 
-| Table | Index | Serves |
-| --- | --- | --- |
-| `Listing` | `(status, publishedAt)` | Default browse and "newest first" |
-| `Listing` | `(status, priceCad)` | Price sorting and price-range filters |
-| `Listing` | `(status, make, model)` | Make and model filters |
-| `Listing` | `(status, province)` | Location filtering |
-| `Listing` | `(sellerId, status)` | Seller dashboard tabs |
-| `ListingImage` | `(listingId, position)` | Ordered gallery fetch |
-| `Favourite` | `(userId, createdAt)` | The saved-listings page |
-| `Conversation` | `(buyerId, lastMessageAt)` | Buyer inbox |
-| `Conversation` | `(sellerId, lastMessageAt)` | Seller inbox |
-| `Message` | `(conversationId, createdAt)` | Thread rendering |
-| `RefreshToken` | `tokenHash` (unique) | Refresh lookup |
+| Table          | Index                         | Serves                                |
+| -------------- | ----------------------------- | ------------------------------------- |
+| `Listing`      | `(status, publishedAt)`       | Default browse and "newest first"     |
+| `Listing`      | `(status, priceCad)`          | Price sorting and price-range filters |
+| `Listing`      | `(status, make, model)`       | Make and model filters                |
+| `Listing`      | `(status, province)`          | Location filtering                    |
+| `Listing`      | `(sellerId, status)`          | Seller dashboard tabs                 |
+| `ListingImage` | `(listingId, position)`       | Ordered gallery fetch                 |
+| `Favourite`    | `(userId, createdAt)`         | The saved-listings page               |
+| `Conversation` | `(buyerId, lastMessageAt)`    | Buyer inbox                           |
+| `Conversation` | `(sellerId, lastMessageAt)`   | Seller inbox                          |
+| `Message`      | `(conversationId, createdAt)` | Thread rendering                      |
+| `RefreshToken` | `tokenHash` (unique)          | Refresh lookup                        |
 
 **`status` leads every composite index on `Listing`** because search always constrains it first —
 public search is hard-coded to `ACTIVE`. An index that did not lead with status would be far less
@@ -236,7 +236,7 @@ To change the schema:
 
 ```bash
 # Edit apps/api/prisma/schema.prisma, then:
-pnpm --filter @atlas/api exec prisma migrate dev --name describe_the_change
+pnpm --filter @vintrax/api exec prisma migrate dev --name describe_the_change
 ```
 
 Review the generated SQL before committing. If the change touches an enum, the corresponding list in

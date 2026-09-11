@@ -1,6 +1,6 @@
 # Security audit
 
-An audit of the Atlas marketplace: backend, both web clients, shared packages,
+An audit of the Vintrax marketplace: backend, both web clients, shared packages,
 infrastructure and CI.
 
 Date of audit: 2026-09-06 · Branch
@@ -27,11 +27,11 @@ handful of **authorization decisions** and **infrastructure defaults**, and
 three of them were exploitable by any registered user.
 
 | Severity | Count |
-| --- | --- |
-| Critical | 0 |
-| High | 4 |
-| Medium | 5 |
-| Low | 5 |
+| -------- | ----- |
+| Critical | 0     |
+| High     | 4     |
+| Medium   | 5     |
+| Low      | 5     |
 
 **The four most dangerous, in order — all four now fixed and verified:**
 
@@ -48,7 +48,7 @@ three of them were exploitable by any registered user.
 against a running instance by attempting the original attack. What remains is
 the Medium backlog — a normal hardening list, none of it a free vehicle or a
 world-readable title deed. The one thing that should still block real money is
-A-08's sibling: payments are *recorded*, never *processed*, so the settlement
+A-08's sibling: payments are _recorded_, never _processed_, so the settlement
 path needs a real provider webhook before it carries funds.
 
 **Limitations of this audit.** Static analysis and code reading, plus a local
@@ -63,12 +63,12 @@ review, no review of a real S3 bucket policy or IAM role. Everything under
 The four P0 findings were fixed after the audit, on explicit authorisation.
 Nothing else in this report was touched.
 
-| Finding | Fix | Verified by |
-| --- | --- | --- |
-| A-01 | `payment:manage` added to the seller, dealer and admin roles and required on the route; `confirmPayment` additionally rejects anyone who is not the seller or an admin | A buyer's own-order payment returns 403 at the guard; a dealer who *holds* the permission but is the buyer on that order returns 403 from the service. The seller succeeds and the order moves to `AWAITING_DELIVERY` |
-| A-02 | Documents omitted from the detail response unless the viewer is the seller, an admin, or the buyer on a live order; `documents/` no longer served statically; a new authorized route streams the file and the response carries a download path instead of a storage path | The old static URL returns 404, photo folders still return 200, anonymous and unrelated signed-in viewers see `documents: []` with a `documentCount`, the owner and the buyer-on-an-order both download successfully, and traversal out of the upload directory is rejected |
-| A-03 | `status` removed from `updateVehicleSchema`, the create schema narrowed to `DRAFT`/`PENDING_REVIEW`, and a seller status route added that enforces a transition table with no path to `ACTIVE` | Four bypass attempts — create-as-published, direct PATCH, PATCH smuggled beside a legitimate price edit, and the new status route — all rejected or silently stripped, with the legitimate submit → moderate → publish → archive path still working |
-| A-04 | Every backing service published on `127.0.0.1`, Redis given a `requirepass`, and the Ubuntu installer now generates a password for a native Redis and records it in `.env` | `docker compose config` resolves Postgres, Redis, MinIO and OpenSearch to `127.0.0.1` and the API to a password-bearing `REDIS_URL`; the installer's function was run against a live Redis, which then refused unauthenticated commands, persisted the setting, and was idempotent on a second run |
+| Finding | Fix                                                                                                                                                                                                                                                                      | Verified by                                                                                                                                                                                                                                                                                        |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-01    | `payment:manage` added to the seller, dealer and admin roles and required on the route; `confirmPayment` additionally rejects anyone who is not the seller or an admin                                                                                                   | A buyer's own-order payment returns 403 at the guard; a dealer who _holds_ the permission but is the buyer on that order returns 403 from the service. The seller succeeds and the order moves to `AWAITING_DELIVERY`                                                                              |
+| A-02    | Documents omitted from the detail response unless the viewer is the seller, an admin, or the buyer on a live order; `documents/` no longer served statically; a new authorized route streams the file and the response carries a download path instead of a storage path | The old static URL returns 404, photo folders still return 200, anonymous and unrelated signed-in viewers see `documents: []` with a `documentCount`, the owner and the buyer-on-an-order both download successfully, and traversal out of the upload directory is rejected                        |
+| A-03    | `status` removed from `updateVehicleSchema`, the create schema narrowed to `DRAFT`/`PENDING_REVIEW`, and a seller status route added that enforces a transition table with no path to `ACTIVE`                                                                           | Four bypass attempts — create-as-published, direct PATCH, PATCH smuggled beside a legitimate price edit, and the new status route — all rejected or silently stripped, with the legitimate submit → moderate → publish → archive path still working                                                |
+| A-04    | Every backing service published on `127.0.0.1`, Redis given a `requirepass`, and the Ubuntu installer now generates a password for a native Redis and records it in `.env`                                                                                               | `docker compose config` resolves Postgres, Redis, MinIO and OpenSearch to `127.0.0.1` and the API to a password-bearing `REDIS_URL`; the installer's function was run against a live Redis, which then refused unauthenticated commands, persisted the setting, and was idempotent on a second run |
 
 34 regression tests were added alongside the fixes — `transactions.authz.spec.ts`,
 `vehicles.documents.spec.ts`, `vehicles.status.spec.ts` and
@@ -79,7 +79,7 @@ change no other test would notice.
 **What the fixes did not do.** They closed four specific holes. They did not
 add a payment provider, they did not move tokens out of `localStorage`, and they
 did not touch any live infrastructure — the compose and installer changes affect
-what a *new* deployment does, not what a running one is doing now.
+what a _new_ deployment does, not what a running one is doing now.
 
 ---
 
@@ -87,27 +87,27 @@ what a *new* deployment does, not what a running one is doing now.
 
 ## Technology stack
 
-| Layer | Technology |
-| --- | --- |
-| API | NestJS 11, REST + Socket.IO, Node 22 |
-| Database | PostgreSQL 16 via Prisma 6 |
-| Cache, queues, locks | Redis 7, BullMQ |
-| Web | Next.js 15 App Router, React 19 |
-| Mobile | Next.js 15 installable PWA |
-| Shared | `@atlas/shared` (Zod schemas, enums, contracts), `@atlas/client` (API client, session) |
-| Infrastructure | Docker, Docker Compose, Kubernetes, Terraform, GitHub Actions |
-| Storage | Local disk or S3-compatible, behind one interface |
-| Search | PostgreSQL full-text, or OpenSearch |
+| Layer                | Technology                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------ |
+| API                  | NestJS 11, REST + Socket.IO, Node 22                                                       |
+| Database             | PostgreSQL 16 via Prisma 6                                                                 |
+| Cache, queues, locks | Redis 7, BullMQ                                                                            |
+| Web                  | Next.js 15 App Router, React 19                                                            |
+| Mobile               | Next.js 15 installable PWA                                                                 |
+| Shared               | `@vintrax/shared` (Zod schemas, enums, contracts), `@vintrax/client` (API client, session) |
+| Infrastructure       | Docker, Docker Compose, Kubernetes, Terraform, GitHub Actions                              |
+| Storage              | Local disk or S3-compatible, behind one interface                                          |
+| Search               | PostgreSQL full-text, or OpenSearch                                                        |
 
 ## Components and entry points
 
-| Component | Path | Exposure |
-| --- | --- | --- |
-| API | `backend/src` | `:3001`, prefix `/api`, plus `/uploads` static |
-| WebSocket | `backend/src/modules/auctions` | `/auctions` namespace, read-only |
-| Web | `frontend/src` | `:3000`, proxies `/api` to the API |
-| Mobile PWA | `mobile/src` | `:3002`, same proxy |
-| Admin | `frontend/src/app/admin` | Same origin as the web app, gated by role |
+| Component  | Path                           | Exposure                                       |
+| ---------- | ------------------------------ | ---------------------------------------------- |
+| API        | `backend/src`                  | `:3001`, prefix `/api`, plus `/uploads` static |
+| WebSocket  | `backend/src/modules/auctions` | `/auctions` namespace, read-only               |
+| Web        | `frontend/src`                 | `:3000`, proxies `/api` to the API             |
+| Mobile PWA | `mobile/src`                   | `:3002`, same proxy                            |
+| Admin      | `frontend/src/app/admin`       | Same origin as the web app, gated by role      |
 
 ## Authentication flow
 
@@ -184,7 +184,7 @@ async confirmPayment(transactionId: string, input: ConfirmPaymentInput, actor: A
 confirmPayment(...)
 ```
 
-Contrast with the sibling endpoint, which *is* restricted correctly:
+Contrast with the sibling endpoint, which _is_ restricted correctly:
 
 ```ts
 // complete()
@@ -214,7 +214,7 @@ already exists and is held only by `SUPER_ADMIN`:
 ```
 
 When a provider is integrated, replace it with a signed webhook endpoint that
-verifies the provider's signature and looks the payment up by *its* reference,
+verifies the provider's signature and looks the payment up by _its_ reference,
 never trusting a client-supplied one.
 
 **Priority:** P0
@@ -292,13 +292,13 @@ Two changes, both needed:
 
 1. **Stop publishing the URLs.** In `toVehicleDetail`, return `documents` only
    when the viewer is the owner, an admin, or the counterparty on a completed
-   order. Everyone else gets `documents: []` — or document *types* without URLs,
+   order. Everyone else gets `documents: []` — or document _types_ without URLs,
    if the goal is to advertise that paperwork exists.
 2. **Put the files behind authorization.** Replace static serving of the
    documents folder with an authenticated route
    (`GET /api/vehicles/:id/documents/:docId`) that re-checks the same rule and
    streams the file, or issue short-lived signed URLs when on S3. Vehicle
-   *images* can stay public.
+   _images_ can stay public.
 
 **Priority:** P0
 
@@ -404,10 +404,10 @@ listing to stay `DRAFT`.
 The compose file publishes both datastores to every interface, and Redis is
 started with no password:
 
-| Service | Published | Authentication |
-| --- | --- | --- |
-| postgres | `5432:5432` | `POSTGRES_PASSWORD`, `atlas` in the example env |
-| redis | `6379:6379` | **none** |
+| Service  | Published   | Authentication                                    |
+| -------- | ----------- | ------------------------------------------------- |
+| postgres | `5432:5432` | `POSTGRES_PASSWORD`, `vintrax` in the example env |
+| redis    | `6379:6379` | **none**                                          |
 
 `0.0.0.0` is the default bind for a `host:container` mapping. The single-server
 deployment path documented in `deployment.md` explicitly ships **no firewall
@@ -431,7 +431,7 @@ redis:     command: ['redis-server', '--appendonly', 'yes']   # no --requirepass
 
 ```
 # .env.example
-POSTGRES_PASSWORD=atlas
+POSTGRES_PASSWORD=vintrax
 REDIS_URL="redis://127.0.0.1:6379"
 ```
 
@@ -480,7 +480,7 @@ const redirectTo = searchParams.get('from') ?? '/dashboard';
 router.push(redirectTo);
 ```
 
-`router.push` follows an absolute URL, so `?from=https://evil.example/atlas`
+`router.push` follows an absolute URL, so `?from=https://evil.example/vintrax`
 sends the user off-site immediately after a successful sign-in on the genuine
 domain.
 
@@ -494,7 +494,7 @@ router.replace(next && next.startsWith('/') ? next : '/');
 
 ### Attack scenario
 
-Phishing link to `https://atlas.example.com/login?from=https://evil.example/session-expired`.
+Phishing link to `https://vintrax.example.com/login?from=https://evil.example/session-expired`.
 The victim sees the real domain and a real sign-in, then lands on a clone
 asking them to "confirm" their password.
 
@@ -504,9 +504,8 @@ Apply the mobile app's check:
 
 ```ts
 const requested = searchParams.get('from');
-const redirectTo = requested && requested.startsWith('/') && !requested.startsWith('//')
-  ? requested
-  : '/dashboard';
+const redirectTo =
+  requested && requested.startsWith('/') && !requested.startsWith('//') ? requested : '/dashboard';
 ```
 
 The `//` guard matters — `//evil.example` is protocol-relative and off-site.
@@ -528,7 +527,7 @@ A listing's image URLs are accepted as arbitrary strings:
 
 ```ts
 export const vehicleImageSchema = z.object({
-  url: trimmed(500).min(1),      // no URL parsing, no host allowlist
+  url: trimmed(500).min(1), // no URL parsing, no host allowlist
   alt: trimmed(160).optional(),
 });
 ```
@@ -540,7 +539,7 @@ remotePatterns: [
   { protocol: 'https', hostname: '**' },
   { protocol: 'http', hostname: 'localhost' },
   { protocol: 'http', hostname: '127.0.0.1' },
-]
+];
 ```
 
 A seller controls the stored URL, and rendering the listing makes the Next
@@ -560,7 +559,7 @@ Validate the URL where it enters the system, and constrain where it can point:
 ```ts
 url: z.string().url().max(500).refine(
   (value) => ALLOWED_MEDIA_HOSTS.includes(new URL(value).host),
-  { message: 'Images must be uploaded through Atlas' },
+  { message: 'Images must be uploaded through Vintrax' },
 ),
 ```
 
@@ -776,27 +775,27 @@ deployment does. Next.js needs a writable cache directory, so this needs an
 Things checked and found sound. These matter as much as the findings, because
 they are where a marketplace usually fails.
 
-| Area | Result |
-| --- | --- |
-| SQL injection | No injectable path. The search provider uses tagged templates, so `${term}` is a bound parameter; the one `$queryRawUnsafe` takes only file-local literals |
-| XSS sinks | Zero occurrences of `dangerouslySetInnerHTML`, `innerHTML`, `eval` or `new Function` across both apps and all packages |
-| Mass assignment | `ZodValidationPipe` returns `result.data`, so unknown keys are stripped before reaching any service |
-| Role self-escalation | Registration restricts role to `BUYER \| SELLER \| DEALER`; `updateProfileSchema` has no `role`, `status` or `emailVerified` field |
-| Password storage | bcrypt cost 12, with a dummy-hash comparison so a missing account and a wrong password take the same time |
-| Password reset | Resolves identically whether or not the address exists; a completed reset revokes existing sessions |
-| Refresh tokens | Stored as SHA-256 digests, rotated on use, replay revokes the whole family |
-| Credential exposure | `passwordHash` is never selected outside the auth module |
-| Suspension | `JwtAuthGuard` re-reads the user per request, so a suspended account is refused on its next call rather than at token expiry |
-| Ownership checks | Verified enforced in vehicles, auctions, messaging, notifications, orders and inspections |
-| Self-dealing | A seller cannot bid on their own vehicle; a user cannot message themselves |
-| Bid concurrency | Serializable isolation, with `40001` mapped to a 409 — no lost updates, no double winner |
-| Order duplication | A second order on a vehicle with a live order is rejected; the vehicle is reserved in the same transaction |
-| Secrets | None in the working tree or in git history. Only `.env.example` and a `CHANGE_ME` Kubernetes example |
-| Swagger | Mounted only when `NODE_ENV !== 'production'` |
-| CORS | Explicit allowlist parsed from env, never a wildcard; fails closed when empty |
-| Proxy trust | `trust proxy` set to 1, so the throttler sees the real client IP behind one hop |
-| Containers | All three images run as the unprivileged `node` user |
-| Dependencies | 0 high or critical advisories, and CI fails the build on one. The 6 moderate advisories that remain are all development tooling that never ships — `vitest` with its mocker, and `qs` through `supertest`. Clearing the `vitest` pair needs a major upgrade, which is a migration rather than an audit fix |
+| Area                 | Result                                                                                                                                                                                                                                                                                                     |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SQL injection        | No injectable path. The search provider uses tagged templates, so `${term}` is a bound parameter; the one `$queryRawUnsafe` takes only file-local literals                                                                                                                                                 |
+| XSS sinks            | Zero occurrences of `dangerouslySetInnerHTML`, `innerHTML`, `eval` or `new Function` across both apps and all packages                                                                                                                                                                                     |
+| Mass assignment      | `ZodValidationPipe` returns `result.data`, so unknown keys are stripped before reaching any service                                                                                                                                                                                                        |
+| Role self-escalation | Registration restricts role to `BUYER \| SELLER \| DEALER`; `updateProfileSchema` has no `role`, `status` or `emailVerified` field                                                                                                                                                                         |
+| Password storage     | bcrypt cost 12, with a dummy-hash comparison so a missing account and a wrong password take the same time                                                                                                                                                                                                  |
+| Password reset       | Resolves identically whether or not the address exists; a completed reset revokes existing sessions                                                                                                                                                                                                        |
+| Refresh tokens       | Stored as SHA-256 digests, rotated on use, replay revokes the whole family                                                                                                                                                                                                                                 |
+| Credential exposure  | `passwordHash` is never selected outside the auth module                                                                                                                                                                                                                                                   |
+| Suspension           | `JwtAuthGuard` re-reads the user per request, so a suspended account is refused on its next call rather than at token expiry                                                                                                                                                                               |
+| Ownership checks     | Verified enforced in vehicles, auctions, messaging, notifications, orders and inspections                                                                                                                                                                                                                  |
+| Self-dealing         | A seller cannot bid on their own vehicle; a user cannot message themselves                                                                                                                                                                                                                                 |
+| Bid concurrency      | Serializable isolation, with `40001` mapped to a 409 — no lost updates, no double winner                                                                                                                                                                                                                   |
+| Order duplication    | A second order on a vehicle with a live order is rejected; the vehicle is reserved in the same transaction                                                                                                                                                                                                 |
+| Secrets              | None in the working tree or in git history. Only `.env.example` and a `CHANGE_ME` Kubernetes example                                                                                                                                                                                                       |
+| Swagger              | Mounted only when `NODE_ENV !== 'production'`                                                                                                                                                                                                                                                              |
+| CORS                 | Explicit allowlist parsed from env, never a wildcard; fails closed when empty                                                                                                                                                                                                                              |
+| Proxy trust          | `trust proxy` set to 1, so the throttler sees the real client IP behind one hop                                                                                                                                                                                                                            |
+| Containers           | All three images run as the unprivileged `node` user                                                                                                                                                                                                                                                       |
+| Dependencies         | 0 high or critical advisories, and CI fails the build on one. The 6 moderate advisories that remain are all development tooling that never ships — `vitest` with its mocker, and `qs` through `supertest`. Clearing the `vitest` pair needs a major upgrade, which is a migration rather than an audit fix |
 
 ---
 
@@ -847,22 +846,22 @@ application log.
 
 # Findings table
 
-| Priority | Finding | Severity | Component | Status |
-| --- | --- | --- | --- | --- |
-| P0 | A-01 Buyer can record payment on their own order | High | API — orders | **Fixed** |
-| P0 | A-02 Private vehicle documents readable by anyone | High | API — vehicles, uploads | **Fixed** |
-| P0 | A-03 Seller can publish without moderation | High | API — vehicles | **Fixed** |
-| P0 | A-04 Postgres and Redis published; Redis unauthenticated | High | Infrastructure | **Fixed** |
-| P1 | A-05 Open redirect after sign-in | Medium | Web | Open |
-| P1 | A-06 SSRF through the image optimizer | Medium | Web, mobile, shared | Open |
-| P1 | A-07 No security headers on the web apps | Medium | Web, mobile | Open |
-| P1 | A-08 Tokens in localStorage | Medium | Shared client | Open |
-| P1 | A-09 No per-account brute-force protection | Medium | API — auth | Open |
-| P2 | A-10 Upload contents never verified | Low | API — storage | Open |
-| P2 | A-11 JWT secrets accepted at 16 characters | Low | API — config | Open |
-| P2 | A-12 CI token not restricted | Low | CI | Open |
-| P3 | A-13 `$queryRawUnsafe` with interpolated identifiers | Low | API — admin | Open |
-| P3 | A-14 Web and mobile pods writable root filesystem | Low | Kubernetes | Open |
+| Priority | Finding                                                  | Severity | Component               | Status    |
+| -------- | -------------------------------------------------------- | -------- | ----------------------- | --------- |
+| P0       | A-01 Buyer can record payment on their own order         | High     | API — orders            | **Fixed** |
+| P0       | A-02 Private vehicle documents readable by anyone        | High     | API — vehicles, uploads | **Fixed** |
+| P0       | A-03 Seller can publish without moderation               | High     | API — vehicles          | **Fixed** |
+| P0       | A-04 Postgres and Redis published; Redis unauthenticated | High     | Infrastructure          | **Fixed** |
+| P1       | A-05 Open redirect after sign-in                         | Medium   | Web                     | Open      |
+| P1       | A-06 SSRF through the image optimizer                    | Medium   | Web, mobile, shared     | Open      |
+| P1       | A-07 No security headers on the web apps                 | Medium   | Web, mobile             | Open      |
+| P1       | A-08 Tokens in localStorage                              | Medium   | Shared client           | Open      |
+| P1       | A-09 No per-account brute-force protection               | Medium   | API — auth              | Open      |
+| P2       | A-10 Upload contents never verified                      | Low      | API — storage           | Open      |
+| P2       | A-11 JWT secrets accepted at 16 characters               | Low      | API — config            | Open      |
+| P2       | A-12 CI token not restricted                             | Low      | CI                      | Open      |
+| P3       | A-13 `$queryRawUnsafe` with interpolated identifiers     | Low      | API — admin             | Open      |
+| P3       | A-14 Web and mobile pods writable root filesystem        | Low      | Kubernetes              | Open      |
 
 # Security score
 
@@ -893,42 +892,42 @@ misconfiguration would not be visible from this repository at all.
 1. ~~Restrict `POST /orders/:id/payment` to `payment:manage`~~ **done**. Still
    outstanding: replace it with a signed provider webhook before taking real
    money — the endpoint records an assertion, it does not verify a payment.
-   *(A-01)*
+   _(A-01)_
 2. ~~Stop returning document URLs to non-owners and move document files behind
    an authenticated route~~ **done**. Still outstanding on the S3 driver: the
    bucket policy is `mc anonymous set download`, so an object remains readable
    to anyone holding its URL even though the API no longer discloses one.
-   Presigned URLs, or a private bucket, close that. *(A-02)*
+   Presigned URLs, or a private bucket, close that. _(A-02)_
 3. ~~Remove `status` from `updateVehicleSchema` and add explicit transition
-   endpoints~~ **done**. *(A-03)*
+   endpoints~~ **done**. _(A-03)_
 4. ~~Bind Postgres and Redis to loopback and set a Redis password~~ **done** for
    compose and for the Ubuntu installer. Still outstanding: host firewall rules,
    and the Kubernetes and Terraform paths, which were not part of this change.
-   *(A-04)*
+   _(A-04)_
 
 ## P1 — next cycle
 
 5. Validate the post-sign-in redirect in the web app, and add the `//` guard to
-   both apps. *(A-05)*
+   both apps. _(A-05)_
 6. Accept storage keys rather than URLs for images; narrow `remotePatterns` and
-   drop the loopback entries. *(A-06)*
-7. Add security headers to both Next apps, CSP report-only first. *(A-07)*
-8. Move the refresh token to an `HttpOnly` cookie. *(A-08)*
+   drop the loopback entries. _(A-06)_
+7. Add security headers to both Next apps, CSP report-only first. _(A-07)_
+8. Move the refresh token to an `HttpOnly` cookie. _(A-08)_
 9. Add Redis-backed per-account throttling, which also fixes per-replica
-   multiplication. *(A-09)*
+   multiplication. _(A-09)_
 
 ## P2 — hardening
 
 10. Verify upload magic bytes, re-encode images to strip EXIF, serve documents
-    as attachments. *(A-10)*
-11. Raise the JWT secret minimum to 32 bytes. *(A-11)*
-12. Set `permissions: contents: read` at the CI workflow top level. *(A-12)*
+    as attachments. _(A-10)_
+11. Raise the JWT secret minimum to 32 bytes. _(A-11)_
+12. Set `permissions: contents: read` at the CI workflow top level. _(A-12)_
 13. Audit failed sign-ins and permission denials.
 
 ## P3 — long term
 
-14. Replace `$queryRawUnsafe` with `Prisma.sql` fragments. *(A-13)*
-15. Add `readOnlyRootFilesystem` to the web and mobile pods. *(A-14)*
+14. Replace `$queryRawUnsafe` with `Prisma.sql` fragments. _(A-13)_
+15. Add `readOnlyRootFilesystem` to the web and mobile pods. _(A-14)_
 16. Ship the audit log to durable storage with alerting on auth-failure spikes.
 17. Add authorization regression tests — one per role per sensitive endpoint,
     asserting the negative case. Started: the four P0 fixes each landed with
@@ -948,7 +947,7 @@ misconfiguration would not be visible from this repository at all.
 - [x] File upload reviewed
 - [x] XSS and frontend reviewed
 - [x] Business logic reviewed
-- [x] Cloud and container configuration reviewed *(code only — see infrastructure audit required)*
+- [x] Cloud and container configuration reviewed _(code only — see infrastructure audit required)_
 - [x] Dependencies reviewed
 - [x] Secrets reviewed
 - [x] Logging and audit trail reviewed

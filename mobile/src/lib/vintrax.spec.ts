@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildQuery } from './atlas';
+import { buildQuery } from './vintrax';
 
 /**
  * Query-string construction for the inventory, auction and order lists. The

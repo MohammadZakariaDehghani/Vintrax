@@ -5,7 +5,7 @@ import type {
   DealerSummary,
   Paginated,
   VerifyDealerInput,
-} from '@atlas/shared';
+} from '@vintrax/shared';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { QueueService, QUEUE_NAMES } from '../../common/queue/queue.service';
@@ -83,7 +83,9 @@ export class DealersService {
     filters: { status?: string; verifiedOnly?: boolean } = {},
   ): Promise<Paginated<DealerSummary>> {
     const where: Prisma.DealerWhereInput = {
-      ...(filters.status ? { status: filters.status as Prisma.EnumDealerStatusFilter['equals'] } : {}),
+      ...(filters.status
+        ? { status: filters.status as Prisma.EnumDealerStatusFilter['equals'] }
+        : {}),
       ...(filters.verifiedOnly ? { verified: true } : {}),
     };
 
@@ -108,11 +110,7 @@ export class DealersService {
   }
 
   /** Admin decision on a dealer's verification application. */
-  async verify(
-    dealerId: string,
-    input: VerifyDealerInput,
-    actor: AuthUser,
-  ): Promise<DealerDetail> {
+  async verify(dealerId: string, input: VerifyDealerInput, actor: AuthUser): Promise<DealerDetail> {
     const dealer = await this.prisma.dealer.findUnique({
       where: { id: dealerId },
       select: { id: true, slug: true, ownerId: true },
@@ -218,7 +216,11 @@ export class DealersService {
       this.prisma.conversation.count({ where: { sellerId: user.id } }),
       this.prisma.vehicle.findMany({
         where: { sellerId: user.id, status: { in: ['ACTIVE', 'IN_AUCTION'] } },
-        select: { ...vehicleSummarySelect, viewCount: true, _count: { select: { images: true, conversations: true } } },
+        select: {
+          ...vehicleSummarySelect,
+          viewCount: true,
+          _count: { select: { images: true, conversations: true } },
+        },
         orderBy: { viewCount: 'desc' },
         take: 5,
       }),

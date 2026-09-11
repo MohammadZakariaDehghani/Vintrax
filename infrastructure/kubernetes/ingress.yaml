@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: atlas
-  namespace: atlas
+  name: vintrax
+  namespace: vintrax
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/proxy-body-size: '12m'
@@ -13,53 +13,53 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-    - hosts: [atlas.example.com]
-      secretName: atlas-tls
-    # Atlas Mobile gets its own host rather than a path on the web host: the
+    - hosts: [vintrax.example.com]
+      secretName: vintrax-tls
+    # Vintrax Mobile gets its own host rather than a path on the web host: the
     # PWA's manifest scope is "/", and a service worker cannot be registered
     # for a scope above its own path.
-    - hosts: [m.atlas.example.com]
-      secretName: atlas-mobile-tls
+    - hosts: [m.vintrax.example.com]
+      secretName: vintrax-mobile-tls
   rules:
-    - host: atlas.example.com
+    - host: vintrax.example.com
       http:
         paths:
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: atlas-api
+                name: vintrax-api
                 port: { number: 3001 }
           - path: /socket.io
             pathType: Prefix
             backend:
               service:
-                name: atlas-api
+                name: vintrax-api
                 port: { number: 3001 }
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: atlas-web
+                name: vintrax-web
                 port: { number: 3000 }
-    - host: m.atlas.example.com
+    - host: m.vintrax.example.com
       http:
         paths:
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: atlas-api
+                name: vintrax-api
                 port: { number: 3001 }
           - path: /socket.io
             pathType: Prefix
             backend:
               service:
-                name: atlas-api
+                name: vintrax-api
                 port: { number: 3001 }
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: atlas-mobile
+                name: vintrax-mobile
                 port: { number: 3002 }

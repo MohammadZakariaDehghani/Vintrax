@@ -1,4 +1,4 @@
-import { ApiError } from '@atlas/client';
+import { ApiError } from '@vintrax/client';
 
 export interface ErrorPresentation {
   title: string;
@@ -53,7 +53,7 @@ export function describeError(error: unknown): ErrorPresentation {
       default:
         if (error.status >= 500) {
           return {
-            title: 'Atlas is having trouble',
+            title: 'Vintrax is having trouble',
             description: 'The server could not complete that request.',
             retryable: true,
           };

@@ -4,16 +4,29 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Gavel } from 'lucide-react';
-import type { BidSummary, Paginated } from '@atlas/shared';
+import type { BidSummary, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatPrice, formatRelativeTime } from '@/lib/utils';
-import { Badge, Button, Card, CardContent, EmptyState, ErrorAlert, Pagination, Spinner } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  EmptyState,
+  ErrorAlert,
+  Pagination,
+  Spinner,
+} from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 
 const STATUS_VARIANT = {
-  ACTIVE: 'outline', OUTBID: 'warning', WINNING: 'success',
-  WON: 'success', LOST: 'default', RETRACTED: 'outline',
+  ACTIVE: 'outline',
+  OUTBID: 'warning',
+  WINNING: 'success',
+  WON: 'success',
+  LOST: 'default',
+  RETRACTED: 'outline',
 } as const;
 
 function MyBids() {
@@ -42,25 +55,40 @@ function MyBids() {
                 <caption className="sr-only">Your bid history</caption>
                 <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th scope="col" className="px-4 py-3">Auction</th>
-                    <th scope="col" className="px-4 py-3">Amount</th>
-                    <th scope="col" className="px-4 py-3">Status</th>
-                    <th scope="col" className="px-4 py-3">Placed</th>
+                    <th scope="col" className="px-4 py-3">
+                      Auction
+                    </th>
+                    <th scope="col" className="px-4 py-3">
+                      Amount
+                    </th>
+                    <th scope="col" className="px-4 py-3">
+                      Status
+                    </th>
+                    <th scope="col" className="px-4 py-3">
+                      Placed
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.items.map((bid) => (
                     <tr key={bid.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-3">
-                        <Link href={`/auctions/${bid.auctionId}`} className="text-primary hover:underline">
+                        <Link
+                          href={`/auctions/${bid.auctionId}`}
+                          className="text-primary hover:underline"
+                        >
                           {bid.auctionId.slice(0, 8)}
                         </Link>
                       </td>
-                      <td className="tabular px-4 py-3 font-semibold">{formatPrice(bid.amountCad)}</td>
+                      <td className="tabular px-4 py-3 font-semibold">
+                        {formatPrice(bid.amountCad)}
+                      </td>
                       <td className="px-4 py-3">
                         <Badge variant={STATUS_VARIANT[bid.status]}>{formatEnum(bid.status)}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatRelativeTime(bid.placedAt)}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatRelativeTime(bid.placedAt)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -75,7 +103,11 @@ function MyBids() {
             icon={<Gavel className="h-8 w-8" aria-hidden />}
             title="You have not bid yet"
             description="Find a live auction and place your first bid."
-            action={<Link href="/auctions"><Button>Browse auctions</Button></Link>}
+            action={
+              <Link href="/auctions">
+                <Button>Browse auctions</Button>
+              </Link>
+            }
           />
         </Card>
       )}
@@ -84,5 +116,9 @@ function MyBids() {
 }
 
 export default function MyBidsPage() {
-  return <RequireAuth><MyBids /></RequireAuth>;
+  return (
+    <RequireAuth>
+      <MyBids />
+    </RequireAuth>
+  );
 }

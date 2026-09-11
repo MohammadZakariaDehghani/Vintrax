@@ -2,14 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import {
-  DICTIONARIES,
-  isLocale,
-  type Dictionary,
-  type Locale,
-} from '@/i18n/dictionary';
+import { DICTIONARIES, isLocale, type Dictionary, type Locale } from '@/i18n/dictionary';
 
-const STORAGE_KEY = 'atlas.locale';
+const STORAGE_KEY = 'vintrax.locale';
 /** One year: a language choice is not something to ask about every week. */
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 

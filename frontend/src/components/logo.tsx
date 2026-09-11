@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 /**
- * The Atlas mark and lockup.
+ * The Vintrax mark and lockup.
  *
  * Inline SVG rather than an `<img>` so the monochrome variant can inherit the
  * surface colour, which an image file cannot do — dark mode here is a class on
@@ -18,18 +18,32 @@ import { cn } from '@/lib/utils';
  * An identity should look the same in both themes; only the monochrome variant
  * below follows its surface.
  */
-const NAVY = '#16295c';
-const RED = '#d32027';
+const CARBON = '#0c1210';
+const GREEN = '#21c45d';
 
-const PEAK = 'M206 138 L108 392 L304 392 Z';
-const ROAD = 'M120 392 C180 322, 288 236, 404 172 C312 266, 250 322, 240 392 Z';
+/**
+ * The car in profile, as one path.
+ *
+ * The wheel arches are subpaths cut with `fill-rule="evenodd"` rather than
+ * discs painted in the background colour. A punched-out disc only works when
+ * the surface behind it is known, and `plain` puts this mark on surfaces that
+ * are not — a coloured band, a photograph, the header at any theme.
+ */
+const BODY =
+  'M44 318 L44 262 C44 252 48 246 58 242 L112 222 C140 180 176 163 216 162 L252 162 C306 162 356 186 404 222 L452 254 C474 266 486 280 486 298 L484 318 Z ' +
+  'M94 312 a52 52 0 1 0 104 0 a52 52 0 1 0 -104 0 Z ' +
+  'M334 312 a52 52 0 1 0 104 0 a52 52 0 1 0 -104 0 Z ';
+
+/** Wheels, sitting in the arches the body path cut. */
+const WHEELS =
+  'M106 312 a40 40 0 1 0 80 0 a40 40 0 1 0 -80 0 Z ' +
+  'M346 312 a40 40 0 1 0 80 0 a40 40 0 1 0 -80 0 Z ';
 
 export function LogoMark({
   className,
   /**
-   * Monochrome: drops the tile and draws the road in `currentColor`, for a
-   * coloured or cramped surface where the tile cannot sit. The peak keeps the
-   * brand red, which is what still identifies it.
+   * Monochrome: drops the tile and draws the car in `currentColor`, for a
+   * coloured or cramped surface where the tile cannot sit.
    */
   plain = false,
   ...props
@@ -39,20 +53,23 @@ export function LogoMark({
       viewBox="0 0 512 512"
       className={cn('h-9 w-9', className)}
       role="img"
-      aria-label="Atlas"
+      aria-label="Vintrax"
       {...props}
     >
-      {plain ? null : <rect width="512" height="512" rx="112" fill={NAVY} />}
-      <g transform="translate(256 256) scale(1.1) translate(-256 -265)">
-        <path d={PEAK} fill={RED} />
-        <path d={ROAD} fill={plain ? 'currentColor' : '#ffffff'} />
+      {plain ? null : <rect width="512" height="512" rx="112" fill={CARBON} />}
+      <g
+        transform="translate(256 256) scale(1.3) translate(-265 -257)"
+        fill={plain ? 'currentColor' : GREEN}
+      >
+        <path d={BODY} fillRule="evenodd" />
+        <path d={WHEELS} fillRule="evenodd" />
       </g>
     </svg>
   );
 }
 
 /**
- * The full lockup: mark, name, and the descriptor that says what Atlas is.
+ * The full lockup: mark, name, and the descriptor that says what Vintrax is.
  *
  * The name and descriptor are live text rather than outlines, so they stay
  * selectable and scale with the reader's font settings — and, unlike a flat
@@ -67,9 +84,10 @@ export function Logo({
   /** Omitted in cramped placements, where it would be unreadable anyway. */
   descriptor?: string;
   /**
-   * `onDark` for a coloured band such as the site header. The navy tile is
-   * dropped there — a navy tile on a navy bar is a hole — and the text follows
-   * the band rather than the page, which is why it cannot simply inherit.
+   * `onDark` for a coloured band such as the site header. The carbon tile is
+   * dropped there — a near-black tile on a near-black bar is a hole — and the
+   * text follows the band rather than the page, which is why it cannot simply
+   * inherit.
    */
   tone?: 'auto' | 'onDark';
 }) {
@@ -85,7 +103,7 @@ export function Logo({
             onDark ? 'text-current' : 'text-primary',
           )}
         >
-          ATLAS
+          VINTRAX
         </span>
         {descriptor ? (
           <span
