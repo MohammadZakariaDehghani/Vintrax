@@ -15,53 +15,6 @@ infrastructure/  Docker · Kubernetes · Terraform
 documentation/   Architecture, API, deployment, guides
 ```
 
-## Quick start
-
-### On Ubuntu, one command
-
-```bash
-git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
-cd Vintrax
-./scripts/setup-ubuntu.sh
-```
-
-Installs Node, pnpm, PostgreSQL and Redis, provisions the database, generates
-secrets, applies migrations, loads demo data, builds all three applications
-and starts them. Re-running is safe — it never overwrites an existing `.env`.
-
-On a server people reach by address, say so, because the browser bundle is
-compiled against it:
-
-```bash
-VINTRAX_PUBLIC_URL=http://203.0.113.10:3000 ./scripts/setup-ubuntu.sh --systemd
-```
-
-`--systemd` runs Vintrax under systemd instead of the foreground. Full options in
-[deployment.md](./documentation/deployment.md#single-ubuntu-server).
-
-That script builds on the server. For a **container deployment** — the server
-pulls images CI already verified and builds nothing — follow
-[docker.md](./documentation/docker.md):
-
-```
-GitHub → Actions → ghcr.io/<owner>/vintrax-{api,web,mobile} → docker compose pull → up -d
-```
-
-### Anywhere else
-
-Requires Node 20.11+, pnpm 10, and Docker (or local PostgreSQL 16 and Redis 7).
-
-```bash
-pnpm install
-cp .env.example .env
-ln -s ../.env backend/.env    # the Prisma CLI reads .env from backend/
-
-pnpm db:up          # PostgreSQL + Redis
-pnpm db:migrate
-pnpm db:seed
-
-pnpm dev            # web on :3000, API on :3001
-```
 
 | URL                                |                                  |
 | ---------------------------------- | -------------------------------- |
@@ -70,29 +23,6 @@ pnpm dev            # web on :3000, API on :3001
 | <http://localhost:3001/api/docs>   | Swagger API documentation        |
 | <http://localhost:3001/api/health> | Dependency readiness             |
 
-Demo accounts all use the password `VintraxDemo123!` —
-`jordan.lee@example.test` (buyer), `sales@northshoremotors.test` (dealer),
-`inspector@vintrax.test` (inspector), `admin@vintrax.test` (super admin).
-
-## What it does
-
-| Capability                                                  |     |
-| ----------------------------------------------------------- | --- |
-| Six roles with a fine-grained permission matrix             | ✅  |
-| Vehicle inventory with images, documents and features       | ✅  |
-| Full-text search with facets, fuzzy fallback and 15 filters | ✅  |
-| Live auctions with real-time bidding over WebSocket         | ✅  |
-| Anti-snipe extensions, proxy bid ceilings, reserve prices   | ✅  |
-| Independent inspection reports graded by section            | ✅  |
-| Orders, platform fees, payment recording, settlement        | ✅  |
-| Buyer–seller messaging                                      | ✅  |
-| Notifications, in-app and email                             | ✅  |
-| Dealer verification workflow                                | ✅  |
-| Dealer and platform analytics dashboards                    | ✅  |
-| Append-only audit trail                                     | ✅  |
-| English and French interface                                | ✅  |
-| Dark mode, responsive, accessible                           | ✅  |
-| Installable mobile PWA with live bidding and camera capture | ✅  |
 
 ## Architecture
 
@@ -109,20 +39,6 @@ unreachable.
 Read [documentation/architecture.md](./documentation/architecture.md) for the
 full picture.
 
-### Bidding correctness
-
-Bidding is the part that has to be right. Every bid runs inside a **serializable
-transaction**, so two bidders hitting the same auction at the same instant
-cannot both be told they are winning — PostgreSQL aborts one and the caller gets
-a 409 telling them to review the price and bid again, rather than silently
-losing a bid.
-
-Verified under load: ten simultaneous bids produced two accepted, seven
-serialization conflicts and one below-minimum rejection, leaving exactly one
-`WINNING` row and a denormalised price matching the database maximum.
-
-Live updates were verified across two independent browser sessions — a bid in
-one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 
 ## Documentation
 
@@ -142,42 +58,6 @@ one moved the other from $58,000 to $59,000 in 400 ms with no reload.
 | [Decision Log](./documentation/decision-log.md)                    | Why things are the way they are                        |
 | [Future work](./documentation/reference/future-work.md)            | Roadmap and technical debt                             |
 
-## Commands
-
-| Command                                    |                                                  |
-| ------------------------------------------ | ------------------------------------------------ |
-| `./scripts/setup-ubuntu.sh`                | Install everything and run from source (Ubuntu)  |
-| `./scripts/update-ubuntu.sh`               | Pull, build and restart a source-based server    |
-| `./scripts/deploy.sh sha-a1b2c3d`          | Deploy a published image version (containers)    |
-| `./scripts/rollback.sh`                    | Return to the previous deployed version          |
-| `./scripts/backup-db.sh`                   | Timestamped database backup                      |
-| `./scripts/restore-db.sh <file>`           | Restore a backup — overwrites the database       |
-| `pnpm dev`                                 | Run the API and web app                          |
-| `pnpm dev:mobile`                          | Run the API and Vintrax Mobile                   |
-| `pnpm dev:all`                             | Run all three                                    |
-| `pnpm start`                               | Run all three from a production build            |
-| `pnpm build`                               | Production build                                 |
-| `pnpm test`                                | All test suites                                  |
-| `pnpm typecheck` / `pnpm lint`             | Static checks                                    |
-| `pnpm db:migrate` / `db:seed` / `db:reset` | Database lifecycle                               |
-| `pnpm stack:up`                            | Full Docker stack including MinIO and OpenSearch |
-
-## Testing
-
-122 tests cover the logic that decides who wins and what they pay — bid
-increments, fee floors and ceilings, auction constraints, the permission matrix
-— plus validation, error mapping, URL round-tripping, query construction and
-display formatting. A further group covers the authorization decisions a bug
-would quietly reverse: who may record a payment, who may read a vehicle
-document, which listing statuses a seller may set, and whether the compose file
-still binds its databases to loopback.
-
-The platform was additionally exercised end to end in a real browser: search and
-faceted filtering, fuzzy matching, vehicle detail with inspection reports,
-authentication, RBAC gating, the verified-email gate, live bidding across two
-sessions, dealer and admin dashboards, dark mode, and a 390px viewport. Vintrax
-Mobile was exercised the same way at iPhone size, including a touch-target
-audit and installability of its manifest.
 
 ## Known limitations
 
