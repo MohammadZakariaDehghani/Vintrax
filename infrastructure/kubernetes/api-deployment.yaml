@@ -19,7 +19,7 @@ spec:
       # replicas starting together cannot race on the migration lock.
       initContainers:
         - name: migrate
-          image: ghcr.io/vintrax/api:latest
+          image: ghcr.io/OWNER/vintrax-api:sha-REPLACE_ME
           command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
           workingDir: /app/backend
           envFrom:
@@ -27,7 +27,7 @@ spec:
             - secretRef: { name: vintrax-secrets }
       containers:
         - name: api
-          image: ghcr.io/vintrax/api:latest
+          image: ghcr.io/OWNER/vintrax-api:sha-REPLACE_ME
           ports:
             - containerPort: 3001
           envFrom:

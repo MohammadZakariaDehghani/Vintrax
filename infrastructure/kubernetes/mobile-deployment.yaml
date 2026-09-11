@@ -18,7 +18,7 @@ spec:
         - name: mobile
           # NEXT_PUBLIC_* values are baked in at build time, so the image tag
           # is what carries the API and WebSocket URLs — not this manifest.
-          image: ghcr.io/vintrax/mobile:latest
+          image: ghcr.io/OWNER/vintrax-mobile:sha-REPLACE_ME
           ports:
             - containerPort: 3002
           env:
