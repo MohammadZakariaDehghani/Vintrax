@@ -43,11 +43,29 @@ What was exercised, and what happened:
 - [ ] Sensitive data handling reviewed — personal data, documents, payment records
 - [ ] Not applicable, because:
 
+## API
+
+- [ ] No change to any endpoint or to `@vintrax/shared`
+- [ ] Endpoints added, changed or removed — listed above, and both clients updated
+- [ ] Change is backwards-compatible with the deployed web and mobile apps, or
+      both ship in this pull request
+
 ## Database
 
 - [ ] No migration
-- [ ] Migration included, and `pnpm db:migrate` is needed on deploy
+- [ ] Migration included, and it runs on deploy through the `migrate` service
 - [ ] Change is backwards-compatible with the currently deployed API
+- [ ] If it drops or renames a column, say so here — a rollback to the previous
+      image will run the older code against this schema
+
+## Docker / infrastructure
+
+- [ ] No infrastructure change
+- [ ] Dockerfile, compose file, Nginx config or a deploy script changed —
+      named above, and the affected image rebuilt and run, not just edited
+- [ ] A new `NEXT_PUBLIC_*` value is a build argument, not a runtime one, and
+      has been wired through the Dockerfile and `release.yml`
+- [ ] No port exposed that was not exposed before
 
 ## Checklist
 

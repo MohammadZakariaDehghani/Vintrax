@@ -22,6 +22,40 @@ One GitHub Project — **Vintrax Development** — with six columns.
 | **Testing**     | Merged or ready to merge, being exercised against a running instance. |
 | **Done**        | Merged, deployed where relevant, verified.                            |
 
+### Creating it
+
+The board is the one piece of this system that cannot be created from the
+repository. Labels, milestones, templates and workflows all live in version
+control and are applied by `project-setup.yml`; a GitHub Project is account-level
+data, and the `GITHUB_TOKEN` available to Actions cannot create or modify one.
+So it is made by hand, once:
+
+1. github.com/MohammadZakariaDehghani?tab=projects → **New project** → **Board**
+2. Name it **Vintrax Development**
+3. Rename the default columns to: Backlog, Todo, In Progress, Review, Testing, Done
+4. Settings → **Manage access** → add the `Vintrax` repository
+5. Workflows → enable the built-in ones listed below
+
+### What automation is actually reliable
+
+GitHub Projects has built-in workflows. These three are worth enabling and do
+what they say:
+
+| Built-in workflow         | Effect                  |
+| ------------------------- | ----------------------- |
+| **Item added to project** | Set status to `Backlog` |
+| **Item closed**           | Set status to `Done`    |
+| **Pull request merged**   | Set status to `Done`    |
+
+**Auto-add to project** will pull every new issue in the repository onto the
+board, which is what you want here.
+
+Three transitions have **no reliable built-in**: Backlog → Todo, Todo → In
+Progress, and opening a pull request → Review. Moving a card is a deliberate
+act — deciding to start something is the decision the board exists to record —
+so these stay manual rather than being faked with a bespoke Action. A workflow
+that silently mis-files work is worse than dragging a card.
+
 `Testing` is a real column and not ceremony. Most of the bugs found in this
 project so far were found by clicking, not by the test suite — a stripped form
 field that reported success, a dead dashboard tile, an uploaded photo silently
@@ -127,20 +161,52 @@ An issue is Done when all of it is true:
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+Four workflows. `verify.yml` is a reusable workflow that both gates call, so
+the pull-request gate and the release gate cannot drift apart — a release check
+that has quietly diverged from the pull-request check is worse than none, since
+it passes what the other would have caught on the one run that matters.
 
-| Job          | Does                                                                                                                                                                                                          |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **verify**   | Installs, generates the Prisma client, applies migrations against a real Postgres and Redis, then `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, and runs the seed twice to prove it is idempotent |
-| **security** | `pnpm audit --audit-level high` as a blocking gate, plus a Trivy filesystem scan for vulnerabilities, secrets and misconfiguration, published as an artifact                                                  |
-| **docker**   | Builds the API, web and mobile images. Runs only after `verify` passes                                                                                                                                        |
+| Workflow              | Runs on                           | Does                                                                                                                                                                                                                                |
+| --------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **verify.yml**        | called by the other two           | Install, Prisma generate, migrate against real Postgres and Redis, typecheck, lint, test, build, seed twice to prove idempotency. Plus `pnpm audit --audit-level high` as a blocking gate and a Trivy scan published as an artifact |
+| **ci.yml**            | pull requests                     | Calls `verify`, then builds all three images and throws them away — a pull request proves the Dockerfile still works, but nothing from an unreviewed branch belongs in the registry                                                 |
+| **release.yml**       | push to `main`, `v*` tags, manual | Calls `verify`, then builds and **pushes** to GHCR                                                                                                                                                                                  |
+| **project-setup.yml** | manual only                       | Applies `.github/project/labels.yml` and `milestones.yml`. Creates what is missing, corrects what has drifted, never deletes                                                                                                        |
 
-Nothing deploys automatically. Deployment is `scripts/update-ubuntu.sh` on the
-server, run deliberately.
+`ci.yml` deliberately does not trigger on push: `release.yml` runs the same
+suite before publishing, and every merge would otherwise run it twice.
 
 **Do not weaken a check to make it pass.** A failing `pnpm audit` is fixed
 through the `pnpm.overrides` block in the root `package.json`, not by lowering
 the threshold.
+
+## Release and deployment
+
+Full detail is in [docker.md](./docker.md). What matters for the workflow:
+
+```
+merge to main → release.yml → ghcr.io/<owner>/vintrax-{api,web,mobile}
+                                          ↓
+                          server: ./deploy.sh sha-<commit>
+```
+
+**The server builds nothing.** It pulls the image CI already verified, which is
+what makes a rollback a matter of pulling a different tag rather than checking
+out older source and hoping it still compiles.
+
+- **Tags.** `sha-<short>` always; `latest` only on `main`. Deployments pin
+  `sha-`, and `deploy.sh` refuses `latest` by name — a moving tag leaves
+  nothing to roll back to and no way to say what is running.
+- **Migrations** run as a one-shot `migrate` service the API waits on. It is
+  `prisma migrate deploy`, never `migrate dev`, never `reset`.
+- **Nothing deploys automatically.** `release.yml` publishes; a person deploys.
+- **Back up before deploying**: `./backup-db.sh && ./deploy.sh sha-…`.
+- **Rolling back** is `./rollback.sh`. It asks whether the newer version's
+  migrations are compatible with the older code, because `migrate deploy` only
+  rolls forward and no script can undo a dropped column.
+
+Nothing in the repository prunes images or passes `-v` to `compose down`. The
+previous image is the rollback target, and the volumes are the database.
 
 ## Production changes
 
@@ -148,8 +214,13 @@ The developer approves, every time. That covers:
 
 - Merging to `main`
 - Deploying
-- Database migrations against production
-- Infrastructure changes — Terraform, Kubernetes, DNS, certificates
+- Database migrations against production, and any migration that drops or
+  renames a column — those make a rollback unsafe, and that has to be a
+  decision rather than a discovery
+- Any direct write to a production database, including promoting an account to
+  an admin role, which today is the only way to do it
+- Infrastructure changes — Terraform, Kubernetes, DNS, certificates, the
+  compose files, Nginx, or a deploy script
 - Anything touching secrets or environment configuration
 - Changing a permission in `ROLE_PERMISSIONS`
 - Reversing a decision in `documentation/decision-log.md`

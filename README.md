@@ -15,14 +15,12 @@ infrastructure/  Docker · Kubernetes · Terraform
 documentation/   Architecture, API, deployment, guides
 ```
 
-
 | URL                                |                                  |
 | ---------------------------------- | -------------------------------- |
 | <http://localhost:3000>            | Marketplace                      |
 | <http://localhost:3002>            | Vintrax Mobile (installable PWA) |
 | <http://localhost:3001/api/docs>   | Swagger API documentation        |
 | <http://localhost:3001/api/health> | Dependency readiness             |
-
 
 ## Architecture
 
@@ -38,7 +36,6 @@ unreachable.
 
 Read [documentation/architecture.md](./documentation/architecture.md) for the
 full picture.
-
 
 ## Documentation
 
@@ -57,7 +54,6 @@ full picture.
 | [Developer guide](./documentation/developer-guide.md)              | Setup, workflows, CI, troubleshooting                  |
 | [Decision Log](./documentation/decision-log.md)                    | Why things are the way they are                        |
 | [Future work](./documentation/reference/future-work.md)            | Roadmap and technical debt                             |
-
 
 ## Known limitations
 
