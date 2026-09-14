@@ -84,7 +84,7 @@ export class AuthService {
               dealer: {
                 create: {
                   name: input.dealershipName,
-                  slug: await this.uniqueDealerSlug(input.dealershipName),
+                  slug: await this.users.uniqueDealerSlug(input.dealershipName),
                   businessNumber: input.businessNumber ?? null,
                   licenceNumber: input.licenceNumber ?? null,
                   province: input.province ?? null,
@@ -443,25 +443,5 @@ export class AuthService {
    */
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
-  }
-
-  /** Derives a URL-safe dealer slug, suffixing on collision. */
-  private async uniqueDealerSlug(name: string): Promise<string> {
-    const base =
-      name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 60) || 'dealer';
-
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`;
-      const taken = await this.prisma.dealer.findUnique({
-        where: { slug: candidate },
-        select: { id: true },
-      });
-      if (!taken) return candidate;
-    }
-    return `${base}-${randomBytes(3).toString('hex')}`;
   }
 }
