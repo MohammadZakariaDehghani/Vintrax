@@ -1,4 +1,24 @@
+import Image from 'next/image';
+import brandLogo from '../../public/vintrax-logo.png';
 import { cn } from '@/lib/format';
+
+/**
+ * The supplied lockup, rendered exactly as delivered — the same file the web
+ * application ships, through next/image for the same reasons
+ * (frontend/src/components/logo.tsx explains them). `w-auto` against a fixed
+ * height is what keeps the file's own aspect ratio at every screen width.
+ */
+export function Logo({ className }: { className?: string }) {
+  return (
+    <Image
+      src={brandLogo}
+      alt="Vintrax"
+      className={cn('h-12 w-auto', className)}
+      sizes="260px"
+      priority
+    />
+  );
+}
 
 /**
  * The Vintrax mark, for the few places inside the application that should say
@@ -13,8 +33,8 @@ import { cn } from '@/lib/format';
  * An identity should look the same in both themes; only the monochrome variant
  * below follows its surface.
  */
-const CARBON = '#0c1210';
-const GREEN = '#21c45d';
+const CARBON = '#100d0d';
+const RED = '#ed1d1d';
 
 /**
  * The car in profile, as one path.
@@ -54,7 +74,7 @@ export function LogoMark({
       {plain ? null : <rect width="512" height="512" rx="112" fill={CARBON} />}
       <g
         transform="translate(256 256) scale(1.3) translate(-265 -257)"
-        fill={plain ? 'currentColor' : GREEN}
+        fill={plain ? 'currentColor' : RED}
       >
         <path d={BODY} fillRule="evenodd" />
         <path d={WHEELS} fillRule="evenodd" />

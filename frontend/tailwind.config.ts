@@ -25,6 +25,10 @@ const config: Config = {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
         },
+        hero: {
+          DEFAULT: 'hsl(var(--hero))',
+          foreground: 'hsl(var(--hero-foreground))',
+        },
         header: {
           DEFAULT: 'hsl(var(--header))',
           foreground: 'hsl(var(--header-foreground))',
@@ -71,6 +75,16 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // The condensed face, for headings and large figures. Its fallback is
+        // a condensed system face rather than the sans stack, so a heading
+        // keeps roughly its width if the webfont never arrives.
+        display: [
+          'var(--font-display)',
+          'ui-sans-serif',
+          'Helvetica Neue',
+          'Arial Narrow',
+          'sans-serif',
+        ],
       },
       keyframes: {
         'fade-in': {

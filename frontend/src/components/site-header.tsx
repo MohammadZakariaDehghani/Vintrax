@@ -326,11 +326,12 @@ export function SiteHeader() {
       <div className="bg-header text-header-foreground">
         <div ref={navRef} className="container relative flex h-16 items-center gap-2">
           <Link href="/" aria-label="Vintrax" className="shrink-0">
-            {/* One lockup at one size. The previous mark dropped its
-                descriptor line on narrow screens; this one carries AUTOSALES
-                inside the artwork, so there is nothing to drop — and at 107px
-                wide it still leaves room for the menu button on a phone. */}
-            <Logo className="h-[54px]" tone="onDark" />
+            {/* The supplied artwork, at one size on every breakpoint: it is a
+                single finished lockup, so there is no descriptor to drop on a
+                narrow screen. 54px of the 64px band, which puts it at 136px
+                wide — still leaving room for the menu button on a phone. Height
+                only; a width here would stretch it. */}
+            <Logo className="h-[54px]" />
           </Link>
 
           <nav

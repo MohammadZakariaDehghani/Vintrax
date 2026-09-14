@@ -8,6 +8,7 @@ import type {
   Address,
   AddressInput,
   AdminCreateUserInput,
+  AdminSetPasswordInput,
   Paginated,
   PublicUser,
   UpdateProfileInput,
@@ -340,6 +341,80 @@ export class UsersService {
       if (!taken) return candidate;
     }
     return `${base}-${randomBytes(3).toString('hex')}`;
+  }
+
+  /**
+   * Sets an account's password, as an administrator.
+   *
+   * The everyday path for a password is `PATCH /auth/password`, which proves
+   * the caller knows the current one. This is the path for when nobody can: a
+   * locked-out user with no working email, an account handed over between
+   * staff. The proof it substitutes is `user:manage` plus the same
+   * `canAdministerUser` rule the rest of this file uses, so an ADMIN cannot
+   * reach another administrator's account — which would otherwise be a
+   * one-request takeover of a peer, or of a super admin.
+   *
+   * Aimed at the caller's own account it refuses rather than succeeding.
+   * Allowing it would make this a way to change your own password without
+   * knowing the current one, which is exactly what the other endpoint exists to
+   * prevent, and an unlocked admin session should not be enough to lock the
+   * real owner out.
+   */
+  async setPassword(
+    targetUserId: string,
+    input: AdminSetPasswordInput,
+    actor: AuthUser,
+  ): Promise<PublicUser> {
+    if (targetUserId === actor.id) {
+      throw new ForbiddenException(
+        'Use your own password settings to change your password — that path checks your current one.',
+      );
+    }
+
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, role: true },
+    });
+    if (!target) throw new NotFoundException('User not found');
+
+    // A 404 rather than a 403, for the reason given on getUserAsAdmin.
+    if (!canAdministerUser(actor.role, target.role)) {
+      throw new NotFoundException('User not found');
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: targetUserId },
+        data: { passwordHash },
+      }),
+      // Every live session ends, the same as when the owner changes it
+      // themselves. If this was done because the account was compromised,
+      // leaving the intruder's refresh token working defeats the exercise.
+      this.prisma.refreshToken.updateMany({
+        where: { userId: targetUserId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+      // An unconsumed reset link, mailed before this, would otherwise still
+      // overwrite the password an administrator just set.
+      this.prisma.authToken.updateMany({
+        where: { userId: targetUserId, type: 'PASSWORD_RESET', consumedAt: null },
+        data: { consumedAt: new Date() },
+      }),
+    ]);
+
+    await this.audit.record({
+      actorId: actor.id,
+      actorEmail: actor.email,
+      action: 'user.password_set_by_admin',
+      entityType: 'User',
+      entityId: targetUserId,
+      // The reason, never the password, and never a hash of it either.
+      metadata: { reason: input.reason ?? null },
+    });
+
+    return this.getPublicUser(targetUserId);
   }
 
   async updateStatus(

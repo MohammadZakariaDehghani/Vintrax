@@ -460,6 +460,22 @@ export const updateUserRoleSchema = z.object({
 });
 export type UpdateUserRoleInput = z.infer<typeof updateUserRoleSchema>;
 
+/**
+ * An administrator setting somebody else's password.
+ *
+ * Deliberately not `changePasswordSchema`: that one proves the caller knows the
+ * current password, which is what makes it safe to expose to the account's own
+ * owner. An administrator does not know it and must not need to, so the proof
+ * here is the `user:manage` permission instead — and the server refuses to let
+ * this be aimed at the caller's own account, so it is never a way around the
+ * current-password check.
+ */
+export const adminSetPasswordSchema = z.object({
+  password: passwordSchema,
+  reason: trimmed(1000).optional(),
+});
+export type AdminSetPasswordInput = z.infer<typeof adminSetPasswordSchema>;
+
 export const auditLogQuerySchema = z.object({
   actorId: uuid().optional(),
   action: trimmed(80).optional(),

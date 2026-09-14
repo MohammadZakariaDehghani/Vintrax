@@ -7,7 +7,7 @@ import { ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/store/session';
 import { Button, Card, Field } from '@/components/ui';
 import { AppBar } from '@/components/app-bar';
-import { LogoMark } from '@/components/logo';
+import { Logo } from '@/components/logo';
 
 export default function LoginPage() {
   return (
@@ -54,7 +54,7 @@ function LoginForm() {
       <AppBar title="Sign in" back />
       <div className="space-y-4 p-4">
         <div className="flex flex-col items-center gap-2 pt-2">
-          <LogoMark className="h-14 w-14" aria-hidden />
+          <Logo className="h-12" />
           <p className="text-sm text-muted-foreground">Sign in to Vintrax</p>
         </div>
 

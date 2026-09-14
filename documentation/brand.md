@@ -4,13 +4,16 @@ The Vintrax identity, and the constraints it has to satisfy.
 
 ## Two shapes, not one
 
-The identity has a **lockup** and an **icon**, and they are deliberately
-different drawings of the same car.
+The identity has a **lockup** and an **icon**, and they are deliberately not
+the same artwork.
 
 ```
+frontend/public/vintrax-logo.png       The supplied lockup
+mobile/public/vintrax-logo.png         The same file, for the mobile app
 frontend/src/components/logo.tsx       <Logo>     the lockup — header, footer, sign-in
                                        <LogoMark> the icon
-mobile/src/components/logo.tsx         <LogoMark> the icon
+mobile/src/components/logo.tsx         <Logo>     the lockup — sign-in
+                                       <LogoMark> the icon
 frontend/src/app/icon.svg              Favicon and web app icon
 mobile/public/icons/icon.svg           Mobile app icon
 mobile/public/icons/icon-maskable.svg  Launcher icon, croppable
@@ -18,32 +21,24 @@ mobile/public/icons/icon-maskable.svg  Launcher icon, croppable
 
 ### The lockup
 
-The brand as supplied: a car drawn in **tapered sweeps** over the **VINTRAX**
-wordmark in chrome over **AUTOSALES** in green. This is what the page header
-shows.
+`frontend/public/vintrax-logo.png` — the supplied artwork, a 1989×790 PNG: a
+car in profile in red chrome over a chrome **VINTRAX.ca** wordmark, with a
+maple leaf at the left, on a carbon-fibre ground.
 
-The car is seven filled crescents rather than stroked paths, because the source
-artwork's strokes are thick through the middle and come to a point at each end,
-and an SVG stroke cannot taper.
+It is rendered **exactly as delivered**. Nothing recolours it, crops it, adds
+an effect to it, or redraws it, and `w-auto` against a fixed height keeps the
+file's own aspect ratio at every breakpoint. `<Logo>` shows it in the page
+header, the footer, the web sign-in page and the mobile sign-in screen.
 
-AUTOSALES is part of the artwork, not a translated descriptor. The previous
-identity carried a translated line under the wordmark; this one does not, which
-is why `<Logo>` no longer takes a `descriptor`. The translatable tagline still
-sits beside the lockup in the footer, where it is prose rather than part of the
-mark.
+It is served through `next/image` from a static import. That is a delivery
+decision, not an edit: the committed file stays byte-for-byte as supplied, and
+Next emits correctly sized WebP derivatives per breakpoint rather than sending
+1.6MB to a phone on every page. The same file ships at
+`mobile/public/vintrax-logo.png` for the mobile app.
 
-**The wordmark is set, not drawn as outlines**, with `textLength` pinning its
-width. Whichever face the browser actually has, the lockup keeps its
-proportions and nothing around it moves. Drawing seven letterforms as paths
-would remove the font dependency entirely, and is the upgrade to make if the
-substituted faces ever look wrong.
-
-**Every chrome stop is light.** On the header band the wordmark sits at about
-14px, and a chrome ramp with a genuinely dark mid-band cuts the glyphs in half
-at that size — it reads as damage, not as metal. The contrast _between_ stops
-is what says polished; the absolute darkness is not, and it costs legibility.
-The green edge is 3 units in a 780-wide viewBox for the same reason: thicker
-and the wordmark reads green rather than silver once it is small.
+Because the artwork carries its own carbon ground, there is no light/dark
+variant to pick between — it looks the same in both themes, which is what a
+finished lockup is for.
 
 ### The icon
 
@@ -77,74 +72,87 @@ Every icon variant is the same geometry. Five rules produced it:
 
 ## Colour
 
-| Token      | Value                | Use                                                       |
-| ---------- | -------------------- | --------------------------------------------------------- |
-| Carbon     | `#0c1210`            | The tile, the masthead band, the manifest's `theme_color` |
-| Green      | `#21c45d`            | The car                                                   |
-| Deep green | `--primary`          | Buttons, links, active navigation                         |
-| Grey       | `--muted-foreground` | The lockup's descriptor and secondary text                |
-| White      | `#ffffff`            | Text on carbon and on `--primary`                         |
+| Token    | Value                | Use                                                       |
+| -------- | -------------------- | --------------------------------------------------------- |
+| Carbon   | `#100d0d`            | The tile, the masthead band, the manifest's `theme_color` |
+| Red      | `#ed1d1d`            | The car, and `--accent` at its light-theme value          |
+| Deep red | `--primary`          | Buttons, links, active navigation                         |
+| Grey     | `--muted-foreground` | The lockup's descriptor and secondary text                |
+| White    | `#ffffff`            | Text on carbon and on `--primary`                         |
 
-**Carbon frames, green carries.** The mark is a green car on near-black, and
-the interface follows: the masthead is carbon, and every action is green.
+**Carbon frames, red carries.** The mark is a red car on near-black, and the
+interface follows: the masthead is carbon, and every action is red.
 
-`--primary` is a _much_ darker green than the mark's `#21c45d` — `148 78% 22%`,
-which is 7.3:1 against white. The mark's green is chosen to glow on near-black
+`--primary` is a _much_ darker red than the mark's `#ed1d1d` — `0 75% 42%`,
+which is 6.4:1 against white. The mark's red is chosen to glow on near-black
 and would fail badly as a button colour under white text.
 
-### Green and success
+The fixed hexes exist because `frontend/src/app/icon.svg`, the mobile icons and
+the manifest are static files that cannot read a CSS custom property. They
+carry the same values the tokens hold, by hand; changing one means changing
+both.
 
-Brand green and `--success` are both green, which is a real collision and is
-resolved the way every other colour collision here is: **colour is never the
-only signal.** Success states carry an icon and explicit wording, so a reader
-who cannot separate the two hues still gets the message. Actions are green;
-confirmations are green _and_ say so.
+### Red, and everything else that is red
 
-### Red and errors
+**This replaces the previous rule.** The identity used to be green, which let
+red mean "error" and nothing else. A red brand gives that up, and pretending
+otherwise would be worse than saying it plainly:
 
-Red is no longer a brand colour, which removes a collision the previous
-identity had to work around. `--accent` keeps it for live-auction moments, and
-`--destructive` keeps it for failure, darker and less saturated so the two are
-distinguishable on the same screen.
+`--primary`, `--accent` and `--destructive` are now all red. Hue can no longer
+separate an action from a failure, so **lightness and saturation do**, and they
+are set far enough apart to be told apart at a glance:
 
-- **Actions are never red.** The hero search, "contact seller" and bidding
-  buttons are green. A red control is not a thing the interface has.
-- **The price flash is amber**, not red, so it never sits two elements above a
-  red bid-rejection message.
+| Token           | Light theme | Reads as                                  |
+| --------------- | ----------- | ----------------------------------------- |
+| `--primary`     | `0 75% 42%` | The action. Mid-dark, fully saturated.    |
+| `--accent`      | `0 85% 52%` | The brand and live auctions. Brightest.   |
+| `--destructive` | `0 52% 30%` | Failure. Darkest and dullest on the page. |
+
+This is weaker than a hue difference, and it is not relied on alone. The rule
+the rest of this document already followed does the real work: **colour is
+never the only signal.** Errors carry an icon and explicit wording, and so do
+success states — which is also how `--success` (green) and `--primary` stay
+distinct now that they no longer share a hue.
+
+- **The price flash stays amber**, not red. With three reds already on the
+  page, a fourth would be indistinguishable from all of them.
+- **Red as a large surface is still avoided.** Buttons, rules and the masthead
+  band, not backgrounds.
+
+> This inverts the earlier "Actions are never red" rule, which existed only
+> because the brand was green. It is recorded here rather than deleted so the
+> reason the rule changed is not lost.
 
 ## In the applications
 
 ```tsx
-<Logo tone="onDark" className="h-[54px]" />  // the lockup on the header band
-<Logo />                                     // the lockup on a light surface
-<LogoMark />                                 // the icon tile
-<LogoMark plain />                           // no tile, car in currentColor
+<Logo className="h-[54px]" />  // the lockup, sized by height only
+<LogoMark />                   // the icon tile
+<LogoMark plain />             // no tile, car in currentColor
 ```
 
-`tone="onDark"` is what gives the wordmark its chrome, and it needs a dark
-surface behind it — the same gradient on white is nearly invisible. The default
-`auto` sets the whole lockup in the theme's own colours instead: the car and
-wordmark in `--primary`, AUTOSALES in `--muted-foreground`.
+`<Logo>` takes a height and nothing else. Never give it a width or a
+`w-` class: `w-auto` is what holds the supplied file's aspect ratio, and
+setting both dimensions is how a logo gets stretched. There is no `tone` —
+the artwork carries its own ground, so there is nothing to vary.
 
-### Using the supplied artwork instead
+### Supplying different artwork
 
-The lockup above is a drawing of the supplied logo, not the file itself: the
-original is a raster with a carbon-fibre weave, a chrome bevel and a lens
-flare, none of which survive being scaled down to a header.
-
-To use the real file, put it in `frontend/public/` and set
-**`NEXT_PUBLIC_BRAND_LOGO_SRC`** to its path:
+To swap the lockup without touching code, put the new file in
+`frontend/public/` and set **`NEXT_PUBLIC_BRAND_LOGO_SRC`** to its path:
 
 ```bash
-NEXT_PUBLIC_BRAND_LOGO_SRC=/vintrax-logo.png
+NEXT_PUBLIC_BRAND_LOGO_SRC=/some-other-logo.png
 ```
 
-`<Logo>` then renders that image everywhere instead. Two consequences to know
+`<Logo>` then renders that file instead, everywhere. Two consequences to know
 about. It is a `NEXT_PUBLIC_*` value, so it is compiled into the bundle and
-changing it is a rebuild, not a restart. And an image carries its own
-background, so it only sits correctly on the carbon band — the light-surface
-variant in the footer and on the sign-in page will show a dark slab. Supply a
-transparent PNG or SVG if those matter.
+changing it is a rebuild, not a restart — it is wired through
+`infrastructure/docker/frontend.Dockerfile` as a build argument and
+`.github/workflows/release.yml` as the repository variable of the same name.
+And an overridden path has no intrinsic size known at build time, so it is
+served as a plain `<img>` rather than through `next/image`: supply a file that
+is already the right size.
 
 The favicon and the PWA icons are separate files and are **not** affected by
 that variable.
@@ -181,10 +189,17 @@ Learned from earlier drafts:
 - **Wide lockups as the app icon.** A 2.5:1 lockup cannot be squared for a PWA
   icon or cropped to a circle for a launcher. The icon is the mark alone, and
   even then it has to be bled to fill the square.
-- **Gradients, bevels and photographic texture.** The source logo has all three
-  — a carbon-fibre weave, a chrome wordmark and a lens flare. None of them
-  survive being a favicon, and each forces a raster file. The mark here keeps
-  the _subject_ and the _colour_ and drops the treatment.
-- **A baked-in background.** A logo carrying its own background sits as a slab
-  on the opposite theme, which is why `plain` exists.
-- **Red as a large surface.** It reads as a warning, not as a brand.
+- **Gradients, bevels and photographic texture in the _icon_.** The lockup has
+  all three — a carbon weave, a chrome wordmark, a lens flare — and keeps them,
+  because it is the supplied artwork and is shown at a size that carries them.
+  None survive being a 16px favicon, which is why `LogoMark` is a separate
+  drawing that keeps the subject and drops the treatment.
+- **Redrawing the lockup.** It is a supplied file. Recolouring it to follow a
+  theme, cropping it to fit a slot, or tracing it as SVG are all ways of
+  shipping something that is not the logo.
+- **A baked-in background on the _icon_.** A mark carrying its own background
+  sits as a slab on the opposite theme, which is why `plain` exists. The
+  lockup's carbon ground is deliberate and stays.
+- **Red as a large surface.** It reads as a warning, not as a brand. This is
+  the one rule the red identity did _not_ relax: the brand is a red mark and
+  red controls on carbon and white, never a red page.

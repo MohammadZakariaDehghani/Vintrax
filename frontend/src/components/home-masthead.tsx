@@ -47,8 +47,8 @@ export function HomeMasthead({
       />
       {/* Two scrims: one across the whole frame so the photograph never fights
           the header above it, one heavier from the left where the words are. */}
-      <div className="absolute inset-0 -z-10 bg-[hsl(222_47%_11%)]/45" />
-      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[hsl(222_47%_11%)]/90 via-[hsl(222_47%_11%)]/60 to-transparent" />
+      <div className="absolute inset-0 -z-10 bg-[hsl(0_12%_9%)]/45" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[hsl(0_12%_9%)]/90 via-[hsl(0_12%_9%)]/60 to-transparent" />
 
       <div className="container flex h-full flex-col justify-center py-10">
         {/* No kicker and no date. A masthead is an invitation, not a filing

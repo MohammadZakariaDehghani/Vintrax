@@ -16,6 +16,7 @@ import {
   type Address,
   type AddressInput,
   type AdminCreateUserInput,
+  type AdminSetPasswordInput,
   type Paginated,
   type PublicUser,
   type UpdateProfileInput,
@@ -23,6 +24,7 @@ import {
   type UpdateUserStatusInput,
   addressSchema,
   adminCreateUserSchema,
+  adminSetPasswordSchema,
   updateProfileSchema,
   updateUserRoleSchema,
   updateUserStatusSchema,
@@ -124,6 +126,20 @@ export class UsersController {
     @CurrentUser() actor: AuthUser,
   ): Promise<PublicUser> {
     return this.users.updateRole(id, body, actor);
+  }
+
+  @Patch('admin/users/:id/password')
+  @RequirePermissions('user:manage')
+  // No @Audit here: the service writes the entry itself, because the reason is
+  // in the body and the interceptor never sees it. Annotating as well would put
+  // two rows in the trail for one action.
+  @ApiOperation({ summary: "Set an account's password" })
+  setPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(adminSetPasswordSchema)) body: AdminSetPasswordInput,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<PublicUser> {
+    return this.users.setPassword(id, body, actor);
   }
 
   @Patch('admin/users/:id/status')
