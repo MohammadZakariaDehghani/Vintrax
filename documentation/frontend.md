@@ -59,7 +59,7 @@ points at a route that does not exist. Six did, once.
 | `/admin/dashboard`  | Platform metrics, charts and the audit trail                       |
 | `/admin/moderation` | The review queue — approve and publish, or send back with a reason |
 | `/admin/dealers`    | Dealer verification — grant or withdraw the verified badge         |
-| `/admin/users`      | Search accounts, suspend, reinstate, deactivate                    |
+| `/admin/users`      | Search accounts, create them, change role, set password, suspend   |
 | `/admin/revenue`    | GMV, platform revenue, effective take rate, sales over time        |
 
 Every tile on the overview links to one of these, or to the marketplace and

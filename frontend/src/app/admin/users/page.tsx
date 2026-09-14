@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users } from 'lucide-react';
+import { KeyRound, Users } from 'lucide-react';
 import type {
   AdminCreateUserInput,
+  AdminSetPasswordInput,
   Paginated,
   PublicUser,
   UserRole,
@@ -29,6 +30,7 @@ import {
   Spinner,
 } from '@/components/ui';
 import { CreateUserPanel } from './create-user-panel';
+import { SetPasswordPanel } from './set-password-panel';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
 
@@ -56,6 +58,10 @@ function UserDirectory() {
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
+  // Which row has its password form open, and the last one that succeeded.
+  // One at a time: two open forms is two chances to reset the wrong account.
+  const [passwordFor, setPasswordFor] = useState<string | null>(null);
+  const [passwordDone, setPasswordDone] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const me = useUser();
 
@@ -88,6 +94,17 @@ function UserDirectory() {
       api.patch<PublicUser>(`/admin/users/${id}/role`, { role: next }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+  });
+
+  const setPassword = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: AdminSetPasswordInput }) =>
+      api.patch<PublicUser>(`/admin/users/${id}/password`, input),
+    onSuccess: (_result, variables) => {
+      setPasswordFor(null);
+      setPasswordDone(variables.id);
+      // The account itself is unchanged, but its sessions are gone; nothing in
+      // this list shows that, so there is no query to invalidate.
     },
   });
 
@@ -192,44 +209,43 @@ function UserDirectory() {
       ) : (
         <>
           <ul className="flex flex-col gap-3">
-            {items.map((user) => (
-              <li key={user.id}>
-                <Card>
-                  <CardContent className="flex flex-wrap items-start justify-between gap-4 pt-5">
-                    <div className="min-w-[220px]">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold">{user.displayName}</p>
-                        <Badge variant={STATUS_VARIANT[user.status]}>
-                          {formatEnum(user.status)}
-                        </Badge>
-                        <Badge variant="outline">{formatEnum(user.role)}</Badge>
-                        {!user.emailVerified ? (
-                          <Badge variant="warning">Email unverified</Badge>
-                        ) : null}
-                      </div>
-                      <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
-                      <p className="mt-0.5 text-sm text-muted-foreground">
-                        {user.dealer ? `${user.dealer.name} · ` : ''}
-                        Joined {formatDate(user.createdAt)}
-                      </p>
-                    </div>
+            {items.map((user) => {
+              // Your own row offers nothing: the server refuses a self role
+              // change, a self suspension and a self password set, so showing
+              // the controls would only produce a 403.
+              const isSelf = me?.id === user.id;
+              const mayAdminister = !!me && !isSelf && canAdministerUser(me.role, user.role);
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      {(() => {
-                        // Your own row offers nothing: the server refuses a
-                        // self role change and a self suspension, so showing
-                        // the controls would only produce a 403.
-                        const isSelf = me?.id === user.id;
-                        const mayAdminister =
-                          !!me && !isSelf && canAdministerUser(me.role, user.role);
-                        if (!mayAdminister) {
-                          return isSelf ? (
+              return (
+                <li key={user.id}>
+                  <Card>
+                    <CardContent className="flex flex-wrap items-start justify-between gap-4 pt-5">
+                      <div className="min-w-[220px]">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold">{user.displayName}</p>
+                          <Badge variant={STATUS_VARIANT[user.status]}>
+                            {formatEnum(user.status)}
+                          </Badge>
+                          <Badge variant="outline">{formatEnum(user.role)}</Badge>
+                          {!user.emailVerified ? (
+                            <Badge variant="warning">Email unverified</Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
+                        <p className="mt-0.5 text-sm text-muted-foreground">
+                          {user.dealer ? `${user.dealer.name} · ` : ''}
+                          Joined {formatDate(user.createdAt)}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {!mayAdminister ? (
+                          isSelf ? (
                             <span className="text-sm text-muted-foreground">
                               This is your account
                             </span>
-                          ) : null;
-                        }
-                        return (
+                          ) : null
+                        ) : (
                           <>
                             <Select
                               aria-label={`Role for ${user.displayName}`}
@@ -269,21 +285,54 @@ function UserDirectory() {
                                 {action.label}
                               </Button>
                             ))}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                // Reset rather than toggle blindly: a failure
+                                // left over from the last account would
+                                // otherwise greet the next one.
+                                setPassword.reset();
+                                setPasswordDone(null);
+                                setPasswordFor((open) => (open === user.id ? null : user.id));
+                              }}
+                              aria-expanded={passwordFor === user.id}
+                            >
+                              <KeyRound className="mr-1.5 h-4 w-4" aria-hidden />
+                              {passwordFor === user.id ? 'Close' : 'Set password'}
+                            </Button>
                           </>
-                        );
-                      })()}
-                      {user.dealer ? (
-                        <Link href={`/dealers/${user.dealer.slug}`}>
-                          <Button variant="ghost" size="sm">
-                            Dealership
-                          </Button>
-                        </Link>
+                        )}
+                        {user.dealer ? (
+                          <Link href={`/dealers/${user.dealer.slug}`}>
+                            <Button variant="ghost" size="sm">
+                              Dealership
+                            </Button>
+                          </Link>
+                        ) : null}
+                      </div>
+
+                      {passwordFor === user.id ? (
+                        <div className="w-full">
+                          <SetPasswordPanel
+                            displayName={user.displayName}
+                            pending={setPassword.isPending}
+                            error={setPassword.error}
+                            onSubmit={(input) => setPassword.mutateAsync({ id: user.id, input })}
+                            onCancel={() => setPasswordFor(null)}
+                          />
+                        </div>
+                      ) : passwordDone === user.id ? (
+                        <p className="w-full text-sm text-success" role="status">
+                          Password set. {user.displayName} has been signed out everywhere and will
+                          need the new password to sign back in.
+                        </p>
                       ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
+                    </CardContent>
+                  </Card>
+                </li>
+              );
+            })}
           </ul>
           <Pagination
             page={users.data!.page}

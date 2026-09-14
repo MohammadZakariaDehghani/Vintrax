@@ -1,9 +1,19 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter, Oswald } from 'next/font/google';
 import { Providers } from './providers';
 import { TabBar } from '@/components/tab-bar';
 import { OfflineBanner } from '@/components/connectivity';
 import { ServiceWorkerRegistration } from '@/components/service-worker';
 import './globals.css';
+
+/** The same pairing as the web application — see frontend/src/app/layout.tsx. */
+const sans = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
+const display = Oswald({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-display',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -39,13 +49,13 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0d1512' },
+    { media: '(prefers-color-scheme: dark)', color: '#100d0d' },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${display.variable}`}>
       <body className="min-h-screen font-sans antialiased">
         <Providers>
           <a

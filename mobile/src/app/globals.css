@@ -8,30 +8,32 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222 47% 13%;
+    --foreground: 0 10% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 13%;
+    --card-foreground: 0 10% 12%;
 
-    /* Brand green — the wordmark's colour, and what carries every action. */
-    --primary: 148 78% 22%;
+    /* Brand red — the wordmark's colour, and what carries every action. */
+    --primary: 0 75% 42%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 218 24% 95%;
-    --secondary-foreground: 222 47% 18%;
+    --secondary: 0 14% 96%;
+    --secondary-foreground: 0 10% 17%;
 
-    --muted: 218 24% 96%;
+    --muted: 0 14% 96%;
     /* The lockup's third colour: the grey of the descriptor under the wordmark. */
-    --muted-foreground: 218 11% 46%;
+    --muted-foreground: 0 6% 42%;
 
-    /* Brand red, reserved for brand and live-auction moments. Actions use
-       green, so red never competes with an error message on the same screen. */
-    --accent: 358 74% 49%;
+    /* The brighter brand red, for live-auction moments and anywhere the
+       identity itself is the point. Lighter and more saturated than
+       `--primary`, so it reads as emphasis rather than competing with it. */
+    --accent: 0 85% 52%;
     --accent-foreground: 0 0% 100%;
 
-    /* Darker and less saturated than the brand red, and always paired with an
-       icon and explicit wording. */
-    --destructive: 0 64% 38%;
+    /* The darkest, dullest red on the page — with a red brand, hue can no
+       longer separate an error from an action, so lightness and saturation do,
+       alongside the icon and explicit wording errors always carry. */
+    --destructive: 0 52% 30%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 152 60% 28%;
@@ -40,46 +42,46 @@
     --warning: 32 85% 42%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 218 20% 89%;
-    --input: 218 20% 84%;
-    --ring: 148 62% 32%;
+    --border: 0 12% 90%;
+    --input: 0 12% 85%;
+    --ring: 0 72% 46%;
 
     --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222 42% 8%;
-    --foreground: 214 28% 93%;
+    --background: 0 10% 7%;
+    --foreground: 0 10% 93%;
 
-    --card: 222 38% 12%;
-    --card-foreground: 214 28% 93%;
+    --card: 0 9% 11%;
+    --card-foreground: 0 10% 93%;
 
-    /* Lifted from the near-black brand green, which fails contrast against a
+    /* Lifted from the deep brand red, which fails contrast against a
        dark surface. */
-    --primary: 145 62% 58%;
-    --primary-foreground: 156 30% 7%;
+    --primary: 0 82% 62%;
+    --primary-foreground: 0 30% 8%;
 
-    --secondary: 222 26% 18%;
-    --secondary-foreground: 214 28% 93%;
+    --secondary: 0 8% 18%;
+    --secondary-foreground: 0 10% 93%;
 
-    --muted: 222 26% 16%;
-    --muted-foreground: 216 15% 68%;
+    --muted: 0 8% 16%;
+    --muted-foreground: 0 7% 68%;
 
-    --accent: 358 82% 65%;
-    --accent-foreground: 222 42% 8%;
+    --accent: 0 88% 66%;
+    --accent-foreground: 0 10% 7%;
 
-    --destructive: 0 62% 55%;
-    --destructive-foreground: 222 42% 8%;
+    --destructive: 0 48% 48%;
+    --destructive-foreground: 0 10% 7%;
 
     --success: 152 48% 52%;
-    --success-foreground: 222 42% 8%;
+    --success-foreground: 0 10% 7%;
 
     --warning: 32 88% 60%;
-    --warning-foreground: 222 42% 8%;
+    --warning-foreground: 0 10% 7%;
 
-    --border: 222 22% 22%;
-    --input: 222 22% 26%;
-    --ring: 145 58% 52%;
+    --border: 0 8% 22%;
+    --input: 0 8% 26%;
+    --ring: 0 78% 56%;
   }
 
   * {
@@ -99,6 +101,22 @@
     /* Standalone PWAs have no browser chrome to rubber-band against, and the
        overscroll bounce under a fixed tab bar looks broken. */
     overscroll-behavior-y: none;
+  }
+
+  /* The condensed face carries headings; everything else stays in the sans.
+     Applied here rather than as a class on each heading so the change is one
+     rule and no component's markup moves — a condensed face is a display
+     decision, not a per-component one.
+
+     Body copy, form controls and table cells are deliberately excluded: this
+     interface is mostly small text, and a condensed face at 14px in a spec
+     table is measurably slower to read. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display), ui-sans-serif, 'Helvetica Neue', 'Arial Narrow', sans-serif;
+    letter-spacing: -0.005em;
   }
 
   /* Touch devices have no hover, and the tap highlight fires on scroll. */

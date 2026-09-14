@@ -70,12 +70,16 @@ export default async function HomePage() {
           // behind the search card that overlaps it, as the gradient does.
           <HomeMasthead article={masthead} className="pb-28" />
         ) : (
-          <div className="bg-gradient-to-br from-primary via-primary to-[hsl(222_70%_15%)] pb-28">
+          // Red into carbon, not red into navy. The old end-stop was a deep
+          // blue, which sat far enough from a green brand to read as depth;
+          // under a red one it reads as a second colour. Carbon is the
+          // masthead's own value, so the band resolves into the bar above it.
+          <div className="bg-gradient-to-br from-hero via-hero to-[hsl(0_12%_12%)] pb-28">
             <div className="container pt-10 md:pt-12">
-              <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-primary-foreground md:text-4xl">
+              <h1 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight text-hero-foreground md:text-4xl">
                 {t.home.heroTitle}
               </h1>
-              <p className="mt-2 max-w-xl text-primary-foreground/80">{t.home.heroBody}</p>
+              <p className="mt-2 max-w-xl text-hero-foreground/80">{t.home.heroBody}</p>
             </div>
           </div>
         )}

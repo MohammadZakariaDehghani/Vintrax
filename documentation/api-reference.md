@@ -46,16 +46,49 @@ self-assignable. `dealershipName` is required when `role` is `DEALER`.
 
 ## Users
 
-| Method   | Path                      | Auth  | Purpose                         |
-| -------- | ------------------------- | ----- | ------------------------------- |
-| `PATCH`  | `/me`                     | ✅    | Update profile                  |
-| `GET`    | `/me/addresses`           | ✅    | List saved addresses            |
-| `POST`   | `/me/addresses`           | ✅    | Save an address                 |
-| `DELETE` | `/me/addresses/:id`       | ✅    | Delete an address               |
-| `GET`    | `/admin/users`            | admin | List platform users             |
-| `PATCH`  | `/admin/users/:id/status` | admin | Suspend, reactivate, deactivate |
+| Method   | Path                        | Auth          | Purpose                          |
+| -------- | --------------------------- | ------------- | -------------------------------- |
+| `PATCH`  | `/me`                       | ✅            | Update profile                   |
+| `GET`    | `/me/addresses`             | ✅            | List saved addresses             |
+| `POST`   | `/me/addresses`             | ✅            | Save an address                  |
+| `DELETE` | `/me/addresses/:id`         | ✅            | Delete an address                |
+| `GET`    | `/admin/users`              | `user:read`   | List platform users              |
+| `GET`    | `/admin/users/:id`          | `user:read`   | Read one account                 |
+| `POST`   | `/admin/users`              | `user:manage` | Create an account, with its role |
+| `PATCH`  | `/admin/users/:id/role`     | `user:manage` | Change an account's role         |
+| `PATCH`  | `/admin/users/:id/password` | `user:manage` | Set an account's password        |
+| `PATCH`  | `/admin/users/:id/status`   | `user:manage` | Suspend, reactivate, deactivate  |
 
 Suspending an account also revokes its live sessions.
+
+The four `/admin/users` write paths all run the same two rules, on the server,
+regardless of what the caller's UI offered:
+
+- **`canAssignRole`** — a `SUPER_ADMIN` may assign any role; an `ADMIN` may
+  assign `BUYER`, `SELLER`, `DEALER` and `INSPECTOR` but not `ADMIN` or
+  `SUPER_ADMIN`. Without this an admin could mint a peer, or promote themselves
+  through a second account.
+- **`canAdministerUser`** — only a `SUPER_ADMIN` may act on another
+  administrator. An `ADMIN` aimed at one gets `404`, not `403`: refusing by
+  name would confirm the account exists and say who the administrators are.
+
+Three self-actions are refused outright, for anyone: changing your own role,
+changing your own status, and setting your own password. The last of those
+matters most — allowing it would turn this into a way to change a password
+without knowing the current one, which is exactly what `PATCH /auth/password`
+exists to require.
+
+**Setting a password** (`PATCH /admin/users/:id/password`) takes `password`
+(10–128 chars) and an optional `reason`. It is the recovery path for an account
+whose owner cannot use either ordinary route — no working mailbox, so no reset
+link, and no current password to prove. It hashes with bcrypt at the same cost
+as registration, revokes every live session, and consumes any unconsumed
+`PASSWORD_RESET` token so a link mailed earlier cannot overwrite what was just
+set. The audit entry records the reason; it never records the password.
+
+Demoting the last active `SUPER_ADMIN` is refused, and promoting an account
+into `DEALER` is refused when it has no dealership — create a dealer account
+instead, so the dealership is created with it.
 
 ## Vehicles
 

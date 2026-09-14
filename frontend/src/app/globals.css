@@ -8,48 +8,65 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222 47% 13%;
+    --foreground: 0 10% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 13%;
+    --card-foreground: 0 10% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 13%;
+    --popover-foreground: 0 10% 12%;
 
-    /* Brand green — the wordmark's colour, and what carries every action. */
-    --primary: 148 78% 22%;
+    /* Brand red — the wordmark's colour, and what carries every action. */
+    --primary: 0 75% 42%;
     --primary-foreground: 0 0% 100%;
 
     /* The masthead bar.
        Its own token rather than `--primary`, because a brand bar must not
-       invert with the theme: `--primary` becomes a pale green in dark mode,
+       invert with the theme: `--primary` lifts to a lighter red in dark mode,
        which is right for a button on a dark page and wrong for the band that
        carries the wordmark. These two values are close in both themes on
-       purpose — the bar is carbon at noon the same way a red bar stays red. */
-    --header: 156 22% 9%;
+       purpose — the bar is carbon at noon the way the logo's own ground is.
+
+       Near-black rather than a lifted carbon, because the supplied lockup is a
+       raster carrying its own background at about #040404. Anything lighter
+       here draws a visible rectangle around the logo; matching it lets the
+       artwork sit in the band instead of on it. */
+    --header: 0 0% 2%;
     --header-foreground: 0 0% 100%;
     /* Secondary text and idle triggers on the bar. */
-    --header-muted: 150 12% 76%;
+    --header-muted: 0 6% 76%;
     /* Hairlines and the divider before the account controls. */
-    --header-border: 152 14% 24%;
+    --header-border: 0 10% 24%;
 
-    --secondary: 218 24% 95%;
-    --secondary-foreground: 222 47% 18%;
+    /* The hero band, for the same reason `--header` exists.
+       `--primary` lifts to a light red in dark mode, which is right for a
+       button and wrong for a full-bleed band: at that size it stops being a
+       brand colour and becomes a warning. This stays a deep brand red in both
+       themes, so the band reads the same at noon and at midnight. */
+    --hero: 0 72% 36%;
+    --hero-foreground: 0 0% 100%;
 
-    --muted: 218 24% 96%;
+    --secondary: 0 14% 96%;
+    --secondary-foreground: 0 10% 17%;
+
+    --muted: 0 14% 96%;
     /* The lockup's third colour: the grey of the descriptor under the wordmark. */
-    --muted-foreground: 218 11% 46%;
+    --muted-foreground: 0 6% 42%;
 
-    /* Brand red. Reserved for brand and live-auction moments — see the note
-       below on why it is not used for buttons. */
-    --accent: 358 74% 49%;
+    /* The brighter brand red, for live-auction moments and anywhere the
+       identity itself is the point. Lighter and more saturated than `--primary`
+       so it reads as emphasis on top of the primary red rather than competing
+       with it. */
+    --accent: 0 85% 52%;
     --accent-foreground: 0 0% 100%;
 
     /* Errors stay red, because that convention is older and stronger than any
-       brand. It is darker and less saturated than the brand red so the two are
-       distinguishable when they appear on the same screen, and error states
-       always carry an icon and explicit wording as well as colour. */
-    --destructive: 0 64% 38%;
+       brand — and with a red brand, hue can no longer do the distinguishing.
+       So this is deliberately the darkest and dullest red on the page, well
+       away from `--primary` and `--accent` in both lightness and saturation.
+       Colour alone was never sufficient here: error states carry an icon and
+       explicit wording too, which is what actually separates them now. */
+    --destructive: 0 52% 30%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 152 60% 28%;
@@ -58,54 +75,59 @@
     --warning: 32 85% 42%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 218 20% 89%;
-    --input: 218 20% 84%;
-    --ring: 148 62% 32%;
+    --border: 0 12% 90%;
+    --input: 0 12% 85%;
+    --ring: 0 72% 46%;
 
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222 42% 8%;
-    --foreground: 214 28% 93%;
+    --background: 0 10% 7%;
+    --foreground: 0 10% 93%;
 
-    --card: 222 38% 12%;
-    --card-foreground: 214 28% 93%;
+    --card: 0 9% 11%;
+    --card-foreground: 0 10% 93%;
 
-    --popover: 222 38% 12%;
-    --popover-foreground: 214 28% 93%;
+    --popover: 0 9% 11%;
+    --popover-foreground: 0 10% 93%;
 
-    /* Lifted from the near-black brand green, which fails contrast on a dark
+    /* Lifted from the deep brand red, which fails contrast on a dark
        surface. */
-    --primary: 145 62% 58%;
-    --primary-foreground: 156 30% 7%;
+    --primary: 0 82% 62%;
+    --primary-foreground: 0 30% 8%;
 
-    --header: 156 24% 7%;
+    --header: 0 0% 1%;
     --header-foreground: 0 0% 100%;
-    --header-muted: 150 10% 72%;
-    --header-border: 152 14% 20%;
+    --header-muted: 0 6% 72%;
+    --header-border: 0 10% 20%;
 
-    --secondary: 222 26% 18%;
-    --secondary-foreground: 214 28% 93%;
+    /* Deeper still, not lighter: on a dark page the band should recede toward
+       the masthead, not glow. */
+    --hero: 0 68% 26%;
+    --hero-foreground: 0 0% 100%;
 
-    --muted: 222 26% 16%;
-    --muted-foreground: 216 15% 68%;
+    --secondary: 0 8% 18%;
+    --secondary-foreground: 0 10% 93%;
 
-    --accent: 358 82% 65%;
-    --accent-foreground: 222 42% 8%;
+    --muted: 0 8% 16%;
+    --muted-foreground: 0 7% 68%;
 
-    --destructive: 0 62% 55%;
-    --destructive-foreground: 222 42% 8%;
+    --accent: 0 88% 66%;
+    --accent-foreground: 0 10% 7%;
+
+    --destructive: 0 48% 48%;
+    --destructive-foreground: 0 10% 7%;
 
     --success: 152 48% 52%;
-    --success-foreground: 222 42% 8%;
+    --success-foreground: 0 10% 7%;
 
     --warning: 32 78% 58%;
-    --warning-foreground: 222 42% 8%;
+    --warning-foreground: 0 10% 7%;
 
-    --border: 222 22% 22%;
-    --input: 222 22% 26%;
-    --ring: 145 58% 52%;
+    --border: 0 8% 22%;
+    --input: 0 8% 26%;
+    --ring: 0 78% 56%;
   }
 
   * {
@@ -114,12 +136,30 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 
   /* Visible focus for keyboard users on every interactive element. */
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* The condensed face carries headings; everything else stays in the sans.
+     Applied here rather than as a class on each heading so the change is one
+     rule and no component's markup moves — a condensed face is a display
+     decision, not a per-component one.
+
+     Body copy, form controls and table cells are deliberately excluded: this
+     interface is mostly small text, and a condensed face at 14px in a spec
+     table is measurably slower to read. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display), ui-sans-serif, 'Helvetica Neue', 'Arial Narrow', sans-serif;
+    letter-spacing: -0.005em;
   }
 
   /* Tabular figures keep prices and countdowns from jittering as they change. */

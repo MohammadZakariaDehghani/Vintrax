@@ -49,7 +49,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           className="absolute inset-0 -z-10 h-full w-full object-cover"
           fetchPriority="high"
         />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[hsl(222_47%_11%)]/95 via-[hsl(222_47%_11%)]/60 to-[hsl(222_47%_11%)]/35" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[hsl(0_12%_9%)]/95 via-[hsl(0_12%_9%)]/60 to-[hsl(0_12%_9%)]/35" />
 
         <div className="container flex h-full flex-col justify-end py-10">
           <Link

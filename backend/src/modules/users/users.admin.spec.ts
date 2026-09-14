@@ -40,17 +40,21 @@ function service(
       }),
       count: jest.fn(() => Promise.resolve(options.otherSuperAdmins ?? 1)),
       create: jest.fn((_args: unknown) => Promise.resolve({ id: 'new-user' })),
-      update: jest.fn(() => Promise.resolve({})),
+      update: jest.fn((_args: unknown) => Promise.resolve({})),
     },
     dealer: { findUnique: jest.fn(() => Promise.resolve(null)) },
+    // These two are called to *build* the array handed to $transaction, so the
+    // stub needs them even though nothing is executed.
+    refreshToken: { updateMany: jest.fn((args: unknown) => args) },
+    authToken: { updateMany: jest.fn((args: unknown) => args) },
     $transaction: jest.fn(() => Promise.resolve([])),
   };
-  const audit = { record: jest.fn(() => Promise.resolve()) };
+  const audit = { record: jest.fn((_entry: unknown) => Promise.resolve()) };
   const users = new UsersService(prisma as never, audit as never);
   // The happy paths end by re-reading the account, which is not what is under
   // test here.
   jest.spyOn(users, 'getPublicUser').mockResolvedValue({ id: 'new-user' } as never);
-  return { users, prisma };
+  return { users, prisma, audit };
 }
 
 const NEW_USER = {
@@ -222,6 +226,119 @@ describe('updateRole', () => {
     await expect(users.updateRole('target', { role: 'DEALER' }, actor())).rejects.toBeInstanceOf(
       ForbiddenException,
     );
+  });
+});
+
+describe('setPassword', () => {
+  const NEW_PASSWORD = 'a-new-long-password';
+
+  it('refuses to set the caller\'s own password', async () => {
+    const { users, prisma } = service({ id: 'actor-1', role: 'SUPER_ADMIN' });
+
+    // Otherwise this endpoint is a way around the current-password check that
+    // PATCH /auth/password exists to enforce.
+    await expect(
+      users.setPassword('actor-1', { password: NEW_PASSWORD }, actor({ role: 'SUPER_ADMIN' })),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('hides another administrator behind a 404 rather than a 403', async () => {
+    const { users, prisma } = service({ id: 'target', role: 'ADMIN' });
+
+    // An admin resetting a peer's password would be a one-request takeover.
+    await expect(
+      users.setPassword('target', { password: NEW_PASSWORD }, actor()),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("refuses an admin reaching a super admin's account", async () => {
+    const { users } = service({ id: 'target', role: 'SUPER_ADMIN' });
+
+    await expect(
+      users.setPassword('target', { password: NEW_PASSWORD }, actor()),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('404s on an account that does not exist', async () => {
+    const { users } = service(null);
+
+    await expect(
+      users.setPassword('missing', { password: NEW_PASSWORD }, actor()),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('stores a bcrypt hash at the cost the auth service uses', async () => {
+    const { users, prisma } = service({ id: 'target', role: 'BUYER' });
+
+    await users.setPassword('target', { password: NEW_PASSWORD }, actor());
+
+    const written = prisma.user.update.mock.calls[0]![0] as {
+      where: { id: string };
+      data: { passwordHash: string; password?: string };
+    };
+    expect(written.where.id).toBe('target');
+    expect(written.data.password).toBeUndefined();
+    expect(written.data.passwordHash).not.toContain(NEW_PASSWORD);
+    expect(written.data.passwordHash).toMatch(/^\$2[aby]\$12\$/);
+  });
+
+  it('ends the account\'s live sessions', async () => {
+    const { users, prisma } = service({ id: 'target', role: 'BUYER' });
+
+    await users.setPassword('target', { password: NEW_PASSWORD }, actor());
+
+    // Leaving an intruder's refresh token working defeats the reset.
+    const revoked = prisma.refreshToken.updateMany.mock.calls[0]![0] as {
+      where: { userId: string; revokedAt: null };
+      data: { revokedAt: Date };
+    };
+    expect(revoked.where.userId).toBe('target');
+    expect(revoked.where.revokedAt).toBeNull();
+    expect(revoked.data.revokedAt).toBeInstanceOf(Date);
+  });
+
+  it('consumes any outstanding password-reset link', async () => {
+    const { users, prisma } = service({ id: 'target', role: 'BUYER' });
+
+    await users.setPassword('target', { password: NEW_PASSWORD }, actor());
+
+    // A link mailed before this would otherwise overwrite what was just set.
+    const consumed = prisma.authToken.updateMany.mock.calls[0]![0] as {
+      where: { userId: string; type: string; consumedAt: null };
+      data: { consumedAt: Date };
+    };
+    expect(consumed.where).toMatchObject({
+      userId: 'target',
+      type: 'PASSWORD_RESET',
+      consumedAt: null,
+    });
+    expect(consumed.data.consumedAt).toBeInstanceOf(Date);
+  });
+
+  it('records the reason in the audit trail and never the password', async () => {
+    const { users, audit } = service({ id: 'target', role: 'BUYER' });
+
+    await users.setPassword(
+      'target',
+      { password: NEW_PASSWORD, reason: 'Lost access to their mailbox' },
+      actor(),
+    );
+
+    const entry = audit.record.mock.calls[0]![0] as {
+      action: string;
+      actorId: string;
+      entityId: string;
+      metadata: { reason: string | null };
+    };
+    expect(entry.action).toBe('user.password_set_by_admin');
+    expect(entry.actorId).toBe('actor-1');
+    expect(entry.entityId).toBe('target');
+    expect(entry.metadata.reason).toBe('Lost access to their mailbox');
+    expect(JSON.stringify(entry)).not.toContain(NEW_PASSWORD);
   });
 });
 
