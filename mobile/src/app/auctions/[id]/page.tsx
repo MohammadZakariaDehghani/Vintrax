@@ -11,7 +11,7 @@ import { vintrax } from '@/lib/vintrax';
 import { keys, useAuction, useAuctionBids } from '@/lib/queries';
 import { isSubmittableBid, quickBidLadder } from '@/lib/bidding';
 import { useAuctionSocket } from '@/hooks/use-auction-socket';
-import { useUser } from '@/store/session';
+import { useHasPermission, useUser } from '@/store/session';
 import { useOnline } from '@/components/connectivity';
 import { cn, formatPrice, formatRelativeTime } from '@/lib/format';
 import { Badge, Button, Card, Spinner, StateMessage } from '@/components/ui';
@@ -31,6 +31,7 @@ export default function AuctionPage({ params }: { params: Promise<{ id: string }
   const { id } = use(params);
   const router = useRouter();
   const user = useUser();
+  const canBid = useHasPermission('bid:place');
   const online = useOnline();
   const queryClient = useQueryClient();
 
@@ -180,7 +181,14 @@ export default function AuctionPage({ params }: { params: Promise<{ id: string }
         </Card>
 
         {isLive ? (
-          user ? (
+          user && !canBid ? (
+            // Administrators and inspectors hold no `bid:place`. The API refuses
+            // them, so the panel would only produce a 403 on submit.
+            <StateMessage
+              title="This account cannot place bids"
+              description="Sign in with a buyer or seller account to bid."
+            />
+          ) : user ? (
             <Card className="space-y-3 p-4">
               <h2 className="text-base font-semibold">Place a bid</h2>
               <p className="text-sm text-muted-foreground">

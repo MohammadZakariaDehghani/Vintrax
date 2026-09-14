@@ -7,7 +7,7 @@ import { Gavel, Radio, ShieldCheck, TrendingUp } from 'lucide-react';
 import type { AuctionDetail, AuctionEvent, BidSummary } from '@vintrax/shared';
 import { ApiError, api } from '@/lib/api-client';
 import { cn, formatEnum, formatKm, formatPrice, formatRelativeTime } from '@/lib/utils';
-import { useUser } from '@/store/auth-store';
+import { useHasPermission, useUser } from '@/store/auth-store';
 import { useAuctionSocket } from '@/hooks/use-auction-socket';
 import {
   Badge,
@@ -26,6 +26,7 @@ import { VehicleGallery } from '@/components/vehicle-gallery';
 
 export function AuctionRoom({ auctionId }: { auctionId: string }) {
   const user = useUser();
+  const canBid = useHasPermission('bid:place');
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState('');
   const [flash, setFlash] = useState(false);
@@ -267,6 +268,14 @@ export function AuctionRoom({ auctionId }: { auctionId: string }) {
                 <Link href="/login">
                   <Button className="w-full">Sign in to bid</Button>
                 </Link>
+              ) : !canBid ? (
+                // Administrators and inspectors hold no `bid:place`: the people
+                // running the marketplace and the people grading the cars do not
+                // bid in it. The API refuses them, so offering the form here
+                // would only produce a 403 on submit.
+                <p className="text-sm text-muted-foreground">
+                  This account cannot place bids. Sign in with a buyer or seller account to bid.
+                </p>
               ) : !isLive ? (
                 <p className="text-sm text-muted-foreground">
                   {auction.status === 'ENDED' || auction.secondsRemaining === 0
