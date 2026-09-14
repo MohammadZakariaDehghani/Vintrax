@@ -115,6 +115,42 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
 };
 
 /**
+ * Which roles an actor may assign, when creating an account or changing one.
+ *
+ * The rule is that you cannot mint a peer or a superior. A super admin may
+ * assign anything; an admin may assign every non-administrative role but
+ * neither ADMIN nor SUPER_ADMIN; nobody else may assign at all.
+ *
+ * This is the anti-escalation rule, and it is deliberately not "the roles whose
+ * permissions are a subset of your own". That reading looks principled and is
+ * wrong here: ADMIN does not carry `bid:place`, because the operator of a
+ * marketplace should not be bidding in it, so a subset rule would stop an admin
+ * creating an ordinary buyer.
+ */
+export function assignableRoles(actorRole: UserRole): readonly UserRole[] {
+  if (actorRole === 'SUPER_ADMIN') return USER_ROLES;
+  if (actorRole === 'ADMIN') return ['BUYER', 'SELLER', 'DEALER', 'INSPECTOR'];
+  return [];
+}
+
+export function canAssignRole(actorRole: UserRole, targetRole: UserRole): boolean {
+  return assignableRoles(actorRole).includes(targetRole);
+}
+
+/**
+ * Whether an actor may administer the account of someone holding `targetRole`.
+ *
+ * An admin may not act on another administrator — only a super admin may. This
+ * is what stops two admins from being able to suspend or demote each other, and
+ * it matches the check the status endpoint has always made.
+ */
+export function canAdministerUser(actorRole: UserRole, targetRole: UserRole): boolean {
+  if (actorRole === 'SUPER_ADMIN') return true;
+  if (actorRole !== 'ADMIN') return false;
+  return targetRole !== 'ADMIN' && targetRole !== 'SUPER_ADMIN';
+}
+
+/**
  * Editorial posts.
  *
  * `PUBLISHED` is the only state a visitor can reach. `ARCHIVED` exists so a

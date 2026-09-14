@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import type { Permission, UserRole } from '@vintrax/shared';
 import type { Request } from 'express';
 import { PERMISSIONS_KEY, ROLES_KEY, VERIFIED_EMAIL_KEY } from '../decorators';
-import { hasPermission, isAdmin, type AuthUser } from '../auth/auth-user';
+import { hasPermission, type AuthUser } from '../auth/auth-user';
 
 /**
  * Enforces `@Roles`, `@RequirePermissions` and `@RequireVerifiedEmail`.
@@ -49,8 +49,21 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Verify your email address before performing this action');
     }
 
-    // Admins satisfy every role and permission requirement.
-    if (isAdmin(user.role)) return true;
+    // No blanket administrator bypass. ROLE_PERMISSIONS is the only answer to
+    // "may this account do this", so the matrix and the runtime agree.
+    //
+    // There used to be an `isAdmin(user.role) return true` here, and it quietly
+    // contradicted the matrix: ADMIN is deliberately not given `settings:manage`
+    // — the comment on that permission says platform configuration stays with
+    // super admins — but the bypass granted it anyway. Once an administrator can
+    // change another account's role, a bypass like this is the difference
+    // between "an admin may not create a super admin" and "an admin may do
+    // anything it likes, including promote itself".
+    //
+    // Two permissions change hands by removing it, both back to what the matrix
+    // already said: `settings:manage` (the search reindex) and `bid:place`,
+    // which an admin should not hold anyway — the operator of a marketplace
+    // does not bid in it.
 
     if (requiredRoles?.length && !requiredRoles.includes(user.role)) {
       throw new ForbiddenException(

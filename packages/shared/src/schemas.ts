@@ -21,6 +21,7 @@ import {
   SECTION_RATINGS,
   SELLER_SETTABLE_LISTING_STATUSES,
   TRANSMISSIONS,
+  USER_ROLES,
   VEHICLE_CONDITIONS,
   VEHICLE_DOCUMENT_TYPES,
   VIN_PATTERN,
@@ -416,6 +417,48 @@ export const updateUserStatusSchema = z.object({
   reason: trimmed(1000).optional(),
 });
 export type UpdateUserStatusInput = z.infer<typeof updateUserStatusSchema>;
+
+/**
+ * An administrator creating an account directly.
+ *
+ * Separate from `registerSchema` rather than reusing it, because the two carry
+ * different authority. Self-registration may not choose ADMIN or SUPER_ADMIN;
+ * this may, subject to `canAssignRole` on the server. The role accepted here is
+ * therefore the full set, and which of them the caller may actually use is an
+ * authorization decision, not a validation one.
+ */
+export const adminCreateUserSchema = z
+  .object({
+    email: emailSchema,
+    password: passwordSchema,
+    firstName: trimmed(60).min(1),
+    lastName: trimmed(60).min(1),
+    role: z.enum(USER_ROLES),
+    phone: trimmed(30).optional(),
+    province: z.enum(PROVINCES).optional(),
+    city: trimmed(80).optional(),
+    /**
+     * Administrator-created accounts are verified by default: somebody with
+     * `user:manage` vouched for the address by typing it. Set false to make the
+     * new account go through email verification like a self-registered one.
+     */
+    emailVerified: z.boolean().default(true),
+    /** Required when role is DEALER — a dealer without a dealership is a half-state. */
+    dealershipName: trimmed(140).min(2).optional(),
+    businessNumber: trimmed(40).optional(),
+    licenceNumber: trimmed(60).optional(),
+  })
+  .refine((data) => data.role !== 'DEALER' || !!data.dealershipName, {
+    message: 'Dealership name is required for dealer accounts',
+    path: ['dealershipName'],
+  });
+export type AdminCreateUserInput = z.infer<typeof adminCreateUserSchema>;
+
+export const updateUserRoleSchema = z.object({
+  role: z.enum(USER_ROLES),
+  reason: trimmed(1000).optional(),
+});
+export type UpdateUserRoleInput = z.infer<typeof updateUserRoleSchema>;
 
 export const auditLogQuerySchema = z.object({
   actorId: uuid().optional(),

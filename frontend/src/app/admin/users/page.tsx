@@ -4,9 +4,16 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
-import type { Paginated, PublicUser, UserStatus } from '@vintrax/shared';
-import { USER_ROLES, USER_STATUSES } from '@vintrax/shared';
+import type {
+  AdminCreateUserInput,
+  Paginated,
+  PublicUser,
+  UserRole,
+  UserStatus,
+} from '@vintrax/shared';
+import { USER_ROLES, USER_STATUSES, assignableRoles, canAdministerUser } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
+import { useUser } from '@/store/auth-store';
 import { formatDate, formatEnum } from '@/lib/utils';
 import {
   Badge,
@@ -21,6 +28,7 @@ import {
   Select,
   Spinner,
 } from '@/components/ui';
+import { CreateUserPanel } from './create-user-panel';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
 
@@ -49,6 +57,12 @@ function UserDirectory() {
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
   const queryClient = useQueryClient();
+  const me = useUser();
+
+  // The same two rules the server enforces, used here only to avoid offering a
+  // control that would be refused. The server decides; this just keeps the page
+  // honest about what it is offering.
+  const canAssign = me ? assignableRoles(me.role) : [];
 
   const query = new URLSearchParams({ page: String(page), pageSize: '25' });
   if (role) query.set('role', role);
@@ -63,6 +77,22 @@ function UserDirectory() {
   const changeStatus = useMutation({
     mutationFn: ({ id, next }: { id: string; next: UserStatus }) =>
       api.patch<PublicUser>(`/admin/users/${id}/status`, { status: next }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    },
+  });
+
+  const changeRole = useMutation({
+    mutationFn: ({ id, role: next }: { id: string; role: UserRole }) =>
+      api.patch<PublicUser>(`/admin/users/${id}/role`, { role: next }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+  });
+
+  const createUser = useMutation({
+    mutationFn: (input: AdminCreateUserInput) => api.post<PublicUser>('/admin/users', input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       void queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
@@ -138,7 +168,16 @@ function UserDirectory() {
         </Button>
       </form>
 
-      <ErrorAlert error={users.error ?? changeStatus.error} className="mb-5" />
+      {canAssign.length > 0 ? (
+        <CreateUserPanel
+          assignableRoles={canAssign}
+          pending={createUser.isPending}
+          error={createUser.error}
+          onSubmit={(input) => createUser.mutateAsync(input)}
+        />
+      ) : null}
+
+      <ErrorAlert error={users.error ?? changeStatus.error ?? changeRole.error} className="mb-5" />
 
       {users.isPending ? (
         <Spinner label="Loading users" />
@@ -175,18 +214,64 @@ function UserDirectory() {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {(NEXT_STATUS[user.status] ?? []).map((action) => (
-                        <Button
-                          key={action.status}
-                          variant={action.status === 'ACTIVE' ? 'default' : 'outline'}
-                          size="sm"
-                          loading={changeStatus.isPending}
-                          onClick={() => changeStatus.mutate({ id: user.id, next: action.status })}
-                        >
-                          {action.label}
-                        </Button>
-                      ))}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {(() => {
+                        // Your own row offers nothing: the server refuses a
+                        // self role change and a self suspension, so showing
+                        // the controls would only produce a 403.
+                        const isSelf = me?.id === user.id;
+                        const mayAdminister =
+                          !!me && !isSelf && canAdministerUser(me.role, user.role);
+                        if (!mayAdminister) {
+                          return isSelf ? (
+                            <span className="text-sm text-muted-foreground">
+                              This is your account
+                            </span>
+                          ) : null;
+                        }
+                        return (
+                          <>
+                            <Select
+                              aria-label={`Role for ${user.displayName}`}
+                              className="h-9 w-[150px]"
+                              value={user.role}
+                              disabled={changeRole.isPending}
+                              onChange={(event) =>
+                                changeRole.mutate({
+                                  id: user.id,
+                                  role: event.target.value as UserRole,
+                                })
+                              }
+                            >
+                              {/* The current role is always listed, even when it
+                                  is one this administrator could not assign, so
+                                  the control shows the truth rather than an
+                                  arbitrary first option. */}
+                              {(canAssign.includes(user.role)
+                                ? canAssign
+                                : [user.role, ...canAssign]
+                              ).map((entry) => (
+                                <option key={entry} value={entry}>
+                                  {formatEnum(entry)}
+                                </option>
+                              ))}
+                            </Select>
+                            {(NEXT_STATUS[user.status] ?? []).map((action) => (
+                              <Button
+                                key={action.status}
+                                variant={action.status === 'ACTIVE' ? 'default' : 'outline'}
+                                size="sm"
+                                loading={changeStatus.isPending}
+                                onClick={() =>
+                                  changeStatus.mutate({ id: user.id, next: action.status })
+                                }
+                              >
+                                {action.label}
+                              </Button>
+                            ))}
+                          </>
+                        );
+                      })()}
                       {user.dealer ? (
                         <Link href={`/dealers/${user.dealer.slug}`}>
                           <Button variant="ghost" size="sm">

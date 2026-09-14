@@ -15,12 +15,16 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   type Address,
   type AddressInput,
+  type AdminCreateUserInput,
   type Paginated,
   type PublicUser,
   type UpdateProfileInput,
+  type UpdateUserRoleInput,
   type UpdateUserStatusInput,
   addressSchema,
+  adminCreateUserSchema,
   updateProfileSchema,
+  updateUserRoleSchema,
   updateUserStatusSchema,
 } from '@vintrax/shared';
 import { z } from 'zod';
@@ -87,6 +91,39 @@ export class UsersController {
       status: query.status,
       q: query.q,
     });
+  }
+
+  @Get('admin/users/:id')
+  @RequirePermissions('user:read')
+  @ApiOperation({ summary: 'Read one account' })
+  getUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<PublicUser> {
+    return this.users.getUserAsAdmin(id, actor);
+  }
+
+  @Post('admin/users')
+  @RequirePermissions('user:manage')
+  @Audit('user.created_by_admin', 'User')
+  @ApiOperation({ summary: 'Create an account and assign its role' })
+  createUser(
+    @Body(zodBody(adminCreateUserSchema)) body: AdminCreateUserInput,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<PublicUser> {
+    return this.users.createUser(body, actor);
+  }
+
+  @Patch('admin/users/:id/role')
+  @RequirePermissions('user:manage')
+  @Audit('user.role_changed', 'User')
+  @ApiOperation({ summary: "Change an account's role" })
+  updateRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(updateUserRoleSchema)) body: UpdateUserRoleInput,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<PublicUser> {
+    return this.users.updateRole(id, body, actor);
   }
 
   @Patch('admin/users/:id/status')
