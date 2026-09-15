@@ -45,8 +45,17 @@ arrived.
 ### Dealer and seller
 
 `/dealer/dashboard` (analytics) · `/dealer/inventory` (management) ·
-`/dealer/inventory/[id]` (edit) · `/dealer/add-vehicle` ·
-`/auctions/new` (schedule an auction)
+`/dealer/inventory/[id]` (edit) · `/dealer/inventory/import` (bulk CSV) ·
+`/dealer/add-vehicle` · `/auctions/new` (schedule an auction)
+
+`/dealer/inventory/import` is two steps and the first writes nothing: the file
+is uploaded, the server reports what it would do row by row, and only a
+confirmation applies it. The file is sent twice rather than parked on the
+server between the steps, so an unconfirmed upload lives nowhere; the hash the
+preview returns is what guarantees the second file is the one that was
+previewed. The template and the export both need the caller's token, so they
+are fetched with `api.download` and saved from a blob — a plain `<a href>`
+would send no Authorization header.
 
 Every one of these is reachable from the header or from a page that links to
 it, and a test asserts that the reverse also holds — that no link in the app

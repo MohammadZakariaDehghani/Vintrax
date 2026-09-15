@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import type {
   ListingStatus,
   Paginated,
@@ -224,12 +224,20 @@ function Inventory() {
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
-        <Link href="/dealer/add-vehicle">
-          <Button>
-            <Plus className="h-4 w-4" aria-hidden />
-            Add vehicle
-          </Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dealer/inventory/import">
+            <Button variant="outline">
+              <Upload className="h-4 w-4" aria-hidden />
+              Import / export CSV
+            </Button>
+          </Link>
+          <Link href="/dealer/add-vehicle">
+            <Button>
+              <Plus className="h-4 w-4" aria-hidden />
+              Add vehicle
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="mb-5 flex flex-wrap gap-1 border-b border-border" role="tablist">
