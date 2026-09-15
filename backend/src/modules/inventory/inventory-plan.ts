@@ -173,7 +173,7 @@ const FIELD_BY_COLUMN: Record<string, keyof VehicleDraft> = {
   title: 'title',
   description: 'description',
   features: 'features',
-  status: 'status',
+  listing_status: 'status',
   sale_channel: 'saleChannel',
 };
 
@@ -509,6 +509,16 @@ function readRow({ cells, mapped, rowNumber, defaults, now }: ReadRowInput): Rea
     const value = spec.parse(raw(spec.column));
 
     if (value === undefined) {
+      // An optional field that cannot be read costs the field, not the vehicle.
+      // This feed writes "Electric" in its engine-size column, and failing a
+      // whole listing over a detail it does not need would be the wrong trade.
+      // Reported, so it is not a silent drop.
+      if (spec.nullable) {
+        warnings.push(
+          `${spec.column} "${normaliseText(raw(spec.column))}" is not a number, so it is left empty. Expected ${spec.label}.`,
+        );
+        return;
+      }
       errors.push(`${spec.column} is not a number. Expected ${spec.label}.`);
       return;
     }
@@ -526,16 +536,16 @@ function readRow({ cells, mapped, rowNumber, defaults, now }: ReadRowInput): Rea
   // --- Enumerations ---
   readEnum('condition', 'condition', VEHICLE_CONDITIONS, ENUM_SYNONYMS.condition);
   readEnum('body_type', 'bodyType', BODY_TYPES, ENUM_SYNONYMS.bodyType);
-  readEnum('transmission', 'transmission', TRANSMISSIONS, ENUM_SYNONYMS.transmission);
+  readEnum('transmission', 'transmission', TRANSMISSIONS, ENUM_SYNONYMS.transmission, 'OTHER');
   readEnum('fuel_type', 'fuelType', FUEL_TYPES, ENUM_SYNONYMS.fuelType);
-  readEnum('drivetrain', 'drivetrain', DRIVETRAINS, ENUM_SYNONYMS.drivetrain);
+  readEnum('drivetrain', 'drivetrain', DRIVETRAINS, ENUM_SYNONYMS.drivetrain, 'OTHER');
   readEnum('province', 'province', PROVINCES, {});
   readEnum('sale_channel', 'saleChannel', SALE_CHANNELS, {});
-  readStatus();
+  readListingStatus();
 
   /**
-   * Status, which is the one column where "not settable" and "not valid" are
-   * different answers.
+   * The listing's own status, which is the one column where "not settable" and
+   * "not valid" are different answers.
    *
    * An export carries the real status, so a live car comes back as ACTIVE and a
    * car under auction as IN_AUCTION. Neither may be set from a CSV — publishing
@@ -544,35 +554,44 @@ function readRow({ cells, mapped, rowNumber, defaults, now }: ReadRowInput): Rea
    * of them. So a real status that this column may not set is left alone and
    * reported; only a value that is not a status at all is an error.
    */
-  function readStatus(): void {
-    if (!present('status')) return;
-    const settable = normaliseEnum(raw('status'), CSV_SETTABLE_STATUSES, {});
+  function readListingStatus(): void {
+    if (!present('listing_status')) return;
+    const settable = normaliseEnum(raw('listing_status'), CSV_SETTABLE_STATUSES, {});
     if (settable !== undefined) {
       if (settable !== null) draft.status = settable;
       return;
     }
 
-    const known = normaliseEnum(raw('status'), LISTING_STATUSES, {});
+    const known = normaliseEnum(raw('listing_status'), LISTING_STATUSES, {});
     if (known !== undefined && known !== null) {
       warnings.push(
-        `status "${known}" cannot be set from a CSV, so this row leaves it unchanged. Publishing and auctions are handled on the listing itself.`,
+        `listing_status "${known}" cannot be set from a CSV, so this row leaves it unchanged. Publishing and auctions are handled on the listing itself.`,
       );
       return;
     }
 
     errors.push(
-      `status "${normaliseText(raw('status'))}" is not a recognised value. Accepted: ${CSV_SETTABLE_STATUSES.join(', ')}.`,
+      `listing_status "${normaliseText(raw('listing_status'))}" is not a recognised value. Accepted: ${CSV_SETTABLE_STATUSES.join(', ')}.`,
     );
   }
 
+  /**
+   * `whenBlank` is only passed for the two enumerations that carry `OTHER`, and
+   * it is not a guess: recording "the file did not say" as OTHER is truthful,
+   * where filling in FWD for a 1989 pickup would not be. The row carries a
+   * warning either way, so nothing about it is silent. Every other required
+   * enumeration is complete, so a blank there is missing data and fails the row.
+   */
   function readEnum(
     column: string,
     field: keyof VehicleDraft,
     allowed: readonly string[],
     synonyms: Readonly<Record<string, string>>,
+    whenBlank?: string,
   ): void {
     if (!present(column)) return;
     const value = normaliseEnum(raw(column), allowed, synonyms);
+
     if (value === undefined) {
       const attempted = normaliseText(raw(column));
       // Never invented. An unrecognised fuel type is a question for the dealer,
@@ -582,7 +601,16 @@ function readRow({ cells, mapped, rowNumber, defaults, now }: ReadRowInput): Rea
       );
       return;
     }
-    if (value !== null) (draft as Record<string, unknown>)[field] = value;
+
+    if (value === null) {
+      if (whenBlank) {
+        (draft as Record<string, unknown>)[field] = whenBlank;
+        warnings.push(`${column} was blank, so it is recorded as ${whenBlank}.`);
+      }
+      return;
+    }
+
+    (draft as Record<string, unknown>)[field] = value;
   }
 
   // --- Text ---

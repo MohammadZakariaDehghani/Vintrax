@@ -23,7 +23,7 @@ import {
  * version, and the importer records the version it read, so when a column is
  * added or renamed there is a fact to reason from rather than a guess.
  */
-export const INVENTORY_CSV_VERSION = 1;
+export const INVENTORY_CSV_VERSION = 2;
 
 /** The header the template and the exporter both emit as the first line. */
 export const INVENTORY_CSV_VERSION_HEADER = 'inventory_csv_version';
@@ -96,6 +96,11 @@ export const IGNORED_OWNERSHIP_COLUMNS = [
   'ownerid',
   'account_id',
   'accountid',
+  // A DMS export identifies the rooftop it came from. It is still ownership.
+  'companyid',
+  'company_id',
+  'rooftop_id',
+  'rooftopid',
   'slug',
   'user_id',
   'userid',
@@ -141,14 +146,29 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     key: 'mileage_km',
     required: true,
     description: 'Odometer reading in kilometres. "km" and thousands separators are accepted.',
-    aliases: ['mileage', 'odometer', 'km', 'kilometres', 'kilometers', 'odometerkm'],
+    aliases: [
+      'mileage',
+      'odometer',
+      'km',
+      'kms',
+      'kilometres',
+      'kilometers',
+      'odometerkm',
+      'mileagekms',
+    ],
   },
   {
     key: 'condition',
     required: true,
-    description: 'Vehicle condition.',
+    description: 'Vehicle condition. A dealership export usually calls this column Status.',
     enumValues: VEHICLE_CONDITIONS,
-    aliases: ['vehiclecondition', 'type', 'newused'],
+    // `status` is here rather than on the listing status deliberately. In every
+    // dealership feed seen so far, a column called Status holds New or Used —
+    // the vehicle's condition. The listing's own state is `listing_status`,
+    // which a dealer management system has no concept of. Mapping Status to the
+    // listing state instead failed every row of a real 47-vehicle export with
+    // 'status "Used" is not a recognised value'.
+    aliases: ['status', 'vehiclestatus', 'vehiclecondition', 'type', 'newused'],
   },
   {
     key: 'body_type',
@@ -182,7 +202,12 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
   { key: 'engine_size_l', required: false, description: 'Engine displacement in litres.', aliases: ['displacement', 'enginesize', 'enginelitres'] },
   { key: 'cylinders', required: false, description: 'Cylinder count.', aliases: ['cylinder', 'numcylinders'] },
   { key: 'doors', required: false, description: 'Door count.', aliases: ['doorcount', 'numdoors'] },
-  { key: 'seats', required: false, description: 'Seat count.', aliases: ['seatcount', 'passengers', 'seating'] },
+  {
+    key: 'seats',
+    required: false,
+    description: 'Seat count.',
+    aliases: ['seatcount', 'passenger', 'passengers', 'seating', 'seatingcapacity'],
+  },
   {
     key: 'exterior_colour',
     required: false,
@@ -228,11 +253,12 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     aliases: ['options', 'equipment', 'featurelist'],
   },
   {
-    key: 'status',
+    key: 'listing_status',
     required: false,
-    description: 'Listing status. Defaults to DRAFT on create, and is left alone on update when blank. ACTIVE is not settable here — publishing is a moderation decision.',
+    description:
+      "The listing's own state on Vintrax, which is not the same thing as the vehicle's condition — see `condition`, which is what a dealership export's Status column means. Defaults to DRAFT on create and is left alone on update when blank. ACTIVE is not settable here; publishing is a moderation decision.",
     enumValues: ['DRAFT', 'PENDING_REVIEW', 'ARCHIVED', 'SOLD'],
-    aliases: ['listingstatus', 'vehiclestatus'],
+    aliases: ['listingstatus', 'vintraxstatus'],
   },
   {
     key: 'sale_channel',

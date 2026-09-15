@@ -560,7 +560,7 @@ const EXPORT_VALUE: Record<string, (row: ExportRow) => string | number | null> =
   // seller-settable values. A vehicle exported as ACTIVE or IN_AUCTION and
   // re-imported keeps its status, because the importer ignores a value it may
   // not set rather than failing the row.
-  status: (row) => row.status as string,
+  listing_status: (row) => row.status as string,
   sale_channel: (row) => row.saleChannel as string,
 };
 
