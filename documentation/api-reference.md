@@ -121,6 +121,22 @@ file is a `400`. The plan is rebuilt at confirm time against the database as it
 is then, so the preview is a dry run of the same code path rather than a
 description of it.
 
+**Where the vehicles are.** A listing needs a city and a province; a dealer
+management system export usually has neither, because the source holds one
+address for the whole rooftop. Both endpoints accept optional `defaultCity` and
+`defaultProvince` multipart fields, and the value used is resolved most-specific
+first: the fields on the request, then the caller's dealership address, then
+their own profile. The two halves resolve independently, so a profile with a
+province but no city still supplies the province. It is a **fallback only** — a
+row whose file names its own city keeps it — and the plan echoes what it
+resolved to as `defaultLocation`.
+
+When none of the three supplies a value, rows that would create a vehicle fail
+**in the preview**, naming `city` and `province` and saying how to supply them.
+Nothing is placed in a guessed location. An unrecognised province code is a
+`400` rather than being dropped, since dropping it would silently fall through
+to the profile.
+
 **Partial import.** Valid rows are written and invalid rows are skipped and
 returned with their errors. Nothing is skipped silently, and the counts are
 recorded on the `InventoryImport` row.

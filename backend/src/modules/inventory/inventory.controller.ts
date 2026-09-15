@@ -15,11 +15,14 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   MAX_INVENTORY_CSV_BYTES,
+  PROVINCES,
+  type InventoryImportLocation,
   type InventoryImportPlan,
   type InventoryImportRecord,
   type InventoryImportResult,
   type InventoryRowResult,
   type Paginated,
+  type Province,
 } from '@vintrax/shared';
 import { z } from 'zod';
 import { Audit, CurrentUser, RequirePermissions } from '../../common/decorators';
@@ -31,6 +34,43 @@ const historyQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(60).default(20),
 });
+
+/**
+ * The location a dealer chose for this import, read from the upload form.
+ *
+ * This is not an exception to the rule that the request never names an owner.
+ * A city is a property of the listing, the same field the single-vehicle form
+ * already lets a seller type, and it only ever applies to the caller's own
+ * rows. What a request still cannot do is say whose inventory it is writing to.
+ *
+ * Optional, and a fallback only: a file that gives a city keeps its own. An
+ * unrecognised province is refused rather than dropped, because dropping it
+ * would fall through to the profile and place the vehicles somewhere the dealer
+ * did not ask for.
+ */
+function readLocation(body: Record<string, unknown> | undefined): InventoryImportLocation {
+  const city = text(body?.['defaultCity']);
+  const province = text(body?.['defaultProvince']);
+
+  if (city !== null && city.length > 80) {
+    throw new BadRequestException('The city for this import is longer than 80 characters.');
+  }
+
+  if (province !== null && !PROVINCES.includes(province as Province)) {
+    throw new BadRequestException(
+      `"${province}" is not a Canadian province or territory code. Use one of: ${PROVINCES.join(', ')}.`,
+    );
+  }
+
+  return { city, province: (province as Province | null) ?? null };
+}
+
+/** A form field as text, with absent and blank treated alike. */
+function text(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 /**
  * Bulk inventory, as CSV.
@@ -84,10 +124,11 @@ export class InventoryController {
   )
   validate(
     @CurrentUser() user: AuthUser,
+    @Body() body?: Record<string, unknown>,
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<InventoryImportPlan> {
     if (!file) throw new BadRequestException('No file was uploaded');
-    return this.inventory.validate(file, user);
+    return this.inventory.validate(file, user, readLocation(body));
   }
 
   @Post('import/confirm')
@@ -104,14 +145,18 @@ export class InventoryController {
   )
   confirm(
     @CurrentUser() user: AuthUser,
-    @Body('fileHash') fileHash?: string,
+    @Body() body?: Record<string, unknown>,
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<InventoryImportResult> {
     if (!file) throw new BadRequestException('No file was uploaded');
+    const fileHash = text(body?.['fileHash']);
     if (!fileHash) {
       throw new BadRequestException('fileHash is required — preview the import first.');
     }
-    return this.inventory.confirm(file, fileHash, user);
+    // The same location the preview was built with. The client sends both, and
+    // sending a different one only re-plans the file honestly — the counts in
+    // the result are the counts that were applied, never the preview's.
+    return this.inventory.confirm(file, fileHash, user, readLocation(body));
   }
 
   @Get('imports')

@@ -3,10 +3,15 @@ import brandLogo from '../../public/vintrax-logo.png';
 import { cn } from '@/lib/format';
 
 /**
- * The supplied lockup, rendered exactly as delivered — the same file the web
- * application ships, through next/image for the same reasons
- * (frontend/src/components/logo.tsx explains them). `w-auto` against a fixed
- * height is what keeps the file's own aspect ratio at every screen width.
+ * The supplied lockup — the same file the web application ships, through
+ * next/image for the same reasons (frontend/src/components/logo.tsx explains
+ * them). `w-auto` against a fixed height is what keeps the file's own aspect
+ * ratio at every screen width.
+ *
+ * The artwork is as delivered apart from its black ground, which
+ * `scripts/unmatte-logo.js` keys off so the lockup sits on a light surface
+ * without a rectangle around it. The two copies must stay identical; the
+ * script writes both.
  */
 export function Logo({ className }: { className?: string }) {
   return (

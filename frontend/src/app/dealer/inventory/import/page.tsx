@@ -4,10 +4,19 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Download, FileUp, Upload } from 'lucide-react';
-import type { InventoryImportPlan, InventoryImportResult } from '@vintrax/shared';
-import { MAX_INVENTORY_CSV_ROWS } from '@vintrax/shared';
+import type { InventoryImportPlan, InventoryImportResult, Province } from '@vintrax/shared';
+import { MAX_INVENTORY_CSV_ROWS, PROVINCES, PROVINCE_LABELS } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
-import { Button, Card, CardContent, ErrorAlert, Spinner } from '@/components/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  ErrorAlert,
+  Field,
+  Input,
+  Select,
+  Spinner,
+} from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { ImportPreview } from './import-preview';
@@ -25,16 +34,41 @@ import { ImportPreview } from './import-preview';
  * living anywhere, and the hash returned by the preview is what guarantees the
  * second file is the one that was previewed.
  */
+/** The fallback location as the form holds it, before it is sent. */
+interface Location {
+  city: string;
+  province: Province | '';
+}
+
 function ImportInventory() {
   const [file, setFile] = useState<File | null>(null);
   const [plan, setPlan] = useState<InventoryImportPlan | null>(null);
   const [result, setResult] = useState<InventoryImportResult | null>(null);
+  const [city, setCity] = useState('');
+  const [province, setProvince] = useState<Province | ''>('');
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
+  /**
+   * The location fields ride along with the file on both requests.
+   *
+   * Passed as an argument rather than read from state inside the mutation: a
+   * re-check fired from the province dropdown runs in the render that still
+   * holds the old value, so reading state there would send the previous
+   * province and preview a plan the dealer did not ask for.
+   *
+   * They go to the preview as well as the confirm because the preview is the
+   * import without the writes — if the city only reached the second call, the
+   * dealer would be shown a plan that is not the plan that runs.
+   */
+  const asFields = (at: { city: string; province: Province | '' }) => ({
+    ...(at.city.trim() ? { defaultCity: at.city.trim() } : {}),
+    ...(at.province ? { defaultProvince: at.province } : {}),
+  });
+
   const validate = useMutation({
-    mutationFn: (chosen: File) =>
-      api.upload<InventoryImportPlan>('/dealer/inventory/import/validate', chosen),
+    mutationFn: ({ chosen, at }: { chosen: File; at: Location }) =>
+      api.upload<InventoryImportPlan>('/dealer/inventory/import/validate', chosen, asFields(at)),
     onSuccess: (data) => {
       setPlan(data);
       setResult(null);
@@ -42,8 +76,11 @@ function ImportInventory() {
   });
 
   const confirm = useMutation({
-    mutationFn: ({ chosen, fileHash }: { chosen: File; fileHash: string }) =>
-      api.upload<InventoryImportResult>('/dealer/inventory/import/confirm', chosen, { fileHash }),
+    mutationFn: ({ chosen, fileHash, at }: { chosen: File; fileHash: string; at: Location }) =>
+      api.upload<InventoryImportResult>('/dealer/inventory/import/confirm', chosen, {
+        fileHash,
+        ...asFields(at),
+      }),
     onSuccess: (data) => {
       setResult(data);
       setPlan(null);
@@ -58,7 +95,22 @@ function ImportInventory() {
     setResult(null);
     validate.reset();
     confirm.reset();
-    if (chosen) validate.mutate(chosen);
+    if (chosen) validate.mutate({ chosen, at: { city, province } });
+  }
+
+  /**
+   * Re-previews against a changed location.
+   *
+   * The location decides whether rows with no city of their own can be created
+   * at all, so it changes the plan. The preview on screen is thrown away rather
+   * than left showing counts from the previous answer.
+   */
+  function recheck(at: Location) {
+    if (!file) return;
+    setPlan(null);
+    setResult(null);
+    confirm.reset();
+    validate.mutate({ chosen: file, at });
   }
 
   function reset() {
@@ -142,6 +194,66 @@ function ImportInventory() {
             </span>
           </label>
 
+          <div className="mt-5 border-t pt-5">
+            <p className="font-medium">Where are these vehicles?</p>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Most dealer management systems export one address for the whole rooftop, or none at
+              all. Set a location here and it is used{' '}
+              <strong>only for rows whose file gives no city or province</strong> — a row that names
+              its own keeps it.
+            </p>
+
+            <div className="mt-3 grid gap-3 sm:max-w-lg sm:grid-cols-2">
+              <Field label="City" htmlFor="default-city">
+                <Input
+                  id="default-city"
+                  value={city}
+                  maxLength={80}
+                  placeholder="e.g. Mississauga"
+                  onChange={(event) => setCity(event.target.value)}
+                  onBlur={() => recheck({ city, province })}
+                />
+              </Field>
+              <Field label="Province" htmlFor="default-province">
+                <Select
+                  id="default-province"
+                  value={province}
+                  onChange={(event) => {
+                    const next = event.target.value as Province | '';
+                    setProvince(next);
+                    // A select has no meaningful blur step — the choice is made
+                    // the moment it changes, so the file is re-checked here.
+                    recheck({ city, province: next });
+                  }}
+                >
+                  <option value="">Not set</option>
+                  {PROVINCES.map((code) => (
+                    <option key={code} value={code}>
+                      {PROVINCE_LABELS[code]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+
+            {plan && (plan.defaultLocation.city || plan.defaultLocation.province) ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Rows without a location will be listed in{' '}
+                <strong>
+                  {[
+                    plan.defaultLocation.city,
+                    plan.defaultLocation.province
+                      ? PROVINCE_LABELS[plan.defaultLocation.province]
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
+                </strong>
+                . Leave the fields empty to use the address on your dealership profile.
+              </p>
+            ) : null}
+          </div>
+
           {file && !plan && !result && validate.isPending ? (
             <div className="mt-4">
               <Spinner label={`Checking ${file.name}`} />
@@ -157,7 +269,9 @@ function ImportInventory() {
           plan={plan}
           pending={confirm.isPending}
           onConfirm={() => {
-            if (file) confirm.mutate({ chosen: file, fileHash: plan.fileHash });
+            if (file) {
+              confirm.mutate({ chosen: file, fileHash: plan.fileHash, at: { city, province } });
+            }
           }}
           onCancel={reset}
         />
