@@ -33,6 +33,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { ArticlesModule } from './modules/articles/articles.module';
 import { UsersModule } from './modules/users/users.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 @Module({
@@ -69,6 +70,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     UsersModule,
     DealersModule,
     VehiclesModule,
+    InventoryModule,
     InspectionsModule,
     AuctionsModule,
     FavouritesModule,

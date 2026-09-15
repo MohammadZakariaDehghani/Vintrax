@@ -179,9 +179,17 @@ export const api = {
     }
     return response.blob();
   },
-  upload: <T>(path: string, file: File) => {
+  /**
+   * Posts a file as multipart/form-data.
+   *
+   * `fields` carries the non-file parts of the same form — the inventory
+   * importer sends the hash of the file the dealer previewed alongside it, so
+   * the server can refuse to apply a different one.
+   */
+  upload: <T>(path: string, file: File, fields: Record<string, string> = {}) => {
     const form = new FormData();
     form.append('file', file);
+    for (const [key, value] of Object.entries(fields)) form.append(key, value);
     return apiRequest<T>(path, { method: 'POST', rawBody: form });
   },
 };

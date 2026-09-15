@@ -90,6 +90,55 @@ Demoting the last active `SUPER_ADMIN` is refused, and promoting an account
 into `DEALER` is refused when it has no dealership — create a dealer account
 instead, so the dealership is created with it.
 
+## Dealer inventory (CSV)
+
+Bulk inventory for a seller's own listings. Under `vehicle:write` — the same
+authority as creating and editing one listing, applied to many — so SELLER,
+DEALER, ADMIN and SUPER_ADMIN all hold it and no new permission was added.
+
+| Method | Path                                | Auth            | Purpose                                     |
+| ------ | ----------------------------------- | --------------- | ------------------------------------------- |
+| `GET`  | `/dealer/inventory/import/template` | `vehicle:write` | Blank CSV with documented headers           |
+| `GET`  | `/dealer/inventory/export`          | `vehicle:write` | The caller's own inventory, same schema     |
+| `POST` | `/dealer/inventory/import/validate` | `vehicle:write` | Report what a CSV would do. Writes nothing. |
+| `POST` | `/dealer/inventory/import/confirm`  | `vehicle:write` | Apply a previewed CSV                       |
+| `GET`  | `/dealer/inventory/imports`         | `vehicle:write` | Past runs, newest first                     |
+| `GET`  | `/dealer/inventory/imports/:id`     | `vehicle:write` | One past run, with per-row outcomes         |
+
+**Ownership is never in the request.** Every route scopes to
+`sellerId: <the authenticated user>`, taken from the JWT. No route accepts a
+seller or dealer id from the query, the body or the file, and the columns that
+name one — `dealer_id`, `seller_id`, `owner_id`, `id` and their variants — are
+recognised only so the response can say they were ignored. Matching is scoped
+to the caller's own vehicles, so a row naming a VIN another seller lists cannot
+match it; it creates in the caller's inventory instead, with a warning saying
+so.
+
+**Two steps.** `validate` parses, normalises and plans, and returns a per-row
+verdict — `CREATE`, `UPDATE`, `UNCHANGED` or `ERROR` — plus a `fileHash`.
+`confirm` takes the same file and that hash as multipart fields; a different
+file is a `400`. The plan is rebuilt at confirm time against the database as it
+is then, so the preview is a dry run of the same code path rather than a
+description of it.
+
+**Partial import.** Valid rows are written and invalid rows are skipped and
+returned with their errors. Nothing is skipped silently, and the counts are
+recorded on the `InventoryImport` row.
+
+**Matching order**, always within one seller: VIN, then stock number. A row
+needs one of the two. Re-importing an unchanged file reports `UNCHANGED` for
+every row and writes nothing, which is what makes the importer idempotent.
+
+**Limits**: 2MB and 2000 rows, enforced on the server. The upload is held in
+memory and read only after the size, encoding and content checks pass; the
+filename extension is not trusted. A file that is not valid UTF-8, or that
+carries a NUL byte, is refused with a message saying how to re-save it.
+
+`status` accepts only `DRAFT`, `PENDING_REVIEW`, `ARCHIVED` and `SOLD`. A real
+status the column may not set — `ACTIVE`, `IN_AUCTION` — is left unchanged and
+reported, so a dealer can export live inventory, edit it and re-import without
+those rows failing. Publishing stays a moderation decision.
+
 ## Vehicles
 
 | Method         | Path                                  | Auth                                       | Purpose                                         |

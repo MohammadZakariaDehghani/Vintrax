@@ -524,12 +524,75 @@ export class VehiclesService {
     );
   }
 
-  /** Derives a URL-safe slug, suffixing on collision. */
-  private async uniqueSlug(
+  /**
+   * Invalidates caches and reindexes after a bulk write.
+   *
+   * Public because the CSV importer writes vehicles without going through
+   * `create`/`update`, and a listing that is in the database but not in the
+   * search index is invisible to buyers — which is the whole point of listing
+   * it. One cache drop for the batch, one index job per vehicle.
+   */
+  async afterBulkWrite(vehicleIds: readonly string[]): Promise<void> {
+    if (vehicleIds.length === 0) return;
+
+    // Bounded, and failure is logged rather than thrown.
+    //
+    // This runs after a bulk import has already committed. If the queue is
+    // unreachable, the vehicles are in the database and the dealer must be told
+    // so — a request that hangs instead leaves them believing the import failed,
+    // and their retry then reports every row as unchanged, which looks like the
+    // importer silently did nothing. A missing index entry is recoverable by a
+    // reindex; a dealer who no longer trusts the importer is not.
+    //
+    // Note this does not protect the single-vehicle path, which awaits the same
+    // enqueue unguarded in `afterWrite`. That is existing behaviour and is left
+    // alone here rather than changed as a side effect of an import feature.
+    const REINDEX_BUDGET_MS = 5_000;
+
+    try {
+      await Promise.race([
+        (async () => {
+          await this.redis.delByPattern('vehicles:search:*');
+          await Promise.all(
+            vehicleIds.map((vehicleId) =>
+              this.queue.enqueue(
+                QUEUE_NAMES.search,
+                'index-vehicle',
+                { vehicleId },
+                { jobId: `search-${vehicleId}-${Date.now()}` },
+              ),
+            ),
+          );
+        })(),
+        new Promise((_resolve, reject) =>
+          setTimeout(
+            () => reject(new Error(`search reindex did not respond in ${REINDEX_BUDGET_MS}ms`)),
+            REINDEX_BUDGET_MS,
+          ).unref(),
+        ),
+      ]);
+    } catch (error) {
+      this.logger.error(
+        `Wrote ${vehicleIds.length} vehicles but could not queue them for search indexing: ${String(error)}. They are listed; run a reindex to make them searchable.`,
+      );
+    }
+  }
+
+  /**
+   * Derives a URL-safe slug, suffixing on collision.
+   *
+   * `client` exists so a caller inside an interactive transaction can pass its
+   * transaction client. Querying `this.prisma` from inside one waits on a
+   * connection that transaction is holding, which deadlocks until the
+   * transaction times out — and it would also miss rows inserted earlier in the
+   * same transaction, handing two of them the same slug.
+   */
+  async uniqueSlug(
     year: number,
     make: string,
     model: string,
     trim?: string,
+    client: Pick<PrismaService, 'vehicle'> = this.prisma,
   ): Promise<string> {
     const base =
       `${year}-${make}-${model}${trim ? `-${trim}` : ''}`
@@ -540,7 +603,7 @@ export class VehiclesService {
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const candidate = attempt === 0 ? base : `${base}-${randomBytes(2).toString('hex')}`;
-      const taken = await this.prisma.vehicle.findUnique({
+      const taken = await client.vehicle.findUnique({
         where: { slug: candidate },
         select: { id: true },
       });

@@ -52,6 +52,13 @@ enum ListingStatus {
   ARCHIVED
 }
 
+enum InventoryImportStatus {
+  VALIDATED
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+}
+
 enum SaleChannel {
   FIXED_PRICE
   AUCTION
@@ -283,6 +290,9 @@ model User {
   bodyTypeImages BodyTypeImage[]
   articles       Article[]
 
+  inventoryImports    InventoryImport[] @relation("InventoryImportSeller")
+  inventoryImportsRun InventoryImport[] @relation("InventoryImportInitiator")
+
   inspectionsPerformed VehicleInspection[] @relation("InspectorInspections")
 
   purchases TransactionRecord[] @relation("TransactionBuyer")
@@ -380,9 +390,9 @@ model AuthToken {
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type      TokenType
-  tokenHash String    @unique
-  expiresAt DateTime
+  type       TokenType
+  tokenHash  String    @unique
+  expiresAt  DateTime
   consumedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -406,11 +416,15 @@ model Vehicle {
   description String @db.Text
 
   /// Not unique: the same vehicle can legitimately be relisted after a sale.
-  vin   String?
-  make  String
-  model String
-  trim  String?
-  year  Int
+  vin         String?
+  /// The seller's own stock number. Unique within a seller's inventory, not
+  /// globally — two dealerships both numbering a car "A1042" is normal, and a
+  /// global constraint would make one of them unable to list it.
+  stockNumber String?
+  make        String
+  model       String
+  trim        String?
+  year        Int
 
   priceCad        Int
   /// Lowest price the seller will accept. Never exposed to buyers.
@@ -443,10 +457,10 @@ model Vehicle {
   viewCount      Int @default(0)
   favouriteCount Int @default(0)
 
-  publishedAt     DateTime?
-  soldAt          DateTime?
-  moderatedAt     DateTime?
-  moderationNote  String?   @db.Text
+  publishedAt    DateTime?
+  soldAt         DateTime?
+  moderatedAt    DateTime?
+  moderationNote String?   @db.Text
 
   images        VehicleImage[]
   documents     VehicleDocument[]
@@ -459,6 +473,12 @@ model Vehicle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // The CSV importer matches a row to an existing vehicle by VIN and then by
+  // stock number, always within one seller. These two back that lookup, and the
+  // unique constraint is what stops an import creating a second row for a stock
+  // number the seller already uses. NULLs do not collide in Postgres, so the
+  // many vehicles with no stock number are unaffected.
+  @@unique([sellerId, stockNumber])
   // Search almost always constrains status first, so it leads the composite
   // indexes backing the common browse-and-sort paths.
   @@index([status, publishedAt])
@@ -468,6 +488,40 @@ model Vehicle {
   @@index([status, saleChannel])
   @@index([sellerId, status])
   @@index([vin])
+  @@index([sellerId, vin])
+}
+
+/// One run of the dealer CSV importer. Written on confirm, never on preview.
+model InventoryImport {
+  id       String @id @default(uuid()) @db.Uuid
+  /// The seller whose inventory was changed. Ownership lives on Vehicle.sellerId,
+  /// so this is the same user, and it is what scopes the history listing.
+  sellerId String @db.Uuid
+  seller   User   @relation("InventoryImportSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  /// Who ran it. Normally the seller; an admin acting on their behalf differs.
+  initiatedById String? @db.Uuid
+  initiatedBy   User?   @relation("InventoryImportInitiator", fields: [initiatedById], references: [id], onDelete: SetNull)
+
+  filename      String
+  schemaVersion Int
+  /// SHA-256 of the uploaded bytes, so a re-run of the same file is recognisable.
+  fileHash      String
+  status        InventoryImportStatus
+
+  totalRows      Int @default(0)
+  createdCount   Int @default(0)
+  updatedCount   Int @default(0)
+  unchangedCount Int @default(0)
+  errorCount     Int @default(0)
+
+  /// Per-row outcomes, as returned to the client. Capped by MAX_INVENTORY_CSV_ROWS.
+  rows Json?
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([sellerId, createdAt])
 }
 
 model VehicleImage {
@@ -475,10 +529,10 @@ model VehicleImage {
   vehicleId String  @db.Uuid
   vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
-  url String
-  alt String?
+  url      String
+  alt      String?
   /// Zero-based display order; position 0 is the primary image.
-  position Int @default(0)
+  position Int     @default(0)
 
   createdAt DateTime @default(now())
 
@@ -511,7 +565,7 @@ model VehicleInspection {
   status       InspectionStatus @default(SCHEDULED)
   overallGrade ConditionGrade?
 
-  summary                    String? @db.Text
+  summary                    String?  @db.Text
   odometerReadingKm          Int?
   hasFrameDamage             Boolean?
   hasAccidentHistory         Boolean?
@@ -537,7 +591,7 @@ model InspectionSectionResult {
 
   section InspectionSection
   rating  SectionRating
-  notes   String?          @db.Text
+  notes   String?           @db.Text
 
   /// One result row per section per inspection.
   @@unique([inspectionId, section])
@@ -590,10 +644,10 @@ model Auction {
   reservePriceCad Int?
   buyNowPriceCad  Int?
 
-  startsAt DateTime
-  endsAt   DateTime
+  startsAt      DateTime
+  endsAt        DateTime
   /// Set when an anti-snipe extension moves the close time.
-  extendedCount Int @default(0)
+  extendedCount Int      @default(0)
 
   winnerId     String? @db.Uuid
   winner       User?   @relation("AuctionWinner", fields: [winnerId], references: [id], onDelete: SetNull)
@@ -621,7 +675,7 @@ model Bid {
   bidderId String @db.Uuid
   bidder   User   @relation(fields: [bidderId], references: [id], onDelete: Cascade)
 
-  amountCad Int
+  amountCad         Int
   /// Ceiling for proxy bidding. The engine raises to the minimum needed, up to
   /// this amount, rather than committing the full value immediately.
   maxProxyAmountCad Int?
@@ -840,12 +894,12 @@ model Article {
   id   String @id @default(uuid()) @db.Uuid
   slug String @unique
 
-  title String
+  title    String
   /// The standfirst — one line under the headline on the masthead.
   subtitle String?
   /// Plain text. Blank lines separate paragraphs; nothing is interpreted as
   /// markup, so an author cannot put script or an iframe on the home page.
-  body String
+  body     String
 
   heroImageUrl String
   heroAlt      String?
