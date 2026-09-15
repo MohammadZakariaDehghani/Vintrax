@@ -268,7 +268,13 @@ export const BODY_TYPE_PLURAL_LABELS: Record<BodyType, string> = {
   VAN: 'Vans',
 };
 
-export const TRANSMISSIONS = ['AUTOMATIC', 'MANUAL', 'CVT', 'DUAL_CLUTCH'] as const;
+/**
+ * `OTHER` is not a catch-all for bad data — it is a real category this list was
+ * missing. A battery-electric car has a single-speed reduction gear rather than
+ * any of the four above, and dealership feeds legitimately say "Other" for it.
+ * The CSV importer records that value; it never guesses one. See D-030.
+ */
+export const TRANSMISSIONS = ['AUTOMATIC', 'MANUAL', 'CVT', 'DUAL_CLUTCH', 'OTHER'] as const;
 export type Transmission = (typeof TRANSMISSIONS)[number];
 
 export const FUEL_TYPES = [
@@ -281,7 +287,8 @@ export const FUEL_TYPES = [
 ] as const;
 export type FuelType = (typeof FUEL_TYPES)[number];
 
-export const DRIVETRAINS = ['FWD', 'RWD', 'AWD', 'FOUR_WHEEL_DRIVE'] as const;
+/** `OTHER` for the drivetrains that are none of these four — see TRANSMISSIONS. */
+export const DRIVETRAINS = ['FWD', 'RWD', 'AWD', 'FOUR_WHEEL_DRIVE', 'OTHER'] as const;
 export type Drivetrain = (typeof DRIVETRAINS)[number];
 
 export const VEHICLE_DOCUMENT_TYPES = [

@@ -304,7 +304,7 @@ describe('planInventoryImport', () => {
       // Left unchanged and reported rather than failed. An export carries the
       // real status, so failing it would break export → edit → re-import for
       // every dealer with a live listing.
-      const result = plan(`vin,price_cad,status\n1HGCM82633A123456,31000,ACTIVE`, {
+      const result = plan(`vin,price_cad,listing_status\n1HGCM82633A123456,31000,ACTIVE`, {
         existing: [existing()],
       });
 
@@ -314,8 +314,10 @@ describe('planInventoryImport', () => {
       expect(result.rows[0]!.warnings.join(' ')).toContain('cannot be set from a CSV');
     });
 
-    it('still fails a status that is not a status at all', () => {
-      const result = plan(`vin,status\n1HGCM82633A123456,ON_THE_LOT`, { existing: [existing()] });
+    it('still fails a listing status that is not a status at all', () => {
+      const result = plan(`vin,listing_status\n1HGCM82633A123456,ON_THE_LOT`, {
+        existing: [existing()],
+      });
 
       expect(result.rows[0]!.action).toBe('ERROR');
       expect(result.rows[0]!.errors.join(' ')).toContain('not a recognised value');
@@ -332,6 +334,111 @@ describe('planInventoryImport', () => {
 
     expect(result.rows[0]!.action).toBe('ERROR');
     expect(result.rows[0]!.warnings.join(' ')).toContain('Another seller lists this VIN');
+  });
+
+  describe('a real dealer management system export', () => {
+    // The header row of an actual dealership feed, verbatim. Every one of these
+    // columns failed to import before: Status held "Used" and was read as the
+    // listing state, KMS and Passenger mapped to nothing, and CompanyID was
+    // treated as data. The vehicles below are invented; the shape is not.
+    const DMS_HEADER =
+      'AdLastModifiedDate,CompanyID,3rdPartyADID,StockNumber,Vin,Status,Year,Make,Model,Trim,KMS,' +
+      'Exterior Color,Interior Color,FuelType,Drive,Engine Size,Transmission,Doors,Passenger,' +
+      'Cylinder,Body,Price,Options,Description,FinancingIsAvailable,MainPhoto';
+
+    const dmsRow = (overrides: Partial<Record<string, string>> = {}) => {
+      const cells: Record<string, string> = {
+        AdLastModifiedDate: '2026-09-01',
+        CompanyID: 'someone-elses-rooftop',
+        '3rdPartyADID': '6416',
+        StockNumber: '301421',
+        Vin: '5XYZUDLB0FG301421',
+        Status: 'Used',
+        Year: '2015',
+        Make: 'Hyundai',
+        Model: 'Santa Fe Sport',
+        Trim: 'GLS',
+        KMS: '159760',
+        'Exterior Color': 'Silver',
+        'Interior Color': 'Black',
+        FuelType: 'Gasoline',
+        Drive: '4WD',
+        'Engine Size': '2.4 L',
+        Transmission: 'Automatic',
+        Doors: '4',
+        Passenger: '5',
+        Cylinder: '4',
+        Body: 'SUV',
+        Price: '9980',
+        Options: '',
+        Description: 'A well equipped Santa Fe Sport with service records and winter tires.',
+        FinancingIsAvailable: 'true',
+        MainPhoto: 'https://example.test/a.jpg',
+        ...overrides,
+      };
+      return DMS_HEADER.split(',')
+        .map((header) => cells[header] ?? '')
+        .join(',');
+    };
+
+    it('imports a row from the feed as delivered', () => {
+      const result = plan(`${DMS_HEADER}\n${dmsRow()}`);
+
+      expect(result.summary).toMatchObject({ totalRows: 1, create: 1, errors: 0 });
+      expect(result.rows[0]!.draft).toMatchObject({
+        stockNumber: '301421',
+        vin: '5XYZUDLB0FG301421',
+        // Status means the vehicle's condition in a dealership feed, not the
+        // listing's state. Reading it as the latter failed every row.
+        condition: 'USED',
+        mileageKm: 159760,
+        seats: 5,
+        bodyType: 'SUV',
+        drivetrain: 'FOUR_WHEEL_DRIVE',
+        engineSizeL: 2.4,
+      });
+    });
+
+    it('ignores the feed\'s CompanyID rather than honouring it', () => {
+      const result = plan(`${DMS_HEADER}\n${dmsRow()}`);
+
+      expect(result.ignoredColumns).toContain('CompanyID');
+      expect(JSON.stringify(result.rows[0]!.draft)).not.toContain('someone-elses-rooftop');
+    });
+
+    it('records an explicit "Other" drivetrain rather than guessing one', () => {
+      const result = plan(`${DMS_HEADER}\n${dmsRow({ Drive: 'Other' })}`);
+
+      expect(result.rows[0]!.action).toBe('CREATE');
+      expect(result.rows[0]!.draft?.drivetrain).toBe('OTHER');
+    });
+
+    it('records a blank transmission as OTHER, and says so', () => {
+      const result = plan(`${DMS_HEADER}\n${dmsRow({ Transmission: '' })}`);
+
+      expect(result.rows[0]!.action).toBe('CREATE');
+      expect(result.rows[0]!.draft?.transmission).toBe('OTHER');
+      expect(result.rows[0]!.warnings.join(' ')).toContain('blank');
+    });
+
+    it('keeps the vehicle when an optional number cannot be read', () => {
+      // This feed writes "Electric" in its engine-size column. Losing the field
+      // is the right trade; losing the listing is not.
+      const result = plan(`${DMS_HEADER}\n${dmsRow({ 'Engine Size': 'Electric' })}`);
+
+      expect(result.rows[0]!.action).toBe('CREATE');
+      expect(result.rows[0]!.draft?.engineSizeL).toBeUndefined();
+      expect(result.rows[0]!.warnings.join(' ')).toContain('is not a number');
+    });
+
+    it('still fails a row whose body type the file never states', () => {
+      // Body type drives the storefront's shape shortcuts, and the enumeration
+      // is complete — so a blank here is missing data, not a new category.
+      const result = plan(`${DMS_HEADER}\n${dmsRow({ Body: '' })}`);
+
+      expect(result.rows[0]!.action).toBe('ERROR');
+      expect(result.rows[0]!.errors.join(' ')).toContain('body_type');
+    });
   });
 
   describe('duplicates within the file', () => {

@@ -134,10 +134,24 @@ memory and read only after the size, encoding and content checks pass; the
 filename extension is not trusted. A file that is not valid UTF-8, or that
 carries a NUL byte, is refused with a message saying how to re-save it.
 
-`status` accepts only `DRAFT`, `PENDING_REVIEW`, `ARCHIVED` and `SOLD`. A real
-status the column may not set — `ACTIVE`, `IN_AUCTION` — is left unchanged and
-reported, so a dealer can export live inventory, edit it and re-import without
-those rows failing. Publishing stays a moderation decision.
+`listing_status` accepts only `DRAFT`, `PENDING_REVIEW`, `ARCHIVED` and `SOLD`.
+A real status the column may not set — `ACTIVE`, `IN_AUCTION` — is left
+unchanged and reported, so a dealer can export live inventory, edit it and
+re-import without those rows failing. Publishing stays a moderation decision.
+
+**A column called `Status` is the vehicle's condition, not the listing's
+state.** Every dealership management system seen so far writes `New` or `Used`
+there, so `status` is an alias for `condition`, and Vintrax's own listing state
+is `listing_status`. Reading `Status` as the listing state is what failed all 47
+rows of the first real export tried against this importer.
+
+**Blank required columns.** `transmission` and `drivetrain` accept a blank and
+record `OTHER`, with a warning on the row — see
+[D-030](./decision-log.md). Every other required column is a complete
+enumeration, so a blank there is missing data and fails the row rather than
+being guessed at. An optional column that cannot be read (a feed writing
+`Electric` in its engine-size column) costs the field, not the vehicle: the row
+imports and carries a warning.
 
 ## Vehicles
 
