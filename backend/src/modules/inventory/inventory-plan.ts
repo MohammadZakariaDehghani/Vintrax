@@ -24,6 +24,7 @@ import {
   type BodyType,
   type Drivetrain,
   type FuelType,
+  type InventoryImportLocation,
   type InventoryImportSummary,
   type InventoryRowResult,
   type ListingStatus,
@@ -126,7 +127,7 @@ export interface PlanInput {
   text: string;
   existing: readonly ExistingVehicle[];
   /** Falls back for city and province when the file omits them. */
-  defaults: { city: string | null; province: Province | null };
+  defaults: InventoryImportLocation;
   /** VINs listed by other sellers, for the warning described below. */
   vinsElsewhere?: ReadonlySet<string>;
   now?: Date;
@@ -138,11 +139,38 @@ export interface PlanOutput {
   mappedColumns: string[];
   ignoredColumns: string[];
   unrecognisedColumns: string[];
+  /** Echoed back so the caller can show what unlocated rows were given. */
+  defaultLocation: InventoryImportLocation;
 }
 
-const REQUIRED_KEYS = INVENTORY_CSV_COLUMNS.filter((column) => column.required).map(
-  (column) => column.key,
-);
+/**
+ * Every field a new listing must end up with, after defaults are filled.
+ *
+ * Exported because the write boundary asserts the same list. "Can this row
+ * create a vehicle" has to be one question asked in one place: when the planner
+ * and the writer each kept their own answer, a file with no city column
+ * previewed as 46 clean creates and then failed the whole import at the write.
+ *
+ * This is a superset of the columns the CSV marks required — city, province,
+ * title and description need not be *columns*, because they can come from the
+ * import's location or be composed from the row, but the listing needs values.
+ */
+export const CREATE_REQUIRED_FIELDS = [
+  'year',
+  'make',
+  'model',
+  'priceCad',
+  'mileageKm',
+  'condition',
+  'bodyType',
+  'transmission',
+  'fuelType',
+  'drivetrain',
+  'city',
+  'province',
+  'title',
+  'description',
+] as const satisfies readonly (keyof VehicleDraft)[];
 
 /** Canonical key → the Vehicle field it writes. Identical apart from casing. */
 const FIELD_BY_COLUMN: Record<string, keyof VehicleDraft> = {
@@ -176,6 +204,11 @@ const FIELD_BY_COLUMN: Record<string, keyof VehicleDraft> = {
   listing_status: 'status',
   sale_channel: 'saleChannel',
 };
+
+/** The reverse of `FIELD_BY_COLUMN`, so a message can name the dealer's column. */
+const COLUMN_BY_FIELD = new Map<keyof VehicleDraft, string>(
+  Object.entries(FIELD_BY_COLUMN).map(([column, field]) => [field, column]),
+);
 
 const MIN_DESCRIPTION = 20;
 
@@ -289,10 +322,27 @@ export function planInventoryImport(input: PlanInput): PlanOutput {
       (draft.stockNumber ? byStock.get(draft.stockNumber.toLowerCase()) : undefined);
 
     if (!match) {
-      const missing = REQUIRED_KEYS.filter(
-        (key) => draft[FIELD_BY_COLUMN[key]!] === undefined || draft[FIELD_BY_COLUMN[key]!] === null,
+      // Checked against the row as it would be written, defaults included, so
+      // that what the preview calls creatable is exactly what the writer will
+      // accept. A title composed from year/make/model is not missing.
+      const filled = withCreateDefaults(draft);
+      const missing = CREATE_REQUIRED_FIELDS.filter(
+        (field) => filled[field] === undefined || filled[field] === null,
       );
       if (missing.length > 0) {
+        const columns = missing.map((field) => COLUMN_BY_FIELD.get(field) ?? field);
+        const errors = [
+          `No existing vehicle matches, so this row would create one, but these required columns are missing or empty: ${columns.join(', ')}.`,
+        ];
+        // city and province are the pair a real dealer export routinely omits,
+        // because the source system holds one address for the whole rooftop.
+        // Naming both ways to supply them is what makes this fixable without
+        // editing 200 rows by hand.
+        if (missing.includes('city') || missing.includes('province')) {
+          errors.push(
+            'Your file does not say where these vehicles are. Set a location for this import, or add city and province columns to the file. A location set for the import is used only for rows that give none.',
+          );
+        }
         return {
           row: entry.rowNumber,
           action: 'ERROR',
@@ -300,9 +350,7 @@ export function planInventoryImport(input: PlanInput): PlanOutput {
           stockNumber: draft.stockNumber ?? null,
           vehicle: describe(draft),
           changes: [],
-          errors: [
-            `No existing vehicle matches, so this row would create one, but these required columns are missing or empty: ${missing.join(', ')}.`,
-          ],
+          errors,
           warnings,
         };
       }
@@ -320,7 +368,7 @@ export function planInventoryImport(input: PlanInput): PlanOutput {
         changes: [],
         errors: [],
         warnings,
-        draft: withCreateDefaults(draft),
+        draft: filled,
       };
     }
 
@@ -345,6 +393,7 @@ export function planInventoryImport(input: PlanInput): PlanOutput {
     mappedColumns: mapped.map((entry) => entry.column),
     ignoredColumns,
     unrecognisedColumns,
+    defaultLocation: defaults,
   };
 }
 
@@ -362,7 +411,7 @@ interface ReadRowInput {
   cells: string[];
   mapped: Array<{ index: number; column: string }>;
   rowNumber: number;
-  defaults: { city: string | null; province: Province | null };
+  defaults: InventoryImportLocation;
   now: Date;
 }
 

@@ -8,20 +8,30 @@ import { cn } from '@/lib/utils';
  * Two shapes, deliberately not the same artwork:
  *
  *   `Logo`      the supplied lockup — `frontend/public/vintrax-logo.png`,
- *               rendered exactly as delivered. The page header, the footer and
- *               the sign-in page all show this.
+ *               rendered exactly as delivered apart from its background, which
+ *               was keyed off. The page header, the footer and the sign-in page
+ *               all show this.
  *
  *   `LogoMark`  the square app icon, which is its own drawing. A browser tab is
  *               16 pixels, and a 2.5:1 lockup with a chrome bevel and a carbon
  *               weave is an unreadable smudge well before that; the icon keeps
  *               the subject and drops the treatment. See documentation/brand.md.
  *
- * The supplied file goes through next/image rather than a bare `<img>`. The
- * original is a 1989×790 PNG of about 1.6MB — the right master to keep in the
- * repository, and the wrong thing to send to a phone on every page. The static
- * import hands Next the intrinsic dimensions, so it emits a correctly sized
- * WebP per breakpoint and reserves the right box before the file arrives. The
- * committed file itself is never touched: no crop, no recolour, no re-encode.
+ * The supplied file goes through next/image rather than a bare `<img>`. It is a
+ * 1989×790 PNG — the right master to keep in the repository, and the wrong
+ * thing to send to a phone on every page. The static import hands Next the
+ * intrinsic dimensions, so it emits a correctly sized WebP per breakpoint and
+ * reserves the right box before the file arrives.
+ *
+ * The artwork was delivered on a solid black slab, which was right on the
+ * near-black header and wrong on the footer and the sign-in page, where it read
+ * as a rectangle pasted onto a white page. `scripts/unmatte-logo.js` keys that
+ * ground off; the delivered file is kept verbatim at `brand/vintrax-logo-source.png`
+ * so the step is reproducible. Nothing else about the artwork changed — no
+ * crop, no recolour, no redraw — and every pixel keeps its own RGB.
+ *
+ * The lockup's wordmark is chrome, so it is built for a dark ground and is
+ * low-contrast on a white one. See documentation/brand.md.
  *
  * `w-auto` against a fixed height is what keeps it from being stretched — the
  * aspect ratio stays the file's own at every breakpoint.
@@ -51,9 +61,9 @@ export function Logo({ className }: { className?: string }) {
     return <img src={BRAND_LOGO_SRC} alt="Vintrax" className={cn('h-12 w-auto', className)} />;
   }
 
-  // The lockup carries its own carbon ground, so there is no light/dark variant
-  // to choose between: a finished piece of artwork looks the same wherever it
-  // sits, which is the point of supplying one.
+  // One file for both themes. The artwork is the same either way now that the
+  // ground is transparent — what changes is the surface behind it, which is the
+  // page's, not the logo's.
   //
   // `priority` because this is in the header — above the fold on every page,
   // where lazy-loading shows a visible flash of nothing.

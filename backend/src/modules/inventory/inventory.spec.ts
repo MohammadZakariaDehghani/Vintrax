@@ -1,5 +1,9 @@
 import { CsvParseError, escapeCsvCell, parseCsv, toCsv } from './csv';
-import { planInventoryImport, type ExistingVehicle } from './inventory-plan';
+import {
+  CREATE_REQUIRED_FIELDS,
+  planInventoryImport,
+  type ExistingVehicle,
+} from './inventory-plan';
 import { normaliseInteger, normaliseVin, resolveHeader } from '@vintrax/shared';
 
 /**
@@ -61,7 +65,8 @@ function plan(text: string, options: Partial<Parameters<typeof planInventoryImpo
 
 const FULL_HEADER =
   'vin,stock_number,year,make,model,trim,price_cad,mileage_km,condition,body_type,transmission,fuel_type,drivetrain';
-const FULL_ROW = '2T3BFREV9FW123456,B-77,2019,Toyota,RAV4,LE,28995,62100,Used,SUV,Automatic,Gas,AWD';
+const FULL_ROW =
+  '2T3BFREV9FW123456,B-77,2019,Toyota,RAV4,LE,28995,62100,Used,SUV,Automatic,Gas,AWD';
 
 describe('parseCsv', () => {
   it('reads quoted fields containing commas, quotes and newlines', () => {
@@ -240,10 +245,9 @@ describe('planInventoryImport', () => {
     });
 
     it('ignores an ownership column instead of honouring it', () => {
-      const result = plan(
-        `dealer_id,${FULL_HEADER}\nsomeone-elses-dealership,${FULL_ROW}`,
-        { existing: [] },
-      );
+      const result = plan(`dealer_id,${FULL_HEADER}\nsomeone-elses-dealership,${FULL_ROW}`, {
+        existing: [],
+      });
 
       expect(result.ignoredColumns).toContain('dealer_id');
       expect(result.mappedColumns).not.toContain('dealer_id');
@@ -399,7 +403,7 @@ describe('planInventoryImport', () => {
       });
     });
 
-    it('ignores the feed\'s CompanyID rather than honouring it', () => {
+    it("ignores the feed's CompanyID rather than honouring it", () => {
       const result = plan(`${DMS_HEADER}\n${dmsRow()}`);
 
       expect(result.ignoredColumns).toContain('CompanyID');
@@ -431,6 +435,82 @@ describe('planInventoryImport', () => {
       expect(result.rows[0]!.warnings.join(' ')).toContain('is not a number');
     });
 
+    describe('the location the feed does not carry', () => {
+      // This feed has no City or Province column at all — a dealer management
+      // system holds one address for the rooftop and does not repeat it per
+      // vehicle. The listing still needs one, and where it comes from is the
+      // whole of this block.
+      const NOWHERE = { city: null, province: null };
+
+      it('refuses the row in the preview rather than at the write', () => {
+        // The bug this replaces: the planner did not require city, the writer
+        // did, so a 47-row file previewed as 46 clean creates and then failed
+        // the entire import with "this is a bug in the importer".
+        const result = plan(`${DMS_HEADER}\n${dmsRow()}`, { defaults: NOWHERE });
+
+        expect(result.summary).toMatchObject({ create: 0, errors: 1 });
+        expect(result.rows[0]!.errors.join(' ')).toContain('city');
+        expect(result.rows[0]!.errors.join(' ')).toContain('province');
+      });
+
+      it('says how to supply it', () => {
+        const result = plan(`${DMS_HEADER}\n${dmsRow()}`, { defaults: NOWHERE });
+
+        const message = result.rows[0]!.errors.join(' ');
+        expect(message).toContain('Set a location for this import');
+        expect(message).toContain('add city and province columns');
+      });
+
+      it('creates the row once a location is given', () => {
+        const result = plan(`${DMS_HEADER}\n${dmsRow()}`, {
+          defaults: { city: 'Mississauga', province: 'ON' },
+        });
+
+        expect(result.rows[0]!.action).toBe('CREATE');
+        expect(result.rows[0]!.draft).toMatchObject({ city: 'Mississauga', province: 'ON' });
+      });
+
+      it('never overrides a city the file states', () => {
+        const result = plan(`${DMS_HEADER},city,province\n${dmsRow()},Barrie,ON`, {
+          defaults: { city: 'Mississauga', province: 'ON' },
+        });
+
+        expect(result.rows[0]!.draft?.city).toBe('Barrie');
+      });
+
+      it('resolves each half independently', () => {
+        // A profile that knows the province but not the city still contributes
+        // the province, so a file supplying only the city can be imported.
+        const result = plan(`${DMS_HEADER},city\n${dmsRow()},Sudbury`, {
+          defaults: { city: null, province: 'ON' },
+        });
+
+        expect(result.rows[0]!.action).toBe('CREATE');
+        expect(result.rows[0]!.draft).toMatchObject({ city: 'Sudbury', province: 'ON' });
+      });
+
+      it('echoes back the location the plan was built with', () => {
+        const result = plan(`${DMS_HEADER}\n${dmsRow()}`, {
+          defaults: { city: 'Mississauga', province: 'ON' },
+        });
+
+        expect(result.defaultLocation).toEqual({ city: 'Mississauga', province: 'ON' });
+      });
+    });
+
+    it('produces creates the writer will accept, field for field', () => {
+      // The planner and the write boundary ask the same question from the same
+      // list. This asserts the answer rather than the list: a CREATE row the
+      // preview shows is a row that has every value the write needs.
+      const result = plan(`${DMS_HEADER}\n${dmsRow()}`);
+      const draft = result.rows[0]!.draft!;
+
+      expect(result.rows[0]!.action).toBe('CREATE');
+      for (const field of CREATE_REQUIRED_FIELDS) {
+        expect(draft[field] ?? null).not.toBeNull();
+      }
+    });
+
     it('still fails a row whose body type the file never states', () => {
       // Body type drives the storefront's shape shortcuts, and the enumeration
       // is complete — so a blank here is missing data, not a new category.
@@ -443,10 +523,9 @@ describe('planInventoryImport', () => {
 
   describe('duplicates within the file', () => {
     it('refuses both rows and names the other one', () => {
-      const result = plan(
-        `${FULL_HEADER}\n${FULL_ROW}\n${FULL_ROW.replace('28995', '30000')}`,
-        { existing: [] },
-      );
+      const result = plan(`${FULL_HEADER}\n${FULL_ROW}\n${FULL_ROW.replace('28995', '30000')}`, {
+        existing: [],
+      });
 
       expect(result.summary).toMatchObject({ errors: 2, create: 0 });
       expect(result.rows[0]!.errors.join(' ')).toContain('row 3');

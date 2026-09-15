@@ -9,6 +9,7 @@ import {
   VEHICLE_CONDITIONS,
   VIN_PATTERN,
   maxModelYear,
+  type Province,
 } from './domain';
 
 /**
@@ -559,6 +560,22 @@ export interface InventoryImportPlan {
   ignoredColumns: string[];
   /** Headers that matched nothing. Not an error; the data is skipped. */
   unrecognisedColumns: string[];
+  /**
+   * Where rows that name no city or province are placed.
+   *
+   * Reported rather than left implicit: a dealer management system exports one
+   * location for the whole rooftop or none at all, so most real files say
+   * nothing about it, and a dealer is entitled to see which city 200 new
+   * listings are about to claim before confirming. Either half may be null,
+   * which is why a row that needs it and has neither is refused in the preview.
+   */
+  defaultLocation: InventoryImportLocation;
+}
+
+/** A city and province to apply only where the file itself gives none. */
+export interface InventoryImportLocation {
+  city: string | null;
+  province: Province | null;
 }
 
 export interface InventoryImportResult {

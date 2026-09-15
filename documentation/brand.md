@@ -8,8 +8,10 @@ The identity has a **lockup** and an **icon**, and they are deliberately not
 the same artwork.
 
 ```
-frontend/public/vintrax-logo.png       The supplied lockup
+brand/vintrax-logo-source.png          The lockup exactly as supplied
+frontend/public/vintrax-logo.png       The lockup, black ground keyed off
 mobile/public/vintrax-logo.png         The same file, for the mobile app
+scripts/unmatte-logo.js                Derives the second from the first
 frontend/src/components/logo.tsx       <Logo>     the lockup — header, footer, sign-in
                                        <LogoMark> the icon
 mobile/src/components/logo.tsx         <Logo>     the lockup — sign-in
@@ -25,20 +27,46 @@ mobile/public/icons/icon-maskable.svg  Launcher icon, croppable
 car in profile in red chrome over a chrome **VINTRAX.ca** wordmark, with a
 maple leaf at the left, on a carbon-fibre ground.
 
-It is rendered **exactly as delivered**. Nothing recolours it, crops it, adds
-an effect to it, or redraws it, and `w-auto` against a fixed height keeps the
-file's own aspect ratio at every breakpoint. `<Logo>` shows it in the page
-header, the footer, the web sign-in page and the mobile sign-in screen.
+The artwork is rendered **as delivered**, with one deliberate exception: its
+background. Nothing recolours it, crops it, resizes it, adds an effect to it,
+or redraws it, and `w-auto` against a fixed height keeps the file's own aspect
+ratio at every breakpoint. `<Logo>` shows it in the page header, the footer,
+the web sign-in page and the mobile sign-in screen.
 
 It is served through `next/image` from a static import. That is a delivery
-decision, not an edit: the committed file stays byte-for-byte as supplied, and
-Next emits correctly sized WebP derivatives per breakpoint rather than sending
-1.6MB to a phone on every page. The same file ships at
-`mobile/public/vintrax-logo.png` for the mobile app.
+decision, not an edit: Next emits correctly sized WebP derivatives per
+breakpoint rather than sending the full PNG to a phone on every page. The same
+file ships at `mobile/public/vintrax-logo.png` for the mobile app, and the two
+are byte-identical.
 
-Because the artwork carries its own carbon ground, there is no light/dark
-variant to pick between — it looks the same in both themes, which is what a
-finished lockup is for.
+#### The black ground, and why it is gone
+
+The file arrived as a glow on a solid carbon-black slab. On the near-black
+header that is invisible and correct. On the footer and the sign-in page, which
+are light, it read as a black rectangle pasted onto a white page.
+
+`scripts/unmatte-logo.js` keys the ground off with a luminance key — alpha
+ramps from nothing at max-channel 64 to fully opaque at 140, and every pixel
+keeps its own RGB. The thresholds are measured, not chosen: the slab's carbon
+texture peaks at 63, so the low end sits just above it. 77% of the file ends up
+fully transparent and 17% fully opaque, so almost nothing is interpolated — the
+key removes a background, it does not reinterpret a picture. Composited back
+onto the header colour, the difference from the delivered file averages 5/255
+per channel, all of it in the outer glow.
+
+The file exactly as supplied is kept at `brand/vintrax-logo-source.png`, so the
+step is reproducible and the original is never lost:
+
+```bash
+node scripts/unmatte-logo.js brand/vintrax-logo-source.png \
+  frontend/public/vintrax-logo.png mobile/public/vintrax-logo.png
+```
+
+One consequence to know. The wordmark is **chrome**, which is a treatment built
+for a dark ground: on the header it is crisp, and on a white surface it is
+legible but low-contrast. That is a property of the artwork, not of the key,
+and the only fix is a light-background variant from whoever drew it. Do not
+recolour this one to make it read — see _What to avoid_.
 
 ### The icon
 
@@ -134,7 +162,8 @@ distinct now that they no longer share a hue.
 `<Logo>` takes a height and nothing else. Never give it a width or a
 `w-` class: `w-auto` is what holds the supplied file's aspect ratio, and
 setting both dimensions is how a logo gets stretched. There is no `tone` —
-the artwork carries its own ground, so there is nothing to vary.
+there is one file and it is transparent, so what varies is the surface behind
+it, which belongs to the page.
 
 ### Supplying different artwork
 
@@ -197,9 +226,11 @@ Learned from earlier drafts:
 - **Redrawing the lockup.** It is a supplied file. Recolouring it to follow a
   theme, cropping it to fit a slot, or tracing it as SVG are all ways of
   shipping something that is not the logo.
-- **A baked-in background on the _icon_.** A mark carrying its own background
-  sits as a slab on the opposite theme, which is why `plain` exists. The
-  lockup's carbon ground is deliberate and stays.
+- **A baked-in background on _either_ shape.** A mark carrying its own
+  background sits as a slab on the opposite theme — which is why `plain` exists
+  on the icon, and why the lockup's black ground was keyed off rather than
+  lived with. Re-flattening the lockup onto black to "fix" its contrast on a
+  light page brings the rectangle back.
 - **Red as a large surface.** It reads as a warning, not as a brand. This is
   the one rule the red identity did _not_ relax: the brand is a red mark and
   red controls on carbon and white, never a red page.

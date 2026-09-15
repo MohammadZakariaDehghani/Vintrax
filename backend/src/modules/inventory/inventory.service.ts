@@ -7,6 +7,7 @@ import {
   INVENTORY_CSV_VERSION_HEADER,
   MAX_INVENTORY_CSV_BYTES,
   MAX_INVENTORY_CSV_ROWS,
+  type InventoryImportLocation,
   type InventoryImportPlan,
   type InventoryImportRecord,
   type InventoryImportResult,
@@ -20,6 +21,7 @@ import type { AuthUser } from '../../common/auth/auth-user';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { CsvParseError, toCsv } from './csv';
 import {
+  CREATE_REQUIRED_FIELDS,
   planInventoryImport,
   summarise,
   type ExistingVehicle,
@@ -117,9 +119,10 @@ export class InventoryService {
   async validate(
     file: { buffer: Buffer; originalname: string; mimetype?: string },
     user: AuthUser,
+    location: InventoryImportLocation = EMPTY_LOCATION,
   ): Promise<InventoryImportPlan> {
     const { text, hash } = this.readFile(file);
-    const plan = await this.buildPlan(text, user);
+    const plan = await this.buildPlan(text, user, location);
 
     return {
       schemaVersion: INVENTORY_CSV_VERSION,
@@ -130,6 +133,7 @@ export class InventoryService {
       mappedColumns: plan.mappedColumns,
       ignoredColumns: plan.ignoredColumns,
       unrecognisedColumns: plan.unrecognisedColumns,
+      defaultLocation: plan.defaultLocation,
     };
   }
 
@@ -151,6 +155,7 @@ export class InventoryService {
     file: { buffer: Buffer; originalname: string; mimetype?: string },
     expectedHash: string,
     user: AuthUser,
+    location: InventoryImportLocation = EMPTY_LOCATION,
   ): Promise<InventoryImportResult> {
     const { text, hash } = this.readFile(file);
 
@@ -160,7 +165,7 @@ export class InventoryService {
       );
     }
 
-    const plan = await this.buildPlan(text, user);
+    const plan = await this.buildPlan(text, user, location);
     const actionable = plan.rows.filter(
       (row) => row.action === 'CREATE' || row.action === 'UPDATE',
     );
@@ -324,8 +329,8 @@ export class InventoryService {
   }
 
   /** Reads the caller's inventory and plans the file against it. */
-  private async buildPlan(text: string, user: AuthUser) {
-    const [existing, dealer] = await Promise.all([
+  private async buildPlan(text: string, user: AuthUser, location: InventoryImportLocation) {
+    const [existing, dealer, profile] = await Promise.all([
       this.prisma.vehicle.findMany({
         where: { sellerId: user.id },
         select: EXISTING_SELECT,
@@ -334,7 +339,24 @@ export class InventoryService {
         where: { ownerId: user.id },
         select: { city: true, province: true },
       }),
+      this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { city: true, province: true },
+      }),
     ]);
+
+    // Three sources, most specific first: what the dealer chose for this
+    // import, then their dealership's address, then their own profile. Every
+    // one of them is the seller's own stated location — nothing here is
+    // inferred from the file, and when all three are empty the fallback stays
+    // null and the affected rows are refused rather than placed somewhere.
+    //
+    // The two halves resolve independently on purpose: a dealership with a
+    // province but no city still contributes the province.
+    const defaults: InventoryImportLocation = {
+      city: location.city ?? dealer?.city ?? profile?.city ?? null,
+      province: location.province ?? dealer?.province ?? profile?.province ?? null,
+    };
 
     const vins = Array.from(
       new Set(existing.map((vehicle) => vehicle.vin).filter((vin): vin is string => !!vin)),
@@ -353,7 +375,7 @@ export class InventoryService {
       return planInventoryImport({
         text,
         existing: existing as ExistingVehicle[],
-        defaults: { city: dealer?.city ?? null, province: dealer?.province ?? null },
+        defaults,
         vinsElsewhere: new Set(
           elsewhere
             .map((row) => row.vin)
@@ -419,56 +441,27 @@ export class InventoryService {
   }
 }
 
-/** Every column required to create a vehicle, once the planner has filled the defaults. */
-type CreatableDraft = VehicleDraft &
-  Required<
-    Pick<
-      VehicleDraft,
-      | 'year'
-      | 'make'
-      | 'model'
-      | 'priceCad'
-      | 'mileageKm'
-      | 'condition'
-      | 'bodyType'
-      | 'transmission'
-      | 'fuelType'
-      | 'drivetrain'
-      | 'city'
-      | 'province'
-      | 'title'
-      | 'description'
-    >
-  >;
+/** A draft the planner has established is complete enough to create. */
+type CreatableDraft = VehicleDraft & Required<Pick<VehicleDraft, CreateRequiredField>>;
 
-const CREATE_REQUIRED = [
-  'year',
-  'make',
-  'model',
-  'priceCad',
-  'mileageKm',
-  'condition',
-  'bodyType',
-  'transmission',
-  'fuelType',
-  'drivetrain',
-  'city',
-  'province',
-  'title',
-  'description',
-] as const satisfies readonly (keyof VehicleDraft)[];
+type CreateRequiredField = (typeof CREATE_REQUIRED_FIELDS)[number];
 
 /**
  * Re-checks at the write boundary what the planner already established.
  *
- * The planner refuses a CREATE row missing any of these, so reaching here with
- * one absent means a bug in the planner rather than bad input. Asserting makes
- * that a loud failure of one batch instead of a Prisma error whose message does
- * not say which row, and it is what lets the write be typed rather than cast
- * through `never`.
+ * The list is the planner's own, imported rather than restated. That matters:
+ * the first version of this file kept a second copy, the planner's copy did not
+ * include city, and a dealer export with no city column previewed as clean and
+ * then failed every row here. A guard that can disagree with the thing it
+ * guards is not a guard.
+ *
+ * So reaching here with a field absent now means a genuine bug in the planner
+ * rather than bad input. Asserting makes that a loud failure of one batch
+ * instead of a Prisma error whose message does not say which row, and it is
+ * what lets the write be typed rather than cast through `never`.
  */
 function assertCreatable(draft: VehicleDraft): CreatableDraft {
-  const missing = CREATE_REQUIRED.filter(
+  const missing = CREATE_REQUIRED_FIELDS.filter(
     (key) => draft[key] === undefined || draft[key] === null,
   );
   if (missing.length > 0) {
@@ -478,6 +471,9 @@ function assertCreatable(draft: VehicleDraft): CreatableDraft {
   }
   return draft as CreatableDraft;
 }
+
+/** No location supplied with the request; the profile fallbacks still apply. */
+const EMPTY_LOCATION: InventoryImportLocation = { city: null, province: null };
 
 /** The Prisma client as seen inside an interactive transaction. */
 type TransactionClient = Parameters<Parameters<PrismaService['$transaction']>[0]>[0];
