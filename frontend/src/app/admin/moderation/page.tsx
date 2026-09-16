@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ShieldCheck, X } from 'lucide-react';
-import type { Paginated, VehicleDetail, VehicleSummary } from '@vintrax/shared';
+import type { BulkVehicleResult, Paginated, VehicleDetail, VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatKm, formatLocation, formatPrice, formatRelativeTime } from '@/lib/utils';
 import {
@@ -34,12 +34,60 @@ function ModerationQueue() {
   const queryClient = useQueryClient();
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [bulkResult, setBulkResult] = useState<BulkVehicleResult | null>(null);
 
   const queue = useQuery({
     queryKey: ['pending-review', page],
     queryFn: () =>
       api.get<Paginated<VehicleSummary>>(`/vehicles/pending-review?page=${page}&pageSize=20`),
   });
+
+  const queueItems = useMemo(() => queue.data?.items ?? [], [queue.data]);
+
+  // A selection means the rows on screen. Carrying ids across a page change
+  // would mean publishing listings the reviewer can no longer see.
+  useEffect(() => {
+    setSelected(new Set());
+    setBulkResult(null);
+  }, [page]);
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['pending-review'] });
+    // The dashboard's "Awaiting review" tile is now out of date.
+    void queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+  };
+
+  /**
+   * Approving several at once.
+   *
+   * Only approval, deliberately. A rejection carries a reason the seller reads
+   * and acts on, and one reason pasted across twenty different listings is not
+   * feedback — it is a form letter. Rejection stays one at a time.
+   */
+  const publishMany = useMutation({
+    mutationFn: (ids: string[]) =>
+      api.patch<BulkVehicleResult>('/vehicles/bulk-moderate', { ids, approved: true }),
+    onSuccess: (result) => {
+      setBulkResult(result);
+      setSelected(new Set());
+      invalidate();
+    },
+  });
+
+  function toggle(id: string, next: boolean) {
+    setSelected((current) => {
+      const updated = new Set(current);
+      if (next) updated.add(id);
+      else updated.delete(id);
+      return updated;
+    });
+  }
+
+  const allSelected = queueItems.length > 0 && queueItems.every((item) => selected.has(item.id));
+  const someSelected = queueItems.some((item) => selected.has(item.id));
+  const selectedIds = queueItems.filter((item) => selected.has(item.id)).map((item) => item.id);
 
   const moderate = useMutation({
     mutationFn: ({ id, approved, note }: { id: string; approved: boolean; note?: string }) =>
@@ -50,16 +98,13 @@ function ModerationQueue() {
     onSuccess: () => {
       setRejecting(null);
       setReason('');
-      void queryClient.invalidateQueries({ queryKey: ['pending-review'] });
-      // The dashboard's "Awaiting review" tile is now one out of date.
-      void queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
-      void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      invalidate();
     },
   });
 
   if (queue.isPending) return <Spinner label="Loading the moderation queue" />;
 
-  const items = queue.data?.items ?? [];
+  const items = queueItems;
 
   return (
     <div className="container py-8">
@@ -73,7 +118,7 @@ function ModerationQueue() {
         </p>
       </div>
 
-      <ErrorAlert error={queue.error ?? moderate.error} className="mb-5" />
+      <ErrorAlert error={queue.error ?? moderate.error ?? publishMany.error} className="mb-5" />
 
       {items.length === 0 ? (
         <Card>
@@ -90,11 +135,91 @@ function ModerationQueue() {
         </Card>
       ) : (
         <>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={allSelected}
+                // Some but not all: neither ticked nor empty, because clearing
+                // a partial selection and extending it are different acts.
+                ref={(node) => {
+                  if (node) node.indeterminate = someSelected && !allSelected;
+                }}
+                onChange={(event) =>
+                  setSelected(event.target.checked ? new Set(items.map((i) => i.id)) : new Set())
+                }
+              />
+              Select all on this page
+            </label>
+
+            {selectedIds.length > 0 ? (
+              <>
+                <span className="text-sm font-medium">{selectedIds.length} selected</span>
+                <Button
+                  size="sm"
+                  loading={publishMany.isPending}
+                  onClick={() => publishMany.mutate(selectedIds)}
+                >
+                  <Check className="mr-1.5 h-4 w-4" aria-hidden />
+                  Approve and publish {selectedIds.length}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+                  Clear
+                </Button>
+                {/* Rejection is not offered in bulk: it carries a reason the
+                    seller acts on, and one reason across twenty listings is a
+                    form letter rather than feedback. */}
+                <span className="text-sm text-muted-foreground">
+                  Rejections stay one at a time, so each seller gets a reason that fits.
+                </span>
+              </>
+            ) : null}
+          </div>
+
+          {bulkResult ? (
+            <Card className="mb-4">
+              <CardContent className="pt-4">
+                <p className="text-sm">
+                  <strong>{bulkResult.succeeded}</strong> published
+                  {bulkResult.failed > 0 ? `, ${bulkResult.failed} left in the queue` : ''}.
+                </p>
+                {bulkResult.failed > 0 ? (
+                  <ul className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                    {bulkResult.outcomes
+                      .filter((outcome) => !outcome.ok)
+                      .map((outcome) => (
+                        <li key={outcome.id}>
+                          {outcome.title ?? outcome.id}: {outcome.error}
+                        </li>
+                      ))}
+                  </ul>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setBulkResult(null)}
+                >
+                  Dismiss
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
+
           <ul className="flex flex-col gap-3">
             {items.map((vehicle) => (
               <li key={vehicle.id}>
-                <Card>
+                <Card className={selected.has(vehicle.id) ? 'border-primary' : undefined}>
                   <CardContent className="flex flex-wrap items-start gap-4 pt-5">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                      checked={selected.has(vehicle.id)}
+                      onChange={(event) => toggle(vehicle.id, event.target.checked)}
+                      aria-label={`Select ${vehicle.title}`}
+                    />
+
                     <div className="h-20 w-28 shrink-0 overflow-hidden rounded-md bg-muted">
                       {vehicle.primaryImageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element

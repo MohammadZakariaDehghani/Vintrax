@@ -47,6 +47,13 @@ export function ImportPreview({
 
   const { summary } = plan;
   const willWrite = summary.create + summary.update;
+  // Counted across every row that resolved to a vehicle, unchanged ones
+  // included: those are exactly the rows whose photos may have moved on while
+  // nothing else about the car did.
+  const photoCount = plan.rows.reduce(
+    (total, row) => total + (row.action === 'ERROR' ? 0 : (row.photoCount ?? 0)),
+    0,
+  );
   const rows = showAll
     ? plan.rows
     : plan.rows.filter((row) => row.action !== 'UNCHANGED').slice(0, 100);
@@ -101,6 +108,7 @@ export function ImportPreview({
                 <th className="py-2 pr-3 font-medium">VIN</th>
                 <th className="py-2 pr-3 font-medium">Stock #</th>
                 <th className="py-2 pr-3 font-medium">Vehicle</th>
+                <th className="py-2 pr-3 font-medium">Photos</th>
                 <th className="py-2 font-medium">Changes / errors</th>
               </tr>
             </thead>
@@ -114,6 +122,9 @@ export function ImportPreview({
                   <td className="py-2 pr-3 font-mono text-xs">{row.vin ?? '—'}</td>
                   <td className="py-2 pr-3">{row.stockNumber ?? '—'}</td>
                   <td className="py-2 pr-3">{row.vehicle ?? '—'}</td>
+                  <td className="py-2 pr-3 tabular text-muted-foreground">
+                    {row.photoCount ? row.photoCount : '—'}
+                  </td>
                   <td className="py-2">
                     {row.errors.length > 0 ? (
                       <ul className="flex flex-col gap-1 text-destructive">
@@ -165,6 +176,18 @@ export function ImportPreview({
             </p>
           ) : null}
         </div>
+
+        {/* Said before the dealer commits, because it is the part that takes
+            minutes rather than seconds and happens after the page has already
+            said the import is done. */}
+        {photoCount > 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            <strong className="text-foreground">{photoCount.toLocaleString('en-CA')} photos</strong>{' '}
+            are listed. Your vehicles are saved straight away and the photos are downloaded
+            afterwards, so they appear over the next few minutes. Photos already held from an
+            earlier import are not downloaded again.
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

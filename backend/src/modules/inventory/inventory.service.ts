@@ -7,11 +7,13 @@ import {
   INVENTORY_CSV_VERSION_HEADER,
   MAX_INVENTORY_CSV_BYTES,
   MAX_INVENTORY_CSV_ROWS,
+  PHOTO_LIST_SEPARATOR,
   type InventoryImportLocation,
   type InventoryImportPlan,
   type InventoryImportRecord,
   type InventoryImportResult,
   type InventoryImportStatus,
+  type InventoryPhotoStatus,
   type InventoryRowResult,
   type Paginated,
 } from '@vintrax/shared';
@@ -19,6 +21,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../../common/audit/audit.service';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { VehiclesService } from '../vehicles/vehicles.service';
+import { InventoryPhotosService, type VehiclePhotoWork } from './inventory-photos.service';
 import { CsvParseError, toCsv } from './csv';
 import {
   CREATE_REQUIRED_FIELDS,
@@ -55,6 +58,7 @@ export class InventoryService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly vehicles: VehiclesService,
+    private readonly photos: InventoryPhotosService,
   ) {}
 
   /**
@@ -156,6 +160,7 @@ export class InventoryService {
     expectedHash: string,
     user: AuthUser,
     location: InventoryImportLocation = EMPTY_LOCATION,
+    importPhotos = true,
   ): Promise<InventoryImportResult> {
     const { text, hash } = this.readFile(file);
 
@@ -235,7 +240,54 @@ export class InventoryService {
       `Inventory import ${record.id}: ${summary.create} created, ${summary.update} updated, ${summary.unchanged} unchanged, ${summary.errors} skipped`,
     );
 
+    await this.startPhotoRun(record.id, plan.rows, byRow, importPhotos);
+
     return { importId: record.id, status, summary, rows };
+  }
+
+  /**
+   * Starts the photo download for an import that has already been written.
+   *
+   * Deliberately not awaited. A rooftop's feed is roughly two dozen photos per
+   * vehicle — around 1,100 downloads for a 47-row file — which is minutes of
+   * fetching from a third-party server, and holding the dealer's request open
+   * for that would time out long before it finished. The vehicles are already
+   * saved and already returned; the photos catch up, and the import record
+   * carries the progress so the history screen can say where it got to.
+   *
+   * Every row that resolved to a vehicle contributes, including UNCHANGED ones:
+   * re-photographing a car changes nothing else about it, so a sync that only
+   * covered rows whose fields moved would never pick new pictures up.
+   */
+  private async startPhotoRun(
+    importId: string,
+    rows: readonly PlannedRow[],
+    written: ReadonlyMap<number, PlannedRow>,
+    requested: boolean,
+  ): Promise<void> {
+    const work: VehiclePhotoWork[] = [];
+
+    for (const row of rows) {
+      if (row.action === 'ERROR') continue;
+      const photos = row.photos ?? [];
+      if (photos.length === 0) continue;
+      const vehicleId = written.get(row.row)?.vehicleId ?? row.targetId;
+      if (vehicleId) work.push({ vehicleId, photos });
+    }
+
+    if (!requested || work.length === 0) return;
+
+    const expected = InventoryPhotosService.expectedCount(work);
+    await this.prisma.inventoryImport.update({
+      where: { id: importId },
+      data: { photoStatus: 'PENDING', photosExpected: expected },
+    });
+
+    // Floating on purpose, and the reason it is safe to float: `run` never
+    // throws, and the work is idempotent, so an interrupted process loses
+    // progress but not correctness — re-running the same file picks up where
+    // this left off and downloads nothing it already has.
+    void this.photos.run(importId, work);
   }
 
   /** Past runs, newest first. Scoped to the caller's own inventory. */
@@ -511,7 +563,26 @@ const EXISTING_SELECT = {
   saleChannel: true,
 } as const;
 
-const EXPORT_SELECT = EXISTING_SELECT;
+/**
+ * The export reads one thing the planner does not: the photos.
+ *
+ * Their *source* addresses are emitted, not the storage URLs Vintrax serves
+ * them from. Two reasons. A storage URL is relative and would be refused on
+ * re-import, and more importantly the source address plus its stamp is the
+ * identity the importer reconciles on — so exporting them makes export, edit,
+ * re-import cost zero downloads instead of a thousand.
+ *
+ * Photos the dealer uploaded here have no source address and so do not appear.
+ * They are also never removed by an import; see `InventoryPhotosService`.
+ */
+const EXPORT_SELECT = {
+  ...EXISTING_SELECT,
+  images: {
+    where: { sourceUrl: { not: null } },
+    select: { sourceUrl: true, sourceUpdatedAt: true },
+    orderBy: { position: 'asc' },
+  },
+} as const;
 
 type ExportRow = {
   [K in keyof typeof EXPORT_SELECT]: unknown;
@@ -552,6 +623,18 @@ const EXPORT_VALUE: Record<string, (row: ExportRow) => string | number | null> =
   title: (row) => row.title as string,
   description: (row) => row.description as string,
   features: (row) => ((row.features as string[]) ?? []).join('|'),
+  main_photo: (row) => photosOf(row)[0]?.sourceUrl ?? null,
+  main_photo_updated_at: (row) => photosOf(row)[0]?.sourceUpdatedAt?.toISOString() ?? null,
+  extra_photos: (row) =>
+    photosOf(row)
+      .slice(1)
+      .map((photo) => photo.sourceUrl)
+      .join(PHOTO_LIST_SEPARATOR) || null,
+  extra_photos_updated_at: (row) =>
+    photosOf(row)
+      .slice(1)
+      .map((photo) => photo.sourceUpdatedAt?.toISOString() ?? '')
+      .join(PHOTO_LIST_SEPARATOR) || null,
   // Exported so a dealer can see it, and accepted on import only for the four
   // seller-settable values. A vehicle exported as ACTIVE or IN_AUCTION and
   // re-imported keeps its status, because the importer ignores a value it may
@@ -572,6 +655,13 @@ const HISTORY_SELECT = {
   errorCount: true,
   createdAt: true,
   completedAt: true,
+  photoStatus: true,
+  photosExpected: true,
+  photosFetched: true,
+  photosReused: true,
+  photosFailed: true,
+  photoErrors: true,
+  photosFinishedAt: true,
   initiatedBy: { select: { email: true } },
 } as const;
 
@@ -587,6 +677,13 @@ function toRecord(record: {
   errorCount: number;
   createdAt: Date;
   completedAt: Date | null;
+  photoStatus: string;
+  photosExpected: number;
+  photosFetched: number;
+  photosReused: number;
+  photosFailed: number;
+  photoErrors: string[];
+  photosFinishedAt: Date | null;
   initiatedBy: { email: string } | null;
 }): InventoryImportRecord {
   return {
@@ -602,11 +699,31 @@ function toRecord(record: {
     initiatedByEmail: record.initiatedBy?.email ?? null,
     createdAt: record.createdAt.toISOString(),
     completedAt: record.completedAt?.toISOString() ?? null,
+    photos: {
+      status: record.photoStatus as InventoryPhotoStatus,
+      expected: record.photosExpected,
+      fetched: record.photosFetched,
+      reused: record.photosReused,
+      failed: record.photosFailed,
+      errors: record.photoErrors,
+      finishedAt: record.photosFinishedAt?.toISOString() ?? null,
+    },
   };
+}
+
+/** An exported row's imported photos, in display order. */
+function photosOf(row: ExportRow): Array<{ sourceUrl: string; sourceUpdatedAt: Date | null }> {
+  const images = (row as { images?: unknown }).images;
+  return Array.isArray(images)
+    ? (images as Array<{ sourceUrl: string; sourceUpdatedAt: Date | null }>)
+    : [];
 }
 
 /** Drops the fields the planner uses internally and the client has no business seeing. */
 function stripInternals(row: PlannedRow): InventoryRowResult {
-  const { draft: _draft, targetId: _targetId, ...rest } = row;
+  // `photos` goes too. The client is told how many there are via `photoCount`;
+  // the third-party addresses they came from are not the buyer's business and
+  // are not worth persisting in the import record's JSON either.
+  const { draft: _draft, targetId: _targetId, photos: _photos, ...rest } = row;
   return rest;
 }

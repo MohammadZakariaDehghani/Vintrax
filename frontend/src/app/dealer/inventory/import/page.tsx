@@ -46,6 +46,7 @@ function ImportInventory() {
   const [result, setResult] = useState<InventoryImportResult | null>(null);
   const [city, setCity] = useState('');
   const [province, setProvince] = useState<Province | ''>('');
+  const [importPhotos, setImportPhotos] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -80,6 +81,7 @@ function ImportInventory() {
       api.upload<InventoryImportResult>('/dealer/inventory/import/confirm', chosen, {
         fileHash,
         ...asFields(at),
+        importPhotos: String(importPhotos),
       }),
     onSuccess: (data) => {
       setResult(data);
@@ -236,6 +238,23 @@ function ImportInventory() {
               </Field>
             </div>
 
+            <label className="mt-4 flex items-start gap-2.5 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary"
+                checked={importPhotos}
+                onChange={(event) => setImportPhotos(event.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Download the photos the file points at</span>
+                <span className="mt-0.5 block text-muted-foreground">
+                  Photos are copied to Vintrax and served from here, so a listing does not go blank
+                  if the other system changes. Turn this off for a quick price-only import — the
+                  vehicles still update, and the photos already held are left alone.
+                </span>
+              </span>
+            </label>
+
             {plan && (plan.defaultLocation.city || plan.defaultLocation.province) ? (
               <p className="mt-3 text-sm text-muted-foreground">
                 Rows without a location will be listed in{' '}
@@ -286,6 +305,16 @@ function ImportInventory() {
               {result.summary.unchanged} unchanged
               {result.summary.errors > 0 ? `, ${result.summary.errors} skipped` : ''}.
             </p>
+
+            {/* The import is finished; the photos are not. Saying so is the
+                difference between "it worked" and "why are there no pictures". */}
+            {importPhotos &&
+            result.rows.some((row) => row.action !== 'ERROR' && (row.photoCount ?? 0) > 0) ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Photos are downloading in the background and will appear on the listings over the
+                next few minutes. You can leave this page.
+              </p>
+            ) : null}
 
             {result.summary.errors > 0 ? (
               <div className="mt-4">

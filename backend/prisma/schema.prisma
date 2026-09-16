@@ -468,6 +468,7 @@ model Vehicle {
 
   images        VehicleImage[]
   documents     VehicleDocument[]
+  historyEvents VehicleHistoryEvent[]
   favourites    Favourite[]
   conversations Conversation[]
   auctions      Auction[]
@@ -522,10 +523,34 @@ model InventoryImport {
   /// Per-row outcomes, as returned to the client. Capped by MAX_INVENTORY_CSV_ROWS.
   rows Json?
 
-  createdAt   DateTime  @default(now())
-  completedAt DateTime?
+  /// Photo download progress. The vehicles are written and returned before any
+  /// photo is fetched — a rooftop's feed is a four-figure number of downloads
+  /// from someone else's server — so these advance after the import itself has
+  /// already completed, and are what the history screen reads to say so.
+  photoStatus    InventoryPhotoStatus @default(NOT_REQUESTED)
+  photosExpected Int                  @default(0)
+  photosFetched  Int                  @default(0)
+  photosReused   Int                  @default(0)
+  photosFailed   Int                  @default(0)
+  /// Why photos failed, deduplicated. Never the whole list: one unreachable
+  /// host produces the same line 1200 times and none of them is new.
+  photoErrors    String[]             @default([])
+
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+  photosFinishedAt DateTime?
 
   @@index([sellerId, createdAt])
+}
+
+enum InventoryPhotoStatus {
+  /// The file carried no photo columns, or the dealer chose to skip them.
+  NOT_REQUESTED
+  PENDING
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
 }
 
 model VehicleImage {
@@ -538,9 +563,18 @@ model VehicleImage {
   /// Zero-based display order; position 0 is the primary image.
   position Int     @default(0)
 
+  /// The third-party address this photo was downloaded from, when it came from
+  /// a dealer feed. Null for a photo the dealer uploaded here, which is what
+  /// tells the importer which rows it owns and may replace.
+  sourceUrl       String?
+  /// The feed's own last-modified stamp for `sourceUrl`. Together the two are
+  /// the identity of an imported photo: unchanged means no second download.
+  sourceUpdatedAt DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([vehicleId, position])
+  @@index([vehicleId, sourceUrl])
 }
 
 model VehicleDocument {
@@ -553,9 +587,58 @@ model VehicleDocument {
   filename  String
   sizeBytes Int?
 
+  /// The date printed on the document, as distinct from when it was uploaded.
+  /// A history report dated eight months ago says something different about a
+  /// vehicle than one pulled this morning, and only the dealer knows which it
+  /// is. Nullable, because most paperwork has no meaningful date.
+  issuedOn DateTime? @db.Date
+
   createdAt DateTime @default(now())
 
   @@index([vehicleId, type])
+}
+
+/// One entry on a vehicle's history timeline.
+///
+/// Entered by the seller from the history report they hold, not retrieved from
+/// CARFAX by Vintrax — there is no integration, and the UI says so rather than
+/// implying this was verified here. The uploaded report is the evidence and
+/// lives in VehicleDocument; this is the summary a buyer can read without
+/// requesting the PDF.
+model VehicleHistoryEvent {
+  id        String  @id @default(uuid()) @db.Uuid
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  kind VehicleHistoryEventKind
+
+  /// When it happened. Null for an entry with no date, which still sorts by
+  /// `position` alongside the rest.
+  occurredOn DateTime? @db.Date
+
+  /// What happened, e.g. "Sold new" or "Service".
+  label  String
+  /// The supporting line, e.g. "Toronto, ON" or "16,000 km".
+  detail String?
+
+  /// Display order, so a seller can arrange entries that share a date.
+  position Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId, position])
+}
+
+enum VehicleHistoryEventKind {
+  REGISTERED
+  SOLD
+  SERVICE
+  CLAIM
+  NO_CLAIMS
+  INSPECTION
+  SAFETY_CERTIFIED
+  RECALL
+  OTHER
 }
 
 model VehicleInspection {

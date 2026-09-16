@@ -24,7 +24,7 @@ import {
  * version, and the importer records the version it read, so when a column is
  * added or renamed there is a fact to reason from rather than a guess.
  */
-export const INVENTORY_CSV_VERSION = 2;
+export const INVENTORY_CSV_VERSION = 3;
 
 /** The header the template and the exporter both emit as the first line. */
 export const INVENTORY_CSV_VERSION_HEADER = 'inventory_csv_version';
@@ -40,6 +40,21 @@ export const INVENTORY_CSV_VERSION_HEADER = 'inventory_csv_version';
  */
 export const MAX_INVENTORY_CSV_BYTES = 2 * 1024 * 1024;
 export const MAX_INVENTORY_CSV_ROWS = 2000;
+
+/**
+ * Photo limits.
+ *
+ * A row in a real dealer feed carries about two dozen photos, so the per-row
+ * cap is set above that and the per-file cap is what actually bounds a run:
+ * 2000 rows at 30 photos each would be 60,000 downloads from a third-party
+ * server, which is a denial-of-service tool pointed at a dealer's own host.
+ * Photos past a cap are reported, not silently dropped.
+ */
+export const MAX_PHOTOS_PER_VEHICLE = 30;
+export const MAX_PHOTOS_PER_IMPORT = 2500;
+
+/** The separator a dealer management system writes between photo URLs. */
+export const PHOTO_LIST_SEPARATOR = ';';
 
 /** What the importer decided a row means. */
 export const INVENTORY_ROW_ACTIONS = ['CREATE', 'UPDATE', 'UNCHANGED', 'ERROR'] as const;
@@ -267,6 +282,38 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     description: 'How the vehicle sells.',
     enumValues: SALE_CHANNELS,
     aliases: ['channel', 'salestype', 'saletype'],
+  },
+  {
+    key: 'main_photo',
+    required: false,
+    description:
+      'URL of the primary photo. It is downloaded and re-hosted by Vintrax; the original address is not shown to buyers.',
+    aliases: ['mainphoto', 'primaryphoto', 'photo', 'image', 'mainimage', 'primaryimage'],
+  },
+  {
+    key: 'main_photo_updated_at',
+    required: false,
+    description:
+      "When the primary photo last changed at the source. Used only to decide whether to download it again, so an unchanged photo costs nothing on the next import. Optional; without it the photo is re-fetched whenever its URL changes.",
+    aliases: ['mainphotolastmodifieddate', 'mainphotomodified', 'mainphotoupdated'],
+  },
+  {
+    key: 'extra_photos',
+    required: false,
+    description: `Additional photo URLs, separated by "${PHOTO_LIST_SEPARATOR}", in display order after the primary photo. Up to ${MAX_PHOTOS_PER_VEHICLE} photos per vehicle in total.`,
+    aliases: ['extraphotos', 'additionalphotos', 'photos', 'images', 'gallery', 'photourls'],
+  },
+  {
+    key: 'extra_photos_updated_at',
+    required: false,
+    description:
+      'When each additional photo last changed at the source, in the same order and with the same separator as extra_photos.',
+    aliases: [
+      'extraphotolastmodifieddate',
+      'extraphotoslastmodifieddate',
+      'extraphotosmodified',
+      'extraphotosupdated',
+    ],
   },
 ] as const;
 
@@ -514,6 +561,59 @@ export function normaliseFeatures(value: string | undefined): string[] | null {
   return Array.from(new Set(parts)).slice(0, 60);
 }
 
+/** Splits one of the feed's `;`-separated lists, keeping blanks as positions. */
+export function splitPhotoList(value: string | undefined): string[] {
+  const text = normaliseText(value);
+  if (text === null) return [];
+  return text.split(PHOTO_LIST_SEPARATOR).map((part) => part.trim());
+}
+
+/**
+ * One of the feed's timestamps, as an ISO string.
+ *
+ * Dealer management systems write `MM/DD/YYYY HH:MM:SS` — American order, no
+ * timezone — so it is parsed explicitly rather than handed to `new Date()`,
+ * which reads `03/04/2026` differently depending on where it runs. ISO input is
+ * accepted too, since our own export emits it.
+ *
+ * The value is only ever compared with the previous import's copy of itself, so
+ * an absent timezone costs nothing: an unparseable stamp returns null and the
+ * photo is then re-fetched whenever its URL changes, which is correct but
+ * slower, never wrong.
+ */
+export function normalisePhotoTimestamp(value: string | undefined): string | null {
+  const text = normaliseText(value);
+  if (text === null) return null;
+
+  const slashed = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(
+    text,
+  );
+  if (slashed) {
+    const [, month, day, year, hour = '0', minute = '0', second = '0'] = slashed;
+    const parsed = new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+      ),
+    );
+    // Rejects 13/40/2026 rather than letting Date roll it into next year.
+    if (
+      parsed.getUTCMonth() !== Number(month) - 1 ||
+      parsed.getUTCDate() !== Number(day)
+    ) {
+      return null;
+    }
+    return parsed.toISOString();
+  }
+
+  const iso = new Date(text);
+  return Number.isNaN(iso.getTime()) ? null : iso.toISOString();
+}
+
 /** Model years the importer will accept, as a closed range. */
 export function inventoryYearRange(now: Date = new Date()): { min: number; max: number } {
   return { min: MIN_MODEL_YEAR, max: maxModelYear(now) };
@@ -537,7 +637,31 @@ export interface InventoryRowResult {
   warnings: string[];
   /** Set once the row has actually been written. */
   vehicleId?: string;
+  /** How many photos the row's URLs resolved to. Downloaded after the import. */
+  photoCount?: number;
 }
+
+/** Photo progress for one import run, as the history screen reads it. */
+export interface InventoryPhotoProgress {
+  status: InventoryPhotoStatus;
+  expected: number;
+  fetched: number;
+  reused: number;
+  failed: number;
+  /** Deduplicated reasons. One unreachable host is one line, not twelve hundred. */
+  errors: string[];
+  finishedAt: string | null;
+}
+
+export const INVENTORY_PHOTO_STATUSES = [
+  'NOT_REQUESTED',
+  'PENDING',
+  'RUNNING',
+  'COMPLETED',
+  'COMPLETED_WITH_ERRORS',
+  'FAILED',
+] as const;
+export type InventoryPhotoStatus = (typeof INVENTORY_PHOTO_STATUSES)[number];
 
 export interface InventoryImportSummary {
   totalRows: number;
@@ -598,4 +722,5 @@ export interface InventoryImportRecord {
   initiatedByEmail: string | null;
   createdAt: string;
   completedAt: string | null;
+  photos: InventoryPhotoProgress;
 }
