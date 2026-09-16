@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   MAX_BULK_VEHICLE_IDS,
+  bulkDeleteVehiclesSchema,
   bulkListingStatusSchema,
   bulkModerateListingsSchema,
 } from '@vintrax/shared';
@@ -44,6 +45,8 @@ function serviceWith(behaviour: (id: string) => Promise<void>) {
   };
   (service as unknown as { setStatus: typeof run }).setStatus = async (id: string) => run(id);
   (service as unknown as { moderate: typeof run }).moderate = async (id: string) => run(id);
+  (service as unknown as { remove: typeof run }).remove = async (id: string) => run(id);
+  Object.assign(service, { logger: { warn: () => undefined } });
 
   return { service, audited, calls };
 }
@@ -183,5 +186,60 @@ describe('moderateMany', () => {
 
     expect(result).toMatchObject({ succeeded: 1, failed: 1 });
     expect(result.outcomes[0]).toMatchObject({ ok: false, error: 'Vehicle not found' });
+  });
+});
+
+describe('removeMany', () => {
+  it('refuses a request that does not say confirm', () => {
+    // The one bulk action that destroys data should not be one character away
+    // from a harmless one.
+    expect(() => bulkDeleteVehiclesSchema.parse({ ids: [ID_A] })).toThrow();
+    expect(() => bulkDeleteVehiclesSchema.parse({ ids: [ID_A], confirm: false })).toThrow();
+    expect(bulkDeleteVehiclesSchema.parse({ ids: [ID_A], confirm: true }).ids).toEqual([ID_A]);
+  });
+
+  it('deletes through the single-vehicle path, so its guards still apply', async () => {
+    // Not a deleteMany. That would skip the live-auction and sales-record
+    // checks on the one action that cannot be undone.
+    const { service, calls } = serviceWith(async () => undefined);
+
+    const result = await service.removeMany({ ids: [ID_A, ID_B], confirm: true }, ACTOR);
+
+    expect(calls).toEqual([ID_A, ID_B]);
+    expect(result.succeeded).toBe(2);
+  });
+
+  it('keeps the vehicles it is told it cannot delete, and says which', async () => {
+    const { service } = serviceWith(async (id) => {
+      if (id === ID_B) {
+        throw new BadRequestException(
+          'This vehicle has a sales record and cannot be deleted. Archive it instead.',
+        );
+      }
+    });
+
+    const result = await service.removeMany({ ids: [ID_A, ID_B, ID_C], confirm: true }, ACTOR);
+
+    expect(result).toMatchObject({ succeeded: 2, failed: 1 });
+    expect(result.outcomes.find((outcome) => outcome.id === ID_B)?.error).toContain('sales record');
+  });
+
+  it('writes no audit entry of its own', async () => {
+    // `remove` audits each deletion itself. A second entry here would double
+    // every row in the record of who deleted what.
+    const { service, audited } = serviceWith(async () => undefined);
+
+    await service.removeMany({ ids: [ID_A, ID_B], confirm: true }, ACTOR);
+
+    expect(audited).toEqual([]);
+  });
+
+  it('names a vehicle it deleted, having read the title before deleting it', async () => {
+    // The row that would answer "which one was that" is gone afterwards.
+    const { service } = serviceWith(async () => undefined);
+
+    const result = await service.removeMany({ ids: [ID_A], confirm: true }, ACTOR);
+
+    expect(result.outcomes[0]).toMatchObject({ ok: true, title: `Vehicle ${ID_A}` });
   });
 });

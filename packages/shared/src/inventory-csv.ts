@@ -5,6 +5,7 @@ import {
   MIN_MODEL_YEAR,
   PROVINCES,
   SALE_CHANNELS,
+  TITLE_STATUSES,
   TRANSMISSIONS,
   VEHICLE_CONDITIONS,
   VIN_PATTERN,
@@ -127,7 +128,7 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     key: 'stock_number',
     required: false,
     description:
-      "Your own stock number. Unique within your inventory. Used to match rows when there is no VIN, and it is how a vehicle you have not given a VIN stays matchable across imports.",
+      'Your own stock number. Unique within your inventory. Used to match rows when there is no VIN, and it is how a vehicle you have not given a VIN stays matchable across imports.',
     aliases: ['stock', 'stock#', 'stockno', 'stocknumber', 'stockid', 'dealerstocknumber'],
   },
   {
@@ -143,9 +144,24 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     description: `Model year, ${MIN_MODEL_YEAR} to next year.`,
     aliases: ['modelyear', 'yr'],
   },
-  { key: 'make', required: true, description: 'Manufacturer, e.g. Toyota.', aliases: ['brand', 'manufacturer'] },
+  {
+    key: 'make',
+    required: true,
+    description: 'Manufacturer, e.g. Toyota.',
+    aliases: ['brand', 'manufacturer'],
+  },
   { key: 'model', required: true, description: 'Model name, e.g. RAV4.', aliases: ['modelname'] },
-  { key: 'trim', required: false, description: 'Trim level, e.g. XLE.', aliases: ['trimlevel', 'series', 'style'] },
+  // `style` is claimed by neither this column nor `body_type`, deliberately. In
+  // a dealer feed it means the trim about as often as it means the shape, and
+  // this importer reports a header it cannot place rather than guessing — the
+  // same rule that stops `price_msrp` repricing an inventory to sticker. A
+  // dealer sees "Did not recognise Style" and renames the column.
+  {
+    key: 'trim',
+    required: false,
+    description: 'Trim level, e.g. XLE.',
+    aliases: ['trimlevel', 'series'],
+  },
   {
     key: 'price_cad',
     required: true,
@@ -191,7 +207,7 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     required: true,
     description: 'Body style.',
     enumValues: BODY_TYPES,
-    aliases: ['body', 'bodystyle', 'bodytype', 'style'],
+    aliases: ['body', 'bodystyle', 'bodytype'],
   },
   {
     key: 'transmission',
@@ -214,9 +230,24 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     enumValues: DRIVETRAINS,
     aliases: ['drive', 'drivetype', 'driveline', 'drivewheels'],
   },
-  { key: 'engine', required: false, description: 'Engine description, e.g. 2.5L I4.', aliases: ['enginedescription'] },
-  { key: 'engine_size_l', required: false, description: 'Engine displacement in litres.', aliases: ['displacement', 'enginesize', 'enginelitres'] },
-  { key: 'cylinders', required: false, description: 'Cylinder count.', aliases: ['cylinder', 'numcylinders'] },
+  {
+    key: 'engine',
+    required: false,
+    description: 'Engine description, e.g. 2.5L I4.',
+    aliases: ['enginedescription'],
+  },
+  {
+    key: 'engine_size_l',
+    required: false,
+    description: 'Engine displacement in litres.',
+    aliases: ['displacement', 'enginesize', 'enginelitres'],
+  },
+  {
+    key: 'cylinders',
+    required: false,
+    description: 'Cylinder count.',
+    aliases: ['cylinder', 'numcylinders'],
+  },
   { key: 'doors', required: false, description: 'Door count.', aliases: ['doorcount', 'numdoors'] },
   {
     key: 'seats',
@@ -249,7 +280,12 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     enumValues: PROVINCES,
     aliases: ['prov', 'state', 'region'],
   },
-  { key: 'postal_code', required: false, description: 'Postal code.', aliases: ['postal', 'zip', 'zipcode', 'postcode'] },
+  {
+    key: 'postal_code',
+    required: false,
+    description: 'Postal code.',
+    aliases: ['postal', 'zip', 'zipcode', 'postcode'],
+  },
   {
     key: 'title',
     required: false,
@@ -259,7 +295,8 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
   {
     key: 'description',
     required: false,
-    description: 'Listing description, at least 20 characters. A factual placeholder is generated when blank.',
+    description:
+      'Listing description, at least 20 characters. A factual placeholder is generated when blank.',
     aliases: ['comments', 'notes', 'listingdescription', 'vehicledescription', 'remarks'],
   },
   {
@@ -275,6 +312,17 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
       "The listing's own state on Vintrax, which is not the same thing as the vehicle's condition — see `condition`, which is what a dealership export's Status column means. Defaults to DRAFT on create and is left alone on update when blank. ACTIVE is not settable here; publishing is a moderation decision.",
     enumValues: ['DRAFT', 'PENDING_REVIEW', 'ARCHIVED', 'SOLD'],
     aliases: ['listingstatus', 'vintraxstatus'],
+  },
+  {
+    key: 'title_status',
+    required: false,
+    description:
+      'The brand on the title. Left unset when the column is absent or empty — never defaulted to CLEAN, because that is a claim about the vehicle.',
+    enumValues: TITLE_STATUSES,
+    // Deliberately not `brand` or `title`: the first already maps to `make`
+    // and the second reads as the listing headline. An alias that has to be
+    // guessed at is not worth the column it steals.
+    aliases: ['titlestatus', 'titlebrand', 'titletype', 'titlebranding'],
   },
   {
     key: 'sale_channel',
@@ -294,7 +342,7 @@ export const INVENTORY_CSV_COLUMNS: readonly InventoryCsvColumn[] = [
     key: 'main_photo_updated_at',
     required: false,
     description:
-      "When the primary photo last changed at the source. Used only to decide whether to download it again, so an unchanged photo costs nothing on the next import. Optional; without it the photo is re-fetched whenever its URL changes.",
+      'When the primary photo last changed at the source. Used only to decide whether to download it again, so an unchanged photo costs nothing on the next import. Optional; without it the photo is re-fetched whenever its URL changes.',
     aliases: ['mainphotolastmodifieddate', 'mainphotomodified', 'mainphotoupdated'],
   },
   {
@@ -341,14 +389,32 @@ export function normaliseHeader(header: string): string {
     .trim();
 }
 
-/** Comparison key → canonical column key. Built from the column table above. */
+/**
+ * Comparison key → canonical column key. Built from the column table above.
+ *
+ * A duplicate throws at import time rather than quietly winning. Two columns
+ * claiming the same alias is a mistake that costs a dealer real data — `brand`
+ * belongs to `make`, and a later column taking it would send every
+ * manufacturer into the wrong field with nothing on screen to say so. Failing
+ * at module load turns that into a test failure instead of an inventory.
+ */
 export const HEADER_ALIASES: ReadonlyMap<string, string> = (() => {
   const map = new Map<string, string>();
-  for (const column of INVENTORY_CSV_COLUMNS) {
-    map.set(normaliseHeader(column.key), column.key);
-    for (const alias of column.aliases ?? []) {
-      map.set(normaliseHeader(alias), column.key);
+
+  const claim = (name: string, column: string) => {
+    const key = normaliseHeader(name);
+    const taken = map.get(key);
+    if (taken && taken !== column) {
+      throw new Error(
+        `Inventory CSV alias "${name}" is claimed by both "${taken}" and "${column}".`,
+      );
     }
+    map.set(key, column);
+  };
+
+  for (const column of INVENTORY_CSV_COLUMNS) {
+    claim(column.key, column.key);
+    for (const alias of column.aliases ?? []) claim(alias, column.key);
   }
   return map;
 })();
@@ -359,9 +425,7 @@ const IGNORED_HEADER_KEYS: ReadonlySet<string> = new Set(
 
 /** How one header in an uploaded file was interpreted. */
 export type HeaderResolution =
-  | { kind: 'mapped'; column: string }
-  | { kind: 'ignored-ownership' }
-  | { kind: 'unrecognised' };
+  { kind: 'mapped'; column: string } | { kind: 'ignored-ownership' } | { kind: 'unrecognised' };
 
 export function resolveHeader(header: string): HeaderResolution {
   const key = normaliseHeader(header);
@@ -601,10 +665,7 @@ export function normalisePhotoTimestamp(value: string | undefined): string | nul
       ),
     );
     // Rejects 13/40/2026 rather than letting Date roll it into next year.
-    if (
-      parsed.getUTCMonth() !== Number(month) - 1 ||
-      parsed.getUTCDate() !== Number(day)
-    ) {
+    if (parsed.getUTCMonth() !== Number(month) - 1 || parsed.getUTCDate() !== Number(day)) {
       return null;
     }
     return parsed.toISOString();

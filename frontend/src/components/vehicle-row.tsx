@@ -16,6 +16,7 @@ import {
 } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
 import { Badge, Skeleton } from '@/components/ui';
+import { CarfaxBadge } from '@/components/carfax-badge';
 import { AuctionCountdown } from '@/components/auction-countdown';
 
 /**
@@ -78,6 +79,11 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
               <ShieldCheck className="h-3 w-3" aria-hidden />
               Inspected
             </Badge>
+          ) : null}
+          {/* Compact here: the card is already carrying up to two badges, and
+              the word is the signal. The full form is on the listing page. */}
+          {vehicle.carfaxUrl ? (
+            <CarfaxBadge url={vehicle.carfaxUrl} compact className="shadow-sm" />
           ) : null}
         </div>
 

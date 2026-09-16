@@ -134,6 +134,8 @@ export function escapeCsvCell(value: string | number | null | undefined): string
 }
 
 /** Joins rows into a CSV document, CRLF-terminated as RFC 4180 specifies. */
-export function toCsv(rows: ReadonlyArray<ReadonlyArray<string | number | null | undefined>>): string {
+export function toCsv(
+  rows: ReadonlyArray<ReadonlyArray<string | number | null | undefined>>,
+): string {
   return rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
 }

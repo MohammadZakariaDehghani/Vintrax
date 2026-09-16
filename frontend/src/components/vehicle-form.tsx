@@ -12,6 +12,9 @@ import {
   MAX_LISTING_IMAGES,
   PROVINCES,
   PROVINCE_LABELS,
+  TITLE_STATUSES,
+  TITLE_STATUS_LABELS,
+  type TitleStatus,
   SELLER_STATUS_TRANSITIONS,
   TRANSMISSIONS,
   VEHICLE_CONDITIONS,
@@ -61,6 +64,8 @@ const BLANK = {
   vin: '',
   province: 'ON',
   city: '',
+  titleStatus: '' as TitleStatus | '',
+  carfaxUrl: '',
   status: 'DRAFT',
   saleChannel: 'FIXED_PRICE',
 };
@@ -182,6 +187,8 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
       vin: existing.vin ?? '',
       province: existing.province,
       city: existing.city,
+      titleStatus: existing.titleStatus ?? '',
+      carfaxUrl: existing.carfaxUrl ?? '',
       status: existing.status,
       saleChannel: existing.saleChannel,
     });
@@ -254,6 +261,11 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
       ...(form.vin ? { vin: form.vin } : {}),
       province: form.province,
       city: form.city,
+      // Sent as an empty string when cleared, not omitted: omitting it on an
+      // edit would leave the stored value in place, so a seller could never
+      // remove a link or a brand once set.
+      titleStatus: form.titleStatus === '' ? undefined : form.titleStatus,
+      carfaxUrl: form.carfaxUrl.trim(),
       saleChannel: form.saleChannel,
       // Only on create. `updateVehicleSchema` omits `status`, so sending it on
       // an edit is silently stripped — the save appears to work and the status
@@ -430,6 +442,44 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
                 required
                 value={form.city}
                 onChange={(e) => set('city', e.target.value)}
+              />
+            </Field>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Title"
+              htmlFor="titleStatus"
+              error={fieldError('titleStatus')}
+              hint="Left unset if you do not say. Vintrax will not assume a title is clean."
+            >
+              <Select
+                id="titleStatus"
+                value={form.titleStatus}
+                onChange={(e) => set('titleStatus', e.target.value as TitleStatus | '')}
+              >
+                <option value="">Not stated</option>
+                {TITLE_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {TITLE_STATUS_LABELS[status]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
+            <Field
+              label="CARFAX report link (optional)"
+              htmlFor="carfaxUrl"
+              error={fieldError('carfaxUrl')}
+              hint="The https link CARFAX gave you. Buyers see a CARFAX badge that opens it in a new tab."
+            >
+              <Input
+                id="carfaxUrl"
+                type="url"
+                inputMode="url"
+                placeholder="https://vhr.carfax.ca/..."
+                value={form.carfaxUrl}
+                onChange={(e) => set('carfaxUrl', e.target.value)}
               />
             </Field>
           </div>

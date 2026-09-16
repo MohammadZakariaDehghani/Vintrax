@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isCarfaxUrl } from './domain';
 import {
   ADDRESS_TYPES,
   ARTICLE_STATUSES,
@@ -23,6 +24,7 @@ import {
   TRANSMISSIONS,
   USER_ROLES,
   VEHICLE_CONDITIONS,
+  TITLE_STATUSES,
   VEHICLE_DOCUMENT_TYPES,
   VEHICLE_HISTORY_EVENT_KINDS,
   VIN_PATTERN,
@@ -252,6 +254,30 @@ export const createVehicleSchema = z.object({
   city: trimmed(80).min(1),
   postalCode: trimmed(10).optional(),
 
+  /**
+   * The brand on the title.
+   *
+   * Optional and never defaulted. A seller who does not answer leaves it unsaid
+   * and the listing shows "Not stated"; filling in CLEAN for them would be the
+   * application making the claim a rebuilt-title seller is supposed to make
+   * themselves.
+   */
+  titleStatus: z.enum(TITLE_STATUSES).optional(),
+
+  /**
+   * A link to the vehicle's CARFAX report.
+   *
+   * Checked against the real CARFAX hosts rather than merely being a URL. The
+   * badge it sits behind carries a third party's name, and an unchecked link
+   * would let a seller put that name on a link to anywhere — a phishing page
+   * wearing a brand the buyer already trusts.
+   */
+  carfaxUrl: trimmed(500)
+    .refine((value) => value.length === 0 || isCarfaxUrl(value), {
+      message: 'Use the https link CARFAX gave you, on carfax.ca or carfax.com.',
+    })
+    .optional(),
+
   saleChannel: z.enum(SALE_CHANNELS).default('FIXED_PRICE'),
   // Not the full LISTING_STATUSES set: a listing cannot be created published.
   status: z.enum(CREATABLE_LISTING_STATUSES).default('DRAFT'),
@@ -316,6 +342,22 @@ export const bulkListingStatusSchema = z.object({
 });
 export type BulkListingStatusInput = z.infer<typeof bulkListingStatusSchema>;
 
+/**
+ * Deleting many vehicles at once.
+ *
+ * `confirm` is not decoration and is not a UI concern that leaked into the
+ * schema. This is the one bulk action that destroys data, and the request that
+ * does it should not be a single character different from one that lists or
+ * archives — a mistyped `status` value cannot become a hundred deletions.
+ */
+export const bulkDeleteVehiclesSchema = z.object({
+  ids: bulkVehicleIds,
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: 'Deleting vehicles requires confirm: true.' }),
+  }),
+});
+export type BulkDeleteVehiclesInput = z.infer<typeof bulkDeleteVehiclesSchema>;
+
 export const bulkModerateListingsSchema = z.object({
   ids: bulkVehicleIds,
   approved: z.boolean(),
@@ -348,7 +390,16 @@ export interface BulkVehicleResult {
 
 // --- Search ------------------------------------------------------------------
 
-export const MAX_PAGE_SIZE = 60;
+/**
+ * The largest page any listing endpoint will serve.
+ *
+ * Raised from 60 to 100 so a dealer can see a hundred vehicles at once, which
+ * is roughly a whole rooftop and the point of the option. It is a cap on the
+ * *server*, not a suggestion to the client: the page size arrives as a query
+ * parameter, so this is what stops a caller asking for fifty thousand rows and
+ * turning a listing endpoint into a way to dump the database a page at a time.
+ */
+export const MAX_PAGE_SIZE = 100;
 
 export const searchVehiclesSchema = z
   .object({

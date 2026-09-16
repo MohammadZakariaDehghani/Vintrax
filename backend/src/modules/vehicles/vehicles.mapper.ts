@@ -21,6 +21,9 @@ export const vehicleSummarySelect = {
   city: true,
   status: true,
   saleChannel: true,
+  // On the summary because the search cards draw the CARFAX badge, and one
+  // extra request per card to find out whether to draw it would be absurd.
+  carfaxUrl: true,
   publishedAt: true,
   createdAt: true,
   images: {
@@ -82,6 +85,8 @@ export const vehicleDetailSelect = {
   ...vehicleSummarySelect,
   description: true,
   vin: true,
+  stockNumber: true,
+  titleStatus: true,
   engine: true,
   engineSizeL: true,
   cylinders: true,
@@ -190,6 +195,7 @@ export function toVehicleSummary(
     isFavourited: favouritedIds.has(row.id),
     hasInspection: Boolean(inspection),
     inspectionGrade: inspection?.overallGrade ?? null,
+    carfaxUrl: row.carfaxUrl,
     activeAuction: auction ? toEmbeddedAuction(auction) : null,
     publishedAt: row.publishedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -215,6 +221,8 @@ export function toVehicleDetail(
     ...toVehicleSummary(row, favouritedIds),
     description: row.description,
     vin: row.vin,
+    stockNumber: row.stockNumber,
+    titleStatus: row.titleStatus,
     engine: row.engine,
     engineSizeL: row.engineSizeL,
     cylinders: row.cylinders,

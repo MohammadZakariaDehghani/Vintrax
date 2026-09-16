@@ -49,6 +49,7 @@ function existing(overrides: Partial<ExistingVehicle> = {}): ExistingVehicle {
     city: 'Toronto',
     province: 'ON',
     postalCode: null,
+    titleStatus: null,
     title: '2022 Mazda CX-5 GT',
     description: 'A well kept CX-5 with service history and winter tires included.',
     features: ['Sunroof'],
@@ -525,9 +526,14 @@ describe('planInventoryImport', () => {
       const withPhotos = (main: string, stamp: string, extras: string, extraStamps: string) =>
         `${PHOTO_HEADER}\n${dmsRow({ MainPhoto: main })},${stamp},"${extras}","${extraStamps}"`;
 
-      it('reads the feed\'s photo columns in display order, primary first', () => {
+      it("reads the feed's photo columns in display order, primary first", () => {
         const result = plan(
-          withPhotos(A, '09/15/2026 00:22:09', `${B};${C}`, '09/15/2026 00:22:10;09/15/2026 00:22:11'),
+          withPhotos(
+            A,
+            '09/15/2026 00:22:09',
+            `${B};${C}`,
+            '09/15/2026 00:22:10;09/15/2026 00:22:11',
+          ),
         );
 
         expect(result.rows[0]!.action).toBe('CREATE');
@@ -535,7 +541,7 @@ describe('planInventoryImport', () => {
         expect(result.rows[0]!.photoCount).toBe(3);
       });
 
-      it('reads the feed\'s MM/DD/YYYY stamps as dates, not as American-or-European guesses', () => {
+      it("reads the feed's MM/DD/YYYY stamps as dates, not as American-or-European guesses", () => {
         // 09/15 is unambiguous; 03/04 is not, and new Date() reads it
         // differently depending on the machine's locale. The stamp decides
         // whether a photo is downloaded again, so guessing costs bandwidth.
@@ -597,9 +603,7 @@ describe('planInventoryImport', () => {
       });
 
       it('leaves photos alone on an ERROR row', () => {
-        const result = plan(
-          `${PHOTO_HEADER}\n${dmsRow({ MainPhoto: A, Body: '' })},,"",""`,
-        );
+        const result = plan(`${PHOTO_HEADER}\n${dmsRow({ MainPhoto: A, Body: '' })},,"",""`);
 
         expect(result.rows[0]!.action).toBe('ERROR');
         expect(result.rows[0]!.photos ?? []).toEqual([]);

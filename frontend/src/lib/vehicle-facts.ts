@@ -75,28 +75,22 @@ function accidentsFact(events: VehicleHistoryEvent[]): VehicleFact {
 }
 
 /**
- * A VIN with its last six characters withheld.
+ * The one-line summary under a listing's title.
  *
- * The last six are the serial number, which is what a VIN-cloning listing needs
- * and what a history-report reseller charges for. The first eleven already
- * identify the model, year, plant and engine, which is all a buyer needs to
- * check the listing describes the car it claims to. The full VIN is in the
- * documents, behind the same access rule as the rest of the paperwork.
+ * The VIN is shown in full. It was masked to its last six characters for one
+ * release, on the reasoning that the serial is what a cloned listing needs;
+ * issue #34 reversed that at the owner's instruction, and the reasoning the
+ * other way is sound — a buyer running their own history check needs the whole
+ * number, every other Canadian marketplace prints it, and a masked VIN reads as
+ * something being withheld. See D-032, whose masking clause is superseded.
  */
-export function maskVin(vin: string | null): string | null {
-  if (!vin) return null;
-  if (vin.length <= 6) return '•'.repeat(vin.length);
-  return `${vin.slice(0, vin.length - 6)}${'•'.repeat(6)}`;
-}
-
-/** The one-line summary under a listing's title. */
 export function vehicleSubtitle(vehicle: VehicleDetail): string {
   return [
     formatKm(vehicle.mileageKm),
     formatEnum(vehicle.transmission),
     vehicle.drivetrain,
     vehicle.exteriorColour,
-    maskVin(vehicle.vin) ? `VIN ${maskVin(vehicle.vin)}` : null,
+    vehicle.vin ? `VIN ${vehicle.vin}` : null,
   ]
     .filter(Boolean)
     .join(' · ');

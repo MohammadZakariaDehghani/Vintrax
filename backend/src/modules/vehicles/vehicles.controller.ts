@@ -18,6 +18,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
+  type BulkDeleteVehiclesInput,
   type BulkListingStatusInput,
   type BulkModerateListingsInput,
   type BulkVehicleResult,
@@ -32,6 +33,7 @@ import {
   type VehicleSearchResponse,
   type VehicleSummary,
   createVehicleSchema,
+  bulkDeleteVehiclesSchema,
   bulkListingStatusSchema,
   bulkModerateListingsSchema,
   moderateListingSchema,
@@ -196,6 +198,23 @@ export class VehiclesController {
     @CurrentUser() actor: AuthUser,
   ): Promise<BulkVehicleResult> {
     return this.vehicles.moderateMany(body, actor);
+  }
+
+  @Post('bulk-delete')
+  @RequirePermissions('vehicle:delete')
+  @ApiOperation({
+    summary: 'Delete many vehicles in one action',
+    description:
+      'POST rather than DELETE because it carries a body, and requires confirm: true so a ' +
+      'destructive request cannot be one character away from a harmless one. Each id runs ' +
+      'through the single-vehicle delete, so the live-auction and sales-record guards hold and ' +
+      'a seller still reaches only their own vehicles. Each deletion audits itself.',
+  })
+  removeMany(
+    @Body(zodBody(bulkDeleteVehiclesSchema)) body: BulkDeleteVehiclesInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<BulkVehicleResult> {
+    return this.vehicles.removeMany(body, user);
   }
 
   @Patch(':id')

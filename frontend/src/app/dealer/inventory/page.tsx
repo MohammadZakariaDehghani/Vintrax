@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LayoutGrid, List, Plus, Send, Upload, X } from 'lucide-react';
+import { LayoutGrid, List, Plus, Send, Trash2, Upload, X } from 'lucide-react';
 import type { BulkVehicleResult, ListingStatus, Paginated, VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
@@ -17,6 +17,7 @@ import {
   Spinner,
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { useIsAdmin } from '@/store/auth-store';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { InventoryCard, InventoryRow } from './inventory-items';
 
@@ -32,8 +33,8 @@ const TABS: Array<{ label: string; status?: ListingStatus }> = [
   { label: 'Archived', status: 'ARCHIVED' },
 ];
 
-/** Capped by MAX_PAGE_SIZE on the server, which is 60. */
-const PAGE_SIZES = [10, 25, 50] as const;
+/** Capped by MAX_PAGE_SIZE on the server, which is 100. */
+const PAGE_SIZES = [10, 50, 100] as const;
 
 type View = 'list' | 'grid';
 
@@ -82,8 +83,16 @@ function Inventory() {
     PAGE_SIZES.map(String),
   );
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  const [bulkResult, setBulkResult] = useState<BulkVehicleResult | null>(null);
+  // The verb rides with the result. Reading it off a mutation's `isSuccess`
+  // would keep saying "deleted" after the next submit, because a settled
+  // mutation stays settled.
+  const [bulkResult, setBulkResult] = useState<{
+    verb: string;
+    result: BulkVehicleResult;
+  } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const queryClient = useQueryClient();
+  const isAdmin = useIsAdmin();
 
   const pageSize = Number(pageSizeText);
   const status = TABS[tab]?.status;
@@ -104,14 +113,35 @@ function Inventory() {
   useEffect(() => {
     setSelected(new Set());
     setBulkResult(null);
+    setConfirmingDelete(false);
   }, [tab, page, pageSize]);
 
   const submitMany = useMutation({
     mutationFn: (ids: string[]) =>
       api.patch<BulkVehicleResult>('/vehicles/bulk-status', { ids, status: 'PENDING_REVIEW' }),
     onSuccess: (result) => {
-      setBulkResult(result);
+      setBulkResult({ verb: 'submitted for review', result });
       setSelected(new Set());
+      void queryClient.invalidateQueries({ queryKey: ['my-inventory'] });
+      void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+    },
+  });
+
+  /**
+   * Deleting a selection.
+   *
+   * Offered to administrators only, which is what issue #34 asked for, and the
+   * server enforces the rest: each id goes through the single-vehicle delete, so
+   * a dealer calling this route directly still reaches only their own vehicles
+   * and the live-auction and sales-record guards still refuse.
+   */
+  const deleteMany = useMutation({
+    mutationFn: (ids: string[]) =>
+      api.post<BulkVehicleResult>('/vehicles/bulk-delete', { ids, confirm: true }),
+    onSuccess: (result) => {
+      setBulkResult({ verb: 'deleted', result });
+      setSelected(new Set());
+      setConfirmingDelete(false);
       void queryClient.invalidateQueries({ queryKey: ['my-inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
     },
@@ -255,7 +285,50 @@ function Inventory() {
               <Send className="mr-2 h-4 w-4" aria-hidden />
               Submit for review
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => toggleAll(false)}>
+            {/* Administrators only. A second click is required because this is
+                the one bulk action that cannot be undone, and the count is
+                repeated in the confirmation so it is read rather than clicked
+                past. */}
+            {isAdmin ? (
+              confirmingDelete ? (
+                <>
+                  <span className="text-sm font-medium text-destructive">
+                    Delete {selectedIds.length} {selectedIds.length === 1 ? 'vehicle' : 'vehicles'}{' '}
+                    permanently?
+                  </span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    loading={deleteMany.isPending}
+                    onClick={() => deleteMany.mutate(selectedIds)}
+                  >
+                    Yes, delete
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmingDelete(false)}
+                    disabled={deleteMany.isPending}
+                  >
+                    Keep them
+                  </Button>
+                </>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(true)}>
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                  Delete
+                </Button>
+              )
+            ) : null}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setConfirmingDelete(false);
+                toggleAll(false);
+              }}
+            >
               <X className="mr-2 h-4 w-4" aria-hidden />
               Clear
             </Button>
@@ -269,7 +342,7 @@ function Inventory() {
         </Card>
       ) : null}
 
-      <ErrorAlert error={error ?? submitMany.error} className="mb-5" />
+      <ErrorAlert error={error ?? submitMany.error ?? deleteMany.error} className="mb-5" />
 
       {/* Partial success is the normal outcome of a bulk action, so the result
           is shown per vehicle rather than as "done". */}
@@ -277,12 +350,12 @@ function Inventory() {
         <Card className="mb-5">
           <CardContent className="pt-4">
             <p className="text-sm">
-              <strong>{bulkResult.succeeded}</strong> submitted for review
-              {bulkResult.failed > 0 ? `, ${bulkResult.failed} left unchanged` : ''}.
+              <strong>{bulkResult.result.succeeded}</strong> {bulkResult.verb}
+              {bulkResult.result.failed > 0 ? `, ${bulkResult.result.failed} left unchanged` : ''}.
             </p>
-            {bulkResult.failed > 0 ? (
+            {bulkResult.result.failed > 0 ? (
               <ul className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-                {bulkResult.outcomes
+                {bulkResult.result.outcomes
                   .filter((outcome) => !outcome.ok)
                   .map((outcome) => (
                     <li key={outcome.id}>
