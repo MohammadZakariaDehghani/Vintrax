@@ -10,6 +10,7 @@ import { VehicleGallery } from '@/components/vehicle-gallery';
 import { ContactSellerPanel } from '@/components/contact-seller-panel';
 import { InspectionReport } from '@/components/inspection-report';
 import { VehicleDocuments } from '@/components/vehicle-documents';
+import { DescriptionBody } from '@/components/description-body';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -142,9 +143,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
               <CardTitle>Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">
-                {vehicle.description}
-              </p>
+              <DescriptionBody description={vehicle.description} />
             </CardContent>
           </Card>
 

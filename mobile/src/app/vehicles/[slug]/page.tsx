@@ -13,6 +13,7 @@ import { AppBar } from '@/components/app-bar';
 import { Gallery } from '@/components/gallery';
 import { ErrorState } from '@/components/error-state';
 import { Countdown } from '@/components/countdown';
+import { DescriptionBody } from '@/components/description-body';
 
 export default function VehiclePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
@@ -170,9 +171,7 @@ export default function VehiclePage({ params }: { params: Promise<{ slug: string
 
         <section className="space-y-2">
           <h2 className="text-base font-semibold">Description</h2>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-            {vehicle.description}
-          </p>
+          <DescriptionBody description={vehicle.description} />
         </section>
 
         <section className="space-y-2">
