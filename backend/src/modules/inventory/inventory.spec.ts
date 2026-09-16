@@ -4,7 +4,12 @@ import {
   planInventoryImport,
   type ExistingVehicle,
 } from './inventory-plan';
-import { normaliseInteger, normaliseVin, resolveHeader } from '@vintrax/shared';
+import {
+  MAX_PHOTOS_PER_VEHICLE,
+  normaliseInteger,
+  normaliseVin,
+  resolveHeader,
+} from '@vintrax/shared';
 
 /**
  * The dealer CSV importer.
@@ -509,6 +514,96 @@ describe('planInventoryImport', () => {
       for (const field of CREATE_REQUIRED_FIELDS) {
         expect(draft[field] ?? null).not.toBeNull();
       }
+    });
+
+    describe('photos', () => {
+      const PHOTO_HEADER = `${DMS_HEADER},MainPhotoLastModifiedDate,ExtraPhotos,ExtraphotoLastModifiedDate`;
+      const A = 'https://photos.example.ca/vehicles/6416/a.jpg';
+      const B = 'https://photos.example.ca/vehicles/6416/b.jpg';
+      const C = 'https://photos.example.ca/vehicles/6416/c.jpg';
+
+      const withPhotos = (main: string, stamp: string, extras: string, extraStamps: string) =>
+        `${PHOTO_HEADER}\n${dmsRow({ MainPhoto: main })},${stamp},"${extras}","${extraStamps}"`;
+
+      it('reads the feed\'s photo columns in display order, primary first', () => {
+        const result = plan(
+          withPhotos(A, '09/15/2026 00:22:09', `${B};${C}`, '09/15/2026 00:22:10;09/15/2026 00:22:11'),
+        );
+
+        expect(result.rows[0]!.action).toBe('CREATE');
+        expect(result.rows[0]!.photos?.map((photo) => photo.sourceUrl)).toEqual([A, B, C]);
+        expect(result.rows[0]!.photoCount).toBe(3);
+      });
+
+      it('reads the feed\'s MM/DD/YYYY stamps as dates, not as American-or-European guesses', () => {
+        // 09/15 is unambiguous; 03/04 is not, and new Date() reads it
+        // differently depending on the machine's locale. The stamp decides
+        // whether a photo is downloaded again, so guessing costs bandwidth.
+        const result = plan(withPhotos(A, '03/04/2026 07:08:09', '', ''));
+
+        expect(result.rows[0]!.photos?.[0]?.sourceUpdatedAt).toBe('2026-03-04T07:08:09.000Z');
+      });
+
+      it('refuses a photo address that is not an http(s) URL, and keeps the row', () => {
+        // A bad URL among twenty-four is a listing with one fewer picture, not
+        // a listing that failed to import.
+        const result = plan(withPhotos('file:///etc/passwd', '', `${B};javascript:alert(1)`, ''));
+
+        expect(result.rows[0]!.action).toBe('CREATE');
+        expect(result.rows[0]!.photos?.map((photo) => photo.sourceUrl)).toEqual([B]);
+        expect(result.rows[0]!.warnings.join(' ')).toContain('http and https');
+      });
+
+      it('lists the same photo once', () => {
+        const result = plan(withPhotos(A, '', `${A};${B}`, ''));
+
+        expect(result.rows[0]!.photos?.map((photo) => photo.sourceUrl)).toEqual([A, B]);
+      });
+
+      it('caps the photos per vehicle and says it did', () => {
+        const many = Array.from({ length: 40 }, (_, i) => `https://photos.example.ca/${i}.jpg`);
+        const result = plan(withPhotos(A, '', many.join(';'), ''));
+
+        expect(result.rows[0]!.photos).toHaveLength(MAX_PHOTOS_PER_VEHICLE);
+        expect(result.rows[0]!.warnings.join(' ')).toContain(String(MAX_PHOTOS_PER_VEHICLE));
+      });
+
+      it('warns when the stamp list does not line up with the URL list', () => {
+        const result = plan(withPhotos(A, '', `${B};${C}`, '09/15/2026 00:22:10'));
+
+        expect(result.rows[0]!.warnings.join(' ')).toContain('2 URLs');
+        // Still imported: a missing stamp costs a re-download, not a photo.
+        expect(result.rows[0]!.photos?.map((photo) => photo.sourceUrl)).toEqual([A, B, C]);
+        expect(result.rows[0]!.photos?.[2]?.sourceUpdatedAt).toBeNull();
+      });
+
+      it('carries photos on an UNCHANGED row', () => {
+        // A dealer who re-photographs a car changes nothing else about it. If
+        // photos only synced on rows whose fields moved, the new pictures would
+        // never arrive.
+        const first = plan(withPhotos(A, '', '', ''));
+        const stored = existing({
+          id: 'veh-9',
+          vin: '5XYZUDLB0FG301421',
+          stockNumber: '301421',
+          ...(first.rows[0]!.draft as Partial<ExistingVehicle>),
+          status: 'DRAFT',
+        });
+
+        const again = plan(withPhotos(A, '', '', ''), { existing: [stored] });
+
+        expect(again.rows[0]!.action).toBe('UNCHANGED');
+        expect(again.rows[0]!.photos?.map((photo) => photo.sourceUrl)).toEqual([A]);
+      });
+
+      it('leaves photos alone on an ERROR row', () => {
+        const result = plan(
+          `${PHOTO_HEADER}\n${dmsRow({ MainPhoto: A, Body: '' })},,"",""`,
+        );
+
+        expect(result.rows[0]!.action).toBe('ERROR');
+        expect(result.rows[0]!.photos ?? []).toEqual([]);
+      });
     });
 
     it('still fails a row whose body type the file never states', () => {

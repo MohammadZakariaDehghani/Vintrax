@@ -73,6 +73,19 @@ function text(value: unknown): string | null {
 }
 
 /**
+ * Whether to download the photos the file points at. Defaults to yes.
+ *
+ * Opt-*out* rather than opt-in: a dealer who put photo URLs in the file meant
+ * for them to be used. The switch exists for the reprice case, where the file
+ * is three columns and re-checking a thousand photo addresses is pure delay.
+ */
+function readPhotoChoice(body: Record<string, unknown> | undefined): boolean {
+  const value = text(body?.['importPhotos']);
+  if (value === null) return true;
+  return !['false', '0', 'no', 'off'].includes(value.toLowerCase());
+}
+
+/**
  * Bulk inventory, as CSV.
  *
  * Under `vehicle:write`, which SELLER, DEALER, ADMIN and SUPER_ADMIN already
@@ -138,7 +151,7 @@ export class InventoryController {
   @ApiOperation({
     summary: 'Apply a previewed CSV',
     description:
-      'Requires the fileHash returned by validate, so the file applied is the file previewed. Valid rows are written and invalid rows are reported and skipped.',
+      'Requires the fileHash returned by validate, so the file applied is the file previewed. Valid rows are written and invalid rows are reported and skipped. Photos named by the file are downloaded after the response, and their progress is on the import record.',
   })
   @UseInterceptors(
     FileInterceptor('file', { storage: undefined, limits: { fileSize: MAX_INVENTORY_CSV_BYTES } }),
@@ -156,7 +169,7 @@ export class InventoryController {
     // The same location the preview was built with. The client sends both, and
     // sending a different one only re-plans the file honestly — the counts in
     // the result are the counts that were applied, never the preview's.
-    return this.inventory.confirm(file, fileHash, user, readLocation(body));
+    return this.inventory.confirm(file, fileHash, user, readLocation(body), readPhotoChoice(body));
   }
 
   @Get('imports')

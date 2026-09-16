@@ -7,6 +7,7 @@ import {
   INVENTORY_CSV_VERSION_HEADER,
   LISTING_STATUSES,
   MAX_INVENTORY_CSV_ROWS,
+  MAX_PHOTOS_PER_VEHICLE,
   PROVINCES,
   SALE_CHANNELS,
   TRANSMISSIONS,
@@ -18,8 +19,10 @@ import {
   normaliseFeatures,
   normaliseHeader,
   normaliseInteger,
+  normalisePhotoTimestamp,
   normaliseText,
   normaliseVin,
+  splitPhotoList,
   resolveHeader,
   type BodyType,
   type Drivetrain,
@@ -34,6 +37,7 @@ import {
   type VehicleCondition,
 } from '@vintrax/shared';
 import { CsvParseError, isBlankRow, parseCsv } from './csv';
+import { normalisePhotoUrl } from './remote-image';
 
 /**
  * Turning an uploaded file into a plan.
@@ -116,11 +120,33 @@ export type VehicleDraft = Partial<{
   saleChannel: SaleChannel;
 }>;
 
+/**
+ * One photo the file asked for, before anything has been downloaded.
+ *
+ * The pair is the photo's identity. Matching on the URL alone would never
+ * re-fetch a photo the dealer replaced at the same address; matching on the
+ * stamp alone would confuse two photos updated in the same second.
+ */
+export interface PhotoIntent {
+  sourceUrl: string;
+  /** ISO, or null when the feed gave no usable stamp for this position. */
+  sourceUpdatedAt: string | null;
+}
+
 export interface PlannedRow extends InventoryRowResult {
   /** Present for CREATE and UPDATE. The values to write. */
   draft?: VehicleDraft;
   /** Present for UPDATE. The vehicle to write them to. */
   targetId?: string;
+  /**
+   * Photos the row named, in display order, primary first.
+   *
+   * Carried on every row that resolved to a vehicle — including UNCHANGED —
+   * because a feed that re-photographs a car changes nothing else about it, and
+   * a photo sync that only ran for rows whose price moved would never pick that
+   * up.
+   */
+  photos?: PhotoIntent[];
 }
 
 export interface PlanInput {
@@ -369,12 +395,17 @@ export function planInventoryImport(input: PlanInput): PlanOutput {
         errors: [],
         warnings,
         draft: filled,
+        photos: entry.photos,
+        photoCount: entry.photos.length,
       };
     }
 
     const changes = diff(draft, match);
     return {
       row: entry.rowNumber,
+      // UNCHANGED describes the vehicle's own fields. Its photos are still
+      // reconciled — see `PlannedRow.photos` — so a re-photographed car whose
+      // price did not move is not left showing last month's pictures.
       action: changes.length === 0 ? 'UNCHANGED' : 'UPDATE',
       vin: draft.vin ?? match.vin,
       stockNumber: draft.stockNumber ?? match.stockNumber,
@@ -384,6 +415,8 @@ export function planInventoryImport(input: PlanInput): PlanOutput {
       warnings,
       draft,
       targetId: match.id,
+      photos: entry.photos,
+      photoCount: entry.photos.length,
     };
   });
 
@@ -418,6 +451,7 @@ interface ReadRowInput {
 interface ReadRow {
   rowNumber: number;
   draft: VehicleDraft;
+  photos: PhotoIntent[];
   errors: string[];
   warnings: string[];
   blank: boolean;
@@ -429,7 +463,7 @@ function readRow({ cells, mapped, rowNumber, defaults, now }: ReadRowInput): Rea
   const warnings: string[] = [];
 
   if (isBlankRow(cells)) {
-    return { rowNumber, draft, errors: [], warnings: [], blank: true };
+    return { rowNumber, draft, photos: [], errors: [], warnings: [], blank: true };
   }
 
   const raw = (column: string): string | undefined => {
@@ -718,7 +752,69 @@ function readRow({ cells, mapped, rowNumber, defaults, now }: ReadRowInput): Rea
   if (draft.city === undefined && defaults.city) draft.city = defaults.city;
   if (draft.province === undefined && defaults.province) draft.province = defaults.province;
 
-  return { rowNumber, draft, errors, warnings, blank: false };
+  return { rowNumber, draft, photos: readPhotos(raw, warnings), errors, warnings, blank: false };
+}
+
+/**
+ * The row's photos, in display order, primary first.
+ *
+ * A bad photo never fails a row. A listing with the wrong number of pictures is
+ * a listing; a listing that did not import because one of twenty-four URLs had
+ * a typo is a support ticket. Everything dropped here is said out loud in the
+ * preview instead.
+ *
+ * Nothing is downloaded at this point — this only decides what to ask for. The
+ * fetching, and the judgement about what is safe to fetch, happen later and
+ * elsewhere.
+ */
+function readPhotos(
+  raw: (column: string) => string | undefined,
+  warnings: string[],
+): PhotoIntent[] {
+  const photos: PhotoIntent[] = [];
+  let rejected = 0;
+
+  const add = (candidate: string | undefined, stamp: string | undefined) => {
+    if (candidate === undefined || candidate.trim().length === 0) return;
+    const url = normalisePhotoUrl(candidate);
+    if (!url) {
+      rejected += 1;
+      return;
+    }
+    // The same photo listed twice is one photo. Feeds repeat the main photo at
+    // the head of the extras often enough to be worth handling.
+    if (photos.some((photo) => photo.sourceUrl === url)) return;
+    photos.push({ sourceUrl: url, sourceUpdatedAt: normalisePhotoTimestamp(stamp) });
+  };
+
+  add(raw('main_photo'), raw('main_photo_updated_at'));
+
+  const extras = splitPhotoList(raw('extra_photos'));
+  const stamps = splitPhotoList(raw('extra_photos_updated_at'));
+  // The two lists are positional and a feed can write fewer stamps than URLs.
+  // A missing stamp is null, which costs a re-download when the URL is reused
+  // for different bytes — the safe direction to be wrong in.
+  if (stamps.length > 0 && stamps.length !== extras.length) {
+    warnings.push(
+      `extra_photos has ${extras.length} URLs but extra_photos_updated_at has ${stamps.length} dates. Photos without a date are downloaded again on every import.`,
+    );
+  }
+  extras.forEach((extra, index) => add(extra, stamps[index]));
+
+  if (rejected > 0) {
+    warnings.push(
+      `${rejected} photo ${rejected === 1 ? 'address was' : 'addresses were'} skipped: only http and https URLs on the standard ports are downloaded.`,
+    );
+  }
+
+  if (photos.length > MAX_PHOTOS_PER_VEHICLE) {
+    warnings.push(
+      `The row lists ${photos.length} photos. The first ${MAX_PHOTOS_PER_VEHICLE} are imported and the rest ignored.`,
+    );
+    return photos.slice(0, MAX_PHOTOS_PER_VEHICLE);
+  }
+
+  return photos;
 }
 
 /**
