@@ -16,7 +16,7 @@ administrators.
 | --------------------- | --------- | -------------------------------------------------------------- |
 | `/`                   | Server    | Hero search, closing-soon auctions, recent inventory           |
 | `/vehicles`           | Client    | Search: filter rail, dense result rows, sort, list/grid toggle |
-| `/vehicles/[slug]`    | Server    | Vehicle detail, gallery, inspection report, contact            |
+| `/vehicles/[slug]`    | Server    | Vehicle detail, gallery, history timeline, inspection, contact |
 | `/auctions`           | Client    | Auction browse with live countdowns                            |
 | `/auctions/[id]`      | Client    | Live auction room with real-time bidding                       |
 | `/dealers/[slug]`     | Server    | Dealership profile and its published inventory                 |
@@ -107,7 +107,10 @@ route guards, bid forms — so a store avoids threading a provider value through
 all of them.
 
 Local component state is reserved for genuinely ephemeral things: text in a
-search box before submission, which gallery thumbnail is selected.
+search box before submission, which gallery thumbnail is selected. The dealer
+inventory's grid/list choice and page size are the exception that is persisted:
+`localStorage`, guarded on every access, because it is a per-viewer convenience
+the server never reads back and losing it costs nothing.
 
 ## The API client
 

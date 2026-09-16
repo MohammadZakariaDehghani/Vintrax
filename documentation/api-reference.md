@@ -90,6 +90,40 @@ Demoting the last active `SUPER_ADMIN` is refused, and promoting an account
 into `DEALER` is refused when it has no dealership — create a dealer account
 instead, so the dealership is created with it.
 
+## Bulk vehicle actions
+
+| Method  | Path                      | Permission                       | Purpose                                |
+| ------- | ------------------------- | -------------------------------- | -------------------------------------- |
+| `PATCH` | `/vehicles/bulk-status`   | `vehicle:write`                  | Move many of the caller's own listings |
+| `PATCH` | `/vehicles/bulk-moderate` | `vehicle:publish`, `user:manage` | Approve or reject many awaiting review |
+| `PUT`   | `/vehicles/:id/history`   | `vehicle:write`                  | Replace a vehicle's history timeline   |
+
+Each id in a bulk request is applied through the same service method the
+single-vehicle endpoint uses, one at a time. That is the design rather than a
+performance compromise: the transition table, the live-auction guard, the
+paid-order guard, ownership and the moderation notification are all enforced
+because the path that enforces them is the path that runs. An `updateMany` here
+would be a second implementation of those rules.
+
+Partial success is the normal outcome. Every id returns `{ id, ok, title, error }`,
+one refusal does not undo the rest, and only messages from exceptions the
+application raised deliberately are relayed. Up to `MAX_BULK_VEHICLE_IDS` (200)
+per request; duplicate ids collapse. A seller still cannot reach `ACTIVE` —
+`bulk-status` accepts only the seller-settable statuses, exactly as the single
+endpoint does.
+
+Neither bulk route carries `@Audit`: that decorator takes its entity id from
+`request.params.id`, which a bulk route has none of. The service writes one
+audit entry per vehicle actually changed.
+
+**History.** The timeline is replaced as a whole set, matching images and
+documents. Entries are transcribed by the seller from a report they hold —
+Vintrax has no CARFAX integration and retrieves nothing — so the timeline is
+public and labelled as the seller's account, while the uploaded report stays
+restricted with the rest of the paperwork. `VehicleDocument.issuedOn` carries the
+date printed on the report; that date is public even though the report is not,
+because it is what lets a buyer judge how current the timeline is.
+
 ## Dealer inventory (CSV)
 
 Bulk inventory for a seller's own listings. Under `vehicle:write` — the same
@@ -136,6 +170,27 @@ When none of the three supplies a value, rows that would create a vehicle fail
 Nothing is placed in a guessed location. An unrecognised province code is a
 `400` rather than being dropped, since dropping it would silently fall through
 to the profile.
+
+**Photos.** `main_photo`, `extra_photos` and their two `…_updated_at` columns
+are read. The addresses are fetched server-side and the bytes re-hosted here,
+per D-025 — a listing rendering from a third-party photo host leaks the buyer's
+address to it and goes blank when the dealer changes DMS. Fetching happens
+_after_ the import responds, because a rooftop's feed is a four-figure number of
+downloads from someone else's server; progress is on the import record. Pass
+`importPhotos=false` on confirm to skip it for a price-only file.
+
+Reconciliation is by source URL plus source stamp, so re-importing the same file
+downloads nothing. Photos the dealer uploaded through the web application have
+no source URL, are never removed by an import, and sit after the imported set.
+The export emits source addresses rather than storage URLs, so export, edit,
+re-import also costs nothing.
+
+Every fetch goes through the SSRF gates in `remote-image.ts`: http and https
+only on standard ports, credentials stripped, every resolved IP checked against
+the private, loopback, link-local, CGNAT and reserved ranges with IPv4-mapped
+IPv6 unwrapped first, the socket pinned to an address that passed, redirects
+followed by hand and re-checked at each hop, the body capped while streaming,
+and the content type taken from the file's magic number rather than the header.
 
 **Partial import.** Valid rows are written and invalid rows are skipped and
 returned with their errors. Nothing is skipped silently, and the counts are
