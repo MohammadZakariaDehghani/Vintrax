@@ -96,6 +96,7 @@ instead, so the dealership is created with it.
 | ------- | ------------------------- | -------------------------------- | -------------------------------------- |
 | `PATCH` | `/vehicles/bulk-status`   | `vehicle:write`                  | Move many of the caller's own listings |
 | `PATCH` | `/vehicles/bulk-moderate` | `vehicle:publish`, `user:manage` | Approve or reject many awaiting review |
+| `POST`  | `/vehicles/bulk-delete`   | `vehicle:delete`                 | Delete many vehicles                   |
 | `PUT`   | `/vehicles/:id/history`   | `vehicle:write`                  | Replace a vehicle's history timeline   |
 
 Each id in a bulk request is applied through the same service method the
@@ -112,9 +113,25 @@ per request; duplicate ids collapse. A seller still cannot reach `ACTIVE` —
 `bulk-status` accepts only the seller-settable statuses, exactly as the single
 endpoint does.
 
-Neither bulk route carries `@Audit`: that decorator takes its entity id from
-`request.params.id`, which a bulk route has none of. The service writes one
-audit entry per vehicle actually changed.
+No bulk route carries `@Audit`: that decorator takes its entity id from
+`request.params.id`, which a bulk route has none of, and would file a single
+entry with a null id. For status and moderation the service writes one entry per
+vehicle actually changed; for delete the single-vehicle path already does.
+
+**Delete** is `POST` because it carries a body, and requires `confirm: true` so a
+destructive request is not one character from a harmless one. Each id runs
+through the single-vehicle delete, so a vehicle under a live auction or holding
+a sales record is still refused, and a seller still reaches only their own —
+the route grants nobody anything they did not have one vehicle at a time. Each
+deletion audits itself, so unlike the other two bulk routes the service writes
+no extra entry.
+
+**CARFAX.** A vehicle may carry an optional `carfaxUrl`. It is validated against
+the real CARFAX hosts — https, no credentials, hostname matching `carfax.ca` or
+`carfax.com` on a dot boundary — because the badge it sits behind carries a
+third party's name, and an unchecked link would let a seller put that name on a
+link to anywhere. It appears on the summary as well as the detail, since the
+search cards draw the badge.
 
 **History.** The timeline is replaced as a whole set, matching images and
 documents. Entries are transcribed by the seller from a report they hold —

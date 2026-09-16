@@ -585,3 +585,84 @@ export const VEHICLE_HISTORY_EVENT_LABELS: Record<VehicleHistoryEventKind, strin
  * the seller typed next to it.
  */
 export const ADVERSE_HISTORY_EVENT_KINDS: readonly VehicleHistoryEventKind[] = ['CLAIM', 'RECALL'];
+
+/**
+ * The brand on a vehicle's title.
+ *
+ * `SALVAGE` is here although issue #34 asked only for clean and rebuilt. A
+ * salvage title is a real third state and a materially different car — it has
+ * been written off and not yet rebuilt or re-certified — and a two-value list
+ * would make a seller holding one pick whichever of the two lied less. A brand
+ * nobody can state accurately is worse than one more option.
+ *
+ * Nullable on the vehicle rather than defaulted: every listing that existed
+ * before this field did has no stated brand, and defaulting them to CLEAN would
+ * be the application asserting something about thousands of cars that nobody
+ * checked.
+ */
+export const TITLE_STATUSES = ['CLEAN', 'REBUILT', 'SALVAGE'] as const;
+export type TitleStatus = (typeof TITLE_STATUSES)[number];
+
+export const TITLE_STATUS_LABELS: Record<TitleStatus, string> = {
+  CLEAN: 'Clean',
+  REBUILT: 'Rebuilt',
+  SALVAGE: 'Salvage',
+};
+
+/** Brands a buyer should see flagged rather than stated flatly. */
+export const ADVERSE_TITLE_STATUSES: readonly TitleStatus[] = ['REBUILT', 'SALVAGE'];
+
+/**
+ * Hosts a CARFAX link may point at.
+ *
+ * The badge this link sits behind is a trust signal — it carries a third
+ * party's name and tells a buyer the report is genuine. An unchecked URL would
+ * let a seller put that name on a link to anywhere, which is a phishing page
+ * wearing a brand the buyer already trusts. So the host is checked rather than
+ * the text merely being a URL.
+ *
+ * Subdomains are allowed (`vhr.carfax.ca` is where a shared report actually
+ * lives); anything else is refused, including lookalikes such as
+ * `carfax.ca.example.com`, which is why the check is a suffix match on a dot
+ * boundary rather than `includes`.
+ */
+export const CARFAX_HOSTS = ['carfax.ca', 'carfax.com'] as const;
+
+/**
+ * The sliver of the `URL` constructor this check needs.
+ *
+ * Reached through `globalThis` rather than used directly because this package
+ * compiles with neither the DOM nor Node type libraries — it is shared by a
+ * browser bundle and a server, and pulling either one in would let environment
+ * globals leak into code that runs in both. `URL` is a runtime global in both,
+ * so the value is always there; only its type is missing. Declaring it globally
+ * here would instead collide with the real declaration in every consumer.
+ *
+ * Parsing rather than a regular expression is the point: URL parsing is where
+ * host checks go wrong, and a hand-rolled one is how `carfax.ca.example.com`
+ * gets through.
+ */
+interface ParsedUrl {
+  protocol: string;
+  hostname: string;
+  username: string;
+  password: string;
+}
+
+const UrlConstructor = (globalThis as unknown as { URL: new (input: string) => ParsedUrl }).URL;
+
+export function isCarfaxUrl(value: string): boolean {
+  let host: string;
+  try {
+    const parsed = new UrlConstructor(value);
+    // https only. A report link served over http can be rewritten in transit,
+    // and every real CARFAX address is https.
+    if (parsed.protocol !== 'https:') return false;
+    if (parsed.username || parsed.password) return false;
+    host = parsed.hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+
+  return CARFAX_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+}

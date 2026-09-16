@@ -10,6 +10,7 @@ import {
   MAX_PHOTOS_PER_VEHICLE,
   PROVINCES,
   SALE_CHANNELS,
+  TITLE_STATUSES,
   TRANSMISSIONS,
   VEHICLE_CONDITIONS,
   inventoryYearRange,
@@ -33,6 +34,7 @@ import {
   type ListingStatus,
   type Province,
   type SaleChannel,
+  type TitleStatus,
   type Transmission,
   type VehicleCondition,
 } from '@vintrax/shared';
@@ -79,6 +81,7 @@ export interface ExistingVehicle {
   city: string;
   province: Province;
   postalCode: string | null;
+  titleStatus: TitleStatus | null;
   title: string;
   description: string;
   features: string[];
@@ -113,6 +116,7 @@ export type VehicleDraft = Partial<{
   city: string;
   province: Province;
   postalCode: string | null;
+  titleStatus: TitleStatus | null;
   title: string;
   description: string;
   features: string[];
@@ -228,6 +232,7 @@ const FIELD_BY_COLUMN: Record<string, keyof VehicleDraft> = {
   description: 'description',
   features: 'features',
   listing_status: 'status',
+  title_status: 'titleStatus',
   sale_channel: 'saleChannel',
 };
 
@@ -623,6 +628,10 @@ function readRow({ cells, mapped, rowNumber, defaults, now }: ReadRowInput): Rea
   readEnum('fuel_type', 'fuelType', FUEL_TYPES, ENUM_SYNONYMS.fuelType);
   readEnum('drivetrain', 'drivetrain', DRIVETRAINS, ENUM_SYNONYMS.drivetrain, 'OTHER');
   readEnum('province', 'province', PROVINCES, {});
+  // No `whenBlank`. An absent or empty title brand stays absent: defaulting it
+  // to CLEAN would have the importer make a claim about the vehicle, which is
+  // the one thing it is not allowed to do.
+  readEnum('title_status', 'titleStatus', TITLE_STATUSES, {});
   readEnum('sale_channel', 'saleChannel', SALE_CHANNELS, {});
   readListingStatus();
 

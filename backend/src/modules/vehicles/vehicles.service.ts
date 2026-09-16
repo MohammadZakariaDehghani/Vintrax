@@ -9,6 +9,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  BulkDeleteVehiclesInput,
   BulkListingStatusInput,
   BulkModerateListingsInput,
   BulkVehicleOutcome,
@@ -184,6 +185,7 @@ export class VehiclesService {
             url: document.url,
             filename: document.filename,
             sizeBytes: document.sizeBytes ?? null,
+            issuedOn: asStoredDate(document.issuedOn),
           })),
         },
       },
@@ -474,14 +476,7 @@ export class VehiclesService {
    * own answer back.
    */
   async setStatusMany(input: BulkListingStatusInput, user: AuthUser): Promise<BulkVehicleResult> {
-    const titles = new Map(
-      (
-        await this.prisma.vehicle.findMany({
-          where: { id: { in: input.ids } },
-          select: { id: true, title: true },
-        })
-      ).map((vehicle) => [vehicle.id, vehicle.title]),
-    );
+    const titles = await this.titlesFor(input.ids);
 
     const outcomes: BulkVehicleOutcome[] = [];
     for (const id of input.ids) {
@@ -501,19 +496,49 @@ export class VehiclesService {
     return summariseBulk(outcomes);
   }
 
+  /**
+   * Deleting many vehicles at once.
+   *
+   * Every id goes through `remove`, which is what keeps the two guards that
+   * matter: a vehicle under a live auction cannot be deleted out from under its
+   * bidders, and one with a sales record cannot be deleted at all — it is
+   * archived instead, because a deleted vehicle takes a buyer's order history
+   * with it. A bulk `deleteMany` would skip both, on the one action that cannot
+   * be undone.
+   *
+   * Ownership comes from `remove` too: a seller reaches only their own
+   * vehicles, an administrator reaches any. So this endpoint grants nobody
+   * anything they did not already have one vehicle at a time.
+   */
+  async removeMany(input: BulkDeleteVehiclesInput, user: AuthUser): Promise<BulkVehicleResult> {
+    const titles = await this.titlesFor(input.ids);
+    const outcomes: BulkVehicleOutcome[] = [];
+
+    for (const id of input.ids) {
+      const title = titles.get(id) ?? null;
+      try {
+        // `remove` writes its own audit entry, unlike the status and moderation
+        // paths where the controller decorator did it. No second entry here.
+        await this.remove(id, user);
+        outcomes.push({ id, ok: true, title, error: null });
+      } catch (error) {
+        outcomes.push({ id, ok: false, title, error: reasonFor(error) });
+      }
+    }
+
+    this.logger.warn(
+      `${user.email} deleted ${outcomes.filter((outcome) => outcome.ok).length} of ${input.ids.length} vehicles in one action`,
+    );
+
+    return summariseBulk(outcomes);
+  }
+
   /** The same moderation decision, applied to many vehicles. See `setStatusMany`. */
   async moderateMany(
     input: BulkModerateListingsInput,
     actor: AuthUser,
   ): Promise<BulkVehicleResult> {
-    const titles = new Map(
-      (
-        await this.prisma.vehicle.findMany({
-          where: { id: { in: input.ids } },
-          select: { id: true, title: true },
-        })
-      ).map((vehicle) => [vehicle.id, vehicle.title]),
-    );
+    const titles = await this.titlesFor(input.ids);
 
     const outcomes: BulkVehicleOutcome[] = [];
     for (const id of input.ids) {
@@ -536,6 +561,20 @@ export class VehiclesService {
     }
 
     return summariseBulk(outcomes);
+  }
+
+  /**
+   * Titles for a bulk action's ids, so an outcome can name the vehicle.
+   *
+   * Read before the work starts, because a deletion removes the row that would
+   * have answered the question afterwards.
+   */
+  private async titlesFor(ids: readonly string[]): Promise<Map<string, string>> {
+    const rows = await this.prisma.vehicle.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, title: true },
+    });
+    return new Map(rows.map((vehicle) => [vehicle.id, vehicle.title]));
   }
 
   /**

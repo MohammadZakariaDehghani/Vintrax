@@ -453,6 +453,16 @@ model Vehicle {
   city       String
   postalCode String?
 
+  /// The brand on the vehicle's title. Nullable, because every listing created
+  /// before this field existed has no stated brand and defaulting them to CLEAN
+  /// would assert something about cars nobody checked.
+  titleStatus TitleStatus?
+
+  /// The seller's link to this vehicle's CARFAX report. Validated against the
+  /// real CARFAX hosts before it is stored — the badge it sits behind carries a
+  /// third party's name, so it must not be able to point anywhere else.
+  carfaxUrl String?
+
   status      ListingStatus @default(DRAFT)
   saleChannel SaleChannel   @default(FIXED_PRICE)
 
@@ -627,6 +637,12 @@ model VehicleHistoryEvent {
   createdAt DateTime @default(now())
 
   @@index([vehicleId, position])
+}
+
+enum TitleStatus {
+  CLEAN
+  REBUILT
+  SALVAGE
 }
 
 enum VehicleHistoryEventKind {

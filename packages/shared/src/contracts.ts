@@ -26,6 +26,7 @@ import type {
   VehicleCondition,
   VehicleDocumentType,
   VehicleHistoryEventKind,
+  TitleStatus,
 } from './domain';
 
 /** Shape returned by every paginated collection endpoint. */
@@ -178,6 +179,14 @@ export interface VehicleSummary {
   isFavourited: boolean;
   hasInspection: boolean;
   inspectionGrade: ConditionGrade | null;
+  /**
+   * The seller's link to the vehicle's CARFAX report, where they gave one.
+   *
+   * On the summary as well as the detail because the search results carry the
+   * badge, and a second request per card to find out whether to draw it would
+   * be absurd.
+   */
+  carfaxUrl: string | null;
   /** Present when the vehicle is currently in an auction. */
   activeAuction: AuctionSummary | null;
   publishedAt: string | null;
@@ -186,7 +195,18 @@ export interface VehicleSummary {
 
 export interface VehicleDetail extends VehicleSummary {
   description: string;
+  /**
+   * The full VIN, shown in the specifications.
+   *
+   * Previously masked to its last six characters. Issue #34 reversed that at
+   * the owner's instruction: a buyer running their own history check needs the
+   * whole number, and every other Canadian marketplace prints it.
+   */
   vin: string | null;
+  /** The seller's own stock number, for quoting on the phone or in email. */
+  stockNumber: string | null;
+  /** The brand on the title. Null where the seller has not stated one. */
+  titleStatus: TitleStatus | null;
   engine: string | null;
   engineSizeL: number | null;
   cylinders: number | null;

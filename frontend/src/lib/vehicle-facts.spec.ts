@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { VehicleDetail, VehicleHistoryEvent } from '@vintrax/shared';
-import { maskVin, vehicleFacts, vehicleSubtitle } from './vehicle-facts';
+import { vehicleFacts, vehicleSubtitle } from './vehicle-facts';
 
 /**
  * The figures printed in large type at the top of a listing.
@@ -84,30 +84,16 @@ describe('vehicleFacts', () => {
   });
 });
 
-describe('maskVin', () => {
-  it('withholds the serial, which is the part worth stealing', () => {
-    // The last six identify the individual car. The rest is model, year, plant
-    // and engine, which is what a buyer needs to check the listing is honest.
-    expect(maskVin('JM3KFBDM4N0123456')).toBe('JM3KFBDM4N0••••••');
-  });
-
-  it('gives away nothing for a VIN too short to split', () => {
-    expect(maskVin('ABC123')).toBe('••••••');
-  });
-
-  it('has nothing to mask when there is no VIN', () => {
-    expect(maskVin(null)).toBeNull();
-  });
-});
-
 describe('vehicleSubtitle', () => {
-  it('reads as one line and masks the VIN it carries', () => {
+  it('reads as one line and carries the whole VIN', () => {
+    // Masked for one release; issue #34 reversed it. A buyer running their own
+    // history check needs the whole number.
     const line = vehicleSubtitle(vehicle());
 
     expect(line).toContain('48,900 km');
     expect(line).toContain('Soul Red Crystal');
-    expect(line).toContain('VIN JM3KFBDM4N0••••••');
-    expect(line).not.toContain('123456');
+    expect(line).toContain('VIN JM3KFBDM4N0123456');
+    expect(line).not.toContain('•');
   });
 
   it('leaves out what the listing does not say', () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { VehicleImage } from '@vintrax/shared';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +31,11 @@ export function VehicleGallery({ images, title }: { images: VehicleImage[]; titl
 
   const index = Math.min(active, images.length - 1);
   const current = images[index]!;
+
+  // Wrapping rather than stopping at the ends. A gallery of two dozen imported
+  // photos is browsed in a loop, and a next button that goes dead on the last
+  // one reads as broken rather than as a boundary.
+  const step = (by: number) => setActive((index + by + images.length) % images.length);
   // The two beside the hero are the next two, so they change with it rather
   // than sitting on the first three for the whole visit.
   const beside = [images[(index + 1) % images.length], images[(index + 2) % images.length]].filter(
@@ -40,7 +46,22 @@ export function VehicleGallery({ images, title }: { images: VehicleImage[]; titl
   return (
     <div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="relative overflow-hidden rounded-lg border border-border bg-muted">
+        <div
+          className="relative overflow-hidden rounded-lg border border-border bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          role="group"
+          aria-label={`${title} photographs`}
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft') {
+              event.preventDefault();
+              step(-1);
+            }
+            if (event.key === 'ArrowRight') {
+              event.preventDefault();
+              step(1);
+            }
+          }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={current.url}
@@ -50,6 +71,30 @@ export function VehicleGallery({ images, title }: { images: VehicleImage[]; titl
           <p className="absolute bottom-3 left-3 rounded-md bg-background/85 px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
             Photo {index + 1} / {images.length}
           </p>
+
+          {/* On the photo itself, per issue #34. Arrow keys work too, because
+              the frame is focusable — someone looking through two dozen photos
+              should not have to aim at a button each time. */}
+          {images.length > 1 ? (
+            <>
+              <button
+                type="button"
+                aria-label="Previous photo"
+                onClick={() => step(-1)}
+                className="absolute left-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-background/85 text-foreground shadow-sm transition-colors hover:bg-background focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <ChevronLeft className="h-5 w-5" aria-hidden />
+              </button>
+              <button
+                type="button"
+                aria-label="Next photo"
+                onClick={() => step(1)}
+                className="absolute right-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-background/85 text-foreground shadow-sm transition-colors hover:bg-background focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <ChevronRight className="h-5 w-5" aria-hidden />
+              </button>
+            </>
+          ) : null}
         </div>
 
         {images.length > 1 ? (

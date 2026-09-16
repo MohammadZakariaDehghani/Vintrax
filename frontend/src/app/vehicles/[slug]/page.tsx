@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { AlertTriangle, ChevronRight, MapPin, ShieldCheck } from 'lucide-react';
 import type { VehicleDetail } from '@vintrax/shared';
+import { ADVERSE_TITLE_STATUSES, TITLE_STATUS_LABELS } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { formatDate, formatEnum, formatKm, formatLocation, formatPrice } from '@/lib/utils';
 import { vehicleFacts, vehicleSubtitle } from '@/lib/vehicle-facts';
@@ -13,6 +14,7 @@ import { InspectionReport } from '@/components/inspection-report';
 import { VehicleDocuments } from '@/components/vehicle-documents';
 import { DescriptionBody } from '@/components/description-body';
 import { VehicleHistory } from '@/components/vehicle-history';
+import { CarfaxBadge } from '@/components/carfax-badge';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -62,6 +64,12 @@ export default async function VehicleDetailPage({ params }: PageProps) {
     ...(vehicle.interiorColour
       ? ([['Interior', vehicle.interiorColour]] as Array<[string, string]>)
       : []),
+    // The three issue #34 asked for, at the end of the table where someone
+    // checking paperwork looks. "Not stated" rather than an omitted row for the
+    // title brand: a buyer should see that the question was asked.
+    ['Title', vehicle.titleStatus ? TITLE_STATUS_LABELS[vehicle.titleStatus] : 'Not stated'],
+    ...(vehicle.stockNumber ? ([['Stock #', vehicle.stockNumber]] as Array<[string, string]>) : []),
+    ...(vehicle.vin ? ([['VIN', vehicle.vin]] as Array<[string, string]>) : []),
   ];
 
   return (
@@ -102,11 +110,19 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                     Inspected
                   </Badge>
                 ) : null}
+                {/* A branded title changes what the car is worth and is not
+                    something to leave to the specifications table halfway down
+                    the page. Driven by the enum, not by any text a seller
+                    typed. */}
+                {vehicle.titleStatus && ADVERSE_TITLE_STATUSES.includes(vehicle.titleStatus) ? (
+                  <Badge variant="warning">{TITLE_STATUS_LABELS[vehicle.titleStatus]} title</Badge>
+                ) : null}
                 {vehicle.status !== 'ACTIVE' ? (
                   <Badge variant={vehicle.status === 'SOLD' ? 'default' : 'warning'}>
                     {formatEnum(vehicle.status)}
                   </Badge>
                 ) : null}
+                {vehicle.carfaxUrl ? <CarfaxBadge url={vehicle.carfaxUrl} /> : null}
               </div>
             </div>
 
@@ -151,6 +167,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
           <VehicleHistory
             events={vehicle.historyEvents}
             reportIssuedOn={vehicle.historyReportIssuedOn}
+            carfaxUrl={vehicle.carfaxUrl}
           />
 
           {vehicle.inspection ? <InspectionReport vehicleId={vehicle.id} /> : null}

@@ -6,6 +6,7 @@ import {
 } from '@vintrax/shared';
 import { formatDate } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui';
+import { CarfaxBadge } from '@/components/carfax-badge';
 
 /**
  * A vehicle's history, as a timeline.
@@ -27,11 +28,15 @@ import { Card, CardContent } from '@/components/ui';
 export function VehicleHistory({
   events,
   reportIssuedOn,
+  carfaxUrl,
 }: {
   events: VehicleHistoryEvent[];
   reportIssuedOn: string | null;
+  carfaxUrl?: string | null;
 }) {
-  if (events.length === 0) return null;
+  // Still drawn when the seller linked a report but entered no timeline: the
+  // link is the useful half, and hiding the block would hide it.
+  if (events.length === 0 && !carfaxUrl) return null;
 
   return (
     <Card>
@@ -41,16 +46,20 @@ export function VehicleHistory({
             <FileText className="h-4 w-4 text-primary" aria-hidden />
             Vehicle history
           </h2>
-          {reportIssuedOn ? (
-            <p className="text-sm text-muted-foreground">
-              From a report dated <strong>{formatDate(reportIssuedOn)}</strong>
-            </p>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            {reportIssuedOn ? (
+              <p className="text-sm text-muted-foreground">
+                From a report dated <strong>{formatDate(reportIssuedOn)}</strong>
+              </p>
+            ) : null}
+            {carfaxUrl ? <CarfaxBadge url={carfaxUrl} /> : null}
+          </div>
         </div>
 
         <p className="mt-1 text-sm text-muted-foreground">
-          Provided by the seller from their own history report. Vintrax has not checked it — ask for
-          the report before you buy.
+          {events.length > 0
+            ? 'Provided by the seller from their own history report. Vintrax has not checked it — read the report itself before you buy.'
+            : 'The seller has linked a report but has not summarised it here. Open the report to read it.'}
         </p>
 
         {/* Horizontal on a wide screen, as a run of dated markers along a rule;
