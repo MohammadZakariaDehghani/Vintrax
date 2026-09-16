@@ -80,13 +80,32 @@ export class DealersService {
   async list(
     page: number,
     pageSize: number,
-    filters: { status?: string; verifiedOnly?: boolean } = {},
+    filters: { status?: string; verifiedOnly?: boolean; q?: string } = {},
   ): Promise<Paginated<DealerSummary>> {
+    // A plain `contains` over the few fields a dealership is looked up by.
+    // Terms are ANDed so that typing more narrows the list.
+    const terms = (filters.q ?? '')
+      .split(/\s+/)
+      .map((term) => term.trim())
+      .filter(Boolean)
+      .slice(0, 6);
+
     const where: Prisma.DealerWhereInput = {
       ...(filters.status
         ? { status: filters.status as Prisma.EnumDealerStatusFilter['equals'] }
         : {}),
       ...(filters.verifiedOnly ? { verified: true } : {}),
+      ...(terms.length > 0
+        ? {
+            AND: terms.map((term) => ({
+              OR: [
+                { name: { contains: term, mode: 'insensitive' as const } },
+                { city: { contains: term, mode: 'insensitive' as const } },
+                { description: { contains: term, mode: 'insensitive' as const } },
+              ],
+            })),
+          }
+        : {}),
     };
 
     const [total, rows] = await Promise.all([

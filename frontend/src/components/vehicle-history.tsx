@@ -22,16 +22,18 @@ import { CarfaxBadge } from '@/components/carfax-badge';
  * the one thing Vintrax does verify — an independent inspection — keeps its own
  * separate block with a real inspector's name on it.
  *
+ * There is no report date here any more. It came from an uploaded report file,
+ * and issue #34 removed uploads — a CARFAX report reaches a buyer as a link.
+ * Inventing a date from anything else would be worse than having none.
+ *
  * Adverse entries are coloured from `kind`, not from the text beside them, so a
  * seller cannot soften a claim by wording it gently.
  */
 export function VehicleHistory({
   events,
-  reportIssuedOn,
   carfaxUrl,
 }: {
   events: VehicleHistoryEvent[];
-  reportIssuedOn: string | null;
   carfaxUrl?: string | null;
 }) {
   // Still drawn when the seller linked a report but entered no timeline: the
@@ -46,14 +48,7 @@ export function VehicleHistory({
             <FileText className="h-4 w-4 text-primary" aria-hidden />
             Vehicle history
           </h2>
-          <div className="flex flex-wrap items-center gap-3">
-            {reportIssuedOn ? (
-              <p className="text-sm text-muted-foreground">
-                From a report dated <strong>{formatDate(reportIssuedOn)}</strong>
-              </p>
-            ) : null}
-            {carfaxUrl ? <CarfaxBadge url={carfaxUrl} /> : null}
-          </div>
+          {carfaxUrl ? <CarfaxBadge url={carfaxUrl} /> : null}
         </div>
 
         <p className="mt-1 text-sm text-muted-foreground">

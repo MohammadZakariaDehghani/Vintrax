@@ -164,11 +164,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
             ))}
           </div>
 
-          <VehicleHistory
-            events={vehicle.historyEvents}
-            reportIssuedOn={vehicle.historyReportIssuedOn}
-            carfaxUrl={vehicle.carfaxUrl}
-          />
+          <VehicleHistory events={vehicle.historyEvents} carfaxUrl={vehicle.carfaxUrl} />
 
           {vehicle.inspection ? <InspectionReport vehicleId={vehicle.id} /> : null}
 

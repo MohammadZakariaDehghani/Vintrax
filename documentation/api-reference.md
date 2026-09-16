@@ -126,12 +126,22 @@ the route grants nobody anything they did not have one vehicle at a time. Each
 deletion audits itself, so unlike the other two bulk routes the service writes
 no extra entry.
 
+**Search.** `GET /vehicles/mine` and `GET /dealers` both accept `q`. It is a
+plain case-insensitive `contains` across the few fields each is looked up by —
+not the public full-text index, which covers only published listings and would
+therefore never find the draft a dealer is hunting for. Terms are ANDed so
+typing more narrows, capped at six, and a four-digit term also matches the model
+year. On `/vehicles/mine` the term is an _additional_ constraint: `sellerId`
+comes from the authenticated user, so the worst a hostile term can do is match
+nothing.
+
 **CARFAX.** A vehicle may carry an optional `carfaxUrl`. It is validated against
 the real CARFAX hosts — https, no credentials, hostname matching `carfax.ca` or
 `carfax.com` on a dot boundary — because the badge it sits behind carries a
 third party's name, and an unchecked link would let a seller put that name on a
 link to anywhere. It appears on the summary as well as the detail, since the
-search cards draw the badge.
+search cards draw the badge. It is the only way a CARFAX report reaches a
+buyer — there is no report upload, and no `historyReportIssuedOn`.
 
 **History.** The timeline is replaced as a whole set, matching images and
 documents. Entries are transcribed by the seller from a report they hold —

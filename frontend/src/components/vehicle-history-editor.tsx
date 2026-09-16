@@ -19,7 +19,6 @@ import {
   CardHeader,
   CardTitle,
   ErrorAlert,
-  Field,
   Input,
   Select,
   Spinner,
@@ -40,11 +39,11 @@ const newKey = () => `row-${(nextKey += 1)}`;
 /**
  * Where a dealer records what their history report says.
  *
- * Two separate things, on purpose. The **report** is a document: it is uploaded
- * like any other paperwork and stays restricted, because a CARFAX report
- * carries the previous owner's name and address and the full VIN history. The
- * **timeline** is a handful of lines the dealer transcribes from it, which name
- * nobody and are shown to buyers.
+ * The timeline only. A report file used to be uploaded here and kept as a
+ * restricted document; issue #34 removed that — a CARFAX report reaches buyers
+ * as a link on the listing, and the lines below are the dealer's own summary of
+ * it. Removing the upload also removed the one thing that carried a report
+ * date, so the buyer-facing block no longer claims one.
  *
  * Vintrax does not retrieve anything from CARFAX and does not check these
  * entries, and the buyer-facing block says so. This form says it too, to the
@@ -54,7 +53,6 @@ const newKey = () => `row-${(nextKey += 1)}`;
 export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
   const queryClient = useQueryClient();
   const [events, setEvents] = useState<EventDraft[]>([]);
-  const [reportDate, setReportDate] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -74,7 +72,6 @@ export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
         detail: event.detail ?? '',
       })),
     );
-    setReportDate(vehicle.data.historyReportIssuedOn ?? '');
     setLoaded(true);
   }, [vehicle.data, loaded]);
 
@@ -100,46 +97,6 @@ export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
     },
   });
 
-  /**
-   * Uploads the report and attaches it to the vehicle.
-   *
-   * Two calls: the file goes to storage, then its URL is attached as a
-   * document. The vehicle PATCH replaces the document set wholesale, so the
-   * existing documents are sent back with the new one rather than being
-   * dropped.
-   */
-  const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const stored = await api.upload<{ url: string; sizeBytes: number }>(
-        '/uploads/documents',
-        file,
-      );
-      const current = await api.get<VehicleDetail>(`/vehicles/${vehicleId}`);
-      return api.patch<VehicleDetail>(`/vehicles/${vehicleId}`, {
-        documents: [
-          ...current.documents.map((document) => ({
-            type: document.type,
-            url: document.url,
-            filename: document.filename,
-            ...(document.sizeBytes ? { sizeBytes: document.sizeBytes } : {}),
-            ...(document.issuedOn ? { issuedOn: document.issuedOn } : {}),
-          })),
-          {
-            type: 'CARFAX' as const,
-            url: stored.url,
-            filename: file.name,
-            sizeBytes: stored.sizeBytes,
-            ...(reportDate ? { issuedOn: reportDate } : {}),
-          },
-        ],
-      });
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['vehicle-history', vehicleId] });
-      void queryClient.invalidateQueries({ queryKey: ['vehicle-documents', vehicleId] });
-    },
-  });
-
   function update(key: string, patch: Partial<EventDraft>) {
     setSaved(false);
     setEvents((current) =>
@@ -155,8 +112,6 @@ export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
     ]);
   }
 
-  const reports = (vehicle.data?.documents ?? []).filter((document) => document.type === 'CARFAX');
-
   if (vehicle.isPending) return <Spinner label="Loading the vehicle history" />;
 
   return (
@@ -164,62 +119,15 @@ export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
       <CardHeader>
         <CardTitle>Vehicle history</CardTitle>
         <CardDescription>
-          Upload the history report you hold, then list the entries from it that buyers should see.
-          Vintrax does not retrieve or check reports — the timeline is published as your account of
-          the vehicle, and the report stays private to you, administrators and a buyer with a live
-          order.
+          List the entries from the vehicle&rsquo;s history report that buyers should see. Vintrax
+          does not retrieve or check reports — the timeline is published as your account of the
+          vehicle. To link the report itself, put its CARFAX address in the{' '}
+          <strong>CARFAX report link</strong> field above; buyers get a badge that opens it.
         </CardDescription>
       </CardHeader>
 
       <CardContent>
-        <ErrorAlert error={vehicle.error ?? save.error ?? upload.error} className="mb-4" />
-
-        <div className="mb-6 rounded-lg border border-border p-4">
-          <p className="text-sm font-medium">History report</p>
-
-          {reports.length > 0 ? (
-            <ul className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-              {reports.map((report) => (
-                <li key={report.id}>
-                  {report.filename}
-                  {report.issuedOn ? ` · dated ${report.issuedOn}` : ''}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-1 text-sm text-muted-foreground">Nothing uploaded yet.</p>
-          )}
-
-          <div className="mt-3 grid gap-3 sm:max-w-md">
-            <Field
-              label="Date on the report"
-              htmlFor="report-date"
-              hint="Shown to buyers so they can judge how current the timeline is. The report itself is not."
-            >
-              <Input
-                id="report-date"
-                type="date"
-                value={reportDate}
-                onChange={(event) => setReportDate(event.target.value)}
-              />
-            </Field>
-
-            <label className="flex flex-col items-start gap-2 text-sm">
-              <span className="font-medium">Upload a PDF</span>
-              <input
-                type="file"
-                accept="application/pdf,image/jpeg,image/png"
-                className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:opacity-90"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) upload.mutate(file);
-                  event.target.value = '';
-                }}
-              />
-            </label>
-            {upload.isPending ? <Spinner label="Uploading" /> : null}
-          </div>
-        </div>
+        <ErrorAlert error={vehicle.error ?? save.error} className="mb-4" />
 
         <div className="flex flex-col gap-3">
           {events.map((event) => (

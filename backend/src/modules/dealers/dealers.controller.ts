@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Query } from '@nest
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   type DealerAnalytics,
+  MAX_PAGE_SIZE,
   type DealerDetail,
   type DealerSummary,
   type Paginated,
@@ -18,8 +19,10 @@ import { DealersService } from './dealers.service';
 const listQuerySchema = z.object({
   status: z.string().optional(),
   verifiedOnly: z.coerce.boolean().optional(),
+  /** Free text over the dealership's name, city and description. */
+  q: z.string().trim().max(120).optional(),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(60).default(25),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(25),
 });
 
 const paginationQuerySchema = z.object({
@@ -41,6 +44,7 @@ export class DealersController {
     return this.dealers.list(query.page, query.pageSize, {
       status: query.status,
       verifiedOnly: query.verifiedOnly,
+      q: query.q,
     });
   }
 

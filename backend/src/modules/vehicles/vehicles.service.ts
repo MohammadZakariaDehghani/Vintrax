@@ -374,15 +374,52 @@ export class VehiclesService {
   }
 
   /** Every vehicle belonging to the caller, including drafts and archived ones. */
+  /**
+   * The caller's own vehicles, optionally filtered by status and by keyword.
+   *
+   * The keyword search is a plain `contains` across the handful of fields a
+   * dealer actually searches by — not the public full-text index, which only
+   * covers published listings and would therefore never find the draft they are
+   * looking for. Inventory is a few hundred rows per seller, so this is the
+   * right size of tool.
+   *
+   * `sellerId` stays first in the filter and is never derived from the query, so
+   * a search term cannot widen the result past the caller's own inventory.
+   * Terms are ANDed: typing "2015 hyundai" should narrow, not widen.
+   */
   async listMine(
     user: AuthUser,
     page: number,
     pageSize: number,
     status?: ListingStatus,
+    q?: string,
   ): Promise<Paginated<VehicleSummary>> {
+    const terms = (q ?? '')
+      .split(/\s+/)
+      .map((term) => term.trim())
+      .filter(Boolean)
+      .slice(0, 6);
+
     const where: Prisma.VehicleWhereInput = {
       sellerId: user.id,
       ...(status ? { status } : {}),
+      ...(terms.length > 0
+        ? {
+            AND: terms.map((term) => ({
+              OR: [
+                { title: { contains: term, mode: 'insensitive' as const } },
+                { make: { contains: term, mode: 'insensitive' as const } },
+                { model: { contains: term, mode: 'insensitive' as const } },
+                { trim: { contains: term, mode: 'insensitive' as const } },
+                { vin: { contains: term, mode: 'insensitive' as const } },
+                { stockNumber: { contains: term, mode: 'insensitive' as const } },
+                { city: { contains: term, mode: 'insensitive' as const } },
+                // A year typed as a word is the commonest search of all.
+                ...(/^\d{4}$/.test(term) ? [{ year: Number(term) }] : []),
+              ],
+            })),
+          }
+        : {}),
     };
 
     const [total, rows] = await Promise.all([
