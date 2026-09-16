@@ -18,6 +18,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
+  MAX_PAGE_SIZE,
   type BulkDeleteVehiclesInput,
   type BulkListingStatusInput,
   type BulkModerateListingsInput,
@@ -58,8 +59,10 @@ const myVehiclesQuerySchema = z.object({
   status: z
     .enum(['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'IN_AUCTION', 'SOLD', 'ARCHIVED'])
     .optional(),
+  /** Free text over the caller's own inventory. See `VehiclesService.listMine`. */
+  q: z.string().trim().max(120).optional(),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(60).default(20),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(20),
 });
 
 const paginationQuerySchema = z.object({
@@ -95,7 +98,7 @@ export class VehiclesController {
     @Query(zodQuery(myVehiclesQuerySchema)) query: z.infer<typeof myVehiclesQuerySchema>,
     @CurrentUser() user: AuthUser,
   ): Promise<Paginated<VehicleSummary>> {
-    return this.vehicles.listMine(user, query.page, query.pageSize, query.status);
+    return this.vehicles.listMine(user, query.page, query.pageSize, query.status, query.q);
   }
 
   @Get('pending-review')

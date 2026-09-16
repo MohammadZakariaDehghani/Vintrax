@@ -232,13 +232,6 @@ export interface VehicleDetail extends VehicleSummary {
    * it summarises, it names no owner and carries no address.
    */
   historyEvents: VehicleHistoryEvent[];
-  /**
-   * The date on the most recent history report the seller uploaded, where they
-   * gave one. Public even though the report itself is not, because "the report
-   * behind this is eight months old" is exactly what a buyer needs to weigh the
-   * timeline, and it discloses nothing about the owner.
-   */
-  historyReportIssuedOn: string | null;
   seller: VehicleSeller;
   inspection: InspectionSummary | null;
   updatedAt: string;

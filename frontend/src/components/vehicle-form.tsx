@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { Save, X } from 'lucide-react';
 import {
   BODY_TYPES,
   CREATABLE_LISTING_STATUSES,
@@ -69,6 +69,42 @@ const BLANK = {
   status: 'DRAFT',
   saleChannel: 'FIXED_PRICE',
 };
+
+/**
+ * The save control that closes every section.
+ *
+ * Every one of these submits the whole form, and that is deliberate rather than
+ * a shortcut. A listing is validated as a whole — a price without a mileage is
+ * not a valid half — so a per-section save would either write an invalid record
+ * or refuse with an error about a field two sections away. What was asked for
+ * was not having to scroll to the bottom of a long form to save, and this gives
+ * that without inventing partial-save semantics the server does not have.
+ *
+ * Declared here rather than inside the form so it keeps one identity across
+ * renders; a component defined in a render body is a different type each pass
+ * and is remounted every keystroke.
+ */
+function SaveSection({
+  isEditing,
+  pending,
+  saved,
+}: {
+  isEditing: boolean;
+  pending: boolean;
+  saved: boolean;
+}) {
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4">
+      <Button type="submit" loading={pending}>
+        <Save className="mr-2 h-4 w-4" aria-hidden />
+        {isEditing ? 'Save changes' : 'Create listing'}
+      </Button>
+      <span className="text-sm text-muted-foreground">
+        {saved ? 'Saved.' : 'Saves the whole listing, not only this section.'}
+      </span>
+    </div>
+  );
+}
 
 /**
  * Moves a listing between the statuses its seller actually controls.
@@ -157,6 +193,8 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
   const [images, setImages] = useState<FormImage[]>([]);
   const [features, setFeatures] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
+  /** Cleared by the next edit, so "Saved." never sits over unsaved changes. */
+  const [saved, setSaved] = useState(false);
 
   const { data: existing, isPending: loadingExisting } = useQuery({
     queryKey: ['vehicle', vehicleId],
@@ -196,8 +234,10 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
     setFeatures(existing.features.join(', '));
   }, [existing]);
 
-  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
+  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+    setSaved(false);
     setForm((previous) => ({ ...previous, [key]: value }));
+  };
 
   const save = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -207,13 +247,28 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['my-inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      router.push('/dealer/inventory');
+
+      // Editing stays put. Now that every section ends with a save control,
+      // navigating away on each one would throw a dealer back to the inventory
+      // list halfway down the form they were filling in — which is the opposite
+      // of what those buttons are for. Creating still leaves, because the form
+      // has no id to keep editing and staying would invite a second create.
+      if (isEditing) {
+        setSaved(true);
+        void queryClient.invalidateQueries({ queryKey: ['vehicle', vehicleId] });
+        void queryClient.invalidateQueries({ queryKey: ['vehicle-history', vehicleId] });
+      } else {
+        router.push('/dealer/inventory');
+      }
     },
   });
 
   const upload = useMutation({
     mutationFn: (file: File) => api.upload<{ url: string }>('/uploads/images', file),
-    onSuccess: (result) => setImages((previous) => [...previous, { url: result.url }]),
+    onSuccess: (result) => {
+      setSaved(false);
+      setImages((previous) => [...previous, { url: result.url }]);
+    },
   });
 
   function handleFiles(files: FileList | null) {
@@ -358,6 +413,8 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
               />
             </Field>
           </div>
+
+          <SaveSection isEditing={isEditing} pending={save.isPending} saved={saved} />
         </CardContent>
       </Card>
 
@@ -488,10 +545,15 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
             <Input
               id="features"
               value={features}
-              onChange={(e) => setFeatures(e.target.value)}
+              onChange={(e) => {
+                setSaved(false);
+                setFeatures(e.target.value);
+              }}
               placeholder="Sunroof, Heated seats, Apple CarPlay"
             />
           </Field>
+
+          <SaveSection isEditing={isEditing} pending={save.isPending} saved={saved} />
         </CardContent>
       </Card>
 
@@ -541,7 +603,10 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
                   <button
                     type="button"
                     aria-label={`Remove photo ${index + 1}`}
-                    onClick={() => setImages(images.filter((_, i) => i !== index))}
+                    onClick={() => {
+                      setSaved(false);
+                      setImages(images.filter((_, i) => i !== index));
+                    }}
                     className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-destructive text-destructive-foreground"
                   >
                     <X className="h-3 w-3" aria-hidden />
@@ -550,6 +615,8 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
               ))}
             </div>
           ) : null}
+
+          <SaveSection isEditing={isEditing} pending={save.isPending} saved={saved} />
         </CardContent>
       </Card>
 
@@ -620,8 +687,9 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
             </Field>
           </div>
 
-          <div className="flex flex-wrap gap-3 border-t border-border pt-4">
+          <div className="mt-1 flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <Button type="submit" loading={save.isPending}>
+              <Save className="mr-2 h-4 w-4" aria-hidden />
               {isEditing ? 'Save changes' : 'Create listing'}
             </Button>
             <Button
@@ -631,6 +699,7 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
             >
               Cancel
             </Button>
+            {saved ? <span className="text-sm text-muted-foreground">Saved.</span> : null}
           </div>
         </CardContent>
       </Card>

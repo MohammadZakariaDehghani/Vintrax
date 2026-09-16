@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LayoutGrid, List, Plus, Send, Trash2, Upload, X } from 'lucide-react';
+import { LayoutGrid, List, Plus, Search, Send, Trash2, Upload, X } from 'lucide-react';
 import type { BulkVehicleResult, ListingStatus, Paginated, VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
@@ -12,6 +12,7 @@ import {
   CardContent,
   EmptyState,
   ErrorAlert,
+  Input,
   Pagination,
   Select,
   Spinner,
@@ -91,6 +92,10 @@ function Inventory() {
     result: BulkVehicleResult;
   } | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // What is typed, and what has actually been searched for. Separated so every
+  // keystroke does not become a request; the query uses the settled value.
+  const [searchText, setSearchText] = useState('');
+  const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
   const isAdmin = useIsAdmin();
 
@@ -99,11 +104,22 @@ function Inventory() {
 
   const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (status) query.set('status', status);
+  if (search) query.set('q', search);
 
   const { data, isPending, error } = useQuery({
-    queryKey: ['my-inventory', status ?? 'ALL', page, pageSize],
+    queryKey: ['my-inventory', status ?? 'ALL', page, pageSize, search],
     queryFn: () => api.get<Paginated<VehicleSummary>>(`/vehicles/mine?${query.toString()}`),
   });
+
+  // Settles a third of a second after typing stops. Long enough that a VIN
+  // typed at speed is one request, short enough not to feel delayed.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchText.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
   const items = useMemo(() => data?.items ?? [], [data]);
 
@@ -114,7 +130,7 @@ function Inventory() {
     setSelected(new Set());
     setBulkResult(null);
     setConfirmingDelete(false);
-  }, [tab, page, pageSize]);
+  }, [tab, page, pageSize, search]);
 
   const submitMany = useMutation({
     mutationFn: (ids: string[]) =>
@@ -210,6 +226,21 @@ function Inventory() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-3">
+        <div className="relative w-full sm:w-80">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            type="search"
+            className="pl-9"
+            placeholder="Search title, make, model, VIN, stock #"
+            aria-label="Search your inventory"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+          />
+        </div>
+
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -408,15 +439,27 @@ function Inventory() {
         </>
       ) : (
         <Card>
-          <EmptyState
-            title="Nothing here yet"
-            description="Vehicles you create appear here, including drafts that are not yet public."
-            action={
-              <Link href="/dealer/add-vehicle">
-                <Button>Create your first listing</Button>
-              </Link>
-            }
-          />
+          {search ? (
+            <EmptyState
+              title={`Nothing matches "${search}"`}
+              description="Searching covers the title, make, model, trim, VIN, stock number, city and year of your own vehicles — including drafts."
+              action={
+                <Button variant="outline" onClick={() => setSearchText('')}>
+                  Clear the search
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="Nothing here yet"
+              description="Vehicles you create appear here, including drafts that are not yet public."
+              action={
+                <Link href="/dealer/add-vehicle">
+                  <Button>Create your first listing</Button>
+                </Link>
+              }
+            />
+          )}
         </Card>
       )}
     </div>

@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, Check, X } from 'lucide-react';
+import { Building2, Check, Search, X } from 'lucide-react';
 import type { DealerStatus, DealerSummary, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatLocation } from '@/lib/utils';
@@ -15,6 +15,7 @@ import {
   EmptyState,
   ErrorAlert,
   Field,
+  Input,
   Pagination,
   Spinner,
   Textarea,
@@ -49,16 +50,29 @@ function DealerQueue() {
   const [page, setPage] = useState(1);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
+  // Typed, and settled. The query uses the settled value so a request does not
+  // go out on every keystroke.
+  const [searchText, setSearchText] = useState('');
+  const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
 
   const status = TABS[tab]?.status;
   const query = new URLSearchParams({ page: String(page), pageSize: '20' });
   if (status) query.set('status', status);
+  if (search) query.set('q', search);
 
   const dealers = useQuery({
-    queryKey: ['admin-dealers', status ?? 'ALL', page],
+    queryKey: ['admin-dealers', status ?? 'ALL', page, search],
     queryFn: () => api.get<Paginated<DealerSummary>>(`/dealers?${query.toString()}`),
   });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchText.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchText]);
 
   const verify = useMutation({
     mutationFn: ({ id, approved, note }: { id: string; approved: boolean; note?: string }) =>
@@ -111,6 +125,21 @@ function DealerQueue() {
         ))}
       </div>
 
+      <div className="relative mb-5 w-full sm:w-80">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
+        <Input
+          type="search"
+          className="pl-9"
+          placeholder="Search name, city or description"
+          aria-label="Search dealerships"
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+        />
+      </div>
+
       <ErrorAlert error={dealers.error ?? verify.error} className="mb-5" />
 
       {dealers.isPending ? (
@@ -119,8 +148,21 @@ function DealerQueue() {
         <Card>
           <EmptyState
             icon={<Building2 className="h-8 w-8" aria-hidden />}
-            title="Nothing here"
-            description="Dealerships appear the moment someone registers one."
+            title={search ? `Nothing matches "${search}"` : 'Nothing here'}
+            description={
+              search
+                ? 'Searching covers a dealership\u2019s name, city and description.'
+                : 'Dealerships appear the moment someone registers one.'
+            }
+            {...(search
+              ? {
+                  action: (
+                    <Button variant="outline" onClick={() => setSearchText('')}>
+                      Clear the search
+                    </Button>
+                  ),
+                }
+              : {})}
           />
         </Card>
       ) : (
