@@ -1,14 +1,17 @@
-# Publish container images to the GitHub Container Registry.
+# Publish container images to the GitHub Container Registry, then deploy them.
 #
-#   GitHub -> GHCR -> production server: `docker compose pull` -> `up -d`
+#   GitHub -> CI -> GHCR -> production server: `deploy.sh <sha-tag>`
 #
 # The production server never builds. It pulls the exact image this workflow
 # published, which is the image CI verified — the artefact that was tested is
 # the artefact that runs.
 #
-# Authentication is GITHUB_TOKEN with `packages: write`, scoped to this run and
-# expiring with it. A personal access token in repository secrets would be a
-# long-lived registry credential with nothing rotating it, so there is not one.
+# Authentication to the registry is GITHUB_TOKEN with `packages: write`, scoped
+# to this run and expiring with it. A personal access token in repository
+# secrets would be a long-lived registry credential with nothing rotating it, so
+# there is not one. The deployment step does need stored credentials, because it
+# talks to a machine GitHub knows nothing about; those are listed on the deploy
+# job below and documented in documentation/deployment.md.
 name: Release
 
 on:
@@ -33,6 +36,12 @@ jobs:
     name: Publish ${{ matrix.name }}
     runs-on: ubuntu-latest
     needs: verify
+
+    # The tag the deploy job pins. Every leg of the matrix resolves the same
+    # value from the same commit, so whichever finishes last writes it and the
+    # result is identical either way.
+    outputs:
+      version: ${{ steps.version.outputs.value }}
 
     permissions:
       contents: read
@@ -106,17 +115,217 @@ jobs:
             NEXT_PUBLIC_BRAND_LOGO_SRC=${{ vars.NEXT_PUBLIC_BRAND_LOGO_SRC }}
             API_ORIGIN=http://api:3001
 
+      # Read back out of the tag list rather than recomputed from the commit.
+      # `git rev-parse --short` and metadata-action's `format=short` agree today
+      # at seven characters, but they are two different rules, and a deployment
+      # that pins a tag nobody published fails at `docker pull` on the server
+      # rather than here.
+      - name: Record the immutable tag this build published
+        id: version
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          version=$(printf '%s\n' "$TAGS" | sed -n 's|.*:\(sha-[0-9a-f]\{7,40\}\)$|\1|p' | head -n1)
+          if [[ -z $version ]]; then
+            echo "::error::this build published no sha- tag, so there is nothing immutable to deploy"
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
       - name: Summarise what was published
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          VERSION: ${{ steps.version.outputs.value }}
         run: |
           {
             echo "### ${{ steps.image.outputs.name }}"
             echo
             echo '```'
-            echo "${{ steps.meta.outputs.tags }}"
+            echo "$TAGS"
             echo '```'
             echo
-            echo "Deploy this build:"
+            echo "Deploy this build by hand, if ever needed:"
             echo '```bash'
-            echo "./scripts/deploy.sh sha-$(git rev-parse --short HEAD)"
+            echo "cd /opt/vintrax/scripts && ./deploy.sh $VERSION"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # --- Continuous deployment -------------------------------------------------
+  #
+  # Runs the release step that used to be done by hand, and runs the *same*
+  # script the operator ran: `/opt/vintrax/scripts/deploy.sh <sha-tag>`. Nothing
+  # is installed on the server, no configuration there is touched, and no second
+  # release mechanism is introduced — this job opens an SSH session and types
+  # what a person used to type. Running that script by hand keeps working
+  # unchanged, and is still the documented way to roll back.
+  #
+  # It cannot ship a half-published build: `needs: publish` is the whole matrix,
+  # and a matrix with any failed leg is a failed dependency, so all three images
+  # exist at this tag before the first byte of SSH.
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    needs: publish
+
+    # Tag builds still publish; they do not go out automatically. What this
+    # automates is "push to main goes live", and a `v*` tag is a release marker
+    # that may be cut from anywhere. Ship one by hand, or dispatch this workflow
+    # from main.
+    if: github.ref == 'refs/heads/main'
+
+    # Gives this a record in the repository's Environments view, and a place to
+    # hang a required reviewer. Adding one there is how the first automatic run
+    # is made to pause for a human — see documentation/deployment.md.
+    environment: production
+
+    permissions:
+      contents: read
+
+    # Serialises production releases across every trigger, which the
+    # workflow-level group above does not: that one is keyed on the ref, so a
+    # push and a manual dispatch are separate groups and could otherwise run
+    # `deploy.sh` twice at once against one Docker daemon.
+    #
+    # Never cancel-in-progress. A cancelled run is one killed somewhere between
+    # `prisma migrate deploy` and `compose up`, which is the single worst state
+    # to leave this server in.
+    concurrency:
+      group: vintrax-production-deploy
+      cancel-in-progress: false
+
+    env:
+      VERSION: ${{ needs.publish.outputs.version }}
+      TARGET_HOST: ${{ secrets.DEPLOY_HOST }}
+      TARGET_USER: ${{ secrets.DEPLOY_USER }}
+      TARGET_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      TARGET_PATH: ${{ vars.DEPLOY_PATH || '/opt/vintrax' }}
+
+    steps:
+      - name: Check the configuration is complete
+        env:
+          TARGET_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          TARGET_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          missing=()
+          [[ -n $TARGET_HOST ]]        || missing+=(DEPLOY_HOST)
+          [[ -n $TARGET_USER ]]        || missing+=(DEPLOY_USER)
+          [[ -n $TARGET_KEY ]]         || missing+=(DEPLOY_SSH_KEY)
+          [[ -n $TARGET_KNOWN_HOSTS ]] || missing+=(DEPLOY_SSH_KNOWN_HOSTS)
+
+          if (( ${#missing[@]} )); then
+            echo "::error::missing repository secrets: ${missing[*]}"
+            echo "Set them under Settings -> Secrets and variables -> Actions." >&2
+            echo "documentation/deployment.md lists each one, including how to" >&2
+            echo "produce DEPLOY_SSH_KNOWN_HOSTS with ssh-keyscan." >&2
+            exit 1
+          fi
+
+          # Both of these end up inside a remote command string, so they are
+          # checked rather than trusted. The version is this workflow's own
+          # output and the path is a repository variable only an owner can set,
+          # but "only an owner can set it" is not the same as "it cannot contain
+          # a semicolon".
+          [[ $VERSION =~ ^sha-[0-9a-f]{7,40}$ ]] \
+            || { echo "::error::refusing to act on '$VERSION' — not an immutable sha- tag"; exit 1; }
+          [[ $TARGET_PATH =~ ^/[A-Za-z0-9._/-]*$ ]] \
+            || { echo "::error::DEPLOY_PATH '$TARGET_PATH' is not a plain absolute path"; exit 1; }
+          [[ $TARGET_PORT =~ ^[0-9]{1,5}$ ]] \
+            || { echo "::error::DEPLOY_PORT '$TARGET_PORT' is not a port number"; exit 1; }
+
+          echo "Target: $TARGET_USER@$TARGET_HOST:$TARGET_PORT ($TARGET_PATH), version $VERSION"
+
+      - name: Prepare the SSH client
+        env:
+          TARGET_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          TARGET_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$TARGET_KEY" > ~/.ssh/vintrax_key
+          printf '%s\n' "$TARGET_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/vintrax_key ~/.ssh/known_hosts
+
+          # The host key is pinned from a secret rather than accepted on sight.
+          # `ssh-keyscan` at this point would trust whatever answers, which is
+          # the whole attack: an impostor that answers once is handed a key with
+          # shell access to production.
+          {
+            echo "Host vintrax-target"
+            echo "  HostName $TARGET_HOST"
+            echo "  User $TARGET_USER"
+            echo "  Port $TARGET_PORT"
+            echo "  IdentityFile ~/.ssh/vintrax_key"
+            echo "  IdentitiesOnly yes"
+            echo "  StrictHostKeyChecking yes"
+            echo "  UserKnownHostsFile ~/.ssh/known_hosts"
+            echo "  BatchMode yes"
+            echo "  ConnectTimeout 20"
+            echo "  ServerAliveInterval 30"
+          } > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      # The release itself. One command, the existing one.
+      #
+      # `-T` asks for no terminal, which is not cosmetic: the scripts disable
+      # their colour codes when stdout is not a tty, so the Actions log reads as
+      # text rather than as escape sequences.
+      #
+      # ssh exits with the remote command's status, so a failed migration or a
+      # service that never becomes healthy fails this job. deploy.sh does not
+      # revert on its own — a failed run may have applied a migration — so a red
+      # job here means a person looks, exactly as before.
+      - name: Run the existing deploy script
+        run: |
+          echo "::group::deploy.sh $VERSION"
+          # The exit status is carried by hand so the log group still closes on
+          # a failure. Under `set -e` the step would abort at the ssh line and
+          # leave the group open, which collapses the very output someone needs
+          # to read when a release goes wrong.
+          set +e
+          ssh -T vintrax-target "cd '$TARGET_PATH/scripts' && ./deploy.sh '$VERSION'"
+          status=$?
+          set -e
+          echo "::endgroup::"
+          exit $status
+
+      # Asks the server what it believes is running, rather than assuming the
+      # previous step's exit code covered it. `--list` is read-only and part of
+      # the script that is already there.
+      - name: Confirm the server is running this version
+        run: |
+          echo "::group::deploy.sh --list"
+          listing=$(ssh -T vintrax-target "cd '$TARGET_PATH/scripts' && ./deploy.sh --list")
+          printf '%s\n' "$listing"
+          echo "::endgroup::"
+
+          # Anchored to the end of the line. `grep -F` on its own would also
+          # accept a longer version that merely starts with this one. VERSION
+          # was validated as ^sha-[0-9a-f]+$ above, so it holds no regex
+          # metacharacters.
+          if ! printf '%s\n' "$listing" | grep -qE "^[[:space:]]*current:[[:space:]]+${VERSION}[[:space:]]*$"; then
+            echo "::error::the server reports a different current version than $VERSION"
+            exit 1
+          fi
+          echo "Confirmed: the server is running $VERSION"
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Production"
+            echo
+            if [[ "${{ job.status }}" == success ]]; then
+              echo "\`$VERSION\` is live on \`$TARGET_HOST\`."
+            else
+              echo "\`$VERSION\` did **not** finish. The server may still be on the previous"
+              echo "version, or may be part-way through — read the log above before acting."
+            fi
+            echo
+            echo "Reverting uses the mechanism that was already there, from the server:"
+            echo
+            echo '```bash'
+            echo "ssh $TARGET_USER@$TARGET_HOST"
+            echo "cd $TARGET_PATH/scripts"
+            echo "./rollback.sh --list     # what it can go back to"
+            echo "./rollback.sh            # the previous version"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

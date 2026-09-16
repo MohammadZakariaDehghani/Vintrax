@@ -192,3 +192,100 @@ describe('the production stack', () => {
     expect(prodBlock('postgres')).toContain('postgres-data:/var/lib/postgresql/data');
   });
 });
+
+/**
+ * The release workflow now ends by deploying to production without a person in
+ * the loop, which moves a class of mistake from "someone notices while typing"
+ * to "nobody sees it until the site is down". These assert the properties that
+ * were reasoned about when it was written, so a later edit that quietly drops
+ * one fails here rather than in production.
+ *
+ * Read as text and matched by directive, the same way the compose assertions
+ * above work, and with comments stripped first for the same reason: the file
+ * explains itself at length, and matching that prose would be the test reading
+ * its own documentation back.
+ */
+describe('the release workflow', () => {
+  const RELEASE_PATH = join(__dirname, '..', '..', '.github', 'workflows', 'release.yml');
+  const release = readFileSync(RELEASE_PATH, 'utf8');
+
+  /** The file without its commentary, so a match is a directive. */
+  const directives = release
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n');
+
+  it('reads the real file, not an empty one', () => {
+    expect(release).toContain('name: Release');
+    expect(release.length).toBeGreaterThan(500);
+  });
+
+  it('deploys only after every image has been published', () => {
+    // `needs: publish` is the whole matrix. Without it a half-published build
+    // could reach the server: two images at the new tag and one at the old.
+    expect(directives).toMatch(/deploy:\n(\s+.*\n)*?\s+needs: publish\b/);
+  });
+
+  it('deploys the tag that run published, never a moving one', () => {
+    // The version comes from the publish job's output rather than being
+    // recomputed, and is checked to be an immutable sha- tag before use.
+    expect(directives).toContain('VERSION: ${{ needs.publish.outputs.version }}');
+    expect(directives).toMatch(/VERSION =~ \^sha-\[0-9a-f\]\{7,40\}\$/);
+  });
+
+  it('runs the deploy script that was already on the server', () => {
+    // Not a second deployment mechanism. The same script, at its own path,
+    // which is what keeps the manual path and rollback working.
+    expect(directives).toContain("./deploy.sh '$VERSION'");
+    expect(directives).toContain("TARGET_PATH: ${{ vars.DEPLOY_PATH || '/opt/vintrax' }}");
+  });
+
+  it('serialises production deployments and never cancels one part-way', () => {
+    // A run killed between `prisma migrate deploy` and `compose up` is the
+    // worst state this server can be left in.
+    expect(directives).toMatch(
+      /concurrency:\n\s+group: vintrax-production-deploy\n\s+cancel-in-progress: false/,
+    );
+  });
+
+  it('deploys from main only, so a tag cut anywhere cannot go live', () => {
+    expect(directives).toContain("if: github.ref == 'refs/heads/main'");
+  });
+
+  it('verifies the host key rather than trusting whatever answers', () => {
+    // Without this the runner hands a key with shell access to production to
+    // the first machine that replies on that address.
+    expect(directives).toContain('StrictHostKeyChecking yes');
+    expect(directives).toContain('DEPLOY_SSH_KNOWN_HOSTS');
+    expect(directives).not.toContain('StrictHostKeyChecking no');
+
+    // Mentioning `ssh-keyscan` is fine and is how the failure message tells an
+    // operator where the secret comes from. *Running* it here is the problem:
+    // it would trust whatever answered, which is the attack the pinned key
+    // exists to stop. So this looks for an invocation, not for the word.
+    expect(directives).not.toMatch(/(^|[|&;(`$]\s*)ssh-keyscan\b/m);
+  });
+
+  it('runs no destructive command on the server', () => {
+    // The deploy script keeps old images precisely so rollback works, and the
+    // volumes hold the database.
+    expect(directives).not.toContain('system prune');
+    expect(directives).not.toContain('down -v');
+  });
+
+  it('never reverts on its own', () => {
+    // The step summary prints the rollback commands, which is the point — a
+    // person reads them. What must not happen is this workflow running one:
+    // a failed deploy may have applied a migration, and starting the previous
+    // image against the new schema is how a bad release becomes data loss.
+    // deploy.sh refuses to do it automatically for that reason, and so does
+    // this. Hence: rollback.sh may appear, but never after an `ssh`.
+    for (const line of directives.split('\n')) {
+      if (line.includes('rollback.sh')) expect(line).not.toMatch(/\bssh\b/);
+    }
+  });
+
+  it('confirms afterwards what the server is actually running', () => {
+    expect(directives).toContain('./deploy.sh --list');
+  });
+});

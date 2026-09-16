@@ -291,6 +291,10 @@ auctions will not connect.
 
 ## 4. Deploying a new version
 
+A push to `main` does this on its own — see [section 4.1](#41-automatic-releases-from-main).
+Everything below is the manual path, and it still works exactly as it did; the
+automation runs these same commands over SSH rather than replacing them.
+
 ```bash
 cd /opt/vintrax/scripts
 ./deploy.sh --list          # what is running, what it can roll back to
@@ -306,6 +310,63 @@ migration being an inconvenience and being an incident:
 
 **`deploy.sh` refuses to deploy `latest`.** A moving tag leaves nothing to roll
 back to and no way to say what is running.
+
+### 4.1 Automatic releases from `main`
+
+`.github/workflows/release.yml` ends with a `deploy` job. After CI passes and
+all three images are pushed to GHCR, it opens an SSH session and runs the
+command above — the same script, at the same path, with the tag that run just
+published:
+
+```bash
+cd /opt/vintrax/scripts && ./deploy.sh sha-d4e5f6g
+```
+
+Nothing was installed on the server and nothing about it was reconfigured to
+make this work. The job needs only the SSH access that already existed.
+
+**Required repository secrets** — Settings → Secrets and variables → Actions:
+
+| Secret                   | What it is                                                          |
+| ------------------------ | ------------------------------------------------------------------- |
+| `DEPLOY_HOST`            | Hostname or IP of the server                                        |
+| `DEPLOY_USER`            | The existing SSH user that already runs `deploy.sh`                 |
+| `DEPLOY_SSH_KEY`         | Private key for that user, whole file including the BEGIN/END lines |
+| `DEPLOY_SSH_KNOWN_HOSTS` | The server's public host key — see below                            |
+
+Two optional **variables**, on the same page, for a server that is not laid out
+the default way: `DEPLOY_PORT` (default `22`) and `DEPLOY_PATH` (default
+`/opt/vintrax`).
+
+`DEPLOY_SSH_KNOWN_HOSTS` is not optional and is not a formality. Without a
+pinned host key the runner would accept whatever answers on that address and
+hand it a key with shell access to production. Produce it from a machine that
+already trusts the server:
+
+```bash
+ssh-keyscan -p 22 your-server-hostname
+```
+
+Paste the whole output. The job fails with the missing names listed if any of
+the four is absent, before it connects to anything.
+
+**The first automatic release, safely.** Add a required reviewer to the
+`production` environment (Settings → Environments → production → Required
+reviewers) before the first push to `main`. The job then waits for an approval
+in the Actions run instead of going straight out, so you can read the resolved
+tag and approve or cancel. Remove the reviewer once you have watched one run
+end to end.
+
+The job will not act on a tag that is not `sha-` followed by hex, will not run
+unless all three images published, is serialised so two releases cannot overlap,
+and is never cancelled part-way — a run killed between `prisma migrate deploy`
+and `compose up` is the worst state to leave this server in. Afterwards it asks
+the server, with `./deploy.sh --list`, whether it is really running that version
+and fails if not.
+
+Pushing a `v*` tag still publishes images but does not release automatically. A
+tag can be cut from anywhere; deploy one by hand, or run the Release workflow
+from `main` with **Run workflow**.
 
 ### If a deployment fails
 

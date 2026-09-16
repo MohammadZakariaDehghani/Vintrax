@@ -18,6 +18,19 @@ Docker, Kubernetes and cloud deployment for Vintrax.
 > against the real database, deploy and rollback between two published tags,
 > and a backup restored — against a local registry standing in for GHCR.
 
+## Releasing
+
+A push to `main` runs `.github/workflows/release.yml`: the verification suite,
+then three image builds pushed to GHCR under an immutable `sha-` tag, then a
+`deploy` job that SSHes to the server and runs the existing
+`/opt/vintrax/scripts/deploy.sh` with that exact tag.
+
+The four repository secrets it needs, how to pin the server's host key, how to
+make the first automatic release wait for an approval, and how to roll back are
+all in [docker.md § 4.1](./docker.md#41-automatic-releases-from-main). Nothing
+on the server was changed to support it, and running the script by hand still
+works unchanged.
+
 ## Artefacts
 
 | Artefact         | Build                                       | Runtime                            |
