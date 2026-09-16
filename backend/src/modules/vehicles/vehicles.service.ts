@@ -2,12 +2,17 @@ import { randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  BulkListingStatusInput,
+  BulkModerateListingsInput,
+  BulkVehicleOutcome,
+  BulkVehicleResult,
   CreateVehicleInput,
   ModerateListingInput,
   Paginated,
@@ -401,6 +406,116 @@ export class VehiclesService {
     };
   }
 
+  /**
+   * The same status change, applied to many vehicles.
+   *
+   * Each id goes through `setStatus`, one at a time. That is deliberate and it
+   * is the whole design: every rule that protects a single listing — the
+   * transition table, the live-auction guard, the paid-order guard, ownership,
+   * the audit entry — is enforced because the single-vehicle path is what runs.
+   * A bulk endpoint that wrote `updateMany` would be a second implementation of
+   * those rules, and the second one is always the one that forgets the auction.
+   *
+   * Partial success is the expected outcome rather than an error. A dealer who
+   * selects everything on the page will include something already in review,
+   * and one refusal must not undo the other nineteen, so each id carries its
+   * own answer back.
+   */
+  async setStatusMany(input: BulkListingStatusInput, user: AuthUser): Promise<BulkVehicleResult> {
+    const titles = new Map(
+      (
+        await this.prisma.vehicle.findMany({
+          where: { id: { in: input.ids } },
+          select: { id: true, title: true },
+        })
+      ).map((vehicle) => [vehicle.id, vehicle.title]),
+    );
+
+    const outcomes: BulkVehicleOutcome[] = [];
+    for (const id of input.ids) {
+      const title = titles.get(id) ?? null;
+      try {
+        await this.setStatus(id, { status: input.status }, user);
+        await this.recordBulkAudit('vehicle.status_changed', id, user, {
+          status: input.status,
+          bulk: true,
+        });
+        outcomes.push({ id, ok: true, title, error: null });
+      } catch (error) {
+        outcomes.push({ id, ok: false, title, error: reasonFor(error) });
+      }
+    }
+
+    return summariseBulk(outcomes);
+  }
+
+  /** The same moderation decision, applied to many vehicles. See `setStatusMany`. */
+  async moderateMany(
+    input: BulkModerateListingsInput,
+    actor: AuthUser,
+  ): Promise<BulkVehicleResult> {
+    const titles = new Map(
+      (
+        await this.prisma.vehicle.findMany({
+          where: { id: { in: input.ids } },
+          select: { id: true, title: true },
+        })
+      ).map((vehicle) => [vehicle.id, vehicle.title]),
+    );
+
+    const outcomes: BulkVehicleOutcome[] = [];
+    for (const id of input.ids) {
+      const title = titles.get(id) ?? null;
+      try {
+        await this.moderate(
+          id,
+          { approved: input.approved, ...(input.reason ? { reason: input.reason } : {}) },
+          actor,
+        );
+        await this.recordBulkAudit('vehicle.moderated', id, actor, {
+          approved: input.approved,
+          reason: input.reason ?? null,
+          bulk: true,
+        });
+        outcomes.push({ id, ok: true, title, error: null });
+      } catch (error) {
+        outcomes.push({ id, ok: false, title, error: reasonFor(error) });
+      }
+    }
+
+    return summariseBulk(outcomes);
+  }
+
+  /**
+   * One audit entry per vehicle a bulk action actually changed.
+   *
+   * Written here rather than by `@Audit` on the controller. That decorator
+   * takes its entity id from `request.params.id`, and a bulk route has none —
+   * it would file a single entry with a null id, which answers "someone did
+   * something" and not "who published which twenty listings". The bulk routes
+   * therefore carry no `@Audit`, so this is the only entry and there is no
+   * duplicate, matching how `UsersService.setPassword` handles the same
+   * problem.
+   *
+   * Only successes are recorded, as the interceptor does: a refusal belongs in
+   * the log, not in the record of what happened.
+   */
+  private async recordBulkAudit(
+    action: string,
+    vehicleId: string,
+    actor: AuthUser,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    await this.audit.record({
+      actorId: actor.id,
+      actorEmail: actor.email,
+      action,
+      entityType: 'Vehicle',
+      entityId: vehicleId,
+      metadata,
+    });
+  }
+
   /** Admin moderation of a vehicle awaiting review. */
   async moderate(id: string, input: ModerateListingInput, actor: AuthUser): Promise<VehicleDetail> {
     const vehicle = await this.prisma.vehicle.findUnique({
@@ -611,4 +726,32 @@ export class VehiclesService {
     }
     return `${base}-${randomBytes(4).toString('hex')}`;
   }
+}
+
+/**
+ * The message a bulk outcome carries for one refused vehicle.
+ *
+ * Only the text of an exception the application raised deliberately. Anything
+ * else — a driver error, a bug — is reported as a generic failure rather than
+ * relayed, because a Prisma message names columns and constraints and this
+ * string is shown to a dealer.
+ */
+function reasonFor(error: unknown): string {
+  if (error instanceof HttpException) {
+    const response = error.getResponse();
+    if (typeof response === 'string') return response;
+    const message = (response as { message?: unknown }).message;
+    if (typeof message === 'string') return message;
+    if (Array.isArray(message) && typeof message[0] === 'string') return message[0];
+    return error.message;
+  }
+  return 'Could not be changed.';
+}
+
+function summariseBulk(outcomes: BulkVehicleOutcome[]): BulkVehicleResult {
+  return {
+    succeeded: outcomes.filter((outcome) => outcome.ok).length,
+    failed: outcomes.filter((outcome) => !outcome.ok).length,
+    outcomes,
+  };
 }

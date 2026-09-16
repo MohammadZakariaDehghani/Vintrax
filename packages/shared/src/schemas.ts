@@ -234,6 +234,60 @@ export const updateListingStatusSchema = z.object({
 });
 export type UpdateListingStatusInput = z.infer<typeof updateListingStatusSchema>;
 
+/**
+ * The most vehicles one bulk action may name.
+ *
+ * Each id is applied through the same single-vehicle path, with its own
+ * transition checks, notification and audit entry, so the cost is linear and
+ * the cap is what keeps one request from running for a minute. It is above a
+ * full page of inventory at any page size, which is the case this exists for.
+ */
+export const MAX_BULK_VEHICLE_IDS = 200;
+
+const bulkVehicleIds = z
+  .array(z.string().uuid())
+  .min(1, 'Select at least one vehicle.')
+  .max(MAX_BULK_VEHICLE_IDS, `Up to ${MAX_BULK_VEHICLE_IDS} vehicles at a time.`)
+  // The same id twice would be applied twice and counted twice. Selecting is a
+  // set operation, so it is treated as one.
+  .transform((ids) => [...new Set(ids)]);
+
+export const bulkListingStatusSchema = z.object({
+  ids: bulkVehicleIds,
+  status: z.enum(SELLER_SETTABLE_LISTING_STATUSES),
+});
+export type BulkListingStatusInput = z.infer<typeof bulkListingStatusSchema>;
+
+export const bulkModerateListingsSchema = z.object({
+  ids: bulkVehicleIds,
+  approved: z.boolean(),
+  reason: trimmed(1000).optional(),
+});
+export type BulkModerateListingsInput = z.infer<typeof bulkModerateListingsSchema>;
+
+/**
+ * What a bulk action did, vehicle by vehicle.
+ *
+ * Partial success is the normal outcome, not an edge case: a dealer selecting
+ * everything on the page will include a listing already in review, and one
+ * refusal must not undo the other nineteen. Every id comes back with its own
+ * answer, and a failure carries the same message the single-vehicle endpoint
+ * would have given.
+ */
+export interface BulkVehicleOutcome {
+  id: string;
+  ok: boolean;
+  /** The listing's title, so the UI can name it without another request. */
+  title: string | null;
+  error: string | null;
+}
+
+export interface BulkVehicleResult {
+  succeeded: number;
+  failed: number;
+  outcomes: BulkVehicleOutcome[];
+}
+
 // --- Search ------------------------------------------------------------------
 
 export const MAX_PAGE_SIZE = 60;

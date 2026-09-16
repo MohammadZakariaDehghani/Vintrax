@@ -17,6 +17,9 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
+  type BulkListingStatusInput,
+  type BulkModerateListingsInput,
+  type BulkVehicleResult,
   type CreateVehicleInput,
   type ModerateListingInput,
   type Paginated,
@@ -27,6 +30,8 @@ import {
   type VehicleSearchResponse,
   type VehicleSummary,
   createVehicleSchema,
+  bulkListingStatusSchema,
+  bulkModerateListingsSchema,
   moderateListingSchema,
   searchVehiclesSchema,
   updateListingStatusSchema,
@@ -148,6 +153,46 @@ export class VehiclesController {
     @CurrentUser() user: AuthUser,
   ): Promise<VehicleDetail> {
     return this.vehicles.create(body, user);
+  }
+
+  // The two bulk routes are declared before `@Patch(':id')` on purpose. Nest
+  // matches in declaration order, so below this point `bulk-status` would be
+  // read as an id and rejected by ParseUUIDPipe.
+  //
+  // Neither carries `@Audit`: that decorator takes its entity id from
+  // `request.params.id`, which a bulk route does not have, and would file one
+  // entry with a null id. The service writes one entry per vehicle instead.
+
+  @Patch('bulk-status')
+  @RequirePermissions('vehicle:write')
+  @RequireVerifiedEmail()
+  @ApiOperation({
+    summary: 'Move many listings the caller owns between seller-controlled statuses',
+    description:
+      'Each vehicle is applied through the same path as the single-vehicle endpoint, so every ' +
+      'transition rule and guard still holds. Partial success is normal: each id comes back with ' +
+      'its own result, and one refusal does not undo the rest.',
+  })
+  setStatusMany(
+    @Body(zodBody(bulkListingStatusSchema)) body: BulkListingStatusInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<BulkVehicleResult> {
+    return this.vehicles.setStatusMany(body, user);
+  }
+
+  @Patch('bulk-moderate')
+  @RequirePermissions('vehicle:publish', 'user:manage')
+  @ApiOperation({
+    summary: 'Approve or reject many vehicles awaiting review',
+    description:
+      'Publishing stays a moderation decision made one vehicle at a time internally; this only ' +
+      'saves the reviewer the clicks. Each id carries its own result.',
+  })
+  moderateMany(
+    @Body(zodBody(bulkModerateListingsSchema)) body: BulkModerateListingsInput,
+    @CurrentUser() actor: AuthUser,
+  ): Promise<BulkVehicleResult> {
+    return this.vehicles.moderateMany(body, actor);
   }
 
   @Patch(':id')
