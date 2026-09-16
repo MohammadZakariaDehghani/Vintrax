@@ -67,7 +67,12 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
           </div>
         )}
 
-        <div className="absolute left-2 top-2 flex flex-col gap-1">
+        {/* `z-10` so anything clickable in here sits above the stretched link's
+            `::after`, which covers the whole row. Without it the CARFAX badge
+            is painted under the overlay and every click on it opens the listing
+            instead of the report — the same reason the save button below is
+            `relative z-10`. */}
+        <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
           {auction ? (
             <Badge variant="accent" className="shadow-sm">
               <Gavel className="h-3 w-3" aria-hidden />

@@ -22,6 +22,19 @@ import { cn } from '@/lib/utils';
  * `rel="noopener noreferrer"` on a `_blank` link: without `noopener` the opened
  * page can reach back through `window.opener` and navigate this tab somewhere
  * else.
+ *
+ * Deliberately a server component — no `'use client'`, and no event handler.
+ * It is an anchor with a URL in it, so there is nothing for the client to do,
+ * and the listing page that renders it is server-rendered. It briefly carried
+ * an `onClick` that called `stopPropagation`, which broke that page outright
+ * (issue #37): a handler cannot be serialised from a server component.
+ *
+ * The handler was also solving a problem that does not exist. Neither card
+ * wraps this badge in a clickable ancestor, so there is no bubbling click to
+ * stop. What the row does have is a stretched link — a `::after` covering the
+ * whole row — and an overlay is not something `stopPropagation` can reach past,
+ * because the click never arrives at the badge at all. That is fixed where it
+ * actually lives, by giving the badge a stacking context above the overlay.
  */
 export function CarfaxBadge({
   url,
@@ -37,8 +50,6 @@ export function CarfaxBadge({
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      // Stops the click reaching a card that is itself a link to the listing.
-      onClick={(event) => event.stopPropagation()}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-md border border-border bg-card font-semibold transition-colors hover:border-primary hover:text-primary',
         compact ? 'px-1.5 py-0.5 text-[11px]' : 'px-2.5 py-1.5 text-xs',
