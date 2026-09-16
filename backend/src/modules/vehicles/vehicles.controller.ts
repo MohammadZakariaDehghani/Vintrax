@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Res,
   StreamableFile,
@@ -22,6 +23,7 @@ import {
   type BulkVehicleResult,
   type CreateVehicleInput,
   type ModerateListingInput,
+  type ReplaceVehicleHistoryInput,
   type Paginated,
   type SearchVehiclesQuery,
   type UpdateListingStatusInput,
@@ -33,6 +35,7 @@ import {
   bulkListingStatusSchema,
   bulkModerateListingsSchema,
   moderateListingSchema,
+  replaceVehicleHistorySchema,
   searchVehiclesSchema,
   updateListingStatusSchema,
   updateVehicleSchema,
@@ -227,6 +230,24 @@ export class VehiclesController {
     @CurrentUser() user: AuthUser,
   ): Promise<VehicleDetail> {
     return this.vehicles.setStatus(id, body, user);
+  }
+
+  @Put(':id/history')
+  @RequirePermissions('vehicle:write')
+  @Audit('vehicle.history_updated', 'Vehicle')
+  @ApiOperation({
+    summary: "Replace a vehicle's history timeline",
+    description:
+      'The seller transcribes the history report they hold. Vintrax retrieves nothing from ' +
+      'CARFAX and does not verify these entries; the uploaded report is the evidence, and the ' +
+      "interface presents the timeline as the seller's own account.",
+  })
+  replaceHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(replaceVehicleHistorySchema)) body: ReplaceVehicleHistoryInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<VehicleDetail> {
+    return this.vehicles.replaceHistory(id, body, user);
   }
 
   @Delete(':id')

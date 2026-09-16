@@ -544,3 +544,44 @@ export const labelize = (value: string): string => {
     )
     .join(' ');
 };
+
+/**
+ * What one entry on a vehicle's history timeline says happened.
+ *
+ * Kept small and concrete. These are the lines that actually appear on a
+ * Canadian history report, and a longer list would invite a seller to reach for
+ * a category that sounds better than the one that fits.
+ */
+export const VEHICLE_HISTORY_EVENT_KINDS = [
+  'REGISTERED',
+  'SOLD',
+  'SERVICE',
+  'CLAIM',
+  'NO_CLAIMS',
+  'INSPECTION',
+  'SAFETY_CERTIFIED',
+  'RECALL',
+  'OTHER',
+] as const;
+export type VehicleHistoryEventKind = (typeof VEHICLE_HISTORY_EVENT_KINDS)[number];
+
+export const VEHICLE_HISTORY_EVENT_LABELS: Record<VehicleHistoryEventKind, string> = {
+  REGISTERED: 'Registered',
+  SOLD: 'Sold',
+  SERVICE: 'Service',
+  CLAIM: 'Insurance claim',
+  NO_CLAIMS: 'No claims reported',
+  INSPECTION: 'Inspection',
+  SAFETY_CERTIFIED: 'Safety certified',
+  RECALL: 'Recall',
+  OTHER: 'Other',
+};
+
+/**
+ * The kinds that are bad news.
+ *
+ * Marked so the timeline can colour them, and so a seller cannot hide a claim
+ * by choosing a gentler category: the styling follows the kind, not the words
+ * the seller typed next to it.
+ */
+export const ADVERSE_HISTORY_EVENT_KINDS: readonly VehicleHistoryEventKind[] = ['CLAIM', 'RECALL'];

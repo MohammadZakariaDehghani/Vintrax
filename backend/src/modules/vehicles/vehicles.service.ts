@@ -16,6 +16,7 @@ import type {
   CreateVehicleInput,
   ModerateListingInput,
   Paginated,
+  ReplaceVehicleHistoryInput,
   SearchVehiclesQuery,
   UpdateListingStatusInput,
   UpdateVehicleInput,
@@ -239,6 +240,7 @@ export class VehiclesService {
               url: document.url,
               filename: document.filename,
               sizeBytes: document.sizeBytes ?? null,
+              issuedOn: asStoredDate(document.issuedOn),
             })),
           });
         }
@@ -404,6 +406,56 @@ export class VehiclesService {
       total,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
+  }
+
+  /**
+   * Replaces a vehicle's history timeline.
+   *
+   * Whole-set replacement, matching how images and documents already work here:
+   * the client holds the ordered list and order is part of the data, so a
+   * per-entry API would need a reorder endpoint as well and two ways to get the
+   * order wrong.
+   *
+   * `requireOwnedVehicle` is what scopes it. A timeline is shown to buyers, so
+   * the ability to write one is the ability to make a claim about a car — it
+   * belongs to whoever owns the listing, and to nobody else.
+   */
+  async replaceHistory(
+    id: string,
+    input: ReplaceVehicleHistoryInput,
+    user: AuthUser,
+  ): Promise<VehicleDetail> {
+    await this.requireOwnedVehicle(id, user);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.vehicleHistoryEvent.deleteMany({ where: { vehicleId: id } });
+      if (input.events.length > 0) {
+        await tx.vehicleHistoryEvent.createMany({
+          data: input.events.map((event, position) => ({
+            vehicleId: id,
+            kind: event.kind,
+            // A `@db.Date` column: parsed at UTC midnight so the calendar date
+            // that was typed is the calendar date that is stored, whatever the
+            // server's timezone.
+            occurredOn: event.occurredOn ? new Date(`${event.occurredOn}T00:00:00Z`) : null,
+            label: event.label,
+            detail: event.detail ?? null,
+            position,
+          })),
+        });
+      }
+    });
+
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'vehicle.history_updated',
+      entityType: 'Vehicle',
+      entityId: id,
+      metadata: { events: input.events.length },
+    });
+
+    return this.findById(id, user);
   }
 
   /**
@@ -754,4 +806,14 @@ function summariseBulk(outcomes: BulkVehicleOutcome[]): BulkVehicleResult {
     failed: outcomes.filter((outcome) => !outcome.ok).length,
     outcomes,
   };
+}
+
+/**
+ * A `YYYY-MM-DD` input as the value a `@db.Date` column should hold.
+ *
+ * Parsed at UTC midnight so the calendar date that was typed is the calendar
+ * date that is stored, whatever timezone the server happens to run in.
+ */
+function asStoredDate(value: string | undefined): Date | null {
+  return value ? new Date(`${value}T00:00:00Z`) : null;
 }

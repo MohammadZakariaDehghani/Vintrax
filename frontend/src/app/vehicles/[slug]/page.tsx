@@ -11,6 +11,7 @@ import { ContactSellerPanel } from '@/components/contact-seller-panel';
 import { InspectionReport } from '@/components/inspection-report';
 import { VehicleDocuments } from '@/components/vehicle-documents';
 import { DescriptionBody } from '@/components/description-body';
+import { VehicleHistory } from '@/components/vehicle-history';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -135,6 +136,11 @@ export default async function VehicleDetailPage({ params }: PageProps) {
               ) : null}
             </CardContent>
           </Card>
+
+          <VehicleHistory
+            events={vehicle.historyEvents}
+            reportIssuedOn={vehicle.historyReportIssuedOn}
+          />
 
           {vehicle.inspection ? <InspectionReport vehicleId={vehicle.id} /> : null}
 

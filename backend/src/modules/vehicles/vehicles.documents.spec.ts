@@ -72,9 +72,11 @@ function vehicleRow(): VehicleDetailRow {
         url: '/uploads/documents/9f1c.pdf',
         filename: 'title.pdf',
         sizeBytes: 1024,
+        issuedOn: null,
         createdAt: now,
       },
     ],
+    historyEvents: [],
     seller: {
       id: 'seller-1',
       firstName: 'Sam',

@@ -24,6 +24,7 @@ import {
   USER_ROLES,
   VEHICLE_CONDITIONS,
   VEHICLE_DOCUMENT_TYPES,
+  VEHICLE_HISTORY_EVENT_KINDS,
   VIN_PATTERN,
   maxModelYear,
 } from './domain';
@@ -46,6 +47,24 @@ const csvEnumArray = <T extends readonly [string, ...string[]]>(values: T) =>
     .pipe(z.array(z.enum(values)).nonempty().optional());
 
 const trimmed = (max: number) => z.string().trim().max(max);
+
+/**
+ * A plain calendar date, `YYYY-MM-DD`.
+ *
+ * Not a timestamp. A history report prints a date, a document is issued on a
+ * date, and attaching a time to either invents precision that is not in the
+ * source — and then loses a day either side of midnight when a timezone is
+ * applied to it. The range check rejects 2026-02-31, which the pattern alone
+ * would accept.
+ */
+const isoDate = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date in the form YYYY-MM-DD.')
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
+  }, 'That date does not exist.');
 const uuid = () => z.string().uuid();
 
 /** Whole Canadian dollars. Integer to avoid floating-point drift on money. */
@@ -153,7 +172,46 @@ export const vehicleDocumentSchema = z.object({
   url: trimmed(500).min(1),
   filename: trimmed(200).min(1),
   sizeBytes: z.coerce.number().int().min(0).optional(),
+  /** The date printed on the document, not when it was uploaded. */
+  issuedOn: isoDate.optional(),
 });
+
+/**
+ * The most entries one vehicle's timeline may carry.
+ *
+ * A Canadian history report for an ordinary used car runs to a dozen or so
+ * lines worth showing. The cap is generous against that and exists so the
+ * detail response stays a fixed size.
+ */
+export const MAX_VEHICLE_HISTORY_EVENTS = 40;
+
+/**
+ * One line a seller transcribed from the history report they hold.
+ *
+ * Vintrax does not retrieve anything from CARFAX — there is no integration —
+ * so this is seller-asserted, the uploaded report is the evidence, and the UI
+ * says which is which. The date is a plain calendar date because that is what
+ * a report prints; no time, and no timezone to get wrong.
+ */
+export const vehicleHistoryEventSchema = z.object({
+  kind: z.enum(VEHICLE_HISTORY_EVENT_KINDS),
+  occurredOn: isoDate.optional(),
+  label: trimmed(80).min(2),
+  detail: trimmed(160).optional(),
+});
+export type VehicleHistoryEventInput = z.infer<typeof vehicleHistoryEventSchema>;
+
+/**
+ * The whole timeline, replaced at once.
+ *
+ * Whole-set replacement rather than per-entry edits, matching how images and
+ * documents already work on a vehicle: the client holds the ordered list, and
+ * order is part of the data.
+ */
+export const replaceVehicleHistorySchema = z.object({
+  events: z.array(vehicleHistoryEventSchema).max(MAX_VEHICLE_HISTORY_EVENTS),
+});
+export type ReplaceVehicleHistoryInput = z.infer<typeof replaceVehicleHistorySchema>;
 
 export const createVehicleSchema = z.object({
   title: trimmed(160).min(6),

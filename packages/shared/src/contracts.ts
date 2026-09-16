@@ -25,6 +25,7 @@ import type {
   UserStatus,
   VehicleCondition,
   VehicleDocumentType,
+  VehicleHistoryEventKind,
 } from './domain';
 
 /** Shape returned by every paginated collection endpoint. */
@@ -131,6 +132,25 @@ export interface VehicleDocument {
   filename: string;
   sizeBytes: number | null;
   uploadedAt: string;
+  /** The date printed on the document, `YYYY-MM-DD`, where the seller gave one. */
+  issuedOn: string | null;
+}
+
+/**
+ * One entry on a vehicle's history timeline.
+ *
+ * Seller-asserted, transcribed from the report they hold — Vintrax has no
+ * CARFAX integration and retrieves nothing. The uploaded report is the
+ * evidence; this is the summary a buyer reads without asking for the PDF, and
+ * the interface labels it as the dealer's own account rather than as verified.
+ */
+export interface VehicleHistoryEvent {
+  id: string;
+  kind: VehicleHistoryEventKind;
+  /** `YYYY-MM-DD`, or null for an entry with no date on the report. */
+  occurredOn: string | null;
+  label: string;
+  detail: string | null;
 }
 
 /** Trimmed vehicle shape used in search results and inventory grids. */
@@ -187,6 +207,18 @@ export interface VehicleDetail extends VehicleSummary {
   documents: VehicleDocument[];
   /** How many documents exist, regardless of whether the viewer may open them. */
   documentCount: number;
+  /**
+   * The vehicle's history timeline, oldest first. Public: unlike the documents
+   * it summarises, it names no owner and carries no address.
+   */
+  historyEvents: VehicleHistoryEvent[];
+  /**
+   * The date on the most recent history report the seller uploaded, where they
+   * gave one. Public even though the report itself is not, because "the report
+   * behind this is eight months old" is exactly what a buyer needs to weigh the
+   * timeline, and it discloses nothing about the owner.
+   */
+  historyReportIssuedOn: string | null;
   seller: VehicleSeller;
   inspection: InspectionSummary | null;
   updatedAt: string;

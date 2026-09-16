@@ -99,8 +99,20 @@ export const vehicleDetailSelect = {
     orderBy: { position: 'asc' },
   },
   documents: {
-    select: { id: true, type: true, url: true, filename: true, sizeBytes: true, createdAt: true },
+    select: {
+      id: true,
+      type: true,
+      url: true,
+      filename: true,
+      sizeBytes: true,
+      issuedOn: true,
+      createdAt: true,
+    },
     orderBy: { createdAt: 'asc' },
+  },
+  historyEvents: {
+    select: { id: true, kind: true, occurredOn: true, label: true, detail: true, position: true },
+    orderBy: { position: 'asc' },
   },
   seller: { select: vehicleSellerSelect },
   inspections: {
@@ -228,9 +240,21 @@ export function toVehicleDetail(
           filename: document.filename,
           sizeBytes: document.sizeBytes,
           uploadedAt: document.createdAt.toISOString(),
+          issuedOn: asDate(document.issuedOn),
         }))
       : [],
     documentCount: row.documents.length,
+    historyEvents: row.historyEvents.map((event) => ({
+      id: event.id,
+      kind: event.kind,
+      occurredOn: asDate(event.occurredOn),
+      label: event.label,
+      detail: event.detail,
+    })),
+    // Deliberately outside `includeDocuments`. The report itself carries the
+    // owner's name and address and stays restricted; its date does not, and it
+    // is what tells a buyer whether the timeline above is current.
+    historyReportIssuedOn: latestReportDate(row.documents),
     seller: {
       id: row.seller.id,
       displayName: `${row.seller.firstName} ${row.seller.lastName}`.trim(),
@@ -253,4 +277,21 @@ export function toVehicleDetail(
       : null,
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/** A `@db.Date` column as `YYYY-MM-DD`, which is what it holds. */
+function asDate(value: Date | null): string | null {
+  return value ? value.toISOString().slice(0, 10) : null;
+}
+
+/** The newest date printed on a CARFAX document this vehicle carries. */
+function latestReportDate(
+  documents: ReadonlyArray<{ type: string; issuedOn: Date | null }>,
+): string | null {
+  const dates = documents
+    .filter((document) => document.type === 'CARFAX')
+    .map((document) => asDate(document.issuedOn))
+    .filter((date): date is string => date !== null)
+    .sort();
+  return dates.at(-1) ?? null;
 }
