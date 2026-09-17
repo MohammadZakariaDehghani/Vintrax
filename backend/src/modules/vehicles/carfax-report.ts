@@ -141,6 +141,39 @@ async function resolvePublicly(hostname: string): Promise<LookupAddress[]> {
 }
 
 /**
+ * A real browser's request headers, not a named bot's.
+ *
+ * This reverses the file's earlier choice, which identified honestly as
+ * `Vintrax-CarfaxReader/1`. The first real report came back as a static
+ * "Looks like your internet browser isn't supported" page — and that heading
+ * arrived in the raw HTTP response, not drawn by a script, which means the
+ * server chose to send it before any JavaScript could have run. That is
+ * almost certainly a check on exactly the header this replaces.
+ *
+ * Sending a browser's own string is what every link-preview and read-it-later
+ * service already does to read a page the way a visitor would; it is not the
+ * kind of evasion aimed at a deliberate anti-automation defence. Nothing here
+ * works around a CAPTCHA, a session check or a rate limit — it answers a
+ * browser-compatibility check honestly, in the only vocabulary that check
+ * understands. If a real anti-bot measure shows up instead — a CAPTCHA, a JS
+ * challenge, a fingerprint block — the answer is to stop and say so, not to
+ * escalate.
+ *
+ * Exported so a test can assert on it directly rather than on request
+ * behaviour this module has no way to exercise against the real host.
+ */
+export const CARFAX_REQUEST_HEADERS = {
+  'user-agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+    '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'accept-language': 'en-CA,en;q=0.9',
+  // The body is buffered, so a compressed stream could expand past the cap
+  // after it was checked.
+  'accept-encoding': 'identity',
+} as const;
+
+/**
  * One GET, to an address that already passed the check.
  *
  * `lookup` is overridden so the connection uses the vetted address rather than
@@ -156,15 +189,7 @@ function getOnce(url: URL, addresses: LookupAddress[]): Promise<string> {
       hostname: url.hostname,
       port: url.port || 443,
       path: `${url.pathname}${url.search}`,
-      headers: {
-        // Named honestly, so CARFAX can see who is reading and block it if they
-        // would rather we did not.
-        'user-agent': 'Vintrax-CarfaxReader/1 (+https://vintrax.ca)',
-        accept: 'text/html,application/xhtml+xml',
-        // The body is buffered, so a compressed stream could expand past the
-        // cap after it was checked.
-        'accept-encoding': 'identity',
-      },
+      headers: CARFAX_REQUEST_HEADERS,
       lookup: (_hostname, lookupOptions, callback) => {
         const first = addresses[0];
         if (!first) {
@@ -243,6 +268,24 @@ function getOnce(url: URL, addresses: LookupAddress[]): Promise<string> {
  * record mentioning "damage" from being read as a collision.
  */
 const SECTION_HEADING = /accident\s*(?:\/|,|\s+or\s+|\s+and\s+)?\s*damage|damage\s*record/i;
+
+/**
+ * A site turning this request away for the browser it claims to be, rather
+ * than for anything about the vehicle.
+ *
+ * The first real report failed with a static "Looks like your internet
+ * browser isn't supported" page — that heading was in the raw HTTP response,
+ * not drawn by a script, so the server decided before any JavaScript could
+ * have run, almost certainly from the `User-Agent` header. Named separately
+ * from the generic app-shell guess below because it is a stronger, more
+ * specific signal: not "this page needs a script to render" but "this
+ * specific request was rejected by name". If it fires again after
+ * `CARFAX_REQUEST_HEADERS` stopped identifying as a bot, that is worth
+ * knowing on its own — it would mean the site is checking something else, or
+ * checking harder, not merely the one string that was wrong before.
+ */
+const BROWSER_UNSUPPORTED =
+  /browser\s+(?:isn'?t|is\s+not|does\s+not\s+appear\s+to\s+be)\s+supported|unsupported\s+browser|(?:upgrade|update)\s+your\s+browser|browser\s+update\s+(?:is\s+)?required/i;
 
 /**
  * Headings that end the accident section, so a lien is not read as a crash.
@@ -399,9 +442,11 @@ export function parseCarfaxReport(html: string): CarfaxReport {
   if (start === -1) {
     return {
       status: 'unreadable',
-      reason: looksLikeAppShell(html, lines)
-        ? 'this report is drawn in the browser, so the page itself carries no accident section'
-        : 'no accident or damage section was found on the page',
+      reason: BROWSER_UNSUPPORTED.test(html)
+        ? 'CARFAX told this request its browser is not supported, so it never sent the report — this is about how the request identified itself, not about the vehicle'
+        : looksLikeAppShell(html, lines)
+          ? 'this report is drawn in the browser, so the page itself carries no accident section'
+          : 'no accident or damage section was found on the page',
       diagnosis: describePage(html, lines),
     };
   }
@@ -742,6 +787,7 @@ export function describePage(html: string, lines: string[]): string {
     `${embeddedJson(html).length} JSON blocks`,
     looksLikeAppShell(html, lines) ? 'looks browser-rendered' : 'looks server-rendered',
   ];
+  if (BROWSER_UNSUPPORTED.test(html)) parts.push('page says this browser is unsupported');
   if (headings.length > 0) parts.push(`headings: ${headings.join(' | ')}`);
 
   return truncate(parts.join('; '), 400);

@@ -3,6 +3,7 @@ import {
   parseCarfaxReport,
   parseReportDate,
   MAX_CARFAX_RECORDS,
+  CARFAX_REQUEST_HEADERS,
 } from './carfax-report';
 
 /**
@@ -334,6 +335,64 @@ describe('parseCarfaxReport, from embedded data', () => {
   });
 });
 
+describe('a browser-compatibility gate', () => {
+  // The exact failure the first real report hit: a static page rejecting the
+  // request by name, in the raw HTTP response rather than drawn by a script.
+  const gatePage = `<!doctype html><html><head><title>CARFAX Canada Vehicle History Report</title></head>
+    <body><h1>Looks like your internet browser isn't supported</h1>
+    <p>Please upgrade your browser to view this report.</p></body></html>`;
+
+  it('is named as its own failure, not folded into the generic app-shell guess', () => {
+    const report = parseCarfaxReport(gatePage);
+
+    expect(report.status).toBe('unreadable');
+    if (report.status !== 'unreadable') return;
+    expect(report.reason).toContain('browser is not supported');
+    expect(report.reason).not.toContain('drawn in the browser');
+  });
+
+  it('surfaces the gate in the diagnosis, separately from render-shape guessing', () => {
+    const report = parseCarfaxReport(gatePage);
+
+    expect(report.status).toBe('unreadable');
+    if (report.status !== 'unreadable') return;
+    expect(report.diagnosis).toContain('page says this browser is unsupported');
+  });
+
+  it('recognises the common phrasings, not only one exact sentence', () => {
+    for (const phrase of [
+      'Your browser is not supported',
+      "This browser isn't supported for this feature",
+      'Unsupported browser detected',
+      'Please upgrade your browser to continue',
+      'A browser update is required',
+    ]) {
+      const report = parseCarfaxReport(
+        `<html><head><title>x</title></head><body><h1>${phrase}</h1></body></html>`,
+      );
+      expect(report.status).toBe('unreadable');
+      if (report.status !== 'unreadable') continue;
+      expect(report.reason).toContain('browser is not supported');
+    }
+  });
+
+  it('does not fire on ordinary text that happens to mention a browser', () => {
+    // The pattern requires the specific compatibility-gate phrasing — "browser
+    // isn't supported", "upgrade your browser" — not just the words "browser"
+    // and "supported" appearing somewhere on the page. No accident heading
+    // either, so this still reaches the branch that checks for the gate; it
+    // just must not match it.
+    const report = parseCarfaxReport(
+      '<html><head><title>x</title></head><body>' +
+        '<p>This report is best viewed in a modern browser. All accident data ' +
+        'is supported by verified public records.</p></body></html>',
+    );
+    expect(report.status).toBe('unreadable');
+    if (report.status !== 'unreadable') return;
+    expect(report.reason).not.toContain('browser is not supported');
+  });
+});
+
 describe('the failure diagnosis', () => {
   it('says the page is browser-rendered when it is', () => {
     const report = parseCarfaxReport(
@@ -366,5 +425,43 @@ describe('the failure diagnosis', () => {
     expect(report.status).toBe('unreadable');
     if (report.status !== 'unreadable') return;
     expect((report.diagnosis ?? '').length).toBeLessThanOrEqual(400);
+  });
+});
+
+/**
+ * The request headers this module sends.
+ *
+ * There is no live server here to send them to — the real host is outside
+ * this sandbox's network policy — so this asserts on the constant itself
+ * rather than on request behaviour. That is still worth locking in: the first
+ * real report came back as a static "Looks like your internet browser isn't
+ * supported" page, and that heading was in the raw HTTP response rather than
+ * drawn by a script, meaning the server decided before any JavaScript could
+ * have run — almost certainly from the `User-Agent` this replaced. A
+ * regression back to a named-bot string would silently reintroduce the exact
+ * failure that motivated the change.
+ */
+describe('the request headers', () => {
+  it('identifies as a real browser, not a named bot', () => {
+    expect(CARFAX_REQUEST_HEADERS['user-agent']).toMatch(/^Mozilla\/5\.0 /);
+    // The failure this guards: a UA string a browser-compatibility check can
+    // reject outright because it names an unrecognised client.
+    expect(CARFAX_REQUEST_HEADERS['user-agent']).not.toMatch(/vintrax/i);
+  });
+
+  it('sends the language and accept headers a browser sends unprompted', () => {
+    // Present because their absence is itself a signal a compatibility check
+    // can use — a request with a browser's User-Agent but none of a browser's
+    // other usual headers is, if anything, a more obvious tell than the
+    // named-bot string it replaced.
+    expect(CARFAX_REQUEST_HEADERS['accept-language']).toBeTruthy();
+    expect(CARFAX_REQUEST_HEADERS.accept).toContain('text/html');
+  });
+
+  it('never asks for a compressed body', () => {
+    // The size cap is enforced while the body streams; a compressed response
+    // could grow past it only after decoding, which is exactly the gap
+    // `identity` closes.
+    expect(CARFAX_REQUEST_HEADERS['accept-encoding']).toBe('identity');
   });
 });
