@@ -278,6 +278,23 @@ export const createVehicleSchema = z.object({
     })
     .optional(),
 
+  /**
+   * The two badges a CARFAX Canada report prints, as the seller reads them off
+   * their own report.
+   *
+   * Optional and never defaulted, for the reason `titleStatus` is: a listing
+   * that predates these fields said nothing, and turning that into `false`
+   * would be Vintrax answering on the seller's behalf.
+   *
+   * That either of these requires a report link is not enforced here. This
+   * schema sees one request, and an update that sets `carfaxOneOwner` alone is
+   * legitimate when the stored vehicle already has a link — only the service
+   * knows that. It is checked there, against the merged result, for create and
+   * update alike.
+   */
+  carfaxOneOwner: z.boolean().optional(),
+  carfaxLowKilometres: z.boolean().optional(),
+
   saleChannel: z.enum(SALE_CHANNELS).default('FIXED_PRICE'),
   // Not the full LISTING_STATUSES set: a listing cannot be created published.
   status: z.enum(CREATABLE_LISTING_STATUSES).default('DRAFT'),

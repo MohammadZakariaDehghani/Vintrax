@@ -556,7 +556,9 @@ export const VEHICLE_HISTORY_EVENT_KINDS = [
   'REGISTERED',
   'SOLD',
   'SERVICE',
+  'ACCIDENT_DAMAGE',
   'CLAIM',
+  'NO_ACCIDENTS',
   'NO_CLAIMS',
   'INSPECTION',
   'SAFETY_CERTIFIED',
@@ -569,7 +571,9 @@ export const VEHICLE_HISTORY_EVENT_LABELS: Record<VehicleHistoryEventKind, strin
   REGISTERED: 'Registered',
   SOLD: 'Sold',
   SERVICE: 'Service',
+  ACCIDENT_DAMAGE: 'Accident / damage',
   CLAIM: 'Insurance claim',
+  NO_ACCIDENTS: 'No accidents reported',
   NO_CLAIMS: 'No claims reported',
   INSPECTION: 'Inspection',
   SAFETY_CERTIFIED: 'Safety certified',
@@ -578,13 +582,37 @@ export const VEHICLE_HISTORY_EVENT_LABELS: Record<VehicleHistoryEventKind, strin
 };
 
 /**
+ * The kinds that come from a report's accident and damage record.
+ *
+ * `ACCIDENT_DAMAGE` and `CLAIM` are kept apart because the report keeps them
+ * apart, and the difference is one a buyer cares about. A CARFAX Canada report
+ * has an "Accident / Damage Record" listing damage the vehicle is recorded as
+ * having sustained, with an estimated repair cost; an insurance claim is a
+ * separate thing that may or may not have arisen from one. Folding them
+ * together would make a car with one accident and one unrelated claim look
+ * like a car with two accidents, or the reverse.
+ *
+ * `NO_ACCIDENTS` is the stated absence, which is not the same as saying
+ * nothing. A report that reads "no accidents reported" is a fact worth showing;
+ * an empty timeline means only that the seller typed nothing.
+ */
+export const ACCIDENT_HISTORY_EVENT_KINDS: readonly VehicleHistoryEventKind[] = [
+  'ACCIDENT_DAMAGE',
+  'CLAIM',
+];
+
+/**
  * The kinds that are bad news.
  *
  * Marked so the timeline can colour them, and so a seller cannot hide a claim
  * by choosing a gentler category: the styling follows the kind, not the words
  * the seller typed next to it.
  */
-export const ADVERSE_HISTORY_EVENT_KINDS: readonly VehicleHistoryEventKind[] = ['CLAIM', 'RECALL'];
+export const ADVERSE_HISTORY_EVENT_KINDS: readonly VehicleHistoryEventKind[] = [
+  'ACCIDENT_DAMAGE',
+  'CLAIM',
+  'RECALL',
+];
 
 /**
  * The brand on a vehicle's title.
@@ -665,4 +693,54 @@ export function isCarfaxUrl(value: string): boolean {
   }
 
   return CARFAX_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+}
+
+/**
+ * The claims a seller can make from their CARFAX report, beyond linking it.
+ *
+ * Two, matching the two badges CARFAX Canada prints on a report: One Owner and
+ * Low Kilometres. They are stored per vehicle rather than derived, because
+ * there is nothing here to derive them from — Vintrax retrieves nothing from
+ * CARFAX, and inferring "one owner" from however many SOLD lines a seller
+ * happened to type would be the application inventing a fact about a car.
+ */
+export const CARFAX_HIGHLIGHTS = ['ONE_OWNER', 'LOW_KILOMETRES'] as const;
+export type CarfaxHighlight = (typeof CARFAX_HIGHLIGHTS)[number];
+
+export const CARFAX_HIGHLIGHT_LABELS: Record<CarfaxHighlight, string> = {
+  ONE_OWNER: 'One Owner',
+  LOW_KILOMETRES: 'Low Kilometres',
+};
+
+/** What the badge needs to know about a vehicle. */
+export interface CarfaxBadgeSource {
+  carfaxUrl?: string | null;
+  carfaxOneOwner?: boolean | null;
+  carfaxLowKilometres?: boolean | null;
+}
+
+/**
+ * Which segments the CARFAX badge should draw, in order.
+ *
+ * The badge is one mark, not a row of them: a car with a report and both
+ * claims shows a single joined strip reading CARFAX · One Owner · Low
+ * Kilometres, and a car with only a report shows the CARFAX mark alone. This
+ * returns the highlights in a fixed order so two listings with the same claims
+ * always draw the same badge — ordering them by whatever the seller ticked
+ * first would make an identical pair of cars look different.
+ *
+ * The report link is what gates all of it. A highlight without a report is not
+ * a weaker claim, it is an unsourced one: the badge exists to say "this came
+ * off a report, here it is", and a One Owner mark that opens nothing is the
+ * brand's authority with the evidence removed. The write schema refuses that
+ * combination rather than storing it, and this refuses to draw it in case one
+ * predates the check.
+ */
+export function carfaxHighlightsFor(vehicle: CarfaxBadgeSource): CarfaxHighlight[] {
+  if (!vehicle.carfaxUrl) return [];
+
+  const highlights: CarfaxHighlight[] = [];
+  if (vehicle.carfaxOneOwner) highlights.push('ONE_OWNER');
+  if (vehicle.carfaxLowKilometres) highlights.push('LOW_KILOMETRES');
+  return highlights;
 }

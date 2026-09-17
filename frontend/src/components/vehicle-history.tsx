@@ -1,9 +1,11 @@
-import { AlertTriangle, FileText } from 'lucide-react';
+import { AlertTriangle, FileText, ShieldCheck } from 'lucide-react';
 import {
   ADVERSE_HISTORY_EVENT_KINDS,
+  type CarfaxBadgeSource,
   type VehicleHistoryEvent,
   type VehicleHistoryEventKind,
 } from '@vintrax/shared';
+import { summariseAccidentRecord, type AccidentRecord } from '@/lib/vehicle-history';
 import { formatDate } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui';
 import { CarfaxBadge } from '@/components/carfax-badge';
@@ -31,14 +33,16 @@ import { CarfaxBadge } from '@/components/carfax-badge';
  */
 export function VehicleHistory({
   events,
-  carfaxUrl,
+  vehicle,
 }: {
   events: VehicleHistoryEvent[];
-  carfaxUrl?: string | null;
+  vehicle: CarfaxBadgeSource;
 }) {
   // Still drawn when the seller linked a report but entered no timeline: the
   // link is the useful half, and hiding the block would hide it.
-  if (events.length === 0 && !carfaxUrl) return null;
+  if (events.length === 0 && !vehicle.carfaxUrl) return null;
+
+  const accidentRecord = summariseAccidentRecord(events);
 
   return (
     <Card>
@@ -48,7 +52,7 @@ export function VehicleHistory({
             <FileText className="h-4 w-4 text-primary" aria-hidden />
             Vehicle history
           </h2>
-          {carfaxUrl ? <CarfaxBadge url={carfaxUrl} /> : null}
+          <CarfaxBadge vehicle={vehicle} />
         </div>
 
         <p className="mt-1 text-sm text-muted-foreground">
@@ -56,6 +60,8 @@ export function VehicleHistory({
             ? 'Provided by the seller from their own history report. Vintrax has not checked it — read the report itself before you buy.'
             : 'The seller has linked a report but has not summarised it here. Open the report to read it.'}
         </p>
+
+        <AccidentSummary record={accidentRecord} />
 
         {/* Horizontal on a wide screen, as a run of dated markers along a rule;
             vertical on a phone, where a row of six columns is unreadable. */}
@@ -102,13 +108,81 @@ export function VehicleHistory({
   );
 }
 
+/**
+ * The report's accident and damage record, called out above the timeline.
+ *
+ * This is the line a buyer looks for first, and until now it was a red dot
+ * somewhere in a row of six. Pulling the count out does not hide the entries —
+ * each one still appears on the timeline below with its date and what it says —
+ * it just stops the one question everybody asks from depending on reading all
+ * of them.
+ *
+ * Three states, and the third is the reason it is three. "No accidents
+ * reported" is something the report says and the seller transcribed. Silence is
+ * not: an empty timeline means nobody typed anything, and rendering that as
+ * "no accidents" would turn an absence of data into a clean bill of health, on
+ * the one field where that lie is worth the most money.
+ */
+function AccidentSummary({ record }: { record: AccidentRecord }) {
+  if (record.state === 'reported') {
+    const { accidents } = record;
+    const total = accidents.length;
+
+    return (
+      <div className="mt-4 flex items-start gap-2.5 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-destructive">
+            {total === 1 ? '1 accident or damage record' : `${total} accident or damage records`}
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {accidents.map((accident) => (
+              <li key={accident.id} className="text-sm text-muted-foreground">
+                {accident.label}
+                {accident.detail ? ` — ${accident.detail}` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  if (record.state === 'none') {
+    return (
+      <div className="mt-4 flex items-start gap-2.5 rounded-md border border-success/30 bg-success/5 px-3 py-2.5">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+        <p className="text-sm">
+          <span className="font-semibold text-success">No accidents reported</span>
+          <span className="text-muted-foreground">
+            {' '}
+            on the seller&rsquo;s report. Open it to see the date it was run.
+          </span>
+        </p>
+      </div>
+    );
+  }
+
+  // Said plainly rather than left blank, so the gap is visible as a gap.
+  return (
+    <p className="mt-4 text-sm text-muted-foreground">
+      The seller has not said whether the report shows any accident or damage.
+    </p>
+  );
+}
+
 function isAdverse(kind: VehicleHistoryEventKind): boolean {
   return ADVERSE_HISTORY_EVENT_KINDS.includes(kind);
 }
 
 function dotFor(kind: VehicleHistoryEventKind): string {
   if (isAdverse(kind)) return 'bg-destructive';
-  if (kind === 'NO_CLAIMS' || kind === 'SAFETY_CERTIFIED' || kind === 'INSPECTION') {
+  if (
+    kind === 'NO_ACCIDENTS' ||
+    kind === 'NO_CLAIMS' ||
+    kind === 'SAFETY_CERTIFIED' ||
+    kind === 'INSPECTION'
+  ) {
     return 'bg-success';
   }
   return 'bg-primary';

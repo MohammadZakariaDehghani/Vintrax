@@ -143,6 +143,23 @@ link to anywhere. It appears on the summary as well as the detail, since the
 search cards draw the badge. It is the only way a CARFAX report reaches a
 buyer — there is no report upload, and no `historyReportIssuedOn`.
 
+Two optional booleans ride with it, `carfaxOneOwner` and `carfaxLowKilometres`,
+which are the two badges a CARFAX Canada report prints. They join the CARFAX
+mark into one badge on the listing rather than appearing beside it. Both are
+nullable and never defaulted: `null` is "the seller was not asked", which is a
+different claim from `false`, and every listing that predates the columns is the
+former.
+
+Neither may be set without a `carfaxUrl`, and the API returns 400 rather than
+storing one. The badge borrows CARFAX's authority and what makes that
+defensible is that it opens the report the claim came off; a highlight with no
+link is that authority with the evidence removed. The rule is enforced in the
+service rather than the schema because only the service sees the merged result —
+`PATCH {"carfaxOneOwner": true}` is legitimate against a vehicle that already
+has a link. Clearing `carfaxUrl` sets both back to `null` in the same write, so
+a claim cannot outlive its evidence and reappear when a later edit adds any link
+back.
+
 **History.** The timeline is replaced as a whole set, matching images and
 documents. Entries are transcribed by the seller from a report they hold —
 Vintrax has no CARFAX integration and retrieves nothing — so the timeline is
@@ -150,6 +167,15 @@ public and labelled as the seller's account, while the uploaded report stays
 restricted with the rest of the paperwork. `VehicleDocument.issuedOn` carries the
 date printed on the report; that date is public even though the report is not,
 because it is what lets a buyer judge how current the timeline is.
+
+`ACCIDENT_DAMAGE` and `NO_ACCIDENTS` are the kinds that carry a report's
+accident and damage record, and the listing page lifts them out above the
+timeline. They are separate from `CLAIM` because a report keeps them separate:
+a damage record and an insurance claim are different events, and merging them
+would make one of each look like two accidents. `NO_ACCIDENTS` is the stated
+absence, and it exists because silence is not the same answer — an empty
+timeline means the seller entered nothing, and the listing says that rather than
+showing a clean result nobody claimed.
 
 ## Dealer inventory (CSV)
 

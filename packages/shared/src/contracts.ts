@@ -187,6 +187,19 @@ export interface VehicleSummary {
    * be absurd.
    */
   carfaxUrl: string | null;
+  /**
+   * What the seller's report says beyond the link itself, drawn as the joined
+   * badge segments beside the CARFAX mark.
+   *
+   * Tri-state on purpose. `null` is "the seller did not answer", which is not
+   * the same as `false`, "the report says otherwise" — every listing that
+   * predates these fields is the former, and showing them as the latter would
+   * have Vintrax assert something about cars nobody looked at. Neither draws a
+   * segment; the difference matters in the seller's own form, where `null`
+   * leaves the question open and `false` records an answer.
+   */
+  carfaxOneOwner: boolean | null;
+  carfaxLowKilometres: boolean | null;
   /** Present when the vehicle is currently in an auction. */
   activeAuction: AuctionSummary | null;
   publishedAt: string | null;

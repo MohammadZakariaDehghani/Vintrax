@@ -85,11 +85,10 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
               Inspected
             </Badge>
           ) : null}
-          {/* Compact here: the card is already carrying up to two badges, and
-              the word is the signal. The full form is on the listing page. */}
-          {vehicle.carfaxUrl ? (
-            <CarfaxBadge url={vehicle.carfaxUrl} compact className="shadow-sm" />
-          ) : null}
+          {/* Compact here: the card is already carrying up to two badges. The
+              badge draws itself, including nothing at all when there is no
+              report, so there is no condition to keep in step with it. */}
+          <CarfaxBadge vehicle={vehicle} compact className="shadow-sm" />
         </div>
 
         {vehicle.imageCount > 1 ? (

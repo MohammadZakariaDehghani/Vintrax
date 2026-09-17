@@ -122,7 +122,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                     {formatEnum(vehicle.status)}
                   </Badge>
                 ) : null}
-                {vehicle.carfaxUrl ? <CarfaxBadge url={vehicle.carfaxUrl} /> : null}
+                <CarfaxBadge vehicle={vehicle} />
               </div>
             </div>
 
@@ -164,7 +164,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
             ))}
           </div>
 
-          <VehicleHistory events={vehicle.historyEvents} carfaxUrl={vehicle.carfaxUrl} />
+          <VehicleHistory events={vehicle.historyEvents} vehicle={vehicle} />
 
           {vehicle.inspection ? <InspectionReport vehicleId={vehicle.id} /> : null}
 

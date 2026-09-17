@@ -123,6 +123,14 @@ export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
           does not retrieve or check reports — the timeline is published as your account of the
           vehicle. To link the report itself, put its CARFAX address in the{' '}
           <strong>CARFAX report link</strong> field above; buyers get a badge that opens it.
+          <br />
+          <br />
+          Start with the report&rsquo;s <strong>Accident / Damage Record</strong>. Add one{' '}
+          <strong>Accident / damage</strong> entry per record it lists, with the date and the repair
+          estimate in the detail — those are pulled out and shown above the timeline, because it is
+          the first thing a buyer looks for. If the report states no accidents, say so with a{' '}
+          <strong>No accidents reported</strong> entry: leaving it out reads as nothing having been
+          checked, which is not what your report says.
         </CardDescription>
       </CardHeader>
 
@@ -153,14 +161,14 @@ export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
               />
               <Input
                 aria-label="Entry"
-                placeholder="Sold new"
+                placeholder="Damage reported"
                 maxLength={80}
                 value={event.label}
                 onChange={(changed) => update(event.key, { label: changed.target.value })}
               />
               <Input
                 aria-label="Detail"
-                placeholder="Toronto, ON"
+                placeholder="$4,200 estimate — rear"
                 maxLength={160}
                 value={event.detail}
                 onChange={(changed) => update(event.key, { detail: changed.target.value })}
