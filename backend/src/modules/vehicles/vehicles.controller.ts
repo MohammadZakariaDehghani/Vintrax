@@ -25,6 +25,8 @@ import {
   type BulkVehicleResult,
   type CreateVehicleInput,
   type ModerateListingInput,
+  type ApproveCarfaxHistoryInput,
+  type CarfaxReadResult,
   type ReplaceVehicleHistoryInput,
   type Paginated,
   type SearchVehiclesQuery,
@@ -38,6 +40,7 @@ import {
   bulkListingStatusSchema,
   bulkModerateListingsSchema,
   moderateListingSchema,
+  approveCarfaxHistorySchema,
   replaceVehicleHistorySchema,
   searchVehiclesSchema,
   updateListingStatusSchema,
@@ -270,6 +273,43 @@ export class VehiclesController {
     @CurrentUser() user: AuthUser,
   ): Promise<VehicleDetail> {
     return this.vehicles.replaceHistory(id, body, user);
+  }
+
+  @Post(':id/carfax/read')
+  @RequirePermissions('vehicle:write')
+  @HttpCode(HttpStatus.OK)
+  @Audit('vehicle.carfax_read', 'Vehicle')
+  @ApiOperation({
+    summary: "Read the accident record from the vehicle's CARFAX report",
+    description:
+      'Fetches the https://vhr.carfax.ca report the seller linked and reads its accident and ' +
+      'damage section. What it finds is stored against the vehicle but is not published: it is ' +
+      'returned for the seller to check against the report they are holding, and appears on the ' +
+      'listing only once they approve it. A page whose accident section cannot be understood is ' +
+      'reported as unreadable rather than as an absence of accidents.',
+  })
+  readCarfax(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<CarfaxReadResult> {
+    return this.vehicles.readCarfaxReport(id, user);
+  }
+
+  @Patch(':id/carfax/history')
+  @RequirePermissions('vehicle:write')
+  @Audit('vehicle.carfax_history_approval', 'Vehicle')
+  @ApiOperation({
+    summary: 'Show or hide the CARFAX accident record on the listing',
+    description:
+      'Visibility only. What is shown is whatever the last read stored, so this cannot introduce ' +
+      'a record or change one.',
+  })
+  approveCarfaxHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(approveCarfaxHistorySchema)) body: ApproveCarfaxHistoryInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<VehicleDetail> {
+    return this.vehicles.setCarfaxHistoryApproved(id, body.approved, user);
   }
 
   @Delete(':id')

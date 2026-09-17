@@ -12,7 +12,14 @@ import { vehicleFacts, vehicleSubtitle } from './vehicle-facts';
  */
 
 function event(kind: VehicleHistoryEvent['kind'], suffix = ''): VehicleHistoryEvent {
-  return { id: `${kind}${suffix}`, kind, occurredOn: '2024-01-01', label: kind, detail: null };
+  return {
+    id: `${kind}${suffix}`,
+    kind,
+    source: 'SELLER',
+    occurredOn: '2024-01-01',
+    label: kind,
+    detail: null,
+  };
 }
 
 function vehicle(events: VehicleHistoryEvent[] = []): VehicleDetail {
@@ -54,6 +61,36 @@ describe('vehicleFacts', () => {
       value: '2 reported',
       adverse: true,
     });
+  });
+
+  it('counts a damage record read off the report, not only an insurance claim', () => {
+    // The bug this exists for: counting `CLAIM` alone was right while a seller
+    // typing one was the only way anything reached the timeline, and became
+    // wrong the moment the CARFAX reader started writing ACCIDENT_DAMAGE. A car
+    // whose report shows two accidents read "Not stated".
+    const facts = vehicleFacts(
+      vehicle([event('ACCIDENT_DAMAGE', '1'), event('ACCIDENT_DAMAGE', '2')]),
+    );
+
+    expect(facts.find((fact) => fact.label === 'Accidents')).toMatchObject({
+      value: '2 reported',
+      adverse: true,
+    });
+  });
+
+  it('treats a report that states no accidents as a clear result', () => {
+    const facts = vehicleFacts(vehicle([event('NO_ACCIDENTS')]));
+
+    expect(facts.find((fact) => fact.label === 'Accidents')?.value).toBe('None reported');
+  });
+
+  it('does not attribute the report\u2019s finding to the seller', () => {
+    // `fromSeller` drives a "seller says" marker on the listing. A record the
+    // server read off CARFAX is the report's account, not the dealer's.
+    const fromReport: VehicleHistoryEvent = { ...event('ACCIDENT_DAMAGE'), source: 'CARFAX' };
+    const facts = vehicleFacts(vehicle([fromReport]));
+
+    expect(facts.find((fact) => fact.label === 'Accidents')?.fromSeller).toBe(false);
   });
 
   it('lets a claim outweigh a "no claims" entry sitting beside it', () => {

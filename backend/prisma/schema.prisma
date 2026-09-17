@@ -471,6 +471,16 @@ model Vehicle {
   carfaxOneOwner      Boolean?
   carfaxLowKilometres Boolean?
 
+  /// Whether the dealer approved the accident record read from their CARFAX
+  /// report for display on the listing. False by default and never implied:
+  /// fetching a report is not the same act as publishing what it says, and the
+  /// dealer has the report open to check the reading against.
+  carfaxHistoryApproved Boolean @default(false)
+
+  /// When the report was last read. Shown to the dealer so they know how stale
+  /// the reading is, and to a buyer as the date behind the timeline.
+  carfaxFetchedAt DateTime?
+
   status      ListingStatus @default(DRAFT)
   saleChannel SaleChannel   @default(FIXED_PRICE)
 
@@ -630,6 +640,12 @@ model VehicleHistoryEvent {
 
   kind VehicleHistoryEventKind
 
+  /// Where this line came from. CARFAX-sourced entries are replaced wholesale
+  /// on every re-read and cannot be hand-edited, so a dealer cannot reword what
+  /// the report said; seller entries are theirs to write. Keeping them apart is
+  /// what lets the listing say which is which.
+  source VehicleHistorySource @default(SELLER)
+
   /// When it happened. Null for an entry with no date, which still sorts by
   /// `position` alongside the rest.
   occurredOn DateTime? @db.Date
@@ -651,6 +667,11 @@ enum TitleStatus {
   CLEAN
   REBUILT
   SALVAGE
+}
+
+enum VehicleHistorySource {
+  SELLER
+  CARFAX
 }
 
 enum VehicleHistoryEventKind {

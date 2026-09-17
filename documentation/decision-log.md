@@ -394,6 +394,26 @@ Two things the owner should decide, neither of which is a technical question. **
 
 **Not implemented, and it cannot be:** the request asked for the accident and damage information to be _fetched_. There is no CARFAX integration, no API credentials, and a report sits behind the dealer's own paid link; retrieving one would mean scraping a paid third-party product on a customer's credentials. So the dealer records what their report says and the listing publishes it as their account of it, which is how the timeline has always worked and what D-032 settled.
 
+## D-036 — The Report Is Read by the Server, Checked by the Dealer, and the History Box Says Nothing Else
+
+**Status:** Accepted. Requested by the owner, who asked three times for the accident record to be fetched rather than typed; the first two answers were that it could not be done, and the third specified `https://vhr.carfax.ca`, which is what changed the answer.
+
+**Decision:** A CARFAX link must be on `vhr.carfax.ca` and nowhere else. The backend fetches that page, reads its accident and damage section, and stores what it found against the vehicle as `source: 'CARFAX'` history events. The dealer presses a button to read, sees exactly what came back, and ticks a box to publish it. The listing's history block is reduced to two states: the accident timeline plus the CARFAX button, or the CARFAX button alone. No prose either way. Supersedes the clause of [D-032](#d-032--vintrax-does-not-say-verified-about-a-car-it-has-not-inspected) requiring the block to label the timeline as the seller's account — that label existed because the entries were the seller's, and these are not.
+
+**Rationale:** The earlier refusals were right about the wrong thing. "Vintrax cannot fetch from CARFAX" was a statement about reports behind a dealer's paid login, and `vhr.carfax.ca` is not that: it is the _shareable_ report, the address CARFAX gives a dealer to hand to buyers, already published on the listing. Reading it fetches the same bytes a buyer clicking the badge receives. That is a materially different act from reaching into an account, and the distinction is the host.
+
+Pinning to that one host does three jobs at once. It is the only address that holds a report, so it is the only address worth fetching; a `www.carfax.ca` marketing page is a valid CARFAX URL containing nothing about any car. It is most of the SSRF answer, because there is exactly one name to resolve. And it removes a class of phishing link from behind a badge carrying someone else's brand.
+
+**Consequences:** The parser reads markup nobody promised, so the only safe failure is nothing. A page whose accident section cannot be located returns `unreadable`, never an empty result — "no accidents found" and "I could not read the page" look identical to a caller and mean opposite things to a buyer, and an empty `ok` is returned only where the page positively states the vehicle has none. A failed read changes nothing that was already approved, so a network error cannot make an accident record vanish from a listing.
+
+The dealer is the check, and the design puts them where they can be one: they have the report open, and they are the only party who can tell a correct reading from a plausible one. Reading and publishing are therefore separate acts. Between them the records sit unapproved, and the **listing response withholds them** rather than the page merely not drawing them — the API is the disclosure boundary, and anyone can fetch the JSON.
+
+Records are never accepted from the browser. Approval posts a boolean and nothing else; the records are written by the server at the moment it reads the report. Otherwise a dealer could edit them and tick the box, and the listing would carry a line with CARFAX's name on it that CARFAX never wrote. For the same reason `replaceHistory` was scoped to `source: 'SELLER'`: the seller's own editor must not be able to delete or reword what the report said, and before the scoping it deleted every event on every save.
+
+Narrowing the host invalidates links stored under the old rule. A listing holding a `www.carfax.ca` address keeps it in the database but cannot be saved again until the dealer replaces it with the report link. That is the intended outcome — that address was never a report — but it is a real interruption for any dealer holding one, and it is the reason this is worth an announcement rather than a silent deploy.
+
+Two things could not be verified here and need the owner's eyes on a real report. **The parser has never been pointed at a real page**: outbound network is blocked in the build environment, so it is tested against fixtures that prove it fails safely, not that it reads CARFAX correctly. The first real link will say. **And the terms**: an automated read of carfax.ca may not be something CARFAX's terms of use permit, whoever published the link. That is a commercial question, not a technical one, and it is the owner's to answer.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

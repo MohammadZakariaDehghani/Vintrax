@@ -135,13 +135,40 @@ year. On `/vehicles/mine` the term is an _additional_ constraint: `sellerId`
 comes from the authenticated user, so the worst a hostile term can do is match
 nothing.
 
-**CARFAX.** A vehicle may carry an optional `carfaxUrl`. It is validated against
-the real CARFAX hosts — https, no credentials, hostname matching `carfax.ca` or
-`carfax.com` on a dot boundary — because the badge it sits behind carries a
-third party's name, and an unchecked link would let a seller put that name on a
-link to anywhere. It appears on the summary as well as the detail, since the
-search cards draw the badge. It is the only way a CARFAX report reaches a
+**CARFAX.** A vehicle may carry an optional `carfaxUrl`. The host must be
+exactly `vhr.carfax.ca`, over https, with no credentials — an exact match, not a
+suffix match, so `vhr.carfax.ca.example.com` and `evil.vhr.carfax.ca` are both
+refused. That is the address CARFAX gives a dealer to share a report, so it is
+the only address that holds one to read; a `www.carfax.ca` page is a valid
+CARFAX URL containing nothing about any particular car. Pinning it is also most
+of the SSRF answer, and it keeps a badge carrying a third party's name from
+pointing anywhere else. It appears on the summary as well as the detail, since
+the search cards draw the badge. It is the only way a CARFAX report reaches a
 buyer — there is no report upload, and no `historyReportIssuedOn`.
+
+| Method  | Path                           | Auth            | Purpose                                  |
+| ------- | ------------------------------ | --------------- | ---------------------------------------- |
+| `POST`  | `/vehicles/:id/carfax/read`    | `vehicle:write` | Read the accident record from the report |
+| `PATCH` | `/vehicles/:id/carfax/history` | `vehicle:write` | Show or hide that record on the listing  |
+
+`read` fetches the linked report server-side and stores what it found as
+`source: 'CARFAX'` history events, replacing the previous read in full. It
+returns one of three results and the third is the point:
+
+- `ok` with records — what was read, for the seller to check against the report.
+- `ok` with no records and `statedAccidentFree: true` — the page says the
+  vehicle has none. This is a finding.
+- `unreadable` / `unreachable` — the page could not be fetched, or its accident
+  section could not be located. **Never** reported as an absence of accidents,
+  and it leaves whatever was already approved untouched, so a network error
+  cannot empty a listing's accident record.
+
+`history` takes `{ "approved": boolean }` and nothing else. Records are never
+accepted from a client: they are written by the server when it reads, so the
+only thing approval decides is whether to publish what the server itself saw.
+Until it is approved, a CARFAX-sourced entry is **absent from the listing
+response** for everyone but the owner and an administrator — the API is the
+disclosure boundary, not the page.
 
 Two optional booleans ride with it, `carfaxOneOwner` and `carfaxLowKilometres`,
 which are the two badges a CARFAX Canada report prints. They join the CARFAX
@@ -168,14 +195,16 @@ restricted with the rest of the paperwork. `VehicleDocument.issuedOn` carries th
 date printed on the report; that date is public even though the report is not,
 because it is what lets a buyer judge how current the timeline is.
 
-`ACCIDENT_DAMAGE` and `NO_ACCIDENTS` are the kinds that carry a report's
-accident and damage record, and the listing page lifts them out above the
-timeline. They are separate from `CLAIM` because a report keeps them separate:
-a damage record and an insurance claim are different events, and merging them
-would make one of each look like two accidents. `NO_ACCIDENTS` is the stated
-absence, and it exists because silence is not the same answer — an empty
-timeline means the seller entered nothing, and the listing says that rather than
-showing a clean result nobody claimed.
+Every entry carries a `source`. `SELLER` entries are the ones a seller typed
+through the editor; `CARFAX` entries are what the server read off the report.
+`PUT /vehicles/:id/history` replaces the `SELLER` set only — a seller cannot
+delete or reword what the report said, and cannot post an entry claiming to have
+come from it, because the endpoint sets the source itself.
+
+`ACCIDENT_DAMAGE` and `NO_ACCIDENTS` are the kinds a report's accident record
+produces. They are separate from `CLAIM` because a report keeps them separate: a
+damage record and an insurance claim are different events, and merging them
+would make one of each look like two accidents.
 
 ## Dealer inventory (CSV)
 
