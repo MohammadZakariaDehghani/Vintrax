@@ -80,10 +80,6 @@ export function VehicleCard({
               Inspected
             </Badge>
           ) : null}
-          {/* Compact here: the card is already carrying up to two badges. The
-              badge draws itself, including nothing at all when there is no
-              report, so there is no condition to keep in step with it. */}
-          <CarfaxBadge vehicle={vehicle} compact className="shadow-sm" />
         </div>
 
         {user ? (
@@ -157,6 +153,17 @@ export function VehicleCard({
             <span>{formatEnum(vehicle.condition)}</span>
           )}
         </div>
+
+        {/* Below the photograph rather than on it.
+            On the image it covered the car — the thing the buyer came to look
+            at — and it sat in the same corner cluster as the auction and
+            inspection badges, so a car with all three had its picture hidden
+            behind a stack of labels. The card's save control is the circle on
+            the image, which cannot move without the photo losing its only
+            affordance, so this takes the equivalent position here: last, after
+            everything else the card says. It draws nothing without a report,
+            so a card with no CARFAX link gains no empty row. */}
+        <CarfaxBadge vehicle={vehicle} compact className="mt-2 self-start" />
       </div>
     </article>
   );

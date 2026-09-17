@@ -54,8 +54,17 @@ export type CarfaxReport =
    * only when the page said so — see `statedAccidentFree`.
    */
   | { status: 'ok'; records: CarfaxAccidentRecord[]; statedAccidentFree: boolean }
-  /** The page was fetched, but its accident section could not be located. */
-  | { status: 'unreadable'; reason: string }
+  /**
+   * The page was fetched, but its accident section could not be located.
+   *
+   * `diagnosis` is a short, non-secret description of what the page looked
+   * like instead — the title, how much text it carried, whether it appears to
+   * be a JavaScript shell. It exists because the first real report failed here
+   * and there was nothing in the failure to act on: "not found" is the same
+   * message whether the page changed shape, was never a report, or renders
+   * entirely in the browser. This turns a second guess into a fix.
+   */
+  | { status: 'unreadable'; reason: string; diagnosis?: string }
   /** The page could not be fetched at all. */
   | { status: 'unreachable'; reason: string };
 
@@ -365,16 +374,35 @@ export function htmlToLines(html: string): string[] {
  * report behind a real link.
  */
 export function parseCarfaxReport(html: string): CarfaxReport {
+  // The report's own data first, its rendered text second.
+  //
+  // The first real report failed here with "no accident or damage section was
+  // found", having fetched cleanly — which is what a page whose content is
+  // drawn by JavaScript looks like from a server. There is no accident heading
+  // in the HTML because there is no report in the HTML: there is an empty
+  // container and a blob of JSON the browser turns into one. So the JSON is
+  // looked at before the text, and when neither yields anything the failure
+  // says which of the two cases it was.
+  const fromData = parseEmbeddedData(html);
+  if (fromData) return fromData;
+
   const lines = htmlToLines(html);
   if (lines.length === 0) {
-    return { status: 'unreadable', reason: 'the page had no readable text' };
+    return {
+      status: 'unreadable',
+      reason: 'the page had no readable text',
+      diagnosis: describePage(html, lines),
+    };
   }
 
   const start = lines.findIndex((line) => SECTION_HEADING.test(line) && line.length < 120);
   if (start === -1) {
     return {
       status: 'unreadable',
-      reason: 'no accident or damage section was found on the page',
+      reason: looksLikeAppShell(html, lines)
+        ? 'this report is drawn in the browser, so the page itself carries no accident section'
+        : 'no accident or damage section was found on the page',
+      diagnosis: describePage(html, lines),
     };
   }
 
@@ -406,6 +434,7 @@ export function parseCarfaxReport(html: string): CarfaxReport {
   return {
     status: 'unreadable',
     reason: 'the accident section was found but neither records nor a clear result could be read',
+    diagnosis: describePage(html, section),
   };
 }
 
@@ -507,3 +536,213 @@ function splitLabel(joined: string): string[] {
 
 const truncate = (value: string, max: number) =>
   value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`;
+
+/* ------------------------------------------------- the report's own data */
+
+/**
+ * Keys a report's data is plausibly keyed by.
+ *
+ * Deliberately a list of names rather than a search for anything containing
+ * "accident": the page's own JavaScript mentions the word, and a match on a
+ * feature flag called `showAccidentBanner` would be read as a finding.
+ */
+const ACCIDENT_KEYS = /^(?:accidents?|damages?|accidentdamage|accidentrecords?|damagerecords?)$/i;
+const DATE_KEYS = /^(?:date|accidentdate|damagedate|occurredon|occurred|eventdate|reportedon)$/i;
+const AMOUNT_KEYS = /^(?:amount|estimate|damageamount|estimatedcost|cost|repaircost|total)$/i;
+const LABEL_KEYS = /^(?:description|label|type|title|detail|details|summary|event|text)$/i;
+const FREE_KEYS = /^(?:accidentfree|noaccidents|hasaccidents?|accidentsreported|damagereported)$/i;
+
+/** Anything that is not a letter or digit, for comparing key names loosely. */
+const bare = (key: string) => key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+/**
+ * Reads the JSON a page hands its own JavaScript.
+ *
+ * Three shapes are looked at, which between them cover how a modern page
+ * carries its data: a `<script type="application/json">` block (Next.js writes
+ * `__NEXT_DATA__` this way), and an assignment to a window global.
+ *
+ * Returns null rather than an `unreadable` result, because failing to find
+ * data is not itself a finding — the caller falls through to reading the
+ * rendered text, which is still how a server-rendered report would be read.
+ */
+function parseEmbeddedData(html: string): CarfaxReport | null {
+  for (const blob of embeddedJson(html)) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(blob);
+    } catch {
+      continue;
+    }
+
+    const found = walkForAccidents(parsed);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Every JSON blob the page carries, largest first — the data is rarely the small one. */
+function embeddedJson(html: string): string[] {
+  const blobs: string[] = [];
+
+  const script =
+    /<script\b[^>]*type=["']application\/(?:ld\+)?json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  for (const match of html.matchAll(script)) {
+    if (match[1]) blobs.push(match[1].trim());
+  }
+
+  // `window.__DATA__ = {...};` and friends. Non-greedy to the line's end, then
+  // trimmed of a trailing semicolon; a blob that does not parse is skipped.
+  const assignment =
+    /(?:window|self|globalThis)\.__[A-Z0-9_]+__\s*=\s*(\{[\s\S]*?\})\s*;?\s*(?:<\/script>|\n)/gi;
+  for (const match of html.matchAll(assignment)) {
+    if (match[1]) blobs.push(match[1]);
+  }
+
+  return blobs.sort((a, b) => b.length - a.length).slice(0, 8);
+}
+
+/**
+ * Walks parsed JSON looking for something shaped like an accident record.
+ *
+ * Bounded in both depth and breadth: a page's data blob can be enormous, and
+ * an unbounded walk over attacker-influenced JSON is a way to spend a request's
+ * entire budget on recursion.
+ */
+function walkForAccidents(root: unknown): CarfaxReport | null {
+  const queue: Array<{ value: unknown; depth: number }> = [{ value: root, depth: 0 }];
+  let seen = 0;
+  let statedFree = false;
+
+  while (queue.length > 0 && seen < 20_000) {
+    const next = queue.shift();
+    if (!next) break;
+    const { value, depth } = next;
+    seen += 1;
+
+    if (depth > 12 || value === null || typeof value !== 'object') continue;
+
+    if (Array.isArray(value)) {
+      for (const entry of value) queue.push({ value: entry, depth: depth + 1 });
+      continue;
+    }
+
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      const name = bare(key);
+
+      if (FREE_KEYS.test(name)) {
+        // `accidentFree: true` and `hasAccidents: false` say the same thing.
+        if (/^(?:accidentfree|noaccidents)$/i.test(name) && child === true) statedFree = true;
+        if (/^(?:hasaccidents?|accidentsreported|damagereported)$/i.test(name) && child === false) {
+          statedFree = true;
+        }
+      }
+
+      if (ACCIDENT_KEYS.test(name) && Array.isArray(child)) {
+        const records = child
+          .map((entry) => recordFrom(entry))
+          .filter((record): record is CarfaxAccidentRecord => record !== null);
+
+        if (records.length > 0) {
+          return {
+            status: 'ok',
+            records: records.slice(0, MAX_CARFAX_RECORDS),
+            statedAccidentFree: false,
+          };
+        }
+      }
+
+      queue.push({ value: child, depth: depth + 1 });
+    }
+  }
+
+  // An empty list plus an explicit "none" is a finding; an empty list alone is
+  // not, and falls through to the text reader rather than being called clean.
+  return statedFree ? { status: 'ok', records: [], statedAccidentFree: true } : null;
+}
+
+/** One entry of an accident array, if it looks like one. */
+function recordFrom(entry: unknown): CarfaxAccidentRecord | null {
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return null;
+
+  let occurredOn: string | null = null;
+  let label = '';
+  let amount = '';
+
+  for (const [key, value] of Object.entries(entry as Record<string, unknown>)) {
+    if (typeof value !== 'string' && typeof value !== 'number') continue;
+    const text = String(value).trim();
+    if (text.length === 0) continue;
+    const name = bare(key);
+
+    if (!occurredOn && DATE_KEYS.test(name)) occurredOn = parseReportDate(text);
+    else if (!label && LABEL_KEYS.test(name)) label = truncate(text, 80);
+    else if (!amount && AMOUNT_KEYS.test(name)) amount = text;
+  }
+
+  // Neither a date nor a label means this was not a record, whatever the key
+  // it sat under was called.
+  if (!occurredOn && label.length === 0) return null;
+
+  return {
+    occurredOn,
+    label: label || 'Accident or damage reported',
+    detail: amount ? truncate(/^\$/.test(amount) ? amount : `$${amount}`, 160) : null,
+  };
+}
+
+/* ------------------------------------------------------------ diagnostics */
+
+/**
+ * Whether the page is a container waiting for JavaScript to fill it.
+ *
+ * Judged on the shape rather than on any one framework: a shell is mostly
+ * script and carries almost no prose. The threshold is deliberately loose —
+ * being wrong here changes only the wording of a failure, never whether
+ * something is reported as a finding.
+ */
+function looksLikeAppShell(html: string, lines: string[]): boolean {
+  const words = lines.join(' ').split(/\s+/).filter(Boolean).length;
+  const scriptBytes = [...html.matchAll(/<script\b[\s\S]*?<\/script>/gi)].reduce(
+    (total, match) => total + match[0].length,
+    0,
+  );
+
+  return (
+    words < 120 && (scriptBytes > html.length / 3 || /<div id=["'](?:root|app|__next)/i.test(html))
+  );
+}
+
+/**
+ * A short, non-secret description of what the page looked like.
+ *
+ * Every part of this is already public — it is a page the dealer publishes to
+ * buyers — and it is bounded so a failure cannot dump a report into a log or a
+ * response. It exists so a failure can be acted on rather than guessed at.
+ */
+export function describePage(html: string, lines: string[]): string {
+  const title = /<title[^>]*>([\s\S]{0,120}?)<\/title>/i.exec(html)?.[1]?.trim() ?? '(no title)';
+  const words = lines.join(' ').split(/\s+/).filter(Boolean).length;
+
+  // The page's own headings, which say what it actually contains.
+  const headings = [...html.matchAll(/<h[1-4][^>]*>([\s\S]{0,80}?)<\/h[1-4]>/gi)]
+    .map((match) =>
+      match[1]!
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim(),
+    )
+    .filter((heading) => heading.length > 0)
+    .slice(0, 8);
+
+  const parts = [
+    `title: ${truncate(title, 80)}`,
+    `${Math.round(html.length / 1024)}KB`,
+    `${words} words of text`,
+    `${embeddedJson(html).length} JSON blocks`,
+    looksLikeAppShell(html, lines) ? 'looks browser-rendered' : 'looks server-rendered',
+  ];
+  if (headings.length > 0) parts.push(`headings: ${headings.join(' | ')}`);
+
+  return truncate(parts.join('; '), 400);
+}

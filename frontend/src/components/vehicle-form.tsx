@@ -65,9 +65,6 @@ const BLANK = {
   province: 'ON',
   city: '',
   titleStatus: '' as TitleStatus | '',
-  carfaxUrl: '',
-  carfaxOneOwner: false,
-  carfaxLowKilometres: false,
   status: 'DRAFT',
   saleChannel: 'FIXED_PRICE',
 };
@@ -228,12 +225,6 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
       province: existing.province,
       city: existing.city,
       titleStatus: existing.titleStatus ?? '',
-      carfaxUrl: existing.carfaxUrl ?? '',
-      // Null means the seller was never asked, which presents as unticked. The
-      // distinction is kept in the database, not in a tri-state checkbox that
-      // nobody would understand.
-      carfaxOneOwner: existing.carfaxOneOwner ?? false,
-      carfaxLowKilometres: existing.carfaxLowKilometres ?? false,
       status: existing.status,
       saleChannel: existing.saleChannel,
     });
@@ -327,9 +318,6 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
       // edit would leave the stored value in place, so a seller could never
       // remove a link or a brand once set.
       titleStatus: form.titleStatus === '' ? undefined : form.titleStatus,
-      carfaxUrl: form.carfaxUrl.trim(),
-      carfaxOneOwner: form.carfaxOneOwner,
-      carfaxLowKilometres: form.carfaxLowKilometres,
       saleChannel: form.saleChannel,
       // Only on create. `updateVehicleSchema` omits `status`, so sending it on
       // an edit is silently stripped — the save appears to work and the status
@@ -510,9 +498,12 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
                 onChange={(e) => set('city', e.target.value)}
               />
             </Field>
-          </div>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {/* CARFAX moved to its own "Vehicle history" section below, on the
+                edit page only — the link, the two report badges, reading the
+                report and the timeline editor now live together in one place
+                instead of being split across this form and three more cards.
+                A brand-new listing has no id to attach any of that to, so
+                Title is the field that used to share this row with it. */}
             <Field
               label="Title"
               htmlFor="titleStatus"
@@ -532,63 +523,7 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
                 ))}
               </Select>
             </Field>
-
-            <Field
-              label="CARFAX report link (optional)"
-              htmlFor="carfaxUrl"
-              error={fieldError('carfaxUrl')}
-              hint="The https link CARFAX gave you. Buyers see a CARFAX badge that opens it in a new tab."
-            >
-              <Input
-                id="carfaxUrl"
-                type="url"
-                inputMode="url"
-                placeholder="https://vhr.carfax.ca/..."
-                value={form.carfaxUrl}
-                onChange={(e) => set('carfaxUrl', e.target.value)}
-              />
-            </Field>
           </div>
-
-          {/* The two badges a CARFAX Canada report prints. They join the CARFAX
-              mark into one strip on the listing rather than appearing beside it
-              as separate chips.
-
-              Disabled without a link, and the API refuses them too — the badge
-              is defensible because it opens the report a buyer can check, and a
-              claim with nothing behind it is that brand's authority with the
-              evidence taken out. Disabled rather than hidden so a seller can
-              see what adding the link would give them. */}
-          <fieldset className="mt-4" disabled={form.carfaxUrl.trim().length === 0}>
-            <legend className="text-sm font-medium">What the report shows</legend>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {form.carfaxUrl.trim().length === 0
-                ? 'Add the report link above to use these.'
-                : 'Tick only what your own report states. These are published as your account of it — Vintrax does not check reports.'}
-            </p>
-
-            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-              {(
-                [
-                  ['carfaxOneOwner', 'One Owner'],
-                  ['carfaxLowKilometres', 'Low Kilometres'],
-                ] as const
-              ).map(([key, label]) => (
-                <label
-                  key={key}
-                  className="flex cursor-pointer items-center gap-2 text-sm disabled:cursor-not-allowed"
-                >
-                  <input
-                    type="checkbox"
-                    checked={form[key]}
-                    onChange={(e) => set(key, e.target.checked)}
-                    className="h-4 w-4 shrink-0 accent-[hsl(var(--primary))]"
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
 
           <Field label="Features (comma separated)" htmlFor="features" className="mt-4">
             <Input

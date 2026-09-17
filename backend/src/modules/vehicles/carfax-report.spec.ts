@@ -216,3 +216,155 @@ describe('parseCarfaxReport', () => {
     expect(`${report.records[0]?.label} ${report.records[0]?.detail}`).toContain('4,200');
   });
 });
+
+/**
+ * Reading the report's own data rather than its rendered text.
+ *
+ * The first real report failed with "no accident or damage section was found"
+ * having fetched cleanly, which is what a page drawn by JavaScript looks like
+ * from a server: no heading in the HTML because no report is in the HTML, only
+ * a container and a blob of JSON. These cover that path.
+ *
+ * The same rule governs it as governs the text reader: finding no data is not
+ * a finding. It falls through rather than reporting a clean history.
+ */
+describe('parseCarfaxReport, from embedded data', () => {
+  const shell = (json: string, id = '__NEXT_DATA__') =>
+    `<!doctype html><html><head><title>CARFAX Canada Vehicle History Report</title></head>
+     <body><div id="root"></div>
+     <script id="${id}" type="application/json">${json}</script>
+     <script src="/bundle.js"></script></body></html>`;
+
+  it('reads records out of a JSON blob when the page has no rendered text', () => {
+    const report = parseCarfaxReport(
+      shell(
+        JSON.stringify({
+          props: {
+            report: {
+              accidents: [
+                { date: '2019-03-14', description: 'Damage reported', estimate: '4,200' },
+                { date: '2021-07-02', description: 'Accident reported', estimate: '$11,860' },
+              ],
+            },
+          },
+        }),
+      ),
+    );
+
+    expect(report.status).toBe('ok');
+    if (report.status !== 'ok') return;
+    expect(report.records).toHaveLength(2);
+    expect(report.records[0]?.occurredOn).toBe('2019-03-14');
+    expect(report.records[0]?.detail).toContain('4,200');
+    expect(report.records[1]?.label).toBe('Accident reported');
+  });
+
+  it('reads an explicit accident-free flag', () => {
+    const report = parseCarfaxReport(
+      shell(JSON.stringify({ report: { accidentFree: true, accidents: [] } })),
+    );
+
+    expect(report).toEqual({ status: 'ok', records: [], statedAccidentFree: true });
+  });
+
+  it('reads "hasAccidents: false" as the same statement', () => {
+    const report = parseCarfaxReport(shell(JSON.stringify({ vehicle: { hasAccidents: false } })));
+
+    expect(report).toEqual({ status: 'ok', records: [], statedAccidentFree: true });
+  });
+
+  it('does not call an empty accident array clean on its own', () => {
+    // An empty list with nothing saying why is not a statement that the car is
+    // clean — it is as likely to be a list that failed to load.
+    const report = parseCarfaxReport(shell(JSON.stringify({ report: { accidents: [] } })));
+
+    expect(report.status).toBe('unreadable');
+  });
+
+  it('is not fooled by a flag that merely mentions accidents', () => {
+    // The page's own JavaScript talks about accidents. A feature flag is not a
+    // finding, which is why the keys are a fixed list rather than a search.
+    const report = parseCarfaxReport(
+      shell(
+        JSON.stringify({ config: { showAccidentBanner: true, accidentTabLabel: 'Accidents' } }),
+      ),
+    );
+
+    expect(report.status).toBe('unreadable');
+  });
+
+  it('ignores an array entry with neither a date nor a description', () => {
+    const report = parseCarfaxReport(
+      shell(JSON.stringify({ accidents: [{ id: 7, vehicleId: 'abc' }] })),
+    );
+
+    expect(report.status).toBe('unreadable');
+  });
+
+  it('survives malformed JSON without throwing', () => {
+    expect(parseCarfaxReport(shell('{not json at all')).status).toBe('unreadable');
+  });
+
+  it('reads a blob assigned to a window global', () => {
+    const html = `<html><body><div id="app"></div><script>
+      window.__REPORT_DATA__ = {"accidents":[{"date":"2020-05-05","description":"Damage reported"}]};
+    </script></body></html>`;
+
+    const report = parseCarfaxReport(html);
+
+    expect(report.status).toBe('ok');
+    if (report.status !== 'ok') return;
+    expect(report.records[0]?.occurredOn).toBe('2020-05-05');
+  });
+
+  it('prefers the data over the text when a page carries both', () => {
+    // A server-rendered page that also embeds its data. The data is the
+    // structured version of the same thing, so it wins.
+    const html = `<html><body>
+      <script type="application/json">{"accidents":[{"date":"2019-03-14","description":"From data"}]}</script>
+      <h2>Accident / Damage Record</h2><p>2021-01-01 From text $500</p>
+    </body></html>`;
+
+    const report = parseCarfaxReport(html);
+
+    expect(report.status).toBe('ok');
+    if (report.status !== 'ok') return;
+    expect(report.records).toHaveLength(1);
+    expect(report.records[0]?.label).toBe('From data');
+  });
+});
+
+describe('the failure diagnosis', () => {
+  it('says the page is browser-rendered when it is', () => {
+    const report = parseCarfaxReport(
+      `<html><head><title>CARFAX Report</title></head><body><div id="root"></div>
+       <script>${'x'.repeat(4000)}</script></body></html>`,
+    );
+
+    expect(report.status).toBe('unreadable');
+    if (report.status !== 'unreadable') return;
+    expect(report.reason).toContain('drawn in the browser');
+    expect(report.diagnosis).toContain('looks browser-rendered');
+  });
+
+  it('describes a page that is simply not a report', () => {
+    const report = parseCarfaxReport(
+      '<html><head><title>Buy a report</title></head><body><h1>Pricing</h1><p>' +
+        'word '.repeat(300) +
+        '</p></body></html>',
+    );
+
+    expect(report.status).toBe('unreadable');
+    if (report.status !== 'unreadable') return;
+    expect(report.diagnosis).toContain('Buy a report');
+    expect(report.diagnosis).toContain('Pricing');
+  });
+
+  it('stays short enough to show and to log', () => {
+    const report = parseCarfaxReport(`<html><body><h1>${'A'.repeat(5000)}</h1></body></html>`);
+
+    expect(report.status).toBe('unreadable');
+    if (report.status !== 'unreadable') return;
+    expect((report.diagnosis ?? '').length).toBeLessThanOrEqual(400);
+  });
+});
