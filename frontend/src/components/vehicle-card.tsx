@@ -67,7 +67,7 @@ export function VehicleCard({
           )}
         </Link>
 
-        <div className="absolute left-2 top-2 flex flex-col gap-1">
+        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
           {auction ? (
             <Badge variant="accent" className="shadow-sm">
               <Gavel className="h-3 w-3" aria-hidden />

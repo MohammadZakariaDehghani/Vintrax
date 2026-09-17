@@ -72,7 +72,7 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
             is painted under the overlay and every click on it opens the listing
             instead of the report — the same reason the save button below is
             `relative z-10`. */}
-        <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
+        <div className="absolute left-2 top-2 z-10 flex flex-col items-start gap-1">
           {auction ? (
             <Badge variant="accent" className="shadow-sm">
               <Gavel className="h-3 w-3" aria-hidden />
