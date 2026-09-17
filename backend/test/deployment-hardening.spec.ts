@@ -289,3 +289,175 @@ describe('the release workflow', () => {
     expect(directives).toContain('./deploy.sh --list');
   });
 });
+
+/**
+ * SSH preparation, as its own suite.
+ *
+ * Every one of these exists because the job failed with exit code 255 and the
+ * log could not say why. 255 is ssh's own "I gave up" — the same number for a
+ * wrong key, a wrong host key, and a server that is not answering — and the
+ * only way to tell those apart is to have proven the round trip *before*
+ * anything is deployed, and to have written down which of them happened.
+ *
+ * The other half of that failure was a single preparation step that began
+ * `mkdir -p ~/.ssh`. When something later in it failed, the Actions UI marked
+ * the step red and showed its first line, which reads as though `mkdir` had
+ * failed. It had not. These assert the shape that removed the ambiguity:
+ * one named step per thing that can go wrong.
+ */
+describe('the deployment SSH setup', () => {
+  const RELEASE_PATH = join(__dirname, '..', '..', '.github', 'workflows', 'release.yml');
+  const release = readFileSync(RELEASE_PATH, 'utf8');
+
+  const directives = release
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n');
+
+  /** Step names in file order, which is also the order they run in. */
+  const stepNames = directives
+    .split('\n')
+    .map((line) => /^\s*- name:\s*(.+?)\s*$/.exec(line)?.[1])
+    .filter((name): name is string => Boolean(name));
+
+  const orderOf = (name: string) => stepNames.indexOf(name);
+
+  it('prepares each credential in its own named step', () => {
+    // The point of the split: a red marker now names the thing that failed
+    // instead of naming whichever command happened to be written first.
+    for (const name of [
+      'Create the SSH directory',
+      'Write the private key',
+      'Write the known_hosts file',
+      'Write the SSH client configuration',
+      'Test the SSH connection',
+    ]) {
+      expect(stepNames).toContain(name);
+    }
+  });
+
+  it('proves the connection works before it deploys anything', () => {
+    const test = orderOf('Test the SSH connection');
+    const deploy = orderOf('Run the existing deploy script');
+
+    expect(test).toBeGreaterThan(-1);
+    expect(deploy).toBeGreaterThan(test);
+  });
+
+  it('makes the connectivity test a harmless one', () => {
+    // A test that changed something on the server would be a deployment, and
+    // the whole point is to learn whether ssh works without deploying.
+    expect(directives).toContain("'echo SSH connection successful'");
+    expect(directives).toContain('-o BatchMode=yes');
+  });
+
+  it('stops before the server if any preparation step fails', () => {
+    // Requirement, and the reason the job was failing usefully at the wrong
+    // place: nothing may reach production unless the key parsed, the
+    // known_hosts parsed, and a round trip succeeded. `if: success()` is the
+    // default; it is written out so that a later edit has to delete something
+    // visible, and so this can assert it.
+    expect(directives).toMatch(/- name: Run the existing deploy script\n\s+if: success\(\)/);
+    expect(directives).toMatch(
+      /- name: Confirm the server is running this version\n\s+if: success\(\)/,
+    );
+
+    // `continue-on-error` anywhere in this job would revoke all of the above
+    // by turning a failed preparation step into a passed one.
+    expect(directives).not.toContain('continue-on-error');
+  });
+
+  it('fails loudly rather than carrying on with a broken credential', () => {
+    // Each write is checked at the point it happens, so the error names the
+    // secret. Without these, an empty or malformed secret is discovered three
+    // steps later as an authentication failure against the server.
+    expect(directives).toContain('::error::DEPLOY_SSH_KEY wrote an empty file');
+    expect(directives).toContain('::error::DEPLOY_SSH_KEY does not look like a private key');
+    expect(directives).toContain('::error::DEPLOY_SSH_KEY could not be read by ssh-keygen');
+    expect(directives).toContain('::error::DEPLOY_SSH_KNOWN_HOSTS wrote an empty file');
+    expect(directives).toContain('::error::DEPLOY_SSH_KNOWN_HOSTS is not a valid known_hosts file');
+  });
+
+  it('writes the private key with owner-only permissions', () => {
+    // OpenSSH refuses a key others can read, and says "bad permissions",
+    // which is another way to arrive at 255 with no explanation.
+    expect(directives).toContain('chmod 700 ~/.ssh');
+    expect(directives).toMatch(/chmod 600 "\$key"/);
+    expect(directives).toMatch(/chmod 600 "\$hosts"/);
+    // `umask 077` before the write, so there is no window in which the file
+    // exists and is world-readable.
+    expect(directives).toContain('umask 077');
+  });
+
+  it('names which kind of failure happened, rather than only the exit code', () => {
+    // The four classes asked for. Each is reached by matching ssh's own
+    // wording, and the classification is exercised directly by the harness in
+    // the scratch script that accompanied this change.
+    expect(directives).toContain('::error::HOST-KEY VERIFICATION');
+    expect(directives).toContain('::error::AUTHENTICATION');
+    expect(directives).toContain('::error::CONNECTION');
+    expect(directives).toContain('::error::REMOTE COMMAND FAILURE');
+  });
+
+  it('separates an ssh failure from a remote command failure by exit code', () => {
+    // This is the load-bearing distinction. ssh reserves 255 for itself and
+    // passes any other status straight through from the remote command, so
+    // `rc != 255` means the login worked and the command did not.
+    expect(directives).toMatch(/\(\(\s*rc\s*!=\s*255\s*\)\)/);
+  });
+
+  it('never prints a secret, only the public fingerprint', () => {
+    // `ssh-keygen -y` writes the *public* key; `-l` prints its fingerprint.
+    // That is the one value worth printing — it is what an operator compares
+    // against authorized_keys — and it is not secret.
+    expect(directives).toContain('ssh-keygen -lf ~/.ssh/vintrax_key.pub');
+
+    // The private key is never read back out. A `cat` of the key file, or an
+    // echo of the secret, would put it in the log; GitHub's masking is a
+    // safety net, not a licence to print one.
+    //
+    // Expanding the secret is unavoidable — it has to be written to disk —
+    // so the rule is about where it goes, not whether it is named: every line
+    // that expands one must redirect into a file. A line that expands it
+    // without a redirect is a line that prints it.
+    const expansions = directives
+      .split('\n')
+      .filter((line) => /\$\{?TARGET_(KEY|KNOWN_HOSTS)\b/.test(line));
+
+    expect(expansions.length).toBeGreaterThan(0);
+    for (const line of expansions) {
+      // `[[ -n $TARGET_KEY ]]` is a test, not an output; anything else has to
+      // end in a redirect to the file it is writing.
+      if (/^\s*\[\[/.test(line.trim())) continue;
+      expect(line).toMatch(/> "\$(key|hosts)"\s*$/);
+    }
+
+    // And the key file itself is never read back to stdout.
+    expect(directives).not.toMatch(/\bcat\b[^\n]*\$key/);
+  });
+
+  it('removes the key from the runner even when the job fails', () => {
+    expect(directives).toMatch(/- name: Remove the private key from the runner\n\s+if: always\(\)/);
+  });
+
+  it('sets a strict shell in every step of the deploy job', () => {
+    // Without `set -u` a typo'd variable expands to nothing and the step
+    // carries on with a blank host; without `pipefail` a failure on the left
+    // of a pipe is invisible. `-e` is deliberately absent from the two blocks
+    // that carry the exit status by hand so their log group still closes, so
+    // this asserts `-u` and `pipefail` rather than one exact flag string.
+    //
+    // Scoped to the deploy job: it is the one that holds a credential and
+    // touches the server. The build jobs above it run `pnpm` one line at a
+    // time and are not what this is about.
+    const deployJob = directives.slice(directives.indexOf('\n  deploy:'));
+    const runBlocks = deployJob.split(/^\s+run: \|/m).slice(1);
+
+    expect(runBlocks.length).toBeGreaterThan(5);
+    for (const block of runBlocks) {
+      const first = block.split('\n').find((line) => line.trim().startsWith('set '));
+
+      expect(first?.trim()).toMatch(/^set -e?uo pipefail$/);
+    }
+  });
+});

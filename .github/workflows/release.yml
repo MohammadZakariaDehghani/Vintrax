@@ -206,6 +206,7 @@ jobs:
           TARGET_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           TARGET_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
         run: |
+          set -euo pipefail
           missing=()
           [[ -n $TARGET_HOST ]]        || missing+=(DEPLOY_HOST)
           [[ -n $TARGET_USER ]]        || missing+=(DEPLOY_USER)
@@ -234,20 +235,118 @@ jobs:
 
           echo "Target: $TARGET_USER@$TARGET_HOST:$TARGET_PORT ($TARGET_PATH), version $VERSION"
 
-      - name: Prepare the SSH client
+      # Preparation is four separate steps rather than one.
+      #
+      # It used to be a single block beginning `mkdir -p ~/.ssh`, and when it
+      # failed the log showed that first line, which reads as though `mkdir`
+      # itself had failed. It had not — one of the later commands had, and the
+      # UI has no way to say which. Named steps put the failure on the thing
+      # that failed.
+      #
+      # Every one of these ends up holding a credential, so each writes with
+      # restrictive permissions and none of them echoes a secret. The only value
+      # printed from the key is its *public* fingerprint, which is not secret
+      # and is the one thing that makes "Permission denied (publickey)"
+      # diagnosable: compare it with the server's authorized_keys.
+
+      - name: Create the SSH directory
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "~/.ssh is ready"
+
+      - name: Write the private key
         env:
           TARGET_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          key=~/.ssh/vintrax_key
+
+          # Written before the permissions are relaxed from the default, so
+          # there is no window in which the key is world-readable.
+          umask 077
+
+          # Carriage returns are the commonest way a pasted key arrives broken:
+          # OpenSSH rejects the file outright and says only "invalid format",
+          # which reads like a wrong key rather than a wrong line ending. The
+          # trailing newline matters for the same reason — a key whose final
+          # -----END----- line is unterminated does not parse.
+          printf '%s\n' "$TARGET_KEY" | tr -d '\r' > "$key"
+          chmod 600 "$key"
+
+          if [[ ! -s $key ]]; then
+            echo "::error::DEPLOY_SSH_KEY wrote an empty file. The secret is set but holds nothing."
+            exit 1
+          fi
+
+          if ! grep -q -- '-----BEGIN .*PRIVATE KEY-----' "$key"; then
+            echo "::error::DEPLOY_SSH_KEY does not look like a private key."
+            echo "Paste the whole file, including the BEGIN and END lines — the" >&2
+            echo "private key, not the .pub. It is never printed by this job." >&2
+            exit 1
+          fi
+
+          # Proves the file actually parses, rather than finding out three steps
+          # later as an authentication failure. `-P ''` keeps it from prompting:
+          # a passphrase-protected key cannot be used unattended, and should
+          # fail here saying so rather than hang until the job times out.
+          if ! ssh-keygen -y -f "$key" -P '' > ~/.ssh/vintrax_key.pub 2>/tmp/keygen.err; then
+            echo "::error::DEPLOY_SSH_KEY could not be read by ssh-keygen."
+            echo "Either the key is malformed, or it is protected by a passphrase," >&2
+            echo "which cannot be used unattended. Common causes: the file was" >&2
+            echo "truncated, re-wrapped by an editor, or is a .pub by mistake." >&2
+            # ssh-keygen's own words, which never contain the key material.
+            sed 's/^/  ssh-keygen: /' /tmp/keygen.err >&2 || true
+            exit 1
+          fi
+
+          chmod 600 ~/.ssh/vintrax_key.pub
+          echo "Private key parsed. Its public fingerprint:"
+          # Public, therefore safe to print, and the fastest way to check the
+          # server: this must appear in the deploy user's authorized_keys.
+          ssh-keygen -lf ~/.ssh/vintrax_key.pub
+
+      - name: Write the known_hosts file
+        env:
           TARGET_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$TARGET_KEY" > ~/.ssh/vintrax_key
-          printf '%s\n' "$TARGET_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/vintrax_key ~/.ssh/known_hosts
+          set -euo pipefail
+          hosts=~/.ssh/known_hosts
+          umask 077
+          printf '%s\n' "$TARGET_KNOWN_HOSTS" | tr -d '\r' > "$hosts"
+          chmod 600 "$hosts"
 
-          # The host key is pinned from a secret rather than accepted on sight.
-          # `ssh-keyscan` at this point would trust whatever answers, which is
-          # the whole attack: an impostor that answers once is handed a key with
-          # shell access to production.
+          if [[ ! -s $hosts ]]; then
+            echo "::error::DEPLOY_SSH_KNOWN_HOSTS wrote an empty file."
+            exit 1
+          fi
+
+          # Parses the file the way ssh will. A known_hosts that ssh cannot read
+          # fails later as "Host key verification failed", which sends everyone
+          # looking at the server instead of at the secret.
+          if ! ssh-keygen -l -f "$hosts" > /tmp/hostkeys.txt 2>/tmp/hostkeys.err; then
+            echo "::error::DEPLOY_SSH_KNOWN_HOSTS is not a valid known_hosts file."
+            echo "It should be the raw output of:  ssh-keyscan -p <port> <host>" >&2
+            echo "One entry per line. Do not edit or re-wrap the lines." >&2
+            sed 's/^/  ssh-keygen: /' /tmp/hostkeys.err >&2 || true
+            exit 1
+          fi
+
+          echo "known_hosts holds $(wc -l < /tmp/hostkeys.txt) host key(s)."
+
+      - name: Write the SSH client configuration
+        run: |
+          set -euo pipefail
+          umask 077
+          # One place for the options, so the connectivity test and the two
+          # deploy calls cannot drift apart on which host they reach or how
+          # strictly they check it.
+          #
+          # The host key is pinned from the secret rather than accepted on
+          # sight. `ssh-keyscan` at this point would trust whatever answers,
+          # which is the whole attack: an impostor that replies once is handed a
+          # key with shell access to production.
           {
             echo "Host vintrax-target"
             echo "  HostName $TARGET_HOST"
@@ -262,6 +361,75 @@ jobs:
             echo "  ServerAliveInterval 30"
           } > ~/.ssh/config
           chmod 600 ~/.ssh/config
+          echo "SSH client configured for vintrax-target."
+
+      # Nothing is deployed until a harmless command has made the round trip.
+      #
+      # The point is the diagnosis. Before this, every way of failing arrived as
+      # `exit 255` on the deploy step, which says only "ssh gave up" — the same
+      # code for a wrong key, a wrong host key, and a server that is simply not
+      # answering. ssh reserves 255 for its own failures and passes anything
+      # else straight through from the remote command, which is what makes those
+      # two cases separable at all.
+      - name: Test the SSH connection
+        run: |
+          set -uo pipefail
+
+          echo "Connecting to the deployment target…"
+          output=$(ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes \
+                     vintrax-target 'echo SSH connection successful' 2>&1) && rc=0 || rc=$?
+
+          # GitHub masks every registered secret in log output, so the host and
+          # user appear as *** here. The classification below is what is
+          # actually useful; the raw text is kept for the cases nobody predicted.
+          echo "::group::ssh output"
+          printf '%s\n' "$output"
+          echo "::endgroup::"
+
+          if (( rc == 0 )); then
+            if printf '%s\n' "$output" | grep -q 'SSH connection successful'; then
+              echo "SSH connection successful."
+              exit 0
+            fi
+            echo "::error::ssh succeeded but the test command produced no output."
+            exit 1
+          fi
+
+          # Anything that is not 255 came back from the remote shell, so ssh
+          # itself connected and authenticated.
+          if (( rc != 255 )); then
+            echo "::error::REMOTE COMMAND FAILURE — connected and authenticated, but the test command exited $rc."
+            echo "The login itself works. Something in the deploy user's shell profile" >&2
+            echo "is failing or writing to stderr on login." >&2
+            exit 1
+          fi
+
+          if printf '%s\n' "$output" | grep -qiE 'host key verification failed|remote host identification has changed|no matching host key'; then
+            echo "::error::HOST-KEY VERIFICATION — the server's key is not the one in DEPLOY_SSH_KNOWN_HOSTS."
+            echo "Regenerate it from a machine that already trusts the server:" >&2
+            echo "    ssh-keyscan -p <port> <host>" >&2
+            echo "The entry has to match how this job addresses the server. DEPLOY_HOST" >&2
+            echo "must be spelled the same way — a key scanned for the DNS name does not" >&2
+            echo "verify a connection made to the IP address, or the other way round." >&2
+            echo "On a non-default port the entry is [host]:port." >&2
+          elif printf '%s\n' "$output" | grep -qiE 'permission denied|no supported authentication|too many authentication|authentication failed'; then
+            echo "::error::AUTHENTICATION — the server refused this key."
+            echo "The public fingerprint printed by the 'Write the private key' step" >&2
+            echo "must appear in ~/.ssh/authorized_keys for DEPLOY_USER on the server." >&2
+            echo "Check DEPLOY_USER is the account that actually holds it." >&2
+          elif printf '%s\n' "$output" | grep -qiE 'invalid format|error in libcrypto|bad permissions|unprotected private key'; then
+            echo "::error::AUTHENTICATION — the private key was rejected before it was offered."
+            echo "DEPLOY_SSH_KEY is malformed. Re-copy the whole file." >&2
+          elif printf '%s\n' "$output" | grep -qiE 'could not resolve|name or service not known|nodename nor servname'; then
+            echo "::error::CONNECTION — DEPLOY_HOST does not resolve."
+          elif printf '%s\n' "$output" | grep -qiE 'connection timed out|operation timed out|connection refused|no route to host|network is unreachable'; then
+            echo "::error::CONNECTION — could not reach the server on that host and port."
+            echo "Check DEPLOY_HOST and DEPLOY_PORT, and that the server's firewall" >&2
+            echo "accepts SSH from GitHub's runners." >&2
+          else
+            echo "::error::SSH FAILED (exit 255) — see the ssh output above."
+          fi
+          exit 1
 
       # The release itself. One command, the existing one.
       #
@@ -273,25 +441,45 @@ jobs:
       # service that never becomes healthy fails this job. deploy.sh does not
       # revert on its own — a failed run may have applied a migration — so a red
       # job here means a person looks, exactly as before.
+      #
+      # `if: success()` is the default, and is written out anyway. It is the
+      # rule that matters most in this job — nothing reaches the server unless
+      # the key parsed, the known_hosts parsed, and a round trip succeeded — and
+      # a later edit adding `continue-on-error` to a step above would silently
+      # revoke it. Stated explicitly, it is also something a test can assert.
       - name: Run the existing deploy script
+        if: success()
         run: |
+          # `-e` is deliberately absent: the exit status is carried by hand so
+          # the log group still closes on a failure. Under `set -e` the step
+          # would abort at the ssh line and leave the group open, collapsing the
+          # very output someone needs to read when a release goes wrong.
+          set -uo pipefail
+
           echo "::group::deploy.sh $VERSION"
-          # The exit status is carried by hand so the log group still closes on
-          # a failure. Under `set -e` the step would abort at the ssh line and
-          # leave the group open, which collapses the very output someone needs
-          # to read when a release goes wrong.
-          set +e
           ssh -T vintrax-target "cd '$TARGET_PATH/scripts' && ./deploy.sh '$VERSION'"
           status=$?
-          set -e
           echo "::endgroup::"
+
+          if (( status == 255 )); then
+            # Connectivity was proven a step ago, so 255 here means the session
+            # dropped part-way rather than never opening.
+            echo "::error::the SSH session failed during deployment (255). The connection" \
+                 "test passed, so this is a session that dropped mid-run — the server may be" \
+                 "part-way through. Check it before deploying again."
+          elif (( status != 0 )); then
+            echo "::error::deploy.sh exited $status on the server. Read its output above:" \
+                 "it says which stage failed and what to do. Nothing is reverted automatically."
+          fi
           exit $status
 
       # Asks the server what it believes is running, rather than assuming the
       # previous step's exit code covered it. `--list` is read-only and part of
       # the script that is already there.
       - name: Confirm the server is running this version
+        if: success()
         run: |
+          set -euo pipefail
           echo "::group::deploy.sh --list"
           listing=$(ssh -T vintrax-target "cd '$TARGET_PATH/scripts' && ./deploy.sh --list")
           printf '%s\n' "$listing"
@@ -307,9 +495,20 @@ jobs:
           fi
           echo "Confirmed: the server is running $VERSION"
 
+      # Runners are ephemeral, so this is belt and braces rather than the only
+      # thing standing between the key and the next job. It costs nothing, and
+      # it means the credential is not sitting on disk while the later steps run.
+      - name: Remove the private key from the runner
+        if: always()
+        run: |
+          set -uo pipefail
+          rm -f ~/.ssh/vintrax_key ~/.ssh/vintrax_key.pub
+          echo "Key material removed from the runner."
+
       - name: Summarise
         if: always()
         run: |
+          set -uo pipefail
           {
             echo "### Production"
             echo

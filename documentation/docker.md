@@ -350,6 +350,45 @@ ssh-keyscan -p 22 your-server-hostname
 Paste the whole output. The job fails with the missing names listed if any of
 the four is absent, before it connects to anything.
 
+**If the deploy job fails on SSH.** Nothing is deployed until a harmless
+`echo` has made the round trip, so an SSH problem fails at the **Test the SSH
+connection** step and the server is never touched. That step names which of
+four things went wrong, because the exit code on its own cannot: ssh reserves
+`255` for its own failures — a wrong key, a wrong host key and a server that is
+not answering all produce it — and passes any other status straight through
+from the remote command.
+
+| The step says            | What to check                                                                                                         |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `HOST-KEY VERIFICATION`  | `DEPLOY_SSH_KNOWN_HOSTS` does not match this server. Re-run `ssh-keyscan` and paste it whole — see the note below.    |
+| `AUTHENTICATION`         | The server refused the key. Compare the fingerprint the job prints with the deploy user's `authorized_keys`.          |
+| `CONNECTION`             | The address does not resolve, or nothing is listening. Check `DEPLOY_HOST`, `DEPLOY_PORT`, and the server's firewall. |
+| `REMOTE COMMAND FAILURE` | The login worked. Something in the deploy user's shell profile fails or writes to stderr on login.                    |
+
+On an `AUTHENTICATION` failure the job prints the **public** fingerprint of the
+key it loaded — never the key itself — which is the fastest way to tell "wrong
+key" from "right key, wrong user":
+
+```bash
+# on the server, as DEPLOY_USER
+ssh-keygen -lf ~/.ssh/authorized_keys
+```
+
+One of those lines must match the fingerprint in the log. If none does, the
+key in `DEPLOY_SSH_KEY` is not installed for that account.
+
+A `HOST-KEY VERIFICATION` failure is most often a spelling mismatch rather than
+a changed server: a key scanned for the DNS name does not verify a connection
+made to the IP address, or the other way round. Scan the server by the _same_
+string `DEPLOY_HOST` holds. On a non-default port the entry is `[host]:port`,
+which `ssh-keyscan -p` writes for you.
+
+The preparation steps check their own secrets as they write them, so an empty
+or malformed one fails naming the secret rather than surfacing three steps
+later as a refused login. Each is a separate named step — creating `~/.ssh`,
+writing the key, writing `known_hosts`, writing the client config — so the red
+marker in the Actions UI names the thing that actually failed.
+
 **The first automatic release, safely.** Add a required reviewer to the
 `production` environment (Settings → Environments → production → Required
 reviewers) before the first push to `main`. The job then waits for an approval
