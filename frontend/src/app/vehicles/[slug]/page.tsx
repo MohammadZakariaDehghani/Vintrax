@@ -14,7 +14,6 @@ import { InspectionReport } from '@/components/inspection-report';
 import { VehicleDocuments } from '@/components/vehicle-documents';
 import { DescriptionBody } from '@/components/description-body';
 import { VehicleHistory } from '@/components/vehicle-history';
-import { CarfaxBadge } from '@/components/carfax-badge';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -122,7 +121,10 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                     {formatEnum(vehicle.status)}
                   </Badge>
                 ) : null}
-                <CarfaxBadge vehicle={vehicle} />
+                {/* No CARFAX badge here. It belongs to the vehicle history
+                    section further down and appears there once; beside the
+                    title it was a second copy of the same link competing with
+                    the title's own badges. */}
               </div>
             </div>
 

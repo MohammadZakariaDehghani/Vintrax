@@ -187,13 +187,13 @@ has a link. Clearing `carfaxUrl` sets both back to `null` in the same write, so
 a claim cannot outlive its evidence and reappear when a later edit adds any link
 back.
 
-**History.** The timeline is replaced as a whole set, matching images and
-documents. Entries are transcribed by the seller from a report they hold —
-Vintrax has no CARFAX integration and retrieves nothing — so the timeline is
-public and labelled as the seller's account, while the uploaded report stays
-restricted with the rest of the paperwork. `VehicleDocument.issuedOn` carries the
-date printed on the report; that date is public even though the report is not,
-because it is what lets a buyer judge how current the timeline is.
+**History.** The `SELLER` set is replaced as a whole, matching images and
+documents — entries a seller transcribes by hand, from whatever they hold, with
+no CARFAX integration behind them. The `CARFAX` set is different: it is written
+by the server itself from `POST /vehicles/:id/carfax/read`, described above,
+and is never accepted from a client. `VehicleDocument.issuedOn` carries the date
+printed on an uploaded document; that date is public even though the document
+is not, because it is what lets a buyer judge how current an entry is.
 
 Every entry carries a `source`. `SELLER` entries are the ones a seller typed
 through the editor; `CARFAX` entries are what the server read off the report.

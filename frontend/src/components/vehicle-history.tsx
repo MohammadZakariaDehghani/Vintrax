@@ -3,6 +3,7 @@ import {
   type VehicleHistoryEvent,
   type VehicleHistoryEventKind,
 } from '@vintrax/shared';
+import { FileText } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui';
 import { CarfaxBadge } from '@/components/carfax-badge';
@@ -10,13 +11,17 @@ import { CarfaxBadge } from '@/components/carfax-badge';
 /**
  * A vehicle's accident and damage record, as a timeline.
  *
- * Two states, and nothing else in the box.
+ * Two states, and nothing in the box but its title.
  *
  * The seller approved the reading of their CARFAX report → the timeline, and
  * the CARFAX button. The seller did not, or there is nothing to show → the
  * button alone. No explanation, no disclaimer, no summary line. That is the
  * point of the block as it now stands: the report is one click away, and a
  * paragraph of ours between the buyer and it is noise they have to read past.
+ *
+ * The heading stays. It was removed with the prose and asked for back, which
+ * is right — a card with a timeline and a logo in it and no title does not say
+ * what it is about, and "Vehicle history" is the label a buyer scans for.
  *
  * What made the old prose necessary was that the entries were typed by the
  * seller, so the block had to say whose claim it was. It no longer has to. The
@@ -48,6 +53,11 @@ export function VehicleHistory({
   return (
     <Card>
       <CardContent className="pt-5">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <FileText className="h-4 w-4 text-primary" aria-hidden />
+          Vehicle history
+        </h2>
+
         {timeline.length > 0 ? (
           <ol className="mb-5 flex flex-col gap-4 md:flex-row md:gap-0">
             {timeline.map((event, index) => (

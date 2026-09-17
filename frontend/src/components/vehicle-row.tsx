@@ -85,10 +85,6 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
               Inspected
             </Badge>
           ) : null}
-          {/* Compact here: the card is already carrying up to two badges. The
-              badge draws itself, including nothing at all when there is no
-              report, so there is no condition to keep in step with it. */}
-          <CarfaxBadge vehicle={vehicle} compact className="shadow-sm" />
         </div>
 
         {vehicle.imageCount > 1 ? (
@@ -191,6 +187,13 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
             {vehicle.isFavourited ? 'Saved' : 'Save'}
           </button>
         ) : null}
+
+        {/* After the save button, off the photograph.
+            `relative z-10` for the reason the save button has it: the row's
+            title carries a stretched link covering the whole row, and without
+            a stacking context above it every click on the badge would open the
+            listing instead of the report. */}
+        <CarfaxBadge vehicle={vehicle} compact className="relative z-10 sm:mt-2" />
       </div>
     </article>
   );

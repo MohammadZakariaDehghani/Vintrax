@@ -163,7 +163,18 @@ export type CarfaxReadResult =
       statedAccidentFree: boolean;
       fetchedAt: string;
     }
-  | { status: 'unreadable'; reason: string }
+  | {
+      status: 'unreadable';
+      reason: string;
+      /**
+       * A short, non-secret description of what the page looked like instead.
+       *
+       * Shown to the seller so a failure can be reported precisely. Everything
+       * in it is already public — it describes a page the seller publishes to
+       * buyers — and it is bounded so a report cannot be dumped through it.
+       */
+      diagnosis?: string;
+    }
   | { status: 'unreachable'; reason: string };
 
 export interface VehicleHistoryEvent {
