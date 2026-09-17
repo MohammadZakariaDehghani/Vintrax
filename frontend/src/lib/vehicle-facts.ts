@@ -1,3 +1,4 @@
+import { ACCIDENT_HISTORY_EVENT_KINDS } from '@vintrax/shared';
 import type { VehicleDetail, VehicleHistoryEvent } from '@vintrax/shared';
 import { formatEnum, formatKm } from '@/lib/utils';
 
@@ -53,24 +54,43 @@ function ownersFact(events: VehicleHistoryEvent[]): VehicleFact | null {
 }
 
 /**
- * What the timeline says about claims.
+ * What the timeline says about accidents.
  *
- * A claim on the timeline is reported as such and marked adverse. Silence is
- * reported as silence — never as "none".
+ * Counts damage records as well as insurance claims. It used to count only
+ * claims, which was right when a seller typing "Insurance claim" was the only
+ * way anything got onto the timeline — and became wrong the moment the CARFAX
+ * reader started writing `ACCIDENT_DAMAGE` rows. A car whose report shows two
+ * accidents would have read "Not stated", on the one field where a buyer least
+ * forgives it.
+ *
+ * `fromSeller` is now only true for entries the seller typed. A CARFAX-sourced
+ * record is the report's account, not theirs, and the listing should not
+ * attribute it to them.
+ *
+ * Silence is still reported as silence — never as "none".
  */
 function accidentsFact(events: VehicleHistoryEvent[]): VehicleFact {
-  const claims = events.filter((event) => event.kind === 'CLAIM').length;
-  if (claims > 0) {
+  const accidents = events.filter((event) => ACCIDENT_HISTORY_EVENT_KINDS.includes(event.kind));
+  if (accidents.length > 0) {
     return {
       label: 'Accidents',
-      value: `${claims} reported`,
-      fromSeller: true,
+      value: `${accidents.length} reported`,
+      fromSeller: accidents.every((event) => event.source === 'SELLER'),
       adverse: true,
     };
   }
-  if (events.some((event) => event.kind === 'NO_CLAIMS')) {
-    return { label: 'Accidents', value: 'None reported', fromSeller: true };
+
+  const clear = events.filter(
+    (event) => event.kind === 'NO_ACCIDENTS' || event.kind === 'NO_CLAIMS',
+  );
+  if (clear.length > 0) {
+    return {
+      label: 'Accidents',
+      value: 'None reported',
+      fromSeller: clear.every((event) => event.source === 'SELLER'),
+    };
   }
+
   return { label: 'Accidents', value: 'Not stated', fromSeller: false };
 }
 

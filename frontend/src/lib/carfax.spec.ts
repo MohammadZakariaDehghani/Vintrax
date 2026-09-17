@@ -11,25 +11,38 @@ import { HEADER_ALIASES, INVENTORY_CSV_COLUMNS, isCarfaxUrl, resolveHeader } fro
  */
 
 describe('isCarfaxUrl', () => {
-  it('accepts the addresses a real report lives at', () => {
+  it('accepts the address a shared report lives at', () => {
     for (const url of [
-      'https://www.carfax.ca/vhr/ABC123',
       'https://vhr.carfax.ca/report/abc',
-      'https://carfax.ca/vehicle-history-report',
-      'https://www.carfax.com/vehicle/1234',
+      'https://vhr.carfax.ca/?id=ABC123',
+      'https://VHR.CARFAX.CA/report/abc',
     ]) {
       expect(isCarfaxUrl(url)).toBe(true);
     }
   });
 
-  it('refuses a lookalike host', () => {
-    // The reason this is a parsed host and not a substring match. Every one of
-    // these contains "carfax.ca" somewhere.
+  it('refuses a CARFAX address that is not a report', () => {
+    // Narrowed deliberately. These are genuine CARFAX pages and none of them
+    // holds a report about any particular car, so there is nothing to fetch and
+    // nothing to show a buyer.
     for (const url of [
-      'https://carfax.ca.example.com/vhr',
-      'https://notcarfax.ca/vhr',
-      'https://evil.example.com/?next=carfax.ca',
-      'https://evil.example.com/carfax.ca/vhr',
+      'https://www.carfax.ca/vhr/ABC123',
+      'https://carfax.ca/vehicle-history-report',
+      'https://www.carfax.com/vehicle/1234',
+    ]) {
+      expect(isCarfaxUrl(url)).toBe(false);
+    }
+  });
+
+  it('refuses a lookalike host', () => {
+    // The reason this is a parsed host and not a prefix match on the string.
+    // Every one of these contains "vhr.carfax.ca" somewhere.
+    for (const url of [
+      'https://vhr.carfax.ca.example.com/report',
+      'https://evil.vhr.carfax.ca/report',
+      'https://notvhr.carfax.ca/report',
+      'https://evil.example.com/?next=https://vhr.carfax.ca/',
+      'https://evil.example.com/vhr.carfax.ca/report',
       'https://xn--carfax-0na.ca/vhr',
     ]) {
       expect(isCarfaxUrl(url)).toBe(false);
@@ -37,11 +50,14 @@ describe('isCarfaxUrl', () => {
   });
 
   it('refuses http, because a report link is not rewritable in transit', () => {
-    expect(isCarfaxUrl('http://www.carfax.ca/vhr/ABC')).toBe(false);
+    expect(isCarfaxUrl('http://vhr.carfax.ca/report/abc')).toBe(false);
   });
 
   it('refuses credentials in the URL', () => {
-    expect(isCarfaxUrl('https://user:secret@carfax.ca/vhr')).toBe(false);
+    // `https://vhr.carfax.ca@evil.example.com/` parses with the host on the
+    // right, which is why this is checked rather than assumed away.
+    expect(isCarfaxUrl('https://user:secret@vhr.carfax.ca/report')).toBe(false);
+    expect(isCarfaxUrl('https://vhr.carfax.ca@evil.example.com/report')).toBe(false);
   });
 
   it('refuses schemes that are not a link at all', () => {
@@ -51,7 +67,7 @@ describe('isCarfaxUrl', () => {
   });
 
   it('refuses text that is not a URL', () => {
-    expect(isCarfaxUrl('carfax.ca')).toBe(false);
+    expect(isCarfaxUrl('vhr.carfax.ca')).toBe(false);
     expect(isCarfaxUrl('see the carfax')).toBe(false);
   });
 });

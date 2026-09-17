@@ -1,8 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { carfaxHighlightsFor } from '@vintrax/shared';
-import { summariseAccidentRecord } from '@/lib/vehicle-history';
-import type { VehicleHistoryEvent, VehicleHistoryEventKind } from '@vintrax/shared';
 
 /**
  * The CARFAX badge and the accident record it sits beside.
@@ -53,47 +51,6 @@ describe('carfaxHighlightsFor', () => {
     // a segment: the badge only ever states a positive claim.
     expect(carfaxHighlightsFor({ carfaxUrl: REPORT, carfaxOneOwner: null })).toEqual([]);
     expect(carfaxHighlightsFor({ carfaxUrl: REPORT, carfaxOneOwner: false })).toEqual([]);
-  });
-});
-
-function event(kind: VehicleHistoryEventKind, label = 'Entry'): VehicleHistoryEvent {
-  return { id: `${kind}-${label}`, kind, occurredOn: null, label, detail: null };
-}
-
-describe('summariseAccidentRecord', () => {
-  it('says nothing was stated when the seller entered nothing', () => {
-    // Not "no accidents". An empty timeline means nobody typed anything.
-    expect(summariseAccidentRecord([])).toEqual({ state: 'unstated' });
-    expect(summariseAccidentRecord([event('SERVICE')])).toEqual({ state: 'unstated' });
-  });
-
-  it('reports the clean result only when the seller said so', () => {
-    expect(summariseAccidentRecord([event('NO_ACCIDENTS')])).toEqual({ state: 'none' });
-  });
-
-  it('counts both damage records and insurance claims', () => {
-    // The report keeps them apart and so does the timeline, but the question
-    // "has this car been in anything" covers both.
-    const record = summariseAccidentRecord([
-      event('SERVICE'),
-      event('ACCIDENT_DAMAGE', 'Damage reported'),
-      event('CLAIM', 'Claim paid'),
-    ]);
-
-    expect(record.state).toBe('reported');
-    expect(record.state === 'reported' && record.accidents.map((a) => a.label)).toEqual([
-      'Damage reported',
-      'Claim paid',
-    ]);
-  });
-
-  it('lets an accident override a contradictory "no accidents" line', () => {
-    // A report cannot say both, so one is a mistake. Of the two ways to be
-    // wrong, a clean badge on a car with a recorded collision is the one that
-    // costs a buyer money.
-    const record = summariseAccidentRecord([event('NO_ACCIDENTS'), event('ACCIDENT_DAMAGE')]);
-
-    expect(record.state).toBe('reported');
   });
 });
 

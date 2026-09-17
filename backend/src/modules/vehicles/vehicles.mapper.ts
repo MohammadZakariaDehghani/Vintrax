@@ -28,6 +28,7 @@ export const vehicleSummarySelect = {
   carfaxUrl: true,
   carfaxOneOwner: true,
   carfaxLowKilometres: true,
+  carfaxHistoryApproved: true,
   publishedAt: true,
   createdAt: true,
   images: {
@@ -120,9 +121,18 @@ export const vehicleDetailSelect = {
     orderBy: { createdAt: 'asc' },
   },
   historyEvents: {
-    select: { id: true, kind: true, occurredOn: true, label: true, detail: true, position: true },
+    select: {
+      id: true,
+      kind: true,
+      source: true,
+      occurredOn: true,
+      label: true,
+      detail: true,
+      position: true,
+    },
     orderBy: { position: 'asc' },
   },
+  carfaxFetchedAt: true,
   seller: { select: vehicleSellerSelect },
   inspections: {
     where: { status: 'COMPLETED' },
@@ -202,6 +212,7 @@ export function toVehicleSummary(
     carfaxUrl: row.carfaxUrl,
     carfaxOneOwner: row.carfaxOneOwner,
     carfaxLowKilometres: row.carfaxLowKilometres,
+    carfaxHistoryApproved: row.carfaxHistoryApproved,
     activeAuction: auction ? toEmbeddedAuction(auction) : null,
     publishedAt: row.publishedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -219,7 +230,7 @@ export function toVehicleSummary(
 export function toVehicleDetail(
   row: VehicleDetailRow,
   favouritedIds: ReadonlySet<string>,
-  options: { includeDocuments?: boolean } = {},
+  options: { includeDocuments?: boolean; includeUnapprovedCarfax?: boolean } = {},
 ): VehicleDetail {
   const inspection = row.inspections[0];
 
@@ -258,13 +269,29 @@ export function toVehicleDetail(
         }))
       : [],
     documentCount: row.documents.length,
-    historyEvents: row.historyEvents.map((event) => ({
-      id: event.id,
-      kind: event.kind,
-      occurredOn: asDate(event.occurredOn),
-      label: event.label,
-      detail: event.detail,
-    })),
+    // A CARFAX-sourced entry is withheld until the dealer approves it.
+    //
+    // Gated here rather than only in the page, because the listing response is
+    // public: a buyer reading the API would otherwise see the accident record
+    // the dealer has not published yet, and "the UI does not draw it" is not
+    // the same as "it is not disclosed". The owner and an administrator see it
+    // regardless, which is what makes the review screen possible.
+    historyEvents: row.historyEvents
+      .filter(
+        (event) =>
+          event.source !== 'CARFAX' ||
+          row.carfaxHistoryApproved ||
+          options.includeUnapprovedCarfax === true,
+      )
+      .map((event) => ({
+        id: event.id,
+        kind: event.kind,
+        source: event.source,
+        occurredOn: asDate(event.occurredOn),
+        label: event.label,
+        detail: event.detail,
+      })),
+    carfaxFetchedAt: row.carfaxFetchedAt?.toISOString() ?? null,
     seller: {
       id: row.seller.id,
       displayName: `${row.seller.firstName} ${row.seller.lastName}`.trim(),

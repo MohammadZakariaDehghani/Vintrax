@@ -602,19 +602,6 @@ export const ACCIDENT_HISTORY_EVENT_KINDS: readonly VehicleHistoryEventKind[] = 
 ];
 
 /**
- * The kinds that are bad news.
- *
- * Marked so the timeline can colour them, and so a seller cannot hide a claim
- * by choosing a gentler category: the styling follows the kind, not the words
- * the seller typed next to it.
- */
-export const ADVERSE_HISTORY_EVENT_KINDS: readonly VehicleHistoryEventKind[] = [
-  'ACCIDENT_DAMAGE',
-  'CLAIM',
-  'RECALL',
-];
-
-/**
  * The brand on a vehicle's title.
  *
  * `SALVAGE` is here although issue #34 asked only for clean and rebuilt. A
@@ -641,20 +628,33 @@ export const TITLE_STATUS_LABELS: Record<TitleStatus, string> = {
 export const ADVERSE_TITLE_STATUSES: readonly TitleStatus[] = ['REBUILT', 'SALVAGE'];
 
 /**
- * Hosts a CARFAX link may point at.
+ * The one host a CARFAX link may point at.
+ *
+ * Narrowed from a `carfax.ca`/`carfax.com` suffix match to this exact host.
+ * Two reasons, and the second is newer than the first.
  *
  * The badge this link sits behind is a trust signal — it carries a third
- * party's name and tells a buyer the report is genuine. An unchecked URL would
- * let a seller put that name on a link to anywhere, which is a phishing page
- * wearing a brand the buyer already trusts. So the host is checked rather than
- * the text merely being a URL.
+ * party's name and tells a buyer the report is genuine. An unchecked URL lets
+ * a seller put that name on a link to anywhere, which is a phishing page
+ * wearing a brand the buyer already trusts.
  *
- * Subdomains are allowed (`vhr.carfax.ca` is where a shared report actually
- * lives); anything else is refused, including lookalikes such as
- * `carfax.ca.example.com`, which is why the check is a suffix match on a dot
- * boundary rather than `includes`.
+ * And the link is now fetched. `vhr.carfax.ca` is where a shared vehicle
+ * history report lives — the address CARFAX gives a dealer to pass to buyers —
+ * so it is the only address that holds a report to read. A marketing page on
+ * `www.carfax.ca` is a valid CARFAX URL and contains nothing about any
+ * particular car. Pinning the host is also most of the SSRF answer: there is
+ * exactly one name to resolve.
+ *
+ * An exact match, not a suffix match: `vhr.carfax.ca.example.com` ends with
+ * neither, and `evil.vhr.carfax.ca` is not a host CARFAX serves reports from.
+ *
+ * This invalidates links stored under the old rule. A listing holding a
+ * `www.carfax.ca` address keeps it in the database but cannot be saved again
+ * until the dealer replaces it with the report link, which is the intended
+ * outcome — that address was never a report.
  */
-export const CARFAX_HOSTS = ['carfax.ca', 'carfax.com'] as const;
+export const CARFAX_REPORT_HOST = 'vhr.carfax.ca';
+export const CARFAX_REPORT_PREFIX = `https://${CARFAX_REPORT_HOST}/`;
 
 /**
  * The sliver of the `URL` constructor this check needs.
@@ -680,19 +680,17 @@ interface ParsedUrl {
 const UrlConstructor = (globalThis as unknown as { URL: new (input: string) => ParsedUrl }).URL;
 
 export function isCarfaxUrl(value: string): boolean {
-  let host: string;
   try {
     const parsed = new UrlConstructor(value);
     // https only. A report link served over http can be rewritten in transit,
     // and every real CARFAX address is https.
     if (parsed.protocol !== 'https:') return false;
     if (parsed.username || parsed.password) return false;
-    host = parsed.hostname.toLowerCase();
+
+    return parsed.hostname.toLowerCase() === CARFAX_REPORT_HOST;
   } catch {
     return false;
   }
-
-  return CARFAX_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
 }
 
 /**
@@ -704,6 +702,10 @@ export function isCarfaxUrl(value: string): boolean {
  * CARFAX, and inferring "one owner" from however many SOLD lines a seller
  * happened to type would be the application inventing a fact about a car.
  */
+/** Where a timeline entry came from. */
+export const VEHICLE_HISTORY_SOURCES = ['SELLER', 'CARFAX'] as const;
+export type VehicleHistorySource = (typeof VEHICLE_HISTORY_SOURCES)[number];
+
 export const CARFAX_HIGHLIGHTS = ['ONE_OWNER', 'LOW_KILOMETRES'] as const;
 export type CarfaxHighlight = (typeof CARFAX_HIGHLIGHTS)[number];
 
