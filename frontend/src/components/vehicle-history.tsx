@@ -5,32 +5,36 @@ import {
 } from '@vintrax/shared';
 import { FileText } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { visibleHistoryTimeline } from '@/lib/vehicle-history-drafts';
 import { Card, CardContent } from '@/components/ui';
 import { CarfaxBadge } from '@/components/carfax-badge';
 
 /**
  * A vehicle's accident and damage record, as a timeline.
  *
- * Two states, and nothing in the box but its title.
+ * Two sources feed it, on different terms, in the same list.
  *
- * The seller approved the reading of their CARFAX report → the timeline, and
- * the CARFAX button. The seller did not, or there is nothing to show → the
- * button alone. No explanation, no disclaimer, no summary line. That is the
- * point of the block as it now stands: the report is one click away, and a
- * paragraph of ours between the buyer and it is noise they have to read past.
+ * A seller's own typed entries (`source: 'SELLER'`) show unconditionally, the
+ * way this block has always worked — typing one and saving it through the
+ * editor already is the seller publishing it, the same act it always was.
+ * CARFAX-sourced entries show only once the seller has approved that specific
+ * reading, because those were never typed by anyone here; reading a report and
+ * publishing what it says are deliberately two acts. The two sets are simply
+ * concatenated, not re-sorted, because the API already returns them in
+ * `position` order with the seller's own rows first.
  *
- * The heading stays. It was removed with the prose and asked for back, which
- * is right — a card with a timeline and a logo in it and no title does not say
- * what it is about, and "Vehicle history" is the label a buyer scans for.
+ * A short-lived version of this component showed CARFAX entries only, on the
+ * reasoning that once a report is being read automatically the seller's own
+ * notes were no longer what the block was "for". That silently dropped a
+ * feature that had nothing to do with CARFAX and had worked since before it
+ * existed: a seller who has never linked a report, or whose report currently
+ * cannot be read, still has an editor that says "these are published as your
+ * account of it" — and until this fix, they were not being published anywhere
+ * a buyer could see them.
  *
- * What made the old prose necessary was that the entries were typed by the
- * seller, so the block had to say whose claim it was. It no longer has to. The
- * lines drawn here come from `source: 'CARFAX'` only — read off the report by
- * the server, never editable, never postable from a browser — so the timeline
- * is the report's account, and the button goes to the report itself.
- *
- * A seller's own typed entries still exist and still have their editor; they
- * are simply not what this block is for any more.
+ * No explanatory prose beyond the heading either way. The seller's own editor
+ * already says what these are; repeating it here is noise between the buyer
+ * and the dates.
  */
 export function VehicleHistory({
   events,
@@ -39,16 +43,17 @@ export function VehicleHistory({
   events: VehicleHistoryEvent[];
   vehicle: CarfaxBadgeSource & { carfaxHistoryApproved?: boolean };
 }) {
-  // No report, no box. The badge draws nothing without a link, and an empty
-  // card with a heading is worse than no card.
-  if (!vehicle.carfaxUrl) return null;
+  // Belt and braces over the API, which already withholds an unapproved
+  // CARFAX reading from anyone but the owner: the owner is also a viewer of
+  // their own listing, and should see what a buyer sees. The seller's own
+  // rows carry no such gate — they were never behind a review step.
+  const timeline = visibleHistoryTimeline(events, vehicle.carfaxHistoryApproved);
 
-  // Belt and braces over the API, which already withholds unapproved entries
-  // from anyone but the owner: the owner is also a viewer of their own
-  // listing, and they should see what a buyer sees.
-  const timeline = vehicle.carfaxHistoryApproved
-    ? events.filter((event) => event.source === 'CARFAX')
-    : [];
+  // Nothing to show and nothing to link to: an empty card with a heading is
+  // worse than no card. A seller who has typed their own entries gets the
+  // block even with no CARFAX link at all, exactly as before CARFAX reading
+  // existed; the badge below draws nothing without a link either way.
+  if (timeline.length === 0 && !vehicle.carfaxUrl) return null;
 
   return (
     <Card>

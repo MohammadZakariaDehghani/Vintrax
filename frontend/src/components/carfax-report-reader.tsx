@@ -304,18 +304,16 @@ function ReadOutcome({ result }: { result: CarfaxReadResult }) {
         unchanged. Check the link is the share link CARFAX gave you, and try again.
       </p>
       {result.status === 'unreadable' && result.diagnosis ? (
-        // Shown rather than only logged, so the person who hit it can report
-        // it. Without this the failure is the same sentence whether the page
-        // changed shape, was never a report, or draws itself in the browser —
-        // which is exactly how the first real one wasted a round of guessing.
-        <details className="mt-2">
-          <summary className="cursor-pointer text-sm text-muted-foreground underline">
-            What was on the page
-          </summary>
-          <p className="mt-1 break-words rounded bg-muted px-2 py-1.5 font-mono text-xs text-muted-foreground">
-            {result.diagnosis}
-          </p>
-        </details>
+        // Shown outright, not behind a click. This was a `<details>` toggle at
+        // first, on the reasoning that most people would not need it — but the
+        // one person who does need it is whoever is troubleshooting a failed
+        // read, every single time, and a collapsed disclosure is exactly the
+        // kind of thing that gets reported as "it still doesn't work" with the
+        // one line that would have said why left unopened. It is short,
+        // non-secret, and already the reason this component exists.
+        <p className="mt-2 break-words rounded bg-muted px-2 py-1.5 font-mono text-xs text-muted-foreground">
+          {result.diagnosis}
+        </p>
       ) : null}
     </Panel>
   );
