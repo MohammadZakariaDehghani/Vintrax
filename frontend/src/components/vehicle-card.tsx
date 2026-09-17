@@ -67,7 +67,7 @@ export function VehicleCard({
           )}
         </Link>
 
-        <div className="absolute left-2 top-2 flex flex-col gap-1">
+        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
           {auction ? (
             <Badge variant="accent" className="shadow-sm">
               <Gavel className="h-3 w-3" aria-hidden />
@@ -80,11 +80,10 @@ export function VehicleCard({
               Inspected
             </Badge>
           ) : null}
-          {/* Compact here: the card is already carrying up to two badges, and
-              the word is the signal. The full form is on the listing page. */}
-          {vehicle.carfaxUrl ? (
-            <CarfaxBadge url={vehicle.carfaxUrl} compact className="shadow-sm" />
-          ) : null}
+          {/* Compact here: the card is already carrying up to two badges. The
+              badge draws itself, including nothing at all when there is no
+              report, so there is no condition to keep in step with it. */}
+          <CarfaxBadge vehicle={vehicle} compact className="shadow-sm" />
         </div>
 
         {user ? (

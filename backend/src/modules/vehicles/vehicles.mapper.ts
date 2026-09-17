@@ -23,7 +23,11 @@ export const vehicleSummarySelect = {
   saleChannel: true,
   // On the summary because the search cards draw the CARFAX badge, and one
   // extra request per card to find out whether to draw it would be absurd.
+  // The two highlights ride with it: they are segments of that same badge, so
+  // fetching the link without them would draw half of it.
   carfaxUrl: true,
+  carfaxOneOwner: true,
+  carfaxLowKilometres: true,
   publishedAt: true,
   createdAt: true,
   images: {
@@ -196,6 +200,8 @@ export function toVehicleSummary(
     hasInspection: Boolean(inspection),
     inspectionGrade: inspection?.overallGrade ?? null,
     carfaxUrl: row.carfaxUrl,
+    carfaxOneOwner: row.carfaxOneOwner,
+    carfaxLowKilometres: row.carfaxLowKilometres,
     activeAuction: auction ? toEmbeddedAuction(auction) : null,
     publishedAt: row.publishedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),

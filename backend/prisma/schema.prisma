@@ -463,6 +463,14 @@ model Vehicle {
   /// third party's name, so it must not be able to point anywhere else.
   carfaxUrl String?
 
+  /// The two badges a CARFAX Canada report prints, as the seller read them off
+  /// their own report. Nullable rather than defaulted to false: every listing
+  /// that predates these columns said nothing, and "not stated" is not the
+  /// same claim as "the report says no". Neither may be set without
+  /// `carfaxUrl` — the service refuses a claim with nothing behind it.
+  carfaxOneOwner      Boolean?
+  carfaxLowKilometres Boolean?
+
   status      ListingStatus @default(DRAFT)
   saleChannel SaleChannel   @default(FIXED_PRICE)
 
@@ -649,7 +657,9 @@ enum VehicleHistoryEventKind {
   REGISTERED
   SOLD
   SERVICE
+  ACCIDENT_DAMAGE
   CLAIM
+  NO_ACCIDENTS
   NO_CLAIMS
   INSPECTION
   SAFETY_CERTIFIED

@@ -66,6 +66,8 @@ const BLANK = {
   city: '',
   titleStatus: '' as TitleStatus | '',
   carfaxUrl: '',
+  carfaxOneOwner: false,
+  carfaxLowKilometres: false,
   status: 'DRAFT',
   saleChannel: 'FIXED_PRICE',
 };
@@ -227,6 +229,11 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
       city: existing.city,
       titleStatus: existing.titleStatus ?? '',
       carfaxUrl: existing.carfaxUrl ?? '',
+      // Null means the seller was never asked, which presents as unticked. The
+      // distinction is kept in the database, not in a tri-state checkbox that
+      // nobody would understand.
+      carfaxOneOwner: existing.carfaxOneOwner ?? false,
+      carfaxLowKilometres: existing.carfaxLowKilometres ?? false,
       status: existing.status,
       saleChannel: existing.saleChannel,
     });
@@ -321,6 +328,8 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
       // remove a link or a brand once set.
       titleStatus: form.titleStatus === '' ? undefined : form.titleStatus,
       carfaxUrl: form.carfaxUrl.trim(),
+      carfaxOneOwner: form.carfaxOneOwner,
+      carfaxLowKilometres: form.carfaxLowKilometres,
       saleChannel: form.saleChannel,
       // Only on create. `updateVehicleSchema` omits `status`, so sending it on
       // an edit is silently stripped — the save appears to work and the status
@@ -540,6 +549,46 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
               />
             </Field>
           </div>
+
+          {/* The two badges a CARFAX Canada report prints. They join the CARFAX
+              mark into one strip on the listing rather than appearing beside it
+              as separate chips.
+
+              Disabled without a link, and the API refuses them too — the badge
+              is defensible because it opens the report a buyer can check, and a
+              claim with nothing behind it is that brand's authority with the
+              evidence taken out. Disabled rather than hidden so a seller can
+              see what adding the link would give them. */}
+          <fieldset className="mt-4" disabled={form.carfaxUrl.trim().length === 0}>
+            <legend className="text-sm font-medium">What the report shows</legend>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {form.carfaxUrl.trim().length === 0
+                ? 'Add the report link above to use these.'
+                : 'Tick only what your own report states. These are published as your account of it — Vintrax does not check reports.'}
+            </p>
+
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+              {(
+                [
+                  ['carfaxOneOwner', 'One Owner'],
+                  ['carfaxLowKilometres', 'Low Kilometres'],
+                ] as const
+              ).map(([key, label]) => (
+                <label
+                  key={key}
+                  className="flex cursor-pointer items-center gap-2 text-sm disabled:cursor-not-allowed"
+                >
+                  <input
+                    type="checkbox"
+                    checked={form[key]}
+                    onChange={(e) => set(key, e.target.checked)}
+                    className="h-4 w-4 shrink-0 accent-[hsl(var(--primary))]"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <Field label="Features (comma separated)" htmlFor="features" className="mt-4">
             <Input

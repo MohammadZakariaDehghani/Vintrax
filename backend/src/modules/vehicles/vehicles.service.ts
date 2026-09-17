@@ -157,6 +157,8 @@ export class VehiclesService {
   async create(input: CreateVehicleInput, user: AuthUser): Promise<VehicleDetail> {
     const { images, documents, ...fields } = input;
 
+    this.requireReportBehindHighlights(fields, null);
+
     const vehicle = await this.prisma.vehicle.create({
       data: {
         ...fields,
@@ -200,6 +202,18 @@ export class VehiclesService {
     const existing = await this.requireOwnedVehicle(id, user);
     const { images, documents, ...fields } = input;
 
+    const { hasReport } = this.requireReportBehindHighlights(fields, existing.carfaxUrl);
+
+    // Removing the link retires the highlights with it. A claim must not
+    // outlive its evidence: left in place they are invisible — nothing draws
+    // them without a link — until some later edit adds a link back, and a
+    // different report's badge reappears on the strength of a tick from months
+    // ago. Cleared to NULL, "not stated", rather than to false, which would be
+    // a claim the seller never made.
+    const data = hasReport
+      ? fields
+      : { ...fields, carfaxOneOwner: null, carfaxLowKilometres: null };
+
     // A vehicle under an active auction cannot have its commercial terms moved
     // out from under the bidders.
     if (existing.status === 'IN_AUCTION') {
@@ -214,7 +228,7 @@ export class VehiclesService {
     await this.prisma.$transaction(async (tx) => {
       // `fields` cannot carry `status` — updateVehicleSchema omits it, so a
       // seller cannot publish their own listing through this path.
-      await tx.vehicle.update({ where: { id }, data: fields });
+      await tx.vehicle.update({ where: { id }, data });
 
       // Images and documents are replaced wholesale — the client always sends
       // the full ordered set.
@@ -730,16 +744,61 @@ export class VehiclesService {
     title: string;
     status: ListingStatus;
     publishedAt: Date | null;
+    carfaxUrl: string | null;
   }> {
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id },
-      select: { id: true, sellerId: true, title: true, status: true, publishedAt: true },
+      select: {
+        id: true,
+        sellerId: true,
+        title: true,
+        status: true,
+        publishedAt: true,
+        // Carried so `update` can check a CARFAX highlight against the link the
+        // vehicle already has, rather than only against this request.
+        carfaxUrl: true,
+      },
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
     if (vehicle.sellerId !== user.id && !isAdmin(user.role)) {
       throw new ForbiddenException('You do not have permission to modify this vehicle');
     }
     return vehicle;
+  }
+
+  /**
+   * Refuses a CARFAX highlight that has no report behind it.
+   *
+   * The One Owner and Low Kilometres badges carry CARFAX's name and their
+   * authority. What makes that defensible is that the badge opens the report it
+   * came off, so a buyer who doubts it can look. A highlight with no link is
+   * that authority with the evidence removed, which is the same objection that
+   * made `carfaxUrl` a validated host rather than any URL.
+   *
+   * Checked here rather than in the schema because only this layer can see the
+   * merged result: `PATCH { carfaxOneOwner: true }` is legitimate when the
+   * stored vehicle already has a link, and the request on its own cannot say.
+   *
+   * It refuses rather than quietly dropping the flag. A seller who ticked the
+   * box and got a silent no would believe the badge is showing.
+   */
+  private requireReportBehindHighlights(
+    fields: { carfaxUrl?: string; carfaxOneOwner?: boolean; carfaxLowKilometres?: boolean },
+    storedCarfaxUrl: string | null,
+  ): { hasReport: boolean } {
+    // An empty string is how the form clears the link, so it counts as absent.
+    const url = fields.carfaxUrl !== undefined ? fields.carfaxUrl : (storedCarfaxUrl ?? '');
+    if (url.trim().length > 0) return { hasReport: true };
+
+    const claimed: string[] = [];
+    if (fields.carfaxOneOwner) claimed.push('One Owner');
+    if (fields.carfaxLowKilometres) claimed.push('Low Kilometres');
+    if (claimed.length === 0) return { hasReport: false };
+
+    throw new BadRequestException(
+      `Add the CARFAX report link before marking this vehicle ${claimed.join(' and ')}. ` +
+        'The badge opens the report it came from, so a buyer can check it.',
+    );
   }
 
   /** Which of `vehicleIds` the viewer has favourited. Empty when anonymous. */
