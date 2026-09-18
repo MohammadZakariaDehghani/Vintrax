@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Oswald } from 'next/font/google';
+import type { FooterSection } from '@vintrax/shared';
 import { Providers } from './providers';
 import { getServerLocale } from '@/i18n/server';
+import { serverFetch } from '@/lib/api-client';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import './globals.css';
@@ -56,6 +58,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Rendering the right `lang` on the server matters for screen readers and for
   // the browser's own translation prompt, which both read it before hydration.
   const locale = await getServerLocale();
+  // Fetched here, on every page, because the footer renders on every page —
+  // the same reasoning `serverFetch` documents for the home page's inventory.
+  // `null` on failure rather than `[]`, so `SiteFooter` can tell an API
+  // hiccup apart from an administrator who genuinely emptied the footer.
+  const footer = await serverFetch<FooterSection[]>('/admin/footer');
 
   return (
     <html lang={locale} suppressHydrationWarning className={`${sans.variable} ${display.variable}`}>
@@ -72,7 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main id="main" className="flex-1">
               {children}
             </main>
-            <SiteFooter />
+            <SiteFooter sections={footer} />
           </div>
         </Providers>
       </body>

@@ -8,6 +8,7 @@ import {
   CONDITION_GRADES,
   CREATABLE_LISTING_STATUSES,
   DRIVETRAINS,
+  FOOTER_LINK_ICONS,
   FUEL_TYPES,
   INSPECTION_SECTIONS,
   LISTING_SORTS,
@@ -688,6 +689,55 @@ export const bodyTypeImageSchema = z
   })
   .strict();
 export type BodyTypeImageInput = z.infer<typeof bodyTypeImageSchema>;
+
+export const MAX_FOOTER_SECTIONS = 6;
+export const MAX_FOOTER_LINKS_PER_SECTION = 8;
+
+/**
+ * Where a footer link may point.
+ *
+ * A site path, an `https://` address, a `mailto:` or a `tel:` — never
+ * `javascript:` or another scheme a browser would run rather than navigate.
+ * The pattern anchors at the start and requires a real scheme or a path that
+ * begins with a single `/`, which also refuses a protocol-relative `//`
+ * address that would silently leave the site.
+ */
+const FOOTER_HREF_PATTERN = /^(\/(?!\/)|https:\/\/|mailto:|tel:)/i;
+
+const footerLinkSchema = z
+  .object({
+    label: trimmed(60).min(1),
+    href: trimmed(300)
+      .min(1, 'A link needs a destination')
+      .regex(
+        FOOTER_HREF_PATTERN,
+        'Use a site path starting with /, an https:// address, a mailto: address or a tel: number.',
+      ),
+    icon: z.enum(FOOTER_LINK_ICONS).optional(),
+  })
+  .strict();
+export type FooterLinkInput = z.infer<typeof footerLinkSchema>;
+
+const footerSectionSchema = z
+  .object({
+    title: trimmed(60).min(1),
+    links: z.array(footerLinkSchema).max(MAX_FOOTER_LINKS_PER_SECTION),
+  })
+  .strict();
+export type FooterSectionInput = z.infer<typeof footerSectionSchema>;
+
+/**
+ * The whole footer, replaced at once.
+ *
+ * Whole-set replacement, matching how a vehicle's history timeline and its
+ * images already work: the client holds the ordered list of sections and each
+ * section's ordered list of links, and order is part of the data rather than
+ * a separate field to keep in sync.
+ */
+export const replaceFooterSchema = z.object({
+  sections: z.array(footerSectionSchema).max(MAX_FOOTER_SECTIONS),
+});
+export type ReplaceFooterInput = z.infer<typeof replaceFooterSchema>;
 
 // --- Editorial ---------------------------------------------------------------
 

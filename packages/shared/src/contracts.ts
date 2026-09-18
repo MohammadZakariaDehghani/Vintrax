@@ -7,6 +7,7 @@ import type {
   ConditionGrade,
   DealerStatus,
   Drivetrain,
+  FooterLinkIcon,
   FuelType,
   InspectionSection,
   InspectionStatus,
@@ -501,6 +502,33 @@ export interface Article {
 
 /** What the masthead and the index need, without the full body. */
 export type ArticleSummary = Omit<Article, 'body'>;
+
+/** One link under a footer section. */
+export interface FooterLink {
+  id: string;
+  label: string;
+  /** A site path, an `https://` address, a `mailto:` or a `tel:`. */
+  href: string;
+  icon: FooterLinkIcon | null;
+  position: number;
+}
+
+/**
+ * One column of the site footer.
+ *
+ * The whole footer is a short, ordered list of these — "About us",
+ * "Resources", "Partners" and "Stay in touch" by default — each replaced as a
+ * whole through `PUT /admin/footer`, the way a vehicle's history timeline is:
+ * the client holds the ordered list, order is part of the data, and a section
+ * with no links left is simply an empty column rather than a row to delete
+ * separately.
+ */
+export interface FooterSection {
+  id: string;
+  title: string;
+  position: number;
+  links: FooterLink[];
+}
 
 export interface AdminAnalytics {
   totalUsers: number;
