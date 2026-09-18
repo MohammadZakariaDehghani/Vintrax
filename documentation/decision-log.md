@@ -458,6 +458,18 @@ The three original sections' most-used destinations (browse vehicles, live aucti
 
 **Consequences:** The admin screen cannot simply map over an enum the way `body-types` does, because there is no enum. It lists every make currently in stock (from the same search-facet aggregate the home page's row itself reads) *and* any make an administrator has already set a logo for — the union matters because a logo set for a make that later sells through would otherwise vanish from the admin screen along with its facet entry, leaving no way to find and remove or replace it. Extracted into `buildMakeLogoRows`, tested directly. The home page's own row stays driven strictly by what is in stock (`buildPopularMakes`): a curated logo decorates a make already on the row, it never adds one that has no inventory, because "Vintrax has that many right now" is the row's whole point — the same promise D-024 built the row on when it chose real photographs and real marks over stock art.
 
+## D-039 — The Blog Gets a Second Home-Page Slot, Not a Replacement for the Masthead
+
+**Status:** Accepted. Requested in issue #43: "in blog area in first page should slide show last 5 blog."
+
+**Decision:** The home page gains a second editorial section, below the recently-listed vehicles and above the value-proposition band: a single-card slideshow cycling through the five most recent published posts (`GET /articles?pageSize=5`), each shown with its hero photo, title, subtitle and date, linking to the post. It sits apart from the existing masthead, which still leads the page with only the single newest post — the masthead is the page's hero band and is `HomeMasthead`'s whole job; the issue's ask was for a *slideshow*, which is a second, different thing, not a request to change what the masthead does.
+
+**Rationale:** Nothing about editorial content needed to change to support this — `Article`/`ArticlesService` already served everything: `GET /articles` returns published posts newest-first, and the `/blog` index page already renders a hero-photo-plus-headline card for exactly this data. The slideshow reuses that same card layout for its active slide, so a visitor recognises it as the same "blog" they'd find at `/blog` rather than a second design language on the same page.
+
+**Consequences:** It advances on its own every six seconds — the literal request was a "slide show" — but stops the instant a visitor's mouse or keyboard focus lands anywhere inside it, via `onMouseEnter`/`onMouseLeave` and React's `onFocus`/`onBlur` (which fire on focus entering or leaving the subtree, the same way `:focus-within` does in CSS). Reading a headline while the image and text under it silently change is worse than one that never moved on its own, and a visitor tabbing through the page must never have their focus carried off to a slide they did not choose to view. Dot indicators double as a jump-to-slide control (`role="tablist"`), and the arrow keys step the slide the same way they already step photos in `VehicleGallery`, for the same reason: someone looking through a short set should not have to aim at a small button every time.
+
+The newest post can appear in both the masthead and the slideshow's first slide — they are not deduplicated against each other. Unlike the `/blog` index page's own lead-plus-rest layout, where the two sit directly beside each other and repetition would be obvious, the masthead and this slideshow are far apart on the page, and the small chance of overlap did not seem worth building cross-fetch coordination for.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

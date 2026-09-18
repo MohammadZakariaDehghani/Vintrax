@@ -15,9 +15,13 @@ import { VehicleRow } from '@/components/vehicle-row';
 import { BrandLogo } from '@/components/brand-logo';
 import { HomeSearch } from '@/components/home-search';
 import { HomeMasthead } from '@/components/home-masthead';
+import { HomeBlogSlideshow } from '@/components/home-blog-slideshow';
 import { buildBodyTypeShortcuts } from '@/lib/body-type-shortcuts';
 import { buildPopularMakes } from '@/lib/popular-makes';
 import { getServerDictionary } from '@/i18n/server';
+
+/** "Slide show last 5 blog" — issue #43's own words for the row's size. */
+const BLOG_SLIDESHOW_SIZE = 5;
 
 const QUICK_LINKS = [
   { key: 'quickSuvs', query: 'bodyType=SUV' },
@@ -40,12 +44,13 @@ export default async function HomePage() {
   // One wider page, two uses: the ten newest fill the list below, and the rest
   // are scanned for a photographed example of each body type. A second round
   // trip per body type would be nine more queries for nine thumbnails.
-  const [featured, auctions, bodyTypeImages, makeLogos, masthead] = await Promise.all([
+  const [featured, auctions, bodyTypeImages, makeLogos, masthead, blogPosts] = await Promise.all([
     serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
     serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
     serverFetch<MakeLogo[]>('/admin/make-logos'),
     serverFetch<ArticleSummary | null>('/articles/masthead'),
+    serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_SLIDESHOW_SIZE}`),
   ]);
 
   const recent = featured?.items.slice(0, 10) ?? [];
@@ -187,6 +192,12 @@ export default async function HomePage() {
           </Card>
         )}
       </section>
+
+      <HomeBlogSlideshow
+        posts={blogPosts?.items ?? []}
+        title={t.home.blogTitle}
+        readMoreLabel={t.home.blogReadMore}
+      />
 
       <section className="border-t border-border bg-card py-14">
         <div className="container grid gap-8 md:grid-cols-3">
