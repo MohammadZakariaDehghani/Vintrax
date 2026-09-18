@@ -332,18 +332,6 @@ export const updateVehicleSchema = createVehicleSchema
   });
 export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;
 
-/**
- * Whether the accident record read off the report appears on the listing.
- *
- * Only a flag. The records themselves are never accepted from the browser —
- * they are written by the server at the moment it reads the report, so the one
- * thing this decides is whether to publish what the server itself saw. A body
- * carrying records would be a way to put a line on a listing with CARFAX's
- * name on it that CARFAX never wrote.
- */
-export const approveCarfaxHistorySchema = z.object({ approved: z.boolean() }).strict();
-export type ApproveCarfaxHistoryInput = z.infer<typeof approveCarfaxHistorySchema>;
-
 export const updateListingStatusSchema = z.object({
   status: z.enum(SELLER_SETTABLE_LISTING_STATUSES),
 });

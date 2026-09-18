@@ -1,16 +1,12 @@
 import { toVehicleDetail } from './vehicles.mapper';
 
 /**
- * An unapproved CARFAX reading is not disclosed.
+ * CARFAX-sourced history rows never reach the listing response.
  *
- * This is the property the whole review step rests on. Reading a report and
- * publishing what it says are two acts, and between them the records sit in the
- * database — so the listing response, which is public, must not carry them.
- *
- * Gating it in the page would not be enough and is the mistake this guards
- * against: the API is the disclosure boundary, and "the component does not draw
- * it" is not the same as "a buyer cannot read it". Anyone can fetch the listing
- * JSON.
+ * Vintrax no longer fetches or reads any CARFAX report — every history entry
+ * is the seller's own typed account. The mapper still filters out
+ * `source: 'CARFAX'` defensively, in case a row from before that feature was
+ * removed still sits in the database; this proves that filter holds.
  */
 
 const event = (id: string, source: 'SELLER' | 'CARFAX') => ({
@@ -24,7 +20,7 @@ const event = (id: string, source: 'SELLER' | 'CARFAX') => ({
 });
 
 /** The minimum a detail row needs to map. */
-function row(overrides: { carfaxHistoryApproved: boolean }) {
+function row() {
   return {
     id: 'v1',
     slug: 'a-car',
@@ -47,7 +43,6 @@ function row(overrides: { carfaxHistoryApproved: boolean }) {
     carfaxUrl: 'https://vhr.carfax.ca/report/abc',
     carfaxOneOwner: null,
     carfaxLowKilometres: null,
-    carfaxFetchedAt: null,
     publishedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -82,7 +77,6 @@ function row(overrides: { carfaxHistoryApproved: boolean }) {
       dealer: null,
       createdAt: new Date(),
     },
-    ...overrides,
   } as unknown as Parameters<typeof toVehicleDetail>[0];
 }
 
@@ -90,42 +84,14 @@ const idsOf = (detail: { historyEvents: Array<{ id: string }> }) =>
   detail.historyEvents.map((entry) => entry.id);
 
 describe('CARFAX records in the listing response', () => {
-  it('withholds an unapproved reading from a buyer', () => {
-    const detail = toVehicleDetail(row({ carfaxHistoryApproved: false }), new Set());
+  it('keeps the seller’s own entries and drops any leftover CARFAX row', () => {
+    const detail = toVehicleDetail(row(), new Set());
 
     expect(idsOf(detail)).toEqual(['seller-1']);
   });
 
-  it('shows it once the dealer has approved it', () => {
-    const detail = toVehicleDetail(row({ carfaxHistoryApproved: true }), new Set());
-
-    expect(idsOf(detail)).toEqual(['seller-1', 'carfax-1']);
-  });
-
-  it('shows an unapproved reading to the owner, who has to review it', () => {
-    const detail = toVehicleDetail(row({ carfaxHistoryApproved: false }), new Set(), {
-      includeUnapprovedCarfax: true,
-    });
-
-    expect(idsOf(detail)).toEqual(['seller-1', 'carfax-1']);
-  });
-
-  it('never withholds the seller’s own entries', () => {
-    // They were public before this existed and the approval flag says nothing
-    // about them.
-    for (const approved of [true, false]) {
-      const detail = toVehicleDetail(row({ carfaxHistoryApproved: approved }), new Set());
-      expect(idsOf(detail)).toContain('seller-1');
-    }
-  });
-
-  it('does not let the document permission double as the CARFAX one', () => {
-    // `includeDocuments` is also true for a buyer holding an order on this
-    // vehicle. An accident record the dealer has not published is not theirs
-    // to see, so the two flags are separate and this proves they stayed so.
-    const detail = toVehicleDetail(row({ carfaxHistoryApproved: false }), new Set(), {
-      includeDocuments: true,
-    });
+  it('drops a leftover CARFAX row for the owner too', () => {
+    const detail = toVehicleDetail(row(), new Set(), { includeDocuments: true });
 
     expect(idsOf(detail)).toEqual(['seller-1']);
   });

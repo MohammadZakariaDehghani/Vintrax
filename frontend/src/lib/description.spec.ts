@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDescription } from '@vintrax/shared';
+import { formatDescription, splitSentences } from '@vintrax/shared';
 
 /**
  * Reading a listing description that arrived as one paragraph.
@@ -142,5 +142,40 @@ describe('formatDescription', () => {
       'THIS VEHICLE HAS BEEN FULLY RECONDITIONED AND CERTIFIED BY OUR LICENSED TECHNICIANS!';
 
     expect(formatDescription(text)).toEqual([{ kind: 'paragraph', text }]);
+  });
+});
+
+/**
+ * What a renderer uses to put each sentence of a paragraph block on its own
+ * line — the "pretty view" a long paragraph gets on screen, separate from how
+ * `formatDescription` groups sentences into paragraph blocks in the first
+ * place.
+ */
+describe('splitSentences', () => {
+  it('splits a paragraph into one entry per sentence', () => {
+    const text = 'One owner. No accidents. Winter tires included.';
+
+    expect(splitSentences(text)).toEqual(['One owner.', 'No accidents.', 'Winter tires included.']);
+  });
+
+  it('does not split on a decimal or an initial', () => {
+    const text =
+      'Serviced by J. Smith at 48,000 km. The 2.4L engine was inspected and the 3.5L option was not fitted.';
+
+    expect(splitSentences(text)).toEqual([
+      'Serviced by J. Smith at 48,000 km.',
+      'The 2.4L engine was inspected and the 3.5L option was not fitted.',
+    ]);
+  });
+
+  it('returns the whole text as one entry when it holds a single sentence', () => {
+    expect(splitSentences('One owner, no accidents, winter tires included.')).toEqual([
+      'One owner, no accidents, winter tires included.',
+    ]);
+  });
+
+  it('returns nothing for empty text', () => {
+    expect(splitSentences('')).toEqual([]);
+    expect(splitSentences('   ')).toEqual([]);
   });
 });

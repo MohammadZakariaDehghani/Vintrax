@@ -5,49 +5,26 @@ import {
 } from '@vintrax/shared';
 import { FileText } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import { visibleHistoryTimeline } from '@/lib/vehicle-history-drafts';
 import { Card, CardContent } from '@/components/ui';
 import { CarfaxBadge } from '@/components/carfax-badge';
 
 /**
  * A vehicle's accident and damage record, as a timeline.
  *
- * Two sources feed it, on different terms, in the same list.
- *
- * A seller's own typed entries (`source: 'SELLER'`) show unconditionally, the
- * way this block has always worked — typing one and saving it through the
- * editor already is the seller publishing it, the same act it always was.
- * CARFAX-sourced entries show only once the seller has approved that specific
- * reading, because those were never typed by anyone here; reading a report and
- * publishing what it says are deliberately two acts. The two sets are simply
- * concatenated, not re-sorted, because the API already returns them in
- * `position` order with the seller's own rows first.
- *
- * A short-lived version of this component showed CARFAX entries only, on the
- * reasoning that once a report is being read automatically the seller's own
- * notes were no longer what the block was "for". That silently dropped a
- * feature that had nothing to do with CARFAX and had worked since before it
- * existed: a seller who has never linked a report, or whose report currently
- * cannot be read, still has an editor that says "these are published as your
- * account of it" — and until this fix, they were not being published anywhere
- * a buyer could see them.
- *
- * No explanatory prose beyond the heading either way. The seller's own editor
- * already says what these are; repeating it here is noise between the buyer
- * and the dates.
+ * Entries are the seller's own account, typed through the history editor —
+ * Vintrax has no CARFAX integration and fetches nothing, so there is only one
+ * source here. No explanatory prose beyond the heading: the seller's own
+ * editor already says what these are; repeating it here is noise between the
+ * buyer and the dates.
  */
 export function VehicleHistory({
   events,
   vehicle,
 }: {
   events: VehicleHistoryEvent[];
-  vehicle: CarfaxBadgeSource & { carfaxHistoryApproved?: boolean };
+  vehicle: CarfaxBadgeSource;
 }) {
-  // Belt and braces over the API, which already withholds an unapproved
-  // CARFAX reading from anyone but the owner: the owner is also a viewer of
-  // their own listing, and should see what a buyer sees. The seller's own
-  // rows carry no such gate — they were never behind a review step.
-  const timeline = visibleHistoryTimeline(events, vehicle.carfaxHistoryApproved);
+  const timeline = events;
 
   // Nothing to show and nothing to link to: an empty card with a heading is
   // worse than no card. A seller who has typed their own entries gets the

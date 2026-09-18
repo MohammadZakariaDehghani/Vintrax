@@ -146,29 +146,15 @@ pointing anywhere else. It appears on the summary as well as the detail, since
 the search cards draw the badge. It is the only way a CARFAX report reaches a
 buyer — there is no report upload, and no `historyReportIssuedOn`.
 
-| Method  | Path                           | Auth            | Purpose                                  |
-| ------- | ------------------------------ | --------------- | ---------------------------------------- |
-| `POST`  | `/vehicles/:id/carfax/read`    | `vehicle:write` | Read the accident record from the report |
-| `PATCH` | `/vehicles/:id/carfax/history` | `vehicle:write` | Show or hide that record on the listing  |
-
-`read` fetches the linked report server-side and stores what it found as
-`source: 'CARFAX'` history events, replacing the previous read in full. It
-returns one of three results and the third is the point:
-
-- `ok` with records — what was read, for the seller to check against the report.
-- `ok` with no records and `statedAccidentFree: true` — the page says the
-  vehicle has none. This is a finding.
-- `unreadable` / `unreachable` — the page could not be fetched, or its accident
-  section could not be located. **Never** reported as an absence of accidents,
-  and it leaves whatever was already approved untouched, so a network error
-  cannot empty a listing's accident record.
-
-`history` takes `{ "approved": boolean }` and nothing else. Records are never
-accepted from a client: they are written by the server when it reads, so the
-only thing approval decides is whether to publish what the server itself saw.
-Until it is approved, a CARFAX-sourced entry is **absent from the listing
-response** for everyone but the owner and an administrator — the API is the
-disclosure boundary, not the page.
+There is no server-side fetch of a CARFAX report and no approval step. An
+earlier version added `POST /vehicles/:id/carfax/read` and `PATCH
+/vehicles/:id/carfax/history` to read the linked report and let the dealer
+approve what it found, but CARFAX's share-link pages render their content
+client-side behind a browser-compatibility gate, leaving nothing in the
+fetched markup for a server-side read to find. Both endpoints, the fetch/parse
+module behind them, and the approval flag were removed rather than continue
+chasing that. A dealer wanting an accident timeline on the listing types it
+themselves through the history editor, the same way they always could.
 
 Two optional booleans ride with it, `carfaxOneOwner` and `carfaxLowKilometres`,
 which are the two badges a CARFAX Canada report prints. They join the CARFAX
@@ -189,22 +175,19 @@ back.
 
 **History.** The `SELLER` set is replaced as a whole, matching images and
 documents — entries a seller transcribes by hand, from whatever they hold, with
-no CARFAX integration behind them. The `CARFAX` set is different: it is written
-by the server itself from `POST /vehicles/:id/carfax/read`, described above,
-and is never accepted from a client. `VehicleDocument.issuedOn` carries the date
-printed on an uploaded document; that date is public even though the document
-is not, because it is what lets a buyer judge how current an entry is.
+no CARFAX integration behind them; `PUT /vehicles/:id/history` is the only way
+to write one. `VehicleDocument.issuedOn` carries the date printed on an
+uploaded document; that date is public even though the document is not,
+because it is what lets a buyer judge how current an entry is.
 
-Every entry carries a `source`. `SELLER` entries are the ones a seller typed
-through the editor; `CARFAX` entries are what the server read off the report.
-`PUT /vehicles/:id/history` replaces the `SELLER` set only — a seller cannot
-delete or reword what the report said, and cannot post an entry claiming to have
-come from it, because the endpoint sets the source itself.
+Every entry carries a `source`. In practice it is always `SELLER` now — a
+`CARFAX` value remains a valid enum member only because a row written by the
+old auto-fetch feature may still sit in an existing database, and the mapper
+filters any such row out of the response defensively.
 
-`ACCIDENT_DAMAGE` and `NO_ACCIDENTS` are the kinds a report's accident record
-produces. They are separate from `CLAIM` because a report keeps them separate: a
-damage record and an insurance claim are different events, and merging them
-would make one of each look like two accidents.
+`ACCIDENT_DAMAGE` and `NO_ACCIDENTS` are the kinds a seller's own entry can
+record. They are separate from `CLAIM` so a damage record and an insurance
+claim stay distinct events rather than one looking like two accidents.
 
 ## Dealer inventory (CSV)
 

@@ -9,7 +9,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
-  CarfaxReadResult,
   BulkDeleteVehiclesInput,
   BulkListingStatusInput,
   BulkModerateListingsInput,
@@ -41,7 +40,6 @@ import {
   vehicleDetailSelect,
   vehicleSummarySelect,
 } from './vehicles.mapper';
-import { fetchCarfaxReport } from './carfax-report';
 
 /** Statuses a vehicle must hold to be visible to someone other than its seller. */
 const PUBLICLY_VISIBLE: ListingStatus[] = ['ACTIVE', 'IN_AUCTION', 'SOLD'];
@@ -95,13 +93,7 @@ export class VehiclesService {
       this.favouritedIds(viewer?.id, [row.id]),
       this.canViewDocuments(row.id, row.seller.id, viewer),
     ]);
-    // Deliberately not `includeDocuments`, which is also true for a buyer with
-    // an order on this vehicle. An accident record the dealer has not published
-    // is the dealer's to publish, so only they and an administrator see it.
-    return toVehicleDetail(row, favouritedIds, {
-      includeDocuments,
-      includeUnapprovedCarfax: isOwner || viewerIsAdmin,
-    });
+    return toVehicleDetail(row, favouritedIds, { includeDocuments });
   }
 
   /**
@@ -779,140 +771,6 @@ export class VehiclesService {
       throw new ForbiddenException('You do not have permission to modify this vehicle');
     }
     return vehicle;
-  }
-
-  /**
-   * Reads the dealer's CARFAX report and stores what it found.
-   *
-   * Stored rather than merely returned, and stored unapproved. Two reasons.
-   *
-   * The records must not come from the browser. If approval posted the records
-   * back, a dealer could tick the box having edited them, and the listing would
-   * carry a line attributed to CARFAX that CARFAX never wrote. Writing them at
-   * fetch time means the only thing approval decides is whether to publish what
-   * the server itself read.
-   *
-   * And unapproved records are withheld from the public response, not merely
-   * hidden by the page — see `toVehicleDetail`. Fetching a report is not
-   * publishing it.
-   *
-   * A failed read changes nothing. A dealer whose report has expired, or whose
-   * page CARFAX has redesigned, keeps whatever was last approved rather than
-   * watching the accident record vanish from their listing because of a
-   * network error.
-   */
-  async readCarfaxReport(id: string, user: AuthUser): Promise<CarfaxReadResult> {
-    const existing = await this.requireOwnedVehicle(id, user);
-
-    if (!existing.carfaxUrl) {
-      throw new BadRequestException('Add the CARFAX report link before reading the report.');
-    }
-
-    const report = await fetchCarfaxReport(existing.carfaxUrl);
-    if (report.status !== 'ok') {
-      return report;
-    }
-
-    const fetchedAt = new Date();
-
-    // A read replaces the previous read in full. The report is one document
-    // and this is its current contents; merging would leave a record on the
-    // listing that the report no longer contains.
-    await this.prisma.$transaction(async (tx) => {
-      await tx.vehicleHistoryEvent.deleteMany({ where: { vehicleId: id, source: 'CARFAX' } });
-
-      const rows: Prisma.VehicleHistoryEventCreateManyInput[] = report.records.map(
-        (record, index) => ({
-          vehicleId: id,
-          kind: 'ACCIDENT_DAMAGE',
-          source: 'CARFAX',
-          // A `@db.Date` column: parsed at UTC midnight so the calendar date on
-          // the report is the calendar date stored, whatever the server's zone.
-          occurredOn: record.occurredOn ? new Date(`${record.occurredOn}T00:00:00Z`) : null,
-          label: record.label,
-          detail: record.detail,
-          // Kept clear of the seller's own entries, which start at 0.
-          position: 1000 + index,
-        }),
-      );
-
-      // A report that states the vehicle has none is itself a finding, and is
-      // recorded as one so the listing can say it.
-      if (rows.length === 0 && report.statedAccidentFree) {
-        rows.push({
-          vehicleId: id,
-          kind: 'NO_ACCIDENTS',
-          source: 'CARFAX',
-          occurredOn: null,
-          label: 'No accidents reported',
-          detail: null,
-          position: 1000,
-        });
-      }
-
-      if (rows.length > 0) await tx.vehicleHistoryEvent.createMany({ data: rows });
-      await tx.vehicle.update({ where: { id }, data: { carfaxFetchedAt: fetchedAt } });
-    });
-
-    await this.audit.record({
-      actorId: user.id,
-      actorEmail: user.email,
-      action: 'vehicle.carfax_read',
-      entityType: 'Vehicle',
-      entityId: id,
-    });
-
-    return {
-      status: 'ok',
-      records: report.records,
-      statedAccidentFree: report.statedAccidentFree,
-      fetchedAt: fetchedAt.toISOString(),
-    };
-  }
-
-  /**
-   * Publishes, or unpublishes, the accident record on the listing.
-   *
-   * The only thing this decides is visibility. What is shown is whatever the
-   * last read stored, so approving cannot introduce a record and cannot alter
-   * one.
-   *
-   * Approving with nothing read is refused rather than quietly setting a flag
-   * that does nothing: a dealer who ticks the box and sees no change on the
-   * listing has no way to tell that from a bug.
-   */
-  async setCarfaxHistoryApproved(
-    id: string,
-    approved: boolean,
-    user: AuthUser,
-  ): Promise<VehicleDetail> {
-    await this.requireOwnedVehicle(id, user);
-
-    if (approved) {
-      const read = await this.prisma.vehicleHistoryEvent.count({
-        where: { vehicleId: id, source: 'CARFAX' },
-      });
-      if (read === 0) {
-        throw new BadRequestException(
-          'Read the CARFAX report first — there is nothing to show yet.',
-        );
-      }
-    }
-
-    await this.prisma.vehicle.update({
-      where: { id },
-      data: { carfaxHistoryApproved: approved },
-    });
-
-    await this.audit.record({
-      actorId: user.id,
-      actorEmail: user.email,
-      action: approved ? 'vehicle.carfax_history_published' : 'vehicle.carfax_history_withdrawn',
-      entityType: 'Vehicle',
-      entityId: id,
-    });
-
-    return this.findById(id, user);
   }
 
   /**
