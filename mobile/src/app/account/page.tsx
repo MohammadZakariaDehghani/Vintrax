@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRight,
   Gavel,
@@ -34,6 +35,7 @@ export default function AccountPage() {
 
 function Account() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const user = useUser();
   const isSeller = useIsSeller();
   const logout = useAuthStore((state) => state.logout);
@@ -121,6 +123,9 @@ function Account() {
         fullWidth
         onClick={async () => {
           await logout();
+          // So a cached query from this session cannot answer for whoever
+          // signs in next on this device.
+          queryClient.clear();
           router.replace('/');
         }}
       >

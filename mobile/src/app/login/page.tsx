@@ -3,7 +3,9 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api-client';
+import { postLoginRedirect } from '@/lib/post-login-redirect';
 import { useAuthStore } from '@/store/session';
 import { Button, Card, Field } from '@/components/ui';
 import { AppBar } from '@/components/app-bar';
@@ -21,6 +23,7 @@ export default function LoginPage() {
 
 function LoginForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const params = useSearchParams();
   const login = useAuthStore((state) => state.login);
 
@@ -38,10 +41,13 @@ function LoginForm() {
     setError(null);
     try {
       await login({ email, password });
-      // `next` is a path from this app's own guard, so it is not a redirect
-      // an attacker can point off-site.
+      // Dropped before reading who just signed in: a cached query from
+      // whoever last used this device must not be the thing this account's
+      // own screens render first.
+      queryClient.clear();
       const next = params.get('next');
-      router.replace(next && next.startsWith('/') ? next : '/');
+      const user = useAuthStore.getState().user;
+      router.replace(next && user ? postLoginRedirect(next, user) : '/');
     } catch (caught) {
       setError(caught instanceof Error ? caught : new Error('Sign in failed'));
     } finally {

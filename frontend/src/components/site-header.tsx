@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import { Bell, ChevronDown, Heart, Menu, MessagesSquare, Moon, Sun, X } from 'lucide-react';
 import {
@@ -252,11 +252,28 @@ function IconLink({
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const user = useUser();
   const isSeller = useIsSeller();
   const isAdmin = useIsAdmin();
   const logout = useAuthStore((state) => state.logout);
   const t = useT();
+
+  /**
+   * Signing out always lands on the home page, and drops every cached query
+   * with it. Without both, whoever signs in next on this tab could briefly
+   * see the outgoing account's page (an admin screen a dealer has no
+   * business on, showing a permission error) or its cached dashboard data —
+   * `RequireAuth` guards the route, but only once it has re-rendered, and a
+   * stale cache entry keyed the same for every user would answer before that
+   * happens.
+   */
+  async function handleLogout() {
+    await logout();
+    queryClient.clear();
+    router.push('/');
+  }
 
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
   const [researchOpened, setResearchOpened] = useState(false);
@@ -433,7 +450,7 @@ export function SiteHeader() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => void logout()}
+                  onClick={() => void handleLogout()}
                   className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground/90 transition-colors hover:bg-white/10 hover:text-header-foreground sm:inline-block"
                 >
                   {t.auth.signOut}
@@ -536,7 +553,7 @@ export function SiteHeader() {
                 </Link>
                 <button
                   type="button"
-                  onClick={() => void logout()}
+                  onClick={() => void handleLogout()}
                   className="rounded-md px-2 py-2 text-left text-sm font-medium hover:bg-secondary"
                 >
                   {t.auth.signOut}
