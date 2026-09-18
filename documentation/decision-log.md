@@ -448,6 +448,16 @@ The three original sections' most-used destinations (browse vehicles, live aucti
 
 `SiteFooter` takes its sections as a `FooterSection[] | null` prop rather than fetching them itself: it already needs `useT()` and `<LanguageSwitcher>`, which require a client component, and a client-side fetch would show an empty footer for a beat on every page's first paint. `app/layout.tsx` fetches it server-side instead, the same `serverFetch` helper the home page already uses, and passes `null` through on failure — kept distinct from an administrator's genuinely empty footer (`[]`), which renders as just the logo and copyright bar rather than falling back to anything hardcoded.
 
+## D-038 — A Make's Logo Is Set Against the Name, Not an Enum
+
+**Status:** Accepted. Requested in issue #43: "add feturre for adminuser to upload logo pic of Popular makes just show 8 logo."
+
+**Decision:** An administrator can upload a logo per vehicle make from `/admin/make-logos`, overriding the generated mark the home page's "popular makes" row otherwise draws for that make. The row's cap drops from 12 to 8, matching the issue's own words. `MakeLogo` is keyed on the make name lowercased rather than an enum — `Vehicle.make` is free text a dealer types, unlike `BodyType` — and `GET /admin/make-logos` returns only the makes an administrator has actually set a logo for, since there is no fixed set to backfill the way every body type gets a row.
+
+**Rationale:** The row already had a fallback for every make with no administrator logo: `BrandLogo` draws a real trademark from a build-time `simple-icons` extract, or a computed lettermark ("BMW", "LR" for Land Rover) when no icon is on file — so this feature is a third, higher-priority tier ahead of two that already existed, not a first one. It follows the same shape as `BodyTypeImage`: a plain table, a `content:manage`-gated upload/set/clear, a `@Public()` cached read, an audit log entry. `PUT /admin/make-logos/:make` matches its path param case-insensitively for the same reason a dealer's own `make` field is never normalized elsewhere in this codebase — "Toyota" and "TOYOTA" must resolve to the same logo without requiring a data migration of existing listings.
+
+**Consequences:** The admin screen cannot simply map over an enum the way `body-types` does, because there is no enum. It lists every make currently in stock (from the same search-facet aggregate the home page's row itself reads) *and* any make an administrator has already set a logo for — the union matters because a logo set for a make that later sells through would otherwise vanish from the admin screen along with its facet entry, leaving no way to find and remove or replace it. Extracted into `buildMakeLogoRows`, tested directly. The home page's own row stays driven strictly by what is in stock (`buildPopularMakes`): a curated logo decorates a make already on the row, it never adds one that has no inventory, because "Vintrax has that many right now" is the row's whole point — the same promise D-024 built the row on when it chose real photographs and real marks over stock art.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

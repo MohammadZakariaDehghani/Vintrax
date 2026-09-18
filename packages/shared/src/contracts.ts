@@ -475,6 +475,23 @@ export interface BodyTypeImage {
 }
 
 /**
+ * A vehicle make's logo, set by an administrator to override the generated
+ * mark the home page's "popular makes" row otherwise draws for that make.
+ *
+ * Unlike `BodyTypeImage`, only makes an administrator has actually set a logo
+ * for appear here — there is no fixed enum of makes to backfill every entry
+ * for, so `imageUrl` is never null on a row this type describes; a make with
+ * no row simply keeps its generated mark.
+ */
+export interface MakeLogo {
+  /** As the administrator typed it; matched against a vehicle's `make` case-insensitively. */
+  make: string;
+  imageUrl: string;
+  alt: string | null;
+  updatedAt: string;
+}
+
+/**
  * An editorial post.
  *
  * `body` is plain text: blank lines separate paragraphs and nothing is

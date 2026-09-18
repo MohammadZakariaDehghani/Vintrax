@@ -440,6 +440,17 @@ routes.
 | `DELETE` | `/admin/body-type-images/:bodyType` | `content:manage` | Remove one, restoring the fallback |
 | `GET`    | `/admin/footer`                     | —                | The site footer, sections and links |
 | `PUT`    | `/admin/footer`                     | `content:manage` | Replace the whole footer            |
+| `GET`    | `/admin/make-logos`                 | —                | Logos set for vehicle makes         |
+| `PUT`    | `/admin/make-logos/:make`           | `content:manage` | Set one                             |
+| `DELETE` | `/admin/make-logos/:make`           | `content:manage` | Remove one, restoring the generated mark |
+
+`make-logos` overrides the generated mark the home page's "popular makes" row
+otherwise draws for that make (a real trademark from a build-time icon set
+where Vintrax has one on file, a lettermark otherwise). Unlike `body-type-images`,
+there is no fixed enum behind it — `Vehicle.make` is free text a dealer types
+— so `:make` is matched case-insensitively against whatever a caller passes,
+and `GET /admin/make-logos` returns only the makes an administrator has
+actually set a logo for, not a full backfilled list.
 
 `GET /admin/footer` is public and cached — it renders on every page for every
 visitor, signed in or not, the same reasoning as the body-type photographs.
@@ -527,6 +538,7 @@ The message recipient is derived from the vehicle, never supplied by the client
 | `POST` | `/uploads/images`            | seller           | Vehicle photo                    |
 | `POST` | `/uploads/inspection-images` | inspector        | Inspection photo                 |
 | `POST` | `/uploads/body-type-images`  | `content:manage` | Body-type shortcut photo         |
+| `POST` | `/uploads/make-logos`        | `content:manage` | Vehicle make logo                |
 | `POST` | `/uploads/article-images`    | `content:manage` | Editorial hero photo             |
 | `POST` | `/uploads/documents`         | seller           | Title, history report, records   |
 | `GET`  | `/admin/analytics`           | admin            | Platform metrics                 |
