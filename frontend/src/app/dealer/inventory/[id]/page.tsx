@@ -14,22 +14,18 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
         <VehicleForm vehicleId={id} />
 
         {/* One card for everything that feeds the buyer-facing "Vehicle
-            history" block: the report link and its two badges, reading and
-            approving the report, and the seller's own typed entries. These
-            used to be four separate cards, each with its own title, which
-            repeated "CARFAX" three times and scattered one task across the
-            page. They stay three separate actions underneath — saving the
-            link, reading and approving the report, and saving the timeline
-            each call their own endpoint, which is deliberate: none of them
-            should have to wait on, or be blocked by, whether an unrelated one
-            succeeded — but a dealer working on this vehicle's history sees
-            one box, not four. */}
+            history" block: the report link and its two badges, and the
+            seller's own typed timeline entries. These are two separate
+            actions underneath — saving the link and saving the timeline each
+            call their own endpoint, which is deliberate: neither should have
+            to wait on, or be blocked by, the other — but a dealer working on
+            this vehicle's history sees one box, not two. */}
         <Card>
           <CardHeader>
             <CardTitle>Vehicle history</CardTitle>
             <CardDescription>
               What buyers see in the vehicle history section of the listing: a CARFAX badge, and the
-              accident timeline once you approve it.
+              accident timeline you type below.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">

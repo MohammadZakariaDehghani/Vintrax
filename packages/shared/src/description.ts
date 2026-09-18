@@ -225,14 +225,14 @@ function isShouted(text: string): boolean {
 }
 
 /**
- * Groups sentences into paragraphs of roughly `TARGET_PARAGRAPH_CHARS`.
+ * Splits text into sentences, without merging or shortening any of them.
  *
- * A sentence is never split, so the target is a floor rather than a limit: one
- * long sentence is one paragraph. The abbreviation guard keeps "2.4L" and
- * "approx. 190 hp" from being read as sentence ends, which is the failure that
- * makes this sort of thing look broken.
+ * The abbreviation guard keeps "2.4L" and "approx. 190 hp" from being read as
+ * sentence ends, which is the failure that makes this sort of thing look
+ * broken. Exported so a renderer can put each sentence of a paragraph block on
+ * its own line without re-implementing this boundary detection.
  */
-function groupSentences(text: string): string[] {
+export function splitSentences(text: string): string[] {
   const trimmed = text.trim();
   if (trimmed.length === 0) return [];
 
@@ -249,6 +249,20 @@ function groupSentences(text: string): string[] {
   }
   if (current.trim().length > 0) sentences.push(current.trim());
 
+  return sentences;
+}
+
+/**
+ * Groups sentences into paragraphs of roughly `TARGET_PARAGRAPH_CHARS`.
+ *
+ * A sentence is never split, so the target is a floor rather than a limit: one
+ * long sentence is one paragraph. This only decides how sentences are grouped
+ * into `DescriptionBlock`s for structure detection (headings, lists); a
+ * renderer still splits each resulting paragraph into its own sentences with
+ * `splitSentences` to lay them out one per line.
+ */
+function groupSentences(text: string): string[] {
+  const sentences = splitSentences(text);
   const paragraphs: string[] = [];
   let buffer = '';
 

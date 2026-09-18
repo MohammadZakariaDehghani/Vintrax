@@ -1,4 +1,4 @@
-import { formatDescription } from '@vintrax/shared';
+import { formatDescription, splitSentences } from '@vintrax/shared';
 import { cn } from '@/lib/format';
 
 /**
@@ -58,7 +58,15 @@ export function DescriptionBody({
           );
         }
 
-        return <p key={index}>{block.text}</p>;
+        return (
+          <p key={index}>
+            {splitSentences(block.text).map((sentence, sentenceIndex) => (
+              <span key={sentenceIndex} className="block">
+                {sentence}
+              </span>
+            ))}
+          </p>
+        );
       })}
     </div>
   );

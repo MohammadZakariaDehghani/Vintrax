@@ -146,37 +146,6 @@ export interface VehicleDocument {
  * evidence; this is the summary a buyer reads without asking for the PDF, and
  * the interface labels it as the dealer's own account rather than as verified.
  */
-/**
- * The result of reading a dealer's CARFAX report.
- *
- * Three outcomes, and the third is the one that matters. `unreadable` means
- * the page was fetched and its accident section could not be understood — a
- * redesign on CARFAX's side, or a page that is not a report. It is reported as
- * itself rather than collapsed into an empty result, because "no accidents
- * found" and "I could not read the page" mean opposite things to a buyer.
- */
-export type CarfaxReadResult =
-  | {
-      status: 'ok';
-      records: Array<{ occurredOn: string | null; label: string; detail: string | null }>;
-      /** True only where the page positively says the vehicle has none. */
-      statedAccidentFree: boolean;
-      fetchedAt: string;
-    }
-  | {
-      status: 'unreadable';
-      reason: string;
-      /**
-       * A short, non-secret description of what the page looked like instead.
-       *
-       * Shown to the seller so a failure can be reported precisely. Everything
-       * in it is already public — it describes a page the seller publishes to
-       * buyers — and it is bounded so a report cannot be dumped through it.
-       */
-      diagnosis?: string;
-    }
-  | { status: 'unreachable'; reason: string };
-
 export interface VehicleHistoryEvent {
   id: string;
   kind: VehicleHistoryEventKind;
@@ -185,11 +154,9 @@ export interface VehicleHistoryEvent {
   label: string;
   detail: string | null;
   /**
-   * Whether this line was read off the report or typed by the seller.
-   *
-   * The listing's accident timeline draws CARFAX-sourced entries only, so a
-   * seller cannot get a line onto it by typing one — the fetch is the only way
-   * in, and the report is what it says.
+   * Whether this line was typed by the seller or read off an old CARFAX
+   * fetch from before that feature was removed. New entries are always
+   * `SELLER` — nothing writes `CARFAX` rows anymore.
    */
   source: VehicleHistorySource;
 }
@@ -240,12 +207,6 @@ export interface VehicleSummary {
    */
   carfaxOneOwner: boolean | null;
   carfaxLowKilometres: boolean | null;
-  /**
-   * Whether the dealer approved the accident record read from their report for
-   * display. The listing shows the timeline only when this is true; otherwise
-   * it shows the CARFAX button alone.
-   */
-  carfaxHistoryApproved: boolean;
   /** Present when the vehicle is currently in an auction. */
   activeAuction: AuctionSummary | null;
   publishedAt: string | null;
@@ -291,8 +252,6 @@ export interface VehicleDetail extends VehicleSummary {
    * it summarises, it names no owner and carries no address.
    */
   historyEvents: VehicleHistoryEvent[];
-  /** When the CARFAX report was last read, ISO, or null if it never was. */
-  carfaxFetchedAt: string | null;
   seller: VehicleSeller;
   inspection: InspectionSummary | null;
   updatedAt: string;
