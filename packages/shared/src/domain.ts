@@ -160,6 +160,34 @@ export function canAdministerUser(actorRole: UserRole, targetRole: UserRole): bo
 export const ARTICLE_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
 export type ArticleStatus = (typeof ARTICLE_STATUSES)[number];
 
+/**
+ * A social or contact icon drawn beside a "Stay in touch" footer link.
+ *
+ * Purely decorative — choosing `FACEBOOK` does not check that the link's
+ * `href` actually points at Facebook, the same trust an administrator already
+ * has over every other field on the site's footer.
+ */
+export const FOOTER_LINK_ICONS = [
+  'FACEBOOK',
+  'INSTAGRAM',
+  'TWITTER',
+  'YOUTUBE',
+  'LINKEDIN',
+  'EMAIL',
+  'PHONE',
+] as const;
+export type FooterLinkIcon = (typeof FOOTER_LINK_ICONS)[number];
+
+export const FOOTER_LINK_ICON_LABELS: Record<FooterLinkIcon, string> = {
+  FACEBOOK: 'Facebook',
+  INSTAGRAM: 'Instagram',
+  TWITTER: 'Twitter / X',
+  YOUTUBE: 'YouTube',
+  LINKEDIN: 'LinkedIn',
+  EMAIL: 'Email',
+  PHONE: 'Phone',
+};
+
 export const USER_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 

@@ -5,6 +5,8 @@ import {
   type BodyType,
   type BodyTypeImage,
   type BodyTypeImageInput,
+  type FooterSection,
+  type ReplaceFooterInput,
   type TimeSeriesPoint,
 } from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -21,6 +23,10 @@ const ANALYTICS_CACHE_TTL_SECONDS = 120;
  */
 const BODY_TYPE_IMAGE_CACHE_KEY = 'site:body-type-images';
 const BODY_TYPE_IMAGE_CACHE_TTL = 600;
+
+/** Same reasoning as the body-type images: every visitor's first paint reads it, an administrator rarely writes it, and the write invalidates the key. */
+const FOOTER_CACHE_KEY = 'site:footer';
+const FOOTER_CACHE_TTL = 600;
 
 @Injectable()
 export class AdminService {
@@ -179,6 +185,76 @@ export class AdminService {
     return this.redis.remember(BODY_TYPE_IMAGE_CACHE_KEY, BODY_TYPE_IMAGE_CACHE_TTL, () =>
       this.bodyTypeImages(),
     );
+  }
+
+  /** Every footer section, in order, each with its links in order. */
+  async footer(): Promise<FooterSection[]> {
+    const rows = await this.prisma.footerSection.findMany({
+      orderBy: { position: 'asc' },
+      include: { links: { orderBy: { position: 'asc' } } },
+    });
+
+    return rows.map((section) => ({
+      id: section.id,
+      title: section.title,
+      position: section.position,
+      links: section.links.map((link) => ({
+        id: link.id,
+        label: link.label,
+        href: link.href,
+        icon: link.icon,
+        position: link.position,
+      })),
+    }));
+  }
+
+  /**
+   * The public view, for the site-wide footer.
+   *
+   * Cached the same way the body-type photographs are: every page render reads
+   * it, an administrator saving it is rare, and the write below drops the key
+   * so a change is visible on the next request rather than at the end of the
+   * window.
+   */
+  async publicFooter(): Promise<FooterSection[]> {
+    return this.redis.remember(FOOTER_CACHE_KEY, FOOTER_CACHE_TTL, () => this.footer());
+  }
+
+  /**
+   * Replaces the whole footer, matching how a vehicle's history timeline is
+   * saved: the caller holds the ordered list and the previous rows are
+   * dropped rather than diffed against it, so there is exactly one way a
+   * section or link stops existing — it is missing from the next save.
+   *
+   * Transactional so a page load between the delete and the insert never sees
+   * an empty footer; `onDelete: Cascade` on `FooterLink` means dropping a
+   * section takes its links with it without a separate statement.
+   */
+  async replaceFooter(input: ReplaceFooterInput, actorId: string): Promise<FooterSection[]> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.footerSection.deleteMany();
+
+      for (const [sectionIndex, section] of input.sections.entries()) {
+        await tx.footerSection.create({
+          data: {
+            title: section.title,
+            position: sectionIndex,
+            updatedById: actorId,
+            links: {
+              create: section.links.map((link, linkIndex) => ({
+                label: link.label,
+                href: link.href,
+                icon: link.icon ?? null,
+                position: linkIndex,
+              })),
+            },
+          },
+        });
+      }
+    });
+
+    await this.redis.del(FOOTER_CACHE_KEY);
+    return this.footer();
   }
 
   private async salesSeries(): Promise<TimeSeriesPoint[]> {

@@ -438,6 +438,25 @@ routes.
 | `GET`    | `/admin/body-type-images`           | —                | Body-type shortcut photographs     |
 | `PUT`    | `/admin/body-type-images/:bodyType` | `content:manage` | Set one                            |
 | `DELETE` | `/admin/body-type-images/:bodyType` | `content:manage` | Remove one, restoring the fallback |
+| `GET`    | `/admin/footer`                     | —                | The site footer, sections and links |
+| `PUT`    | `/admin/footer`                     | `content:manage` | Replace the whole footer            |
+
+`GET /admin/footer` is public and cached — it renders on every page for every
+visitor, signed in or not, the same reasoning as the body-type photographs.
+`PUT /admin/footer` replaces the whole thing in one call: the caller sends
+every section it wants kept, each with its own ordered `links` array, and
+anything left out is gone. There is no per-section or per-link endpoint, the
+same whole-set-replacement shape `PUT /vehicles/:id/history` already uses —
+order lives in the array position rather than a separate field to keep in
+sync, and a section can be emptied down to zero links without a delete call
+of its own.
+
+A link's `href` is restricted to a site path starting with `/`, an `https://`
+address, a `mailto:` or a `tel:` — never `javascript:` or a protocol-relative
+`//` address, which the schema refuses outright. `icon` is one of
+`FACEBOOK` / `INSTAGRAM` / `TWITTER` / `YOUTUBE` / `LINKEDIN` / `EMAIL` /
+`PHONE`, or omitted for a plain text link; it is purely decorative and is
+never checked against where the link actually goes.
 
 ## Inspections
 

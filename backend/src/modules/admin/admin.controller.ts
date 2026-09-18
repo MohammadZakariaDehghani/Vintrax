@@ -17,9 +17,12 @@ import {
   type BodyType,
   type BodyTypeImage,
   type BodyTypeImageInput,
+  type FooterSection,
   type Paginated,
+  type ReplaceFooterInput,
   auditLogQuerySchema,
   bodyTypeImageSchema,
+  replaceFooterSchema,
 } from '@vintrax/shared';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
@@ -109,6 +112,47 @@ export class AdminController {
       entityType: 'BodyTypeImage',
       entityId: null,
       metadata: { bodyType: parsed },
+    });
+    return result;
+  }
+
+  /**
+   * The site footer: "About us", "Resources", "Partners", "Stay in touch" by
+   * default, and whatever an administrator has since made of them.
+   *
+   * Public for the same reason the body-type photographs are: the footer
+   * renders on every page for every visitor, signed in or not.
+   */
+  @Public()
+  @Get('footer')
+  @ApiOperation({ summary: 'The site footer, as shown on every page' })
+  footer(): Promise<FooterSection[]> {
+    return this.admin.publicFooter();
+  }
+
+  @Put('footer')
+  @RequirePermissions('content:manage')
+  @ApiOperation({
+    summary: 'Replace the whole site footer',
+    description:
+      'The caller sends every section it wants kept, each with its own ordered links; ' +
+      'anything left out is gone. Matches how a vehicle history timeline is saved.',
+  })
+  async replaceFooter(
+    @Body(zodBody(replaceFooterSchema)) body: ReplaceFooterInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<FooterSection[]> {
+    const result = await this.admin.replaceFooter(body, user.id);
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'content.footer.replaced',
+      entityType: 'FooterSection',
+      entityId: null,
+      metadata: {
+        sectionCount: result.length,
+        linkCount: result.reduce((total, section) => total + section.links.length, 0),
+      },
     });
     return result;
   }
