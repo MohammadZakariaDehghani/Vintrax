@@ -6,6 +6,7 @@ import { getServerLocale } from '@/i18n/server';
 import { serverFetch } from '@/lib/api-client';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
+import { CookieConsentBanner } from '@/components/cookie-consent-banner';
 import './globals.css';
 
 /**
@@ -81,6 +82,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </main>
             <SiteFooter sections={footer} />
           </div>
+          <CookieConsentBanner />
         </Providers>
       </body>
     </html>

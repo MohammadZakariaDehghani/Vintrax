@@ -252,6 +252,19 @@ const en = {
     toDark: 'Switch to dark mode',
     toLight: 'Switch to light mode',
   },
+
+  cookies: {
+    title: 'This site remembers a few things',
+    body: 'With your permission, Vintrax keeps your last search on this device so you can pick up where you left off. Nothing is shared, and you can change your mind any time.',
+    accept: 'Accept',
+    decline: 'Decline',
+  },
+
+  continueSearch: {
+    title: 'Continue where you left off',
+    cta: 'View results',
+    dismiss: 'Dismiss',
+  },
 } as const;
 
 /** The shape every locale must fill. */
@@ -497,6 +510,19 @@ const fr: Dictionary = {
   theme: {
     toDark: 'Passer au mode sombre',
     toLight: 'Passer au mode clair',
+  },
+
+  cookies: {
+    title: 'Ce site se souvient de certaines choses',
+    body: 'Avec votre permission, Vintrax conserve votre dernière recherche sur cet appareil pour que vous puissiez reprendre là où vous en étiez. Rien n’est partagé, et vous pouvez changer d’avis à tout moment.',
+    accept: 'Accepter',
+    decline: 'Refuser',
+  },
+
+  continueSearch: {
+    title: 'Reprenez là où vous en étiez',
+    cta: 'Voir les résultats',
+    dismiss: 'Ignorer',
   },
 };
 

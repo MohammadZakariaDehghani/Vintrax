@@ -16,6 +16,7 @@ import { BrandLogo } from '@/components/brand-logo';
 import { HomeSearch } from '@/components/home-search';
 import { HomeMasthead } from '@/components/home-masthead';
 import { HomeBlogSlideshow } from '@/components/home-blog-slideshow';
+import { ContinueSearchCard } from '@/components/continue-search-card';
 import { buildBodyTypeShortcuts } from '@/lib/body-type-shortcuts';
 import { buildPopularMakes } from '@/lib/popular-makes';
 import { getServerDictionary } from '@/i18n/server';
@@ -119,6 +120,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <ContinueSearchCard />
 
       {/* Makes in stock, each under its own mark. The count is the point of
           difference from the site this follows: a marque here is a promise
