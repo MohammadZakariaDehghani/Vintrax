@@ -18,10 +18,13 @@ import {
   type BodyTypeImage,
   type BodyTypeImageInput,
   type FooterSection,
+  type MakeLogo,
+  type MakeLogoInput,
   type Paginated,
   type ReplaceFooterInput,
   auditLogQuerySchema,
   bodyTypeImageSchema,
+  makeLogoSchema,
   replaceFooterSchema,
 } from '@vintrax/shared';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators';
@@ -155,6 +158,67 @@ export class AdminController {
       },
     });
     return result;
+  }
+
+  /**
+   * Logos an administrator has set for a vehicle make, overriding the
+   * generated mark the home page's popular-makes row otherwise draws.
+   *
+   * Public for the same reason the body-type photographs are: the popular
+   * makes row renders for every visitor, signed in or not.
+   */
+  @Public()
+  @Get('make-logos')
+  @ApiOperation({ summary: 'Logos set for vehicle makes, as shown on the home page' })
+  makeLogos(): Promise<MakeLogo[]> {
+    return this.admin.publicMakeLogos();
+  }
+
+  @Put('make-logos/:make')
+  @RequirePermissions('content:manage')
+  @ApiOperation({
+    summary: "Set the logo for one vehicle make",
+    description:
+      'The URL must be one returned by POST /uploads/make-logos. Upserted on the make, ' +
+      'matched case-insensitively, so saving twice replaces rather than duplicates.',
+  })
+  async setMakeLogo(
+    @Param('make') make: string,
+    @Body(zodBody(makeLogoSchema)) input: MakeLogoInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<MakeLogo> {
+    const result = await this.admin.setMakeLogo(make, input, user.id);
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'content.make-logo.set',
+      entityType: 'MakeLogo',
+      entityId: null,
+      metadata: { make: result.make, imageUrl: result.imageUrl },
+    });
+    return result;
+  }
+
+  @Delete('make-logos/:make')
+  @RequirePermissions('content:manage')
+  @ApiOperation({
+    summary: 'Remove the logo for one vehicle make',
+    description: 'The popular-makes row falls back to its generated mark for that make.',
+  })
+  async clearMakeLogo(
+    @Param('make') make: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<{ make: string }> {
+    await this.admin.clearMakeLogo(make);
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'content.make-logo.clear',
+      entityType: 'MakeLogo',
+      entityId: null,
+      metadata: { make },
+    });
+    return { make };
   }
 }
 

@@ -13,6 +13,10 @@ import { cn } from '@/lib/utils';
  * scripts/generate-brand-logos.mjs, so the 3,500-icon package never ships.
  * A make with no icon there gets a lettermark instead, which is why adding a
  * make to the catalogue never needs a code change here.
+ *
+ * An administrator's own upload (`logoUrl`, from `GET /admin/make-logos`)
+ * takes priority over both, for a make whose generated mark is wrong, missing,
+ * or simply not what the business wants shown.
  */
 
 /**
@@ -35,7 +39,23 @@ function lettermark(make: string): string {
   return make.slice(0, 1).toUpperCase();
 }
 
-export function BrandLogo({ make, className }: { make: string; className?: string }) {
+export function BrandLogo({
+  make,
+  logoUrl,
+  className,
+}: {
+  make: string;
+  /** An administrator's own image for this make, from `GET /admin/make-logos`, taking priority over the generated mark below. */
+  logoUrl?: string | null;
+  className?: string;
+}) {
+  if (logoUrl) {
+    // Same-origin uploads, already sized for this row; next/image optimisation
+    // adds a hop without a benefit, the same reasoning the body-type photos use.
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={logoUrl} alt="" className={cn('h-8 w-8 object-contain', className)} />;
+  }
+
   const logo = BRAND_LOGOS[make.toLowerCase()];
 
   if (!logo) {

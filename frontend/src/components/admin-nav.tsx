@@ -10,6 +10,7 @@ import {
   Newspaper,
   PanelBottom,
   ShieldAlert,
+  Tag,
   Users,
 } from 'lucide-react';
 
@@ -21,6 +22,7 @@ const LINKS = [
   { href: '/admin/revenue', label: 'Revenue', icon: DollarSign },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper },
   { href: '/admin/body-types', label: 'Body type photos', icon: ImageIcon },
+  { href: '/admin/make-logos', label: 'Make logos', icon: Tag },
   { href: '/admin/footer', label: 'Footer', icon: PanelBottom },
 ] as const;
 

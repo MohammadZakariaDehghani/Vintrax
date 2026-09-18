@@ -294,6 +294,7 @@ model User {
   bodyTypeImages BodyTypeImage[]
   articles       Article[]
   footerSections FooterSection[]
+  makeLogos      MakeLogo[]
 
   inventoryImports    InventoryImport[] @relation("InventoryImportSeller")
   inventoryImportsRun InventoryImport[] @relation("InventoryImportInitiator")
@@ -1107,4 +1108,30 @@ model FooterLink {
   updatedAt DateTime @updatedAt
 
   @@index([sectionId, position])
+}
+
+/// The logo an administrator sets for a vehicle make, overriding the
+/// generated mark the "popular makes" row on the home page otherwise draws.
+///
+/// Keyed on the make lowercased rather than an enum: unlike `BodyType`,
+/// `Vehicle.make` is free text a dealer types, so there is no fixed set to key
+/// on, and matching a make to its logo must not care whether someone typed
+/// "Toyota" or "TOYOTA". Only makes an administrator has actually set a logo
+/// for have a row here — there is no fallback row to backfill the way every
+/// `BodyType` gets one, because a make with no row simply keeps drawing its
+/// generated mark.
+model MakeLogo {
+  make String @id
+
+  imageUrl String
+  /// Alt text. Optional: the make's own name is printed right beside the mark
+  /// on every card that draws it, so a redundant alt is worse for a screen
+  /// reader than an empty one.
+  alt      String?
+
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -76,6 +76,26 @@ export class UploadsController {
     });
   }
 
+  @Post('make-logos')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: "Upload a vehicle make's logo",
+    description:
+      'Returns a URL to pass to PUT /admin/make-logos/:make. Overrides the generated mark ' +
+      "the popular-makes row otherwise draws for that make.",
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  uploadMakeLogo(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.storage.uploadImage({
+      folder: 'make-logos',
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
   @Post('article-images')
   @RequirePermissions('content:manage')
   @ApiConsumes('multipart/form-data')

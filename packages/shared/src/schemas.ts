@@ -690,6 +690,22 @@ export const bodyTypeImageSchema = z
   .strict();
 export type BodyTypeImageInput = z.infer<typeof bodyTypeImageSchema>;
 
+/**
+ * The logo an administrator sets for a vehicle make.
+ *
+ * Same shape as `bodyTypeImageSchema` and the same reasoning: the URL is one
+ * Vintrax issued from its own upload endpoint, never an arbitrary address —
+ * an administrator pasting a third-party URL here would put a request to
+ * someone else's server on every visitor's home page.
+ */
+export const makeLogoSchema = z
+  .object({
+    imageUrl: trimmed(500).min(1),
+    alt: trimmed(160).optional(),
+  })
+  .strict();
+export type MakeLogoInput = z.infer<typeof makeLogoSchema>;
+
 export const MAX_FOOTER_SECTIONS = 6;
 export const MAX_FOOTER_LINKS_PER_SECTION = 8;
 

@@ -4,6 +4,7 @@ import type {
   ArticleSummary,
   AuctionSummary,
   BodyTypeImage,
+  MakeLogo,
   Paginated,
   VehicleSearchResponse,
 } from '@vintrax/shared';
@@ -15,6 +16,7 @@ import { BrandLogo } from '@/components/brand-logo';
 import { HomeSearch } from '@/components/home-search';
 import { HomeMasthead } from '@/components/home-masthead';
 import { buildBodyTypeShortcuts } from '@/lib/body-type-shortcuts';
+import { buildPopularMakes } from '@/lib/popular-makes';
 import { getServerDictionary } from '@/i18n/server';
 
 const QUICK_LINKS = [
@@ -38,10 +40,11 @@ export default async function HomePage() {
   // One wider page, two uses: the ten newest fill the list below, and the rest
   // are scanned for a photographed example of each body type. A second round
   // trip per body type would be nine more queries for nine thumbnails.
-  const [featured, auctions, bodyTypeImages, masthead] = await Promise.all([
+  const [featured, auctions, bodyTypeImages, makeLogos, masthead] = await Promise.all([
     serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
     serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
+    serverFetch<MakeLogo[]>('/admin/make-logos'),
     serverFetch<ArticleSummary | null>('/articles/masthead'),
   ]);
 
@@ -50,6 +53,10 @@ export default async function HomePage() {
     curated: bodyTypeImages ?? [],
     vehicles: featured?.items ?? [],
     counts: featured?.facets.bodyTypes ?? [],
+  });
+  const popularMakes = buildPopularMakes({
+    curated: makeLogos ?? [],
+    counts: featured?.facets.makes ?? [],
   });
 
   return (
@@ -111,18 +118,18 @@ export default async function HomePage() {
       {/* Makes in stock, each under its own mark. The count is the point of
           difference from the site this follows: a marque here is a promise
           that Vintrax has that many of them right now, not a brand billboard. */}
-      {featured && featured.facets.makes.length > 0 ? (
+      {popularMakes.length > 0 ? (
         <section className="container pt-10">
           <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.popularMakes}</h2>
           <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-            {featured.facets.makes.slice(0, 12).map((entry) => (
-              <li key={entry.value}>
+            {popularMakes.map((entry) => (
+              <li key={entry.make}>
                 <Link
-                  href={`/vehicles?make=${encodeURIComponent(entry.value)}`}
+                  href={`/vehicles?make=${encodeURIComponent(entry.make)}`}
                   className="flex h-full flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-5 text-center transition-colors hover:border-primary/40 hover:bg-secondary"
                 >
-                  <BrandLogo make={entry.value} className="text-foreground/85" />
-                  <span className="text-sm font-semibold leading-tight">{entry.value}</span>
+                  <BrandLogo make={entry.make} logoUrl={entry.logoUrl} className="text-foreground/85" />
+                  <span className="text-sm font-semibold leading-tight">{entry.make}</span>
                   <span className="tabular text-xs text-muted-foreground">
                     {entry.count} {entry.count === 1 ? t.home.makeOne : t.home.makeOther}
                   </span>

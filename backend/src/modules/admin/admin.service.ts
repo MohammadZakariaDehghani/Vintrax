@@ -6,6 +6,8 @@ import {
   type BodyTypeImage,
   type BodyTypeImageInput,
   type FooterSection,
+  type MakeLogo,
+  type MakeLogoInput,
   type ReplaceFooterInput,
   type TimeSeriesPoint,
 } from '@vintrax/shared';
@@ -27,6 +29,15 @@ const BODY_TYPE_IMAGE_CACHE_TTL = 600;
 /** Same reasoning as the body-type images: every visitor's first paint reads it, an administrator rarely writes it, and the write invalidates the key. */
 const FOOTER_CACHE_KEY = 'site:footer';
 const FOOTER_CACHE_TTL = 600;
+
+/** Same reasoning again: read on every home page render, written close to never. */
+const MAKE_LOGO_CACHE_KEY = 'site:make-logos';
+const MAKE_LOGO_CACHE_TTL = 600;
+
+/** How `Vehicle.make` is compared against a stored logo: trimmed and lowercased, since it is free text a dealer typed rather than a fixed enum. */
+function normalizeMake(make: string): string {
+  return make.trim().toLowerCase();
+}
 
 @Injectable()
 export class AdminService {
@@ -255,6 +266,70 @@ export class AdminService {
 
     await this.redis.del(FOOTER_CACHE_KEY);
     return this.footer();
+  }
+
+  /**
+   * Every make an administrator has set a logo for.
+   *
+   * Unlike `bodyTypeImages`, this does not map over a fixed enum first — there
+   * is no closed set of makes to backfill — so it returns exactly the rows
+   * that exist, sorted for a stable admin screen rather than by relevance.
+   */
+  async makeLogos(): Promise<MakeLogo[]> {
+    const rows = await this.prisma.makeLogo.findMany({ orderBy: { make: 'asc' } });
+    return rows.map((row) => ({
+      make: row.make,
+      imageUrl: row.imageUrl,
+      alt: row.alt,
+      updatedAt: row.updatedAt.toISOString(),
+    }));
+  }
+
+  async setMakeLogo(make: string, input: MakeLogoInput, actorId: string): Promise<MakeLogo> {
+    if (!this.storage.isOwnUrl(input.imageUrl)) {
+      throw new BadRequestException(
+        'Upload the image through POST /uploads/make-logos first, then pass the URL it returns. An address on another server is not accepted.',
+      );
+    }
+
+    const key = normalizeMake(make);
+    if (key.length === 0) {
+      throw new BadRequestException('Make cannot be empty.');
+    }
+
+    const row = await this.prisma.makeLogo.upsert({
+      where: { make: key },
+      create: { make: key, imageUrl: input.imageUrl, alt: input.alt ?? null, updatedById: actorId },
+      update: { imageUrl: input.imageUrl, alt: input.alt ?? null, updatedById: actorId },
+    });
+
+    await this.redis.del(MAKE_LOGO_CACHE_KEY);
+
+    return {
+      make: row.make,
+      imageUrl: row.imageUrl,
+      alt: row.alt,
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Drops the row, so the popular-makes row falls back to its generated mark
+   * for that make. The file itself is left in storage, the same reasoning as
+   * clearing a body-type photo: an operator who removes the wrong logo can
+   * re-point at it, and an orphaned image costs bytes rather than correctness.
+   */
+  async clearMakeLogo(make: string): Promise<void> {
+    await this.prisma.makeLogo.deleteMany({ where: { make: normalizeMake(make) } });
+    await this.redis.del(MAKE_LOGO_CACHE_KEY);
+  }
+
+  /**
+   * The public view, for the home page's popular-makes row. Cached the same
+   * way the body-type photographs are.
+   */
+  async publicMakeLogos(): Promise<MakeLogo[]> {
+    return this.redis.remember(MAKE_LOGO_CACHE_KEY, MAKE_LOGO_CACHE_TTL, () => this.makeLogos());
   }
 
   private async salesSeries(): Promise<TimeSeriesPoint[]> {
