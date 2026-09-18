@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api-client';
+import { postLoginRedirect } from '@/lib/post-login-redirect';
 import { useAuthStore } from '@/store/auth-store';
 import {
   Button,
@@ -21,9 +23,10 @@ import { useT } from '@/i18n/provider';
 function LoginForm() {
   const login = useAuthStore((state) => state.login);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const t = useT();
-  const redirectTo = searchParams.get('from') ?? '/dashboard';
+  const from = searchParams.get('from');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,7 +39,13 @@ function LoginForm() {
     setError(null);
     try {
       await login({ email, password });
-      router.push(redirectTo);
+      // Dropped before reading who is now signed in, not after: a stale
+      // dashboard query still in the cache from whoever last used this tab
+      // must not be the thing this account's own dashboard renders first.
+      queryClient.clear();
+      const user = useAuthStore.getState().user;
+      const destination = from && user ? postLoginRedirect(from, user) : '/dashboard';
+      router.push(destination);
       router.refresh();
     } catch (caught) {
       setError(caught);
