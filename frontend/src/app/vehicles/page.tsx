@@ -6,6 +6,8 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { LayoutGrid, Rows3, SlidersHorizontal } from 'lucide-react';
 import { LISTING_SORTS, type ListingSort, type VehicleSearchResponse } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
+import { getCookieConsent } from '@/lib/cookie-consent';
+import { saveLastSearch } from '@/lib/last-search';
 import {
   EMPTY_FILTERS,
   countActiveFilters,
@@ -85,6 +87,18 @@ function BrowseContent() {
   });
 
   const activeCount = countActiveFilters(filters);
+  const shareableQuery = filtersToParams(filters).toString();
+
+  // Remembered for the home page's "Continue where you left off" card — only
+  // once the visitor has said that is all right, and only when there is
+  // something worth resuming rather than every plain visit to this page.
+  // Depends on the query string rather than `filters` itself, which is a new
+  // object on every render.
+  useEffect(() => {
+    if (activeCount === 0) return;
+    if (getCookieConsent() !== 'accepted') return;
+    saveLastSearch(shareableQuery);
+  }, [shareableQuery, activeCount]);
 
   return (
     <div className="container py-8">
