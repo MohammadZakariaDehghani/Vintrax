@@ -25,7 +25,12 @@ export function DescriptionBody({
   }
 
   return (
-    <div className={cn('flex flex-col gap-4 leading-relaxed text-muted-foreground', className)}>
+    <div
+      className={cn(
+        'flex flex-col gap-4 break-words leading-relaxed text-muted-foreground',
+        className,
+      )}
+    >
       {blocks.map((block, index) => {
         if (block.kind === 'heading') {
           return (
