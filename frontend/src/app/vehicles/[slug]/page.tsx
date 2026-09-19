@@ -14,6 +14,7 @@ import { InspectionReport } from '@/components/inspection-report';
 import { VehicleDocuments } from '@/components/vehicle-documents';
 import { DescriptionBody } from '@/components/description-body';
 import { VehicleHistory } from '@/components/vehicle-history';
+import { CompareButton } from '@/components/compare-button';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -134,6 +135,8 @@ export default async function VehicleDetailPage({ params }: PageProps) {
               {formatLocation(vehicle.city, vehicle.province)} ·{' '}
               <span className="tabular">{vehicle.viewCount.toLocaleString('en-CA')}</span> views
             </p>
+
+            <CompareButton vehicleId={vehicle.id} className="mt-3" />
           </div>
 
           {/* The figures a buyer looks for first, in one strip. Two of them can

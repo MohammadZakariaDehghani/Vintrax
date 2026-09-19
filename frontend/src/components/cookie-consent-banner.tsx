@@ -18,6 +18,12 @@ import { useT } from '@/i18n/provider';
  * your last search" feature had already stored, since a decline is a
  * statement that nothing here should be remembered, not only that no more of
  * it should be collected from now on.
+ *
+ * Not fixed-positioned itself: `app/layout.tsx` renders this inside the same
+ * fixed-to-the-viewport bottom stack as `CompareBar`, so the rare visitor who
+ * has both on screen at once — a first visit where they have already started
+ * comparing vehicles before answering this — sees the two stacked rather than
+ * overlapping.
  */
 export function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
@@ -39,7 +45,7 @@ export function CookieConsentBanner() {
     <div
       role="dialog"
       aria-label={t.cookies.title}
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card p-4 shadow-lg"
+      className="border-t border-border bg-card p-4 shadow-lg"
     >
       <div className="container flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">

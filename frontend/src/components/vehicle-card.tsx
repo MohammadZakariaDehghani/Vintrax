@@ -10,6 +10,7 @@ import { useUser } from '@/store/auth-store';
 import { Badge, Skeleton } from '@/components/ui';
 import { CarfaxBadge } from '@/components/carfax-badge';
 import { AuctionCountdown } from '@/components/auction-countdown';
+import { CompareButton } from '@/components/compare-button';
 
 const STATUS_VARIANT = {
   DRAFT: 'outline',
@@ -80,6 +81,7 @@ export function VehicleCard({
               Inspected
             </Badge>
           ) : null}
+          <CompareButton compact vehicleId={vehicle.id} />
         </div>
 
         {user ? (
