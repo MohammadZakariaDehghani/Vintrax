@@ -29,7 +29,7 @@ export function DescriptionBody({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3.5 text-sm leading-relaxed text-muted-foreground',
+        'flex flex-col gap-3.5 break-words text-sm leading-relaxed text-muted-foreground',
         className,
       )}
     >

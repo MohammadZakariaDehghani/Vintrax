@@ -33,7 +33,7 @@ const REAL = [
  */
 function words(text: string): string[] {
   return text
-    .replace(/[\u2022\u25cf\u25aa\u2023\u2219\u00b7\u25e6]/g, ' ')
+    .replace(/[\u2022\u25cf\u25aa\u2023\u2219\u00b7\u25e6\u2714\u2713]/g, ' ')
     .split(/\s+/)
     .filter(Boolean)
     .map((word) => word.replace(/:$/, ''))
@@ -142,6 +142,151 @@ describe('formatDescription', () => {
       'THIS VEHICLE HAS BEEN FULLY RECONDITIONED AND CERTIFIED BY OUR LICENSED TECHNICIANS!';
 
     expect(formatDescription(text)).toEqual([{ kind: 'paragraph', text }]);
+  });
+});
+
+/**
+ * Issue #55: Seller Notes written as one dense block, with sections and lists
+ * that survived only as a checkmark, a colon, or a capitalised word butted up
+ * against the sentence after it — never as an ALL-CAPS shout, which is all
+ * the formatter recognised before.
+ */
+describe('formatDescription — Seller Notes sections', () => {
+  it('reads a hand-typed checkmark list as a bullet list', () => {
+    const text = [
+      '✔ Rare John Cooper Works Performance Model',
+      '✔ Desirable 6-Speed Manual Transmission',
+      '✔ ALL4 All-Wheel Drive Capability',
+    ].join('\n');
+
+    expect(formatDescription(text)).toEqual([
+      {
+        kind: 'list',
+        items: [
+          'Rare John Cooper Works Performance Model',
+          'Desirable 6-Speed Manual Transmission',
+          'ALL4 All-Wheel Drive Capability',
+        ],
+      },
+    ]);
+  });
+
+  it('treats a title-cased colon label as a heading without shouting', () => {
+    const text = 'Premium Features Include:\n• Turbocharged Engine\n• 6-Speed Manual Transmission';
+
+    expect(formatDescription(text)).toEqual([
+      { kind: 'heading', text: 'Premium Features Include' },
+      { kind: 'list', items: ['Turbocharged Engine', '6-Speed Manual Transmission'] },
+    ]);
+  });
+
+  it('pulls a title-cased label off a run of checkmarks with no line break before it', () => {
+    // The break between "Stands Out:" and the first checkmark was never
+    // written, the same way a bullet run's own lead-in loses its line break.
+    const text =
+      'Why This MINI Stands Out:✔ Rare John Cooper Works Performance Model✔ Desirable 6-Speed Manual Transmission';
+
+    expect(formatDescription(text)).toEqual([
+      { kind: 'heading', text: 'Why This MINI Stands Out' },
+      {
+        kind: 'list',
+        items: ['Rare John Cooper Works Performance Model', 'Desirable 6-Speed Manual Transmission'],
+      },
+    ]);
+  });
+
+  it('fixes a heading glued directly to the sentence that follows it', () => {
+    // "Transmission If you're looking…" is one string in the feed, because the
+    // break between the standalone feature and the paragraph was never
+    // written.
+    const text =
+      "Manual Transmission If you're looking for something truly unique, this SUV blends comfort, practicality, and style.";
+
+    expect(formatDescription(text)).toEqual([
+      { kind: 'heading', text: 'Manual Transmission' },
+      {
+        kind: 'paragraph',
+        text: "If you're looking for something truly unique, this SUV blends comfort, practicality, and style.",
+      },
+    ]);
+  });
+
+  it('does not cut a normal sentence that happens to start with capitalised words', () => {
+    // "Toyota Corolla" is not a heading here — nothing after it is a sentence
+    // opener, so the whole thing stays one paragraph.
+    const text = 'Toyota Corolla owners love the reliability and low running costs of this model.';
+
+    expect(formatDescription(text)).toEqual([{ kind: 'paragraph', text }]);
+  });
+
+  it('splits a section label out of a run of prose with only a sentence boundary before it', () => {
+    const text = 'This vehicle has been fully inspected and serviced. Condition: Well maintained.';
+
+    expect(formatDescription(text)).toEqual([
+      { kind: 'paragraph', text: 'This vehicle has been fully inspected and serviced.' },
+      { kind: 'heading', text: 'Condition' },
+      { kind: 'paragraph', text: 'Well maintained.' },
+    ]);
+  });
+
+  it('formats a realistic multi-section Seller Notes entry end to end', () => {
+    const text = [
+      'Manual Transmission',
+      "If you're looking for something truly unique, this 2013 MINI Cooper Countryman John Cooper Works ALL4 is the perfect combination of performance, practicality, and iconic MINI styling.",
+      '',
+      'Premium Features Include:',
+      '• Turbocharged John Cooper Works Engine',
+      '• 6-Speed Manual Transmission',
+      '• ALL4 All-Wheel Drive',
+      '',
+      'Why This MINI Stands Out:',
+      '✔ Rare John Cooper Works Performance Model',
+      '✔ Desirable 6-Speed Manual Transmission',
+      '',
+      'Condition:',
+      '• Well maintained',
+      '• Runs and drives excellent',
+      '• Clean inside and out',
+    ].join('\n');
+
+    const blocks = formatDescription(text);
+
+    expect(blocks.map((block) => block.kind)).toEqual([
+      'heading',
+      'paragraph',
+      'heading',
+      'list',
+      'heading',
+      'list',
+      'heading',
+      'list',
+    ]);
+    expect(blocks.map((block) => (block.kind !== 'list' ? block.text : null))).toEqual([
+      'Manual Transmission',
+      "If you're looking for something truly unique, this 2013 MINI Cooper Countryman John Cooper Works ALL4 is the perfect combination of performance, practicality, and iconic MINI styling.",
+      'Premium Features Include',
+      null,
+      'Why This MINI Stands Out',
+      null,
+      'Condition',
+      null,
+    ]);
+    expect(blocks[3]).toMatchObject({
+      kind: 'list',
+      items: [
+        'Turbocharged John Cooper Works Engine',
+        '6-Speed Manual Transmission',
+        'ALL4 All-Wheel Drive',
+      ],
+    });
+    expect(blocks[7]).toMatchObject({
+      kind: 'list',
+      items: ['Well maintained', 'Runs and drives excellent', 'Clean inside and out'],
+    });
+
+    // Every word survives — only the markers that became structure (bullets,
+    // checkmarks, blank lines, the colon after a label) are consumed.
+    expect(flatten(text)).toEqual(words(text));
   });
 });
 

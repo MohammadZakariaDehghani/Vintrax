@@ -28,8 +28,14 @@ export type DescriptionBlock =
   | { kind: 'paragraph'; text: string }
   | { kind: 'list'; items: string[] };
 
-/** Characters a feed uses to mean "next item" when it has no line breaks. */
-const BULLETS = '•●▪‣∙·◦';
+/**
+ * Characters a feed uses to mean "next item" when it has no line breaks.
+ *
+ * `✔` and `✓` are a seller's own hand-typed checkmark list — "✔ One owner✔ No
+ * accidents" — the same run-together-list problem as a bullet, just with a
+ * different glyph.
+ */
+const BULLETS = '•●▪‣∙·◦✔✓';
 const BULLET_PATTERN = new RegExp(`[${BULLETS}]`);
 const BULLET_SPLIT = new RegExp(`\\s*[${BULLETS}]\\s*`);
 
@@ -114,12 +120,44 @@ function readChunk(chunk: string): DescriptionBlock[] {
  */
 function takeTrailingLabel(text: string): { body: string; label: string | null } {
   const match = /(?:^|[.!?]\s+)([^.!?]{2,72}:)\s*$/.exec(text);
-  const candidate = match?.[1]?.trim();
-  if (!candidate || !isShouted(candidate)) return { body: text, label: null };
+  const raw = match?.[1];
+  const candidate = raw?.trim().replace(/:$/, '').trim();
+  if (!raw || !candidate || !isLabel(candidate)) return { body: text, label: null };
   return {
-    body: text.slice(0, text.length - candidate.length).trim(),
-    label: candidate.replace(/:$/, '').trim(),
+    body: text.slice(0, text.length - raw.length).trim(),
+    label: candidate,
   };
+}
+
+/**
+ * Words a title keeps lower-case even when every other word is capitalised —
+ * "Why This Vehicle Stands Out" still counts. Only checked after the first
+ * word, which always has to be capitalised for this to be a label at all.
+ */
+const LABEL_CONNECTORS = new Set(['a', 'an', 'the', 'of', 'in', 'on', 'for', 'and', 'or', 'to']);
+
+/**
+ * A section label a seller wrote without shouting it — "Premium Features
+ * Include", "Why This MINI Stands Out", "Condition", "Additional
+ * Information". Every meaningful word capitalised, short, and not a full
+ * sentence: the same shape `isShouted` looks for, just at normal volume.
+ */
+function isTitleCasedLabel(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_HEADING_CHARS) return false;
+  const words = trimmed.split(/\s+/);
+  if (words.length === 0 || words.length > 8) return false;
+  const meaningful = words.filter((word) => /^[A-Za-z]/.test(word));
+  if (meaningful.length === 0) return false;
+  return meaningful.every((word, index) => {
+    if (index > 0 && LABEL_CONNECTORS.has(word.toLowerCase())) return true;
+    return /^[A-Z]/.test(word);
+  });
+}
+
+/** A candidate heading, whether it shouts or is merely title-cased. */
+function isLabel(text: string): boolean {
+  return isShouted(text) || isTitleCasedLabel(text);
 }
 
 /**
@@ -136,6 +174,7 @@ const SENTENCE_STARTERS = new Set([
   'these',
   'with',
   'whether',
+  'if',
   'our',
   'it',
   'we',
@@ -201,16 +240,84 @@ function readProse(text: string): DescriptionBlock[] {
     rest = rest.slice(shout[0].length);
   }
 
-  // "FEATURES & OPTIONS:" — a label for what follows.
+  // "FEATURES & OPTIONS:" or "Premium Features Include:" — a label for what
+  // follows, shouted or merely title-cased.
   const label = /^([^.!?]{2,72}:)\s*/.exec(rest);
-  if (label?.[1] && isShouted(label[1])) {
-    blocks.push({ kind: 'heading', text: label[1].replace(/:$/, '').trim() });
+  const labelCandidate = label?.[1]?.replace(/:$/, '').trim();
+  if (label && labelCandidate && isLabel(labelCandidate)) {
+    blocks.push({ kind: 'heading', text: labelCandidate });
     rest = rest.slice(label[0].length);
+  } else {
+    // "Manual Transmission If you're looking…" — a short label with no colon
+    // and no line break, run straight into the sentence that follows it.
+    const leading = splitLeadingLabel(rest);
+    if (leading.label) {
+      blocks.push({ kind: 'heading', text: leading.label });
+      rest = leading.rest;
+    }
   }
 
-  for (const paragraph of groupSentences(rest)) {
-    blocks.push({ kind: 'paragraph', text: paragraph });
+  blocks.push(...splitEmbeddedLabels(rest));
+  return blocks;
+}
+
+/**
+ * A short capitalised lead-in immediately followed by a sentence, with no
+ * punctuation between them — "Manual Transmission If you're looking…" — the
+ * same missing-line-break problem `splitTrailingProse` fixes at the end of a
+ * bullet run, here at the start of a paragraph.
+ */
+function splitLeadingLabel(text: string): { label: string | null; rest: string } {
+  const words = text.split(' ');
+  const limit = Math.min(4, words.length - 1);
+
+  for (let index = 1; index <= limit; index += 1) {
+    const word = words[index]!;
+    if (!/^[A-Z]/.test(word)) continue;
+    if (!SENTENCE_STARTERS.has(word.toLowerCase().replace(/[^a-z]/g, ''))) continue;
+
+    const lead = words.slice(0, index);
+    if (!lead.every((leadWord) => /^[A-Z]/.test(leadWord))) break;
+    return { label: lead.join(' '), rest: words.slice(index).join(' ') };
   }
+
+  return { label: null, rest: text };
+}
+
+/**
+ * Section labels a seller wrote inline, mid-paragraph, with only a sentence
+ * boundary before them — "…iconic MINI styling. Premium Features Include:
+ * Turbocharged…". Each one found splits the text into the prose before it,
+ * the heading, and whatever is left, which keeps being scanned for more.
+ */
+function splitEmbeddedLabels(text: string): DescriptionBlock[] {
+  const blocks: DescriptionBlock[] = [];
+  const pattern = /(^|[.!?])\s*([A-Z][^.!?:]{1,70}:)\s*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text))) {
+    const candidate = match[2]!.replace(/:$/, '').trim();
+    if (!isLabel(candidate)) continue;
+
+    const matchStart = match.index + (match[1]?.length ?? 0);
+    const before = text.slice(lastIndex, matchStart).trim();
+    if (before.length > 0) {
+      for (const paragraph of groupSentences(before)) {
+        blocks.push({ kind: 'paragraph', text: paragraph });
+      }
+    }
+    blocks.push({ kind: 'heading', text: candidate });
+    lastIndex = match.index + match[0].length;
+  }
+
+  const tail = text.slice(lastIndex).trim();
+  if (tail.length > 0) {
+    for (const paragraph of groupSentences(tail)) {
+      blocks.push({ kind: 'paragraph', text: paragraph });
+    }
+  }
+
   return blocks;
 }
 
