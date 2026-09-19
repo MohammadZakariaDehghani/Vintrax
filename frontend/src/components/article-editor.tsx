@@ -146,7 +146,7 @@ export function ArticleEditor({ article }: { article?: Article }) {
             />
           </div>
         ) : (
-          <div className="grid aspect-[1920/330] min-h-[10rem] place-items-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+          <div className="grid w-full aspect-[1920/330] min-h-[10rem] place-items-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
             Upload a photograph to see the masthead
           </div>
         )}

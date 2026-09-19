@@ -41,7 +41,13 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
   return (
     <article>
-      <div className="relative isolate min-h-[16rem] overflow-hidden sm:aspect-[1920/460]">
+      {/* `w-full` alongside `aspect-*` here for the same reason
+          `HomeMasthead` needs it: without an explicit width on the box that
+          also carries `min-h-*`, a narrow viewport (where the ratio alone
+          would be shorter than the floor) has the browser solve for width
+          from that taller floor instead, pushing the band past the
+          viewport's edge. */}
+      <div className="relative isolate w-full min-h-[16rem] overflow-hidden sm:aspect-[1920/460]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={article.heroImageUrl}

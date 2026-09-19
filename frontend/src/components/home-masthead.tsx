@@ -30,7 +30,16 @@ export function HomeMasthead({
     <section
       aria-labelledby="masthead-title"
       className={cn(
-        'relative isolate min-h-[19rem] overflow-hidden sm:aspect-[1920/330] sm:min-h-[20rem]',
+        // `w-full` is load-bearing, not decorative: without an explicit width
+        // on the same box as `aspect-ratio`, a browser that has to satisfy
+        // both the ratio and `min-height` at once solves for *width* from the
+        // (taller) min-height instead of the other way around — which is
+        // exactly backwards on any screen narrower than about 1862px, where
+        // the ratio alone would come in under the floor. The band silently
+        // grew past the viewport on every ordinary laptop and tablet width
+        // the moment a masthead post existed to render it (issue: a
+        // published blog photo "oversized" the home page).
+        'relative isolate w-full min-h-[19rem] overflow-hidden sm:aspect-[1920/330] sm:min-h-[20rem]',
         className,
       )}
     >
