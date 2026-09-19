@@ -23,15 +23,7 @@ const AUTO_ADVANCE_MS = 6000;
  * moved, and a visitor tabbing through the page must not have their focus
  * carried off to a slide they didn't ask for.
  */
-export function HomeBlogSlideshow({
-  posts,
-  title,
-  readMoreLabel,
-}: {
-  posts: ArticleSummary[];
-  title: string;
-  readMoreLabel: string;
-}) {
+export function HomeBlogSlideshow({ posts }: { posts: ArticleSummary[] }) {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -49,13 +41,6 @@ export function HomeBlogSlideshow({
 
   return (
     <section className="container py-12">
-      <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-        <Link href="/blog" className="text-sm font-medium text-primary hover:underline">
-          {readMoreLabel}
-        </Link>
-      </div>
-
       <div
         className="relative overflow-hidden rounded-lg border border-border bg-card"
         onMouseEnter={() => setPaused(true)}

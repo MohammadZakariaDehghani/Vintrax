@@ -523,6 +523,16 @@ Ships on the web application only.
 
 **Consequences:** No component's markup or behaviour changed beyond the added class; nothing about the masthead's cropping, upload flow or preview changed for an author. Confirmed with the same harness that the fix holds at 1920px, 1280px, 768px and 375px (zero horizontal overflow from any of these three elements at any of those widths) before removing it — the harness was throwaway and left nothing behind. A pre-existing, unrelated overflow in `site-header.tsx`'s right-hand icon cluster at exactly 768px (confirmed present with no masthead article at all, so unaffected by anything here) was found by the same measurement and is not fixed by this decision; it is a separate header-layout issue for later.
 
+## D-045 — Three Home Page Rows, Trimmed to What They're Actually For
+
+**Status:** Accepted. Requested directly: rename "Continue where you left off" to "Your last search" and show 5 related results with it; cap Popular Makes at 5 instead of 8; remove the "From the blog"/"Read more" header above the blog slideshow.
+
+**Decision:** `ContinueSearchCard`'s heading is now "Your last search," and the card fetches the same filters against `GET /vehicles` (`pageSize=5`) and renders up to five matches as `VehicleRow`s inside the same card, below the existing summary/"View results"/dismiss bar — not a replacement for that bar, since there can be more than five total matches and the visitor still needs a way to see all of them or dismiss the card entirely. `MAX_POPULAR_MAKES` drops from 8 to 5, and the row's grid goes from `sm:grid-cols-4 lg:grid-cols-6` to a single `sm:grid-cols-5`, so five makes fill the row exactly rather than leaving a gap at the wide breakpoint. `HomeBlogSlideshow` drops the header row entirely (both the `title` and `readMoreLabel` props, now unused, and the two now-orphaned dictionary keys) and shows only the slideshow card itself.
+
+**Rationale:** The saved search already existed as a link (D-041); showing the actual vehicles it currently matches — not a stale snapshot, refetched live, since a listing may have sold since the search was saved — turns "here's a link back" into "here's what's still there," which is the more useful thing when the point of the feature is getting a visitor back into the car they were looking at. Popular Makes and the blog slideshow are simplifications with no new mechanism: fewer makes shown, and one fewer piece of copy above a component whose own cards already say what they are.
+
+**Consequences:** `/blog` is still reachable from the header's "Research & advice" menu and from clicking any slide, so removing the slideshow's own header loses no navigation path, only a redundant label. Verified in a running instance (a local `next dev` against a stub API) that all three changes render as intended and introduce no new horizontal overflow, alongside the existing test suite (`popular-makes.spec.ts` updated for the new default of 5).
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.
