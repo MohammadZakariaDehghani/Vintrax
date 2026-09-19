@@ -129,7 +129,7 @@ export default async function HomePage() {
       {popularMakes.length > 0 ? (
         <section className="container pt-10">
           <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.popularMakes}</h2>
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
             {popularMakes.map((entry) => (
               <li key={entry.make}>
                 <Link
@@ -196,11 +196,7 @@ export default async function HomePage() {
         )}
       </section>
 
-      <HomeBlogSlideshow
-        posts={blogPosts?.items ?? []}
-        title={t.home.blogTitle}
-        readMoreLabel={t.home.blogReadMore}
-      />
+      <HomeBlogSlideshow posts={blogPosts?.items ?? []} />
 
       <section className="border-t border-border bg-card py-14">
         <div className="container grid gap-8 md:grid-cols-3">

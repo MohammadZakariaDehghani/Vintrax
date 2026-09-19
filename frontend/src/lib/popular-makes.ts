@@ -1,7 +1,7 @@
 import type { MakeLogo } from '@vintrax/shared';
 
-/** "Just show 8 logo" — issue #43's own words for the row's size. */
-export const MAX_POPULAR_MAKES = 8;
+/** "Just show 5 Popular makes" — the row's size. */
+export const MAX_POPULAR_MAKES = 5;
 
 /** A make shown in the home page's "popular makes" row. */
 export interface PopularMake {

@@ -44,8 +44,6 @@ const en = {
     freshInventory: 'Fresh inventory',
     browseAll: 'Browse all',
     inventoryLoading: 'Inventory is loading. If this persists, the API may not be running.',
-    blogTitle: 'From the blog',
-    blogReadMore: 'Read more',
     inspectionsTitle: 'Independent inspections',
     inspectionsBody:
       'Condition reports graded section by section, with structural damage disclosed up front.',
@@ -261,7 +259,7 @@ const en = {
   },
 
   continueSearch: {
-    title: 'Continue where you left off',
+    title: 'Your last search',
     cta: 'View results',
     dismiss: 'Dismiss',
   },
@@ -301,8 +299,6 @@ const fr: Dictionary = {
     browseAll: 'Tout parcourir',
     inventoryLoading:
       'L’inventaire se charge. Si cela persiste, l’API n’est peut-être pas démarrée.',
-    blogTitle: 'Sur le blogue',
-    blogReadMore: 'Lire la suite',
     inspectionsTitle: 'Inspections indépendantes',
     inspectionsBody:
       'Des rapports d’état évalués section par section, avec les dommages structurels divulgués d’emblée.',
@@ -520,7 +516,7 @@ const fr: Dictionary = {
   },
 
   continueSearch: {
-    title: 'Reprenez là où vous en étiez',
+    title: 'Votre dernière recherche',
     cta: 'Voir les résultats',
     dismiss: 'Ignorer',
   },
