@@ -60,8 +60,7 @@ export class AdminService {
         activeListings,
         listingsPendingReview,
         liveAuctions,
-        gmv,
-        revenue,
+        vehiclesSoldThisMonth,
       ] = await Promise.all([
         this.prisma.user.count(),
         this.prisma.user.count({ where: { createdAt: { gte: monthStart } } }),
@@ -69,20 +68,12 @@ export class AdminService {
         this.prisma.vehicle.count({ where: { status: { in: ['ACTIVE', 'IN_AUCTION'] } } }),
         this.prisma.vehicle.count({ where: { status: 'PENDING_REVIEW' } }),
         this.prisma.auction.count({ where: { status: 'LIVE' } }),
-        this.prisma.transactionRecord.aggregate({
-          where: { status: 'COMPLETED' },
-          _sum: { salePriceCad: true },
-        }),
-        this.prisma.transactionRecord.aggregate({
-          where: { status: 'COMPLETED' },
-          _sum: { platformFeeCad: true },
-        }),
+        this.prisma.vehicle.count({ where: { status: 'SOLD', soldAt: { gte: monthStart } } }),
       ]);
 
-      const [usersSeries, listingsSeries, salesSeries] = await Promise.all([
+      const [usersSeries, listingsSeries] = await Promise.all([
         this.dailySeries('User', 'createdAt'),
         this.dailySeries('Vehicle', 'publishedAt'),
-        this.salesSeries(),
       ]);
 
       return {
@@ -92,11 +83,9 @@ export class AdminService {
         activeListings,
         listingsPendingReview,
         liveAuctions,
-        grossMerchandiseValueCad: gmv._sum.salePriceCad ?? 0,
-        platformRevenueCad: revenue._sum.platformFeeCad ?? 0,
+        vehiclesSoldThisMonth,
         usersSeries,
         listingsSeries,
-        salesSeries,
       };
     });
   }
@@ -330,19 +319,5 @@ export class AdminService {
    */
   async publicMakeLogos(): Promise<MakeLogo[]> {
     return this.redis.remember(MAKE_LOGO_CACHE_KEY, MAKE_LOGO_CACHE_TTL, () => this.makeLogos());
-  }
-
-  private async salesSeries(): Promise<TimeSeriesPoint[]> {
-    const rows = await this.prisma.$queryRaw<Array<{ day: Date; value: bigint }>>`
-      SELECT date_trunc('day', "completedAt") AS day, SUM("salePriceCad")::bigint AS value
-      FROM "TransactionRecord"
-      WHERE "status" = 'COMPLETED' AND "completedAt" >= NOW() - INTERVAL '30 days'
-      GROUP BY day
-      ORDER BY day ASC
-    `;
-    return rows.map((row) => ({
-      date: row.day.toISOString().slice(0, 10),
-      value: Number(row.value),
-    }));
   }
 }

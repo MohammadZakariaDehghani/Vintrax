@@ -36,7 +36,7 @@ Five destinations in the tab bar, everything else one tap from them.
 | `/saved`                           | Favourited vehicles                                            |
 | `/messages`, `/messages/[id]`      | Buyer–seller conversations                                     |
 | `/account`                         | Profile, email verification, dark mode, sign out               |
-| `/account/bids`, `/account/orders` | Bid standings and purchases                                    |
+| `/account/bids`                    | Bid standings                                                  |
 | `/dealer/inventory`                | Own listings and dealership analytics                          |
 | `/dealer/inventory/new`            | Add a vehicle, photographed with the camera                    |
 | `/offline`                         | Served by the service worker when a navigation fails           |

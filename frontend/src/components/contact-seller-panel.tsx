@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart } from 'lucide-react';
-import type { ConversationDetail, TransactionSummary, VehicleDetail } from '@vintrax/shared';
+import type { ConversationDetail, VehicleDetail } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
@@ -28,15 +28,6 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
       router.push(`/dashboard/messages/${conversation.id}`);
     },
-  });
-
-  const buyNow = useMutation({
-    mutationFn: () =>
-      api.post<TransactionSummary>('/orders', {
-        vehicleId: vehicle.id,
-        paymentMethod: 'BANK_TRANSFER',
-      }),
-    onSuccess: (order) => router.push(`/dashboard/purchases/${order.id}`),
   });
 
   const toggleFavourite = useMutation({
@@ -70,9 +61,7 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
           </>
         ) : !user ? (
           <>
-            <p className="mb-3 text-sm">
-              Sign in to message the seller, save this vehicle, or buy it.
-            </p>
+            <p className="mb-3 text-sm">Sign in to message the seller or save this vehicle.</p>
             <Link href="/login">
               <Button className="w-full">Sign in to continue</Button>
             </Link>
@@ -102,7 +91,7 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
               onChange={(event) => setMessage(event.target.value)}
             />
 
-            <ErrorAlert error={sendEnquiry.error ?? buyNow.error} className="mt-3" />
+            <ErrorAlert error={sendEnquiry.error} className="mt-3" />
 
             <Button
               type="submit"
@@ -111,15 +100,6 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
               disabled={!message.trim()}
             >
               Send message
-            </Button>
-
-            <Button
-              type="button"
-              className="mt-2 w-full"
-              loading={buyNow.isPending}
-              onClick={() => buyNow.mutate()}
-            >
-              Buy now — {formatPrice(vehicle.priceCad)}
             </Button>
 
             <Button

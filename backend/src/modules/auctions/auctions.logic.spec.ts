@@ -3,7 +3,6 @@ import {
   ANTI_SNIPE_WINDOW_SECONDS,
   BID_INCREMENT_BANDS,
   ROLE_PERMISSIONS,
-  calculatePlatformFee,
   minimumBidIncrement,
   placeBidSchema,
   createAuctionSchema,
@@ -42,26 +41,6 @@ describe('anti-snipe window', () => {
     // A shorter extension than the window would let a sniper win by bidding
     // just inside it, which defeats the purpose.
     expect(ANTI_SNIPE_EXTENSION_SECONDS).toBeGreaterThanOrEqual(ANTI_SNIPE_WINDOW_SECONDS);
-  });
-});
-
-describe('platform fee', () => {
-  it('takes the configured rate between the floor and the ceiling', () => {
-    expect(calculatePlatformFee(20_000)).toBe(1_000);
-  });
-
-  it('applies a floor so small lots stay viable', () => {
-    expect(calculatePlatformFee(1_000)).toBe(150);
-  });
-
-  it('applies a ceiling so large lots are not overcharged', () => {
-    expect(calculatePlatformFee(1_000_000)).toBe(2_500);
-  });
-
-  it('always returns a whole number of dollars', () => {
-    for (const amount of [1_337, 24_999, 87_431]) {
-      expect(Number.isInteger(calculatePlatformFee(amount))).toBe(true);
-    }
   });
 });
 

@@ -11,7 +11,6 @@ import {
   MessagesSquare,
   Package,
   Bell,
-  ShoppingBag,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useIsSeller, useUser } from '@/store/auth-store';
@@ -20,7 +19,6 @@ const BUYER_LINKS = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/dashboard/favorites', label: 'Saved', icon: Heart },
   { href: '/dashboard/my-bids', label: 'My bids', icon: Gavel },
-  { href: '/dashboard/purchases', label: 'Purchases', icon: ShoppingBag },
   { href: '/dashboard/messages', label: 'Messages', icon: MessagesSquare, badge: 'messages' },
   { href: '/dashboard/notifications', label: 'Notifications', icon: Bell, badge: 'notifications' },
 ] as const;
@@ -35,7 +33,7 @@ const SELLER_LINKS = [
  * Navigation across the signed-in dashboard.
  *
  * The same idea as `AdminNav`: without it every screen is reachable only from
- * a tile on the overview, so moving between saved vehicles and purchases goes
+ * a tile on the overview, so moving between saved vehicles and messages goes
  * back through the front page. The two counts are shown here as well as in the
  * header, because this row is where someone is when they are working.
  */

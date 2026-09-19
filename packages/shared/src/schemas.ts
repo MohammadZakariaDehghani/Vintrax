@@ -17,7 +17,6 @@ import {
   MAX_VEHICLE_DOCUMENTS,
   MIN_MODEL_YEAR,
   NOTIFICATION_CHANNELS,
-  PAYMENT_METHODS,
   PROVINCES,
   SALE_CHANNELS,
   SECTION_RATINGS,
@@ -546,22 +545,6 @@ export const submitInspectionSchema = z.object({
   images: z.array(vehicleImageSchema).max(MAX_INSPECTION_IMAGES).default([]),
 });
 export type SubmitInspectionInput = z.infer<typeof submitInspectionSchema>;
-
-// --- Commerce ----------------------------------------------------------------
-
-export const createOrderSchema = z.object({
-  vehicleId: uuid(),
-  paymentMethod: z.enum(PAYMENT_METHODS),
-  shippingAddressId: uuid().optional(),
-  notes: trimmed(1000).optional(),
-});
-export type CreateOrderInput = z.infer<typeof createOrderSchema>;
-
-export const confirmPaymentSchema = z.object({
-  /** Reference returned by the payment provider. */
-  providerReference: trimmed(200).min(1),
-});
-export type ConfirmPaymentInput = z.infer<typeof confirmPaymentSchema>;
 
 // --- Messaging and notifications ---------------------------------------------
 

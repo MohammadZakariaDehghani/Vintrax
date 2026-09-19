@@ -273,6 +273,14 @@ export class AuctionsService {
           where: { auctionId: id, id: { not: topBid!.id } },
           data: { status: 'LOST' },
         });
+        // There is no order or payment step to complete afterward — the
+        // closing bid is the sale. `winnerId`/`winningBidId` on the auction
+        // are the permanent record of who won and at what price; the winner
+        // and seller arrange payment and pickup between themselves from here.
+        await tx.vehicle.update({
+          where: { id: auction.vehicleId },
+          data: { status: 'SOLD', soldAt: new Date() },
+        });
       } else {
         await tx.bid.updateMany({ where: { auctionId: id }, data: { status: 'LOST' } });
         // Reserve not met: the vehicle returns to the marketplace unsold.

@@ -9,7 +9,6 @@ import type {
   NotificationDto,
   Paginated,
   PublicUser,
-  TransactionSummary,
   VehicleDetail,
   VehicleSearchResponse,
   VehicleSummary,
@@ -94,12 +93,6 @@ export const vintrax = {
     reply: (id: string, body: string) =>
       api.post<MessageDto>(`/conversations/${id}/messages`, { body }),
     unreadCount: () => api.get<{ count: number }>('/conversations/unread-count'),
-  },
-
-  orders: {
-    list: (params: PageQuery = {}) =>
-      api.get<Paginated<TransactionSummary>>(`/orders${buildQuery({ ...params })}`),
-    byId: (id: string) => api.get<TransactionSummary>(`/orders/${id}`),
   },
 
   notifications: {

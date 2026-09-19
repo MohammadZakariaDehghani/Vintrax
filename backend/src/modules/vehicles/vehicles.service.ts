@@ -89,10 +89,8 @@ export class VehiclesService {
         });
     }
 
-    const [favouritedIds, includeDocuments] = await Promise.all([
-      this.favouritedIds(viewer?.id, [row.id]),
-      this.canViewDocuments(row.id, row.seller.id, viewer),
-    ]);
+    const favouritedIds = await this.favouritedIds(viewer?.id, [row.id]);
+    const includeDocuments = this.canViewDocuments(row.seller.id, viewer);
     return toVehicleDetail(row, favouritedIds, { includeDocuments });
   }
 
@@ -114,7 +112,7 @@ export class VehiclesService {
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
-    if (!(await this.canViewDocuments(vehicle.id, vehicle.sellerId, viewer))) {
+    if (!this.canViewDocuments(vehicle.sellerId, viewer)) {
       // Indistinguishable from a missing document, so entitlement cannot be
       // probed by asking for ids one at a time.
       throw new NotFoundException('Document not found');
@@ -135,23 +133,14 @@ export class VehiclesService {
   /**
    * Whether a viewer may read a vehicle's paperwork.
    *
-   * The seller who uploaded it, an administrator, and the buyer on an order
-   * that has not been cancelled — a buyer genuinely needs the title and bill of
-   * sale. Nobody else, including signed-in browsers of the public listing.
+   * The seller who uploaded it, and an administrator. Nobody else, including
+   * signed-in browsers of the public listing — a buyer who needs the title or
+   * bill of sale gets it from the seller directly, the same way they arrange
+   * payment and pickup.
    */
-  private async canViewDocuments(
-    vehicleId: string,
-    sellerId: string,
-    viewer?: AuthUser,
-  ): Promise<boolean> {
+  private canViewDocuments(sellerId: string, viewer?: AuthUser): boolean {
     if (!viewer) return false;
-    if (viewer.id === sellerId || isAdmin(viewer.role)) return true;
-
-    const order = await this.prisma.transactionRecord.findFirst({
-      where: { vehicleId, buyerId: viewer.id, status: { not: 'CANCELLED' } },
-      select: { id: true },
-    });
-    return order !== null;
+    return viewer.id === sellerId || isAdmin(viewer.role);
   }
 
   async create(input: CreateVehicleInput, user: AuthUser): Promise<VehicleDetail> {
@@ -274,8 +263,8 @@ export class VehiclesService {
    * rule: a seller can submit for review, withdraw, archive, re-draft and mark
    * a vehicle sold, and an administrator reaches `ACTIVE` through moderation.
    * Admins are exempt from the table so support can correct a stuck listing —
-   * but not from the auction and order guards below, which protect other
-   * people's money rather than the workflow.
+   * but not from the auction guard below, which protects a live auction rather
+   * than the workflow.
    */
   async setStatus(
     id: string,
@@ -306,21 +295,6 @@ export class VehiclesService {
       if (auction) {
         throw new BadRequestException(
           'This vehicle is in an auction. Cancel the auction before marking it sold.',
-        );
-      }
-    }
-
-    if (existing.status === 'SOLD' && next !== 'SOLD') {
-      // "Sold" set by a real order is not a label to peel off — a buyer may
-      // already have paid. Cancelling the order is what returns the vehicle
-      // to the marketplace, and that path already does it.
-      const order = await this.prisma.transactionRecord.findFirst({
-        where: { vehicleId: id, status: { not: 'CANCELLED' } },
-        select: { id: true, reference: true },
-      });
-      if (order) {
-        throw new BadRequestException(
-          `This vehicle was sold through order ${order.reference}. Cancel that order to put it back on the market.`,
         );
       }
     }
@@ -364,13 +338,9 @@ export class VehiclesService {
       throw new BadRequestException('Cancel the auction on this vehicle before deleting it');
     }
 
-    const sold = await this.prisma.transactionRecord.findFirst({
-      where: { vehicleId: id, status: { notIn: ['CANCELLED'] } },
-      select: { id: true },
-    });
-    if (sold) {
+    if (vehicle.status === 'SOLD') {
       throw new BadRequestException(
-        'This vehicle has a sales record and cannot be deleted. Archive it instead.',
+        'This vehicle is marked sold and cannot be deleted. Archive it instead.',
       );
     }
 
@@ -523,8 +493,8 @@ export class VehiclesService {
    *
    * Each id goes through `setStatus`, one at a time. That is deliberate and it
    * is the whole design: every rule that protects a single listing — the
-   * transition table, the live-auction guard, the paid-order guard, ownership,
-   * the audit entry — is enforced because the single-vehicle path is what runs.
+   * transition table, the live-auction guard, ownership, the audit entry — is
+   * enforced because the single-vehicle path is what runs.
    * A bulk endpoint that wrote `updateMany` would be a second implementation of
    * those rules, and the second one is always the one that forgets the auction.
    *
@@ -559,10 +529,9 @@ export class VehiclesService {
    *
    * Every id goes through `remove`, which is what keeps the two guards that
    * matter: a vehicle under a live auction cannot be deleted out from under its
-   * bidders, and one with a sales record cannot be deleted at all — it is
-   * archived instead, because a deleted vehicle takes a buyer's order history
-   * with it. A bulk `deleteMany` would skip both, on the one action that cannot
-   * be undone.
+   * bidders, and a vehicle marked sold cannot be deleted at all — it is
+   * archived instead, so a completed sale stays in the record. A bulk
+   * `deleteMany` would skip both, on the one action that cannot be undone.
    *
    * Ownership comes from `remove` too: a seller reaches only their own
    * vehicles, an administrator reaches any. So this endpoint grants nobody

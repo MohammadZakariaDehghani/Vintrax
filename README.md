@@ -1,9 +1,11 @@
 # Vintrax
 
 An enterprise digital automotive marketplace and auction platform for Canada.
-Dealers and private sellers publish inventory, buyers search and purchase, and
-vehicles can be sold at a fixed price or through live timed auctions with
-independent inspection reports attached.
+Dealers and private sellers publish inventory, buyers search and message
+sellers directly, and vehicles can be listed at a fixed price or sold through
+live timed auctions with independent inspection reports attached. There is no
+online checkout: a sale, whether fixed-price or a won auction, is arranged
+directly between buyer and seller off-platform.
 
 ```
 frontend/        Next.js 15 · React 19 · Tailwind — desktop-first marketplace
@@ -59,10 +61,6 @@ full picture.
 
 Deliberate boundaries, documented rather than hidden:
 
-- **Payments are recorded, not processed.** There is no gateway integration —
-  `POST /orders/:id/payment` records a reference something else must produce.
-  Only the seller on the order or an administrator may record it, but nothing
-  verifies that the money actually moved.
 - **WebSocket scaling needs a Redis adapter** before running more than one API
   replica; socket rooms are per-process today.
 - **Rate limits are per-instance and in-memory.**

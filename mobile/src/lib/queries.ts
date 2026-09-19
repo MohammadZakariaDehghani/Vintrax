@@ -28,7 +28,6 @@ export const keys = {
   favourites: ['favourites'] as const,
   conversations: ['conversations'] as const,
   conversation: (id: string) => ['conversations', id] as const,
-  orders: ['orders'] as const,
   notifications: ['notifications'] as const,
   dealerAnalytics: ['dealers', 'analytics', 'me'] as const,
 };
@@ -146,13 +145,6 @@ export function useConversation(id: string) {
     queryFn: () => vintrax.conversations.byId(id),
     enabled: Boolean(id),
     staleTime: 10_000,
-  });
-}
-
-export function useOrders() {
-  return useQuery({
-    queryKey: keys.orders,
-    queryFn: () => vintrax.orders.list({ pageSize: 30 }),
   });
 }
 

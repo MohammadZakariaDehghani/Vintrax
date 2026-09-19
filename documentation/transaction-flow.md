@@ -60,8 +60,6 @@ The complete matrix, verbatim from `ROLE_PERMISSIONS`.
 | `dealer:verify`    |       |        |        |           |  ✅   |     ✅      |
 | `user:read`        |       |        |        |           |  ✅   |     ✅      |
 | `user:manage`      |       |        |        |           |  ✅   |     ✅      |
-| `payment:read`     |       |        |   ✅   |           |  ✅   |     ✅      |
-| `payment:manage`   |       |   ✅   |   ✅   |           |  ✅   |     ✅      |
 | `report:read`      |       |        |   ✅   |           |  ✅   |     ✅      |
 | `settings:manage`  |       |        |        |           |       |     ✅      |
 | `audit:read`       |       |        |        |           |  ✅   |     ✅      |
@@ -74,11 +72,6 @@ Four deliberate gaps:
 - **An admin cannot bid.** Only `SUPER_ADMIN` holds `bid:place` among staff
   roles, and that is an artefact of holding every permission rather than an
   invitation to trade on the platform they moderate.
-- **A buyer does not hold `payment:manage`.** Recording that money arrived is
-  the seller's side of a sale; a buyer able to assert it about their own order
-  could take a vehicle without paying. The permission is a floor, not the whole
-  rule — the service also requires the caller to be the seller on that specific
-  order, so a dealer buying from another dealer is refused too.
 
 ---
 
@@ -93,10 +86,9 @@ something else.
 | ---------------------------------------------- | ------------------------------------------------- |
 | Search and view listings, including as a guest | Create or edit a listing                          |
 | Save vehicles to favourites                    | Run an auction                                    |
-| Message sellers                                | See another buyer's identity in a bid history     |
+| Message sellers to arrange a fixed-price sale  | See another buyer's identity in a bid history     |
 | Bid in live auctions                           | See a reserve price                               |
-| Buy at a fixed price, pay, complete an order   | Read inspection reports before they are published |
-| Read published inspection reports              |                                                   |
+| Read published inspection reports              | Read inspection reports before they are published |
 
 ```mermaid
 flowchart TD
@@ -112,22 +104,22 @@ flowchart TD
     F --> H["Message the seller"]
     F --> I{"Sale channel"}
 
-    I -- "Fixed price" --> J["Create order"]
+    I -- "Fixed price" --> J["Arrange the sale directly with the seller"]
     I -- "Auction" --> K["Auction room"]
 
     K --> L["Place a bid"]
     L --> M{"Won at close?"}
-    M -- "Yes" --> J
+    M -- "Yes" --> N["Vehicle marked SOLD; contact the seller"]
     M -- "No" --> E
-
-    J --> N["Record payment"]
-    N --> O["Confirm delivery"]
-    O --> P["Order complete"]
 ```
 
-**The verified-email gate is real.** `POST /vehicles`, `POST /auctions`,
-`POST /auctions/:id/bids` and `POST /orders` all carry
-`@RequireVerifiedEmail()`. Browsing does not.
+There is no online checkout. A fixed-price sale or a won auction is arranged
+directly between buyer and seller — payment and delivery happen off-platform,
+and nothing here records either.
+
+**The verified-email gate is real.** `POST /vehicles`, `POST /auctions` and
+`POST /auctions/:id/bids` all carry `@RequireVerifiedEmail()`. Browsing does
+not.
 
 ## Seller
 
@@ -156,20 +148,17 @@ flowchart TD
     G -- "Rejected" --> B
 
     H --> I{"How to sell"}
-    I -- "Fixed price" --> J["Wait for an order"]
+    I -- "Fixed price" --> J["Buyer messages, sale arranged directly"]
     I -- "Auction" --> K["Create auction with reserve"]
 
     K --> L["IN_AUCTION"]
     L --> M["Auction runs and closes"]
     M --> N{"Reserve met?"}
-    N -- "Yes" --> O["Winner creates the order"]
+    N -- "Yes" --> O["Vehicle marked SOLD to the winner"]
     N -- "No" --> H
 
-    J --> P["Buyer orders"]
-    O --> P
-    P --> Q["SOLD"]
-    Q --> R["Payment recorded"]
-    R --> S["Order completed"]
+    J --> Q["Seller marks it SOLD"]
+    O --> Q
 ```
 
 ## Dealer
@@ -182,8 +171,8 @@ that comes with it.
 | Everything a seller can                          | Verify their own dealership |
 | Hold a dealership profile with a public page     | Verify any dealership       |
 | See their own sales and inventory analytics      | See platform-wide analytics |
-| Read payment records for their own sales         | Manage other users          |
-| Carry a verified badge once an admin approves it | Read the audit log          |
+| Carry a verified badge once an admin approves it | Manage other users          |
+|                                                   | Read the audit log          |
 
 ```mermaid
 flowchart TD
@@ -202,7 +191,6 @@ flowchart TD
     I --> L["Top vehicles by views"]
 
     F --> M["Run auctions"]
-    F --> N["Read payment records for own sales"]
 ```
 
 **A pending dealer is not blocked from selling.** Verification affects the
@@ -249,8 +237,8 @@ Platform operations. Everything except the keys to the platform itself.
 | Can                                    | Cannot                   |
 | -------------------------------------- | ------------------------ |
 | Moderate listings — approve or reject  | Change platform settings |
-| Verify, reject or suspend a dealership | Manage payments          |
-| Suspend or deactivate a user account   | Bid                      |
+| Verify, reject or suspend a dealership | Bid                      |
+| Suspend or deactivate a user account   |                          |
 | Manage any auction                     |                          |
 | Write inspections                      |                          |
 | Read platform-wide analytics           |                          |
@@ -296,14 +284,12 @@ Holds every permission, including the one nobody else has: `settings:manage`.
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Everything an admin can                |                                                                                                           |
 | Manage platform settings               | The only role with `settings:manage`                                                                      |
-| Manage payments — refunds, corrections | Shares `payment:manage` with sellers, dealers and admins, who use it to record payment on their own sales |
 | Place bids                             | An artefact of holding every permission                                                                   |
 
 ```mermaid
 flowchart TD
     A["Super admin"] --> B["Everything an admin can do"]
     A --> C["settings:manage"]
-    A --> D["payment:manage"]
 
     B --> E["Moderate listings"]
     B --> F["Verify dealerships"]
@@ -311,17 +297,15 @@ flowchart TD
     B --> H["Read the audit log"]
 
     C --> I["Platform configuration"]
-    D --> J["Refunds and payment corrections"]
 
     K["Admin"] --> B
     K -.-> |"withheld"| C
-    K -.-> |"withheld"| D
 ```
 
-Money and configuration are separated from day-to-day moderation on purpose:
-the account that suspends users is not the account that can move funds. An
-admin can remove a listing at three in the morning without also being able to
-issue a refund.
+Configuration is separated from day-to-day moderation on purpose: the account
+that suspends users is not necessarily the account that can change platform
+settings. An admin can remove a listing at three in the morning without also
+being able to change how the platform is configured.
 
 ---
 
@@ -347,7 +331,7 @@ sequenceDiagram
 
     U->>API: GET /auth/email/verify with token
     API->>DB: mark email verified, status ACTIVE
-    API-->>U: bidding, listing and ordering unlocked
+    API-->>U: bidding and listing unlocked
 ```
 
 Registering with the `DEALER` role and a dealership name creates the `Dealer`
@@ -392,11 +376,9 @@ stateDiagram-v2
     PENDING_REVIEW --> DRAFT: "admin rejects"
     ACTIVE --> IN_AUCTION: "auction goes live"
     IN_AUCTION --> ACTIVE: "auction ends unsold"
-    ACTIVE --> SOLD: "order created"
-    IN_AUCTION --> SOLD: "winner orders"
-    ACTIVE --> SOLD: "seller sold it off the platform"
-    SOLD --> ACTIVE: "order cancelled"
-    SOLD --> DRAFT: "seller reopens — refused if an order exists"
+    ACTIVE --> SOLD: "seller marks it sold"
+    IN_AUCTION --> SOLD: "auction won"
+    SOLD --> DRAFT: "seller reopens"
     ACTIVE --> ARCHIVED: "seller withdraws"
     ACTIVE --> DRAFT: "seller unpublishes to edit"
     DRAFT --> ARCHIVED: "seller deletes"
@@ -448,73 +430,22 @@ Cars are sold on the forecourt and in driveways, and a listing that cannot say
 so is a listing people stop trusting; marking it sold is also better than
 archiving it, because the vehicle stays visible with its outcome and
 time-to-sale reporting keeps working. It is not a moderation bypass — it takes
-a listing off sale rather than putting one up. Two guards apply to everyone,
+a listing off sale rather than putting one up. One guard applies to everyone,
 administrators included: a vehicle in a scheduled or live auction cannot be
-marked sold, and a vehicle sold through a real order cannot be reopened by
-relabelling it — cancelling the order is what returns it to the marketplace.
+marked sold — cancel the auction first.
 
-`IN_AUCTION` is absent from both, because it describes a running auction rather
-than a choice a seller makes; the auction flow sets and clears it.
+`IN_AUCTION` is absent from the transition table, because it describes a
+running auction rather than a choice a seller makes; the auction flow sets and
+clears it.
 
-## 5. Fixed-price purchase
+## 5. Fixed-price sale
 
-```mermaid
-sequenceDiagram
-    participant B as Buyer
-    participant API as Orders module
-    participant DB as PostgreSQL
-    participant S as Seller
-
-    B->>API: POST /orders
-    API->>DB: BEGIN
-    API->>DB: check no live order exists for this vehicle
-    API->>API: platform fee from the sale price
-    API->>DB: create order — AWAITING_PAYMENT
-    API->>DB: create payment — PENDING
-    API->>DB: vehicle to SOLD
-    Note over API,DB: Reserving the vehicle inside the same transaction<br/>is what stops a second buyer ordering it
-    DB-->>API: COMMIT
-    API-->>B: order reference
-
-    B-->>S: pays by whatever means the order names
-    S->>API: POST /orders/:id/payment
-    Note over S,API: The seller records that funds arrived, not the buyer.<br/>Needs payment:manage AND being the seller on this order
-    API->>DB: payment PAID, order AWAITING_DELIVERY
-
-    S->>API: POST /orders/:id/complete
-    API->>DB: order COMPLETED
-```
-
-### Order states
-
-```mermaid
-stateDiagram-v2
-    [*] --> AWAITING_PAYMENT: "order created"
-    AWAITING_PAYMENT --> PAID: "payment recorded"
-    PAID --> AWAITING_DELIVERY: "settlement"
-    AWAITING_DELIVERY --> COMPLETED: "delivery confirmed"
-    AWAITING_PAYMENT --> CANCELLED: "cancelled"
-    PAID --> DISPUTED: "buyer disputes"
-    DISPUTED --> COMPLETED: "resolved"
-    CANCELLED --> [*]
-    COMPLETED --> [*]
-```
-
-Cancelling releases the vehicle: the order goes `CANCELLED`, the payment goes
-`CANCELLED`, and the vehicle returns to `ACTIVE` with `soldAt` cleared.
-
-### The fee
-
-Charged on the sale price, added to the buyer's total:
-
-| Sale price | Fee                  |
-| ---------- | -------------------- |
-| $1,000     | $150 — the floor     |
-| $20,000    | $1,000               |
-| $1,000,000 | $2,500 — the ceiling |
-
-The floor keeps small lots worth processing; the ceiling stops a percentage
-becoming absurd on an expensive vehicle.
+There is no `POST /orders` and no checkout. A fixed-price listing is a
+starting point for a conversation: a buyer messages the seller through
+`POST /conversations`, the two arrange price, payment and pickup themselves,
+and the seller marks the vehicle `SOLD` through `PATCH /vehicles/:id/status`
+once it is. Vintrax records none of that beyond the listing's own status and
+`soldAt` timestamp — no order, no payment, no platform fee.
 
 ## 6. Auction lifecycle
 
@@ -524,12 +455,11 @@ stateDiagram-v2
     DRAFT --> SCHEDULED: "start time set"
     SCHEDULED --> LIVE: "worker opens it"
     LIVE --> LIVE: "bid inside the anti-snipe window extends it"
-    LIVE --> ENDED: "worker closes it"
-    ENDED --> SETTLED: "winner's order completes"
+    LIVE --> ENDED: "worker closes it — vehicle SOLD if there was a winner"
     DRAFT --> CANCELLED: "seller cancels"
     SCHEDULED --> CANCELLED: "seller cancels"
     LIVE --> CANCELLED: "admin cancels"
-    SETTLED --> [*]
+    ENDED --> [*]
     CANCELLED --> [*]
 ```
 
@@ -607,7 +537,6 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant WS as Auction room
     participant N as Notifications
-    participant B as Winner
 
     W->>DB: find auctions past endsAt
     W->>DB: BEGIN
@@ -615,6 +544,7 @@ sequenceDiagram
     alt Top bid clears the reserve
         W->>DB: that bid WON, all others LOST
         W->>DB: auction ENDED with a winner
+        W->>DB: vehicle to SOLD, soldAt set
     else Reserve not met or no bids
         W->>DB: all bids LOST
         W->>DB: auction ENDED with no winner
@@ -623,13 +553,15 @@ sequenceDiagram
     DB-->>W: COMMIT
     W-->>WS: broadcast the close
     W->>N: notify the winner and the seller
-
-    B->>DB: POST /orders for the won vehicle
-    Note over B,DB: Only the winning bidder is accepted,<br/>and the price is the closing bid
 ```
 
-Closing is idempotent. An auction already `ENDED` or `SETTLED` is left alone,
-so a worker that runs twice cannot pick a second winner.
+The closing bid is the sale — there is no further step for the winner to
+complete. `Auction.winnerId` and `winningBidId` are the permanent record of who
+won and at what price; the winner and seller arrange payment and pickup
+between themselves from there, the notification says as much.
+
+Closing is idempotent. An auction already `ENDED` is left alone, so a worker
+that runs twice cannot pick a second winner.
 
 The reserve is never exposed. The API returns `reserveMet` and `hasReserve`;
 the amount itself never leaves the server.
@@ -720,9 +652,8 @@ sequenceDiagram
 ## 13. Audit
 
 Every security- and money-relevant action is appended, never updated:
-moderation decisions, dealer verification, account status changes, order
-transitions, payment records. `audit:read` gates the query, so an admin can
-read the trail and a dealer cannot.
+moderation decisions, dealer verification, account status changes. `audit:read`
+gates the query, so an admin can read the trail and a dealer cannot.
 
 ---
 
@@ -735,23 +666,15 @@ read the trail and a dealer cannot.
 | Vehicle    | `DRAFT` · `PENDING_REVIEW` · `ACTIVE` · `IN_AUCTION` · `SOLD` · `ARCHIVED`                               |
 | Auction    | `DRAFT` · `SCHEDULED` · `LIVE` · `ENDED` · `SETTLED` · `CANCELLED`                                       |
 | Bid        | `ACTIVE` · `OUTBID` · `WINNING` · `WON` · `LOST` · `RETRACTED`                                           |
-| Order      | `INITIATED` · `AWAITING_PAYMENT` · `PAID` · `AWAITING_DELIVERY` · `COMPLETED` · `CANCELLED` · `DISPUTED` |
-| Payment    | `PENDING` · `AUTHORIZED` · `PAID` · `PARTIALLY_REFUNDED` · `REFUNDED` · `FAILED` · `CANCELLED`           |
 | Inspection | `SCHEDULED` · `IN_PROGRESS` · `COMPLETED` · `CANCELLED`                                                  |
 
 # What these flows do not cover
 
-- **Payments are recorded, not processed.** `POST /orders/:id/payment` stores a
-  provider reference that something else must produce. There is no gateway, no
-  authorisation hold and no settlement to a seller's bank account. The
-  authorization around it says who may make that assertion; nothing verifies
-  that the assertion is true, which is why a signed provider webhook has to
-  replace this endpoint before it carries real money.
-- **Disputes have a status but no workflow.** `DISPUTED` exists on the order;
-  what happens next is a manual conversation.
-- **Refunds are a permission without a flow.** `payment:manage` covers recording
-  payment today; the refund and correction endpoints it is also meant to gate
-  have not been built.
+- **There is no online checkout, by design.** A fixed-price sale or a won
+  auction is arranged directly between buyer and seller; Vintrax has no order,
+  payment, or platform-fee model to build a gateway on top of. Building one
+  would mean designing that model first, not adding a provider to an existing
+  one.
 - **Proxy bidding is stored, not automated.** A bid can carry a ceiling, but
   nothing bids on the buyer's behalf as the price rises.
 
