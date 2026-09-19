@@ -77,7 +77,7 @@ const en = {
 
     waysToBuy: 'Ways to buy',
     liveAuctions: 'Live auctions',
-    buyNow: 'Buy at a fixed price',
+    fixedPriceListings: 'Fixed price',
     inspected: 'Inspected vehicles',
     underThirty: 'Under $30,000',
     electric: 'Electric',
@@ -332,7 +332,7 @@ const fr: Dictionary = {
 
     waysToBuy: "Façons d'acheter",
     liveAuctions: 'Enchères en direct',
-    buyNow: 'Acheter à prix fixe',
+    fixedPriceListings: 'Prix fixe',
     inspected: 'Véhicules inspectés',
     underThirty: 'Moins de 30 000 $',
     electric: 'Électriques',

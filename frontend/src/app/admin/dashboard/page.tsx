@@ -15,7 +15,7 @@ import {
 } from 'recharts';
 import type { AdminAnalytics, AuditLogEntry, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
-import { formatPrice, formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils';
 import {
   Card,
   CardContent,
@@ -60,10 +60,11 @@ function AdminDashboard() {
 
       <ErrorAlert error={error} className="mb-5" />
 
-      {/* Every tile goes somewhere. A number an administrator is meant to act
-          on is a dead end without a destination, and the two that had none —
-          pending dealers and listings awaiting review — were exactly the two
-          that needed acting on. */}
+      {/* Every tile but one goes somewhere. A number an administrator is meant
+          to act on is a dead end without a destination, and the two that had
+          none — pending dealers and listings awaiting review — were exactly
+          the two that needed acting on. "Sold this month" has no matching
+          page to link to; it is read only. */}
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatTile
           label="Total users"
@@ -101,11 +102,10 @@ function AdminDashboard() {
           href="/admin/moderation"
         />
         <StatTile
-          label="Platform revenue"
-          value={formatPrice(data?.platformRevenueCad ?? 0)}
-          hint={`GMV ${formatPrice(data?.grossMerchandiseValueCad ?? 0)}`}
+          label="Sold this month"
+          value={data?.vehiclesSoldThisMonth ?? 0}
+          hint="Vehicles marked sold"
           icon={DollarSign}
-          href="/admin/revenue"
         />
       </div>
 

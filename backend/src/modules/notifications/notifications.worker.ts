@@ -98,7 +98,7 @@ export class NotificationsWorker implements OnModuleInit {
         userId: data.winnerId,
         type: 'AUCTION_WON',
         title: `You won ${auction.title}`,
-        body: `Your bid of $${data.amountCad.toLocaleString('en-CA')} was successful. Complete your purchase to finish the sale.`,
+        body: `Your bid of $${data.amountCad.toLocaleString('en-CA')} was successful. Contact the seller to arrange payment and pickup.`,
         link: `/auctions/${auction.id}`,
         email: true,
       });

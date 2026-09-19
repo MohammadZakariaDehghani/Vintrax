@@ -29,7 +29,7 @@ import { useT } from '@/i18n/provider';
  */
 const TABS = [
   { key: 'all', label: 'All vehicles', params: {} as Record<string, string> },
-  { key: 'buy', label: 'Buy now', params: { saleChannel: 'FIXED_PRICE' } },
+  { key: 'buy', label: 'Fixed price', params: { saleChannel: 'FIXED_PRICE' } },
   { key: 'auctions', label: 'Auctions', params: { saleChannel: 'AUCTION' } },
   { key: 'inspected', label: 'Inspected', params: { inspectedOnly: 'true' } },
 ] as const;

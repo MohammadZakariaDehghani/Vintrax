@@ -68,7 +68,7 @@ function buildColumns(t: Dictionary, key: MenuKey): MenuColumn[] {
         heading: t.menu.waysToBuy,
         links: [
           { href: '/auctions', label: t.menu.liveAuctions },
-          { href: '/vehicles?saleChannel=FIXED_PRICE', label: t.menu.buyNow },
+          { href: '/vehicles?saleChannel=FIXED_PRICE', label: t.menu.fixedPriceListings },
           { href: '/vehicles?inspectedOnly=true', label: t.menu.inspected },
           { href: '/vehicles?maxPrice=30000', label: t.menu.underThirty },
           { href: '/vehicles?fuelType=ELECTRIC', label: t.menu.electric },

@@ -25,7 +25,6 @@ administrators.
 ### Buyer
 
 `/dashboard` · `/dashboard/favorites` · `/dashboard/my-bids` ·
-`/dashboard/purchases` · `/dashboard/purchases/[id]` (one order) ·
 `/dashboard/messages` · `/dashboard/messages/[id]` (a thread) ·
 `/dashboard/notifications`
 
@@ -69,13 +68,12 @@ points at a route that does not exist. Six did, once.
 | `/admin/moderation` | The review queue — approve and publish, or send back with a reason |
 | `/admin/dealers`    | Dealer verification — grant or withdraw the verified badge         |
 | `/admin/users`      | Search accounts, create them, change role, set password, suspend   |
-| `/admin/revenue`    | GMV, platform revenue, effective take rate, sales over time        |
 
 Every tile on the overview links to one of these, or to the marketplace and
 auction pages the number describes. A count an administrator is meant to act on
 is a dead end without a destination, and the two that had none — pending
 dealers and listings awaiting review — were exactly the two that needed acting
-on. `AdminNav` sits on all five screens so moving between them does not route
+on. `AdminNav` sits on all four screens so moving between them does not route
 through the overview.
 
 Approving is the only way a listing reaches `ACTIVE`; a seller cannot publish

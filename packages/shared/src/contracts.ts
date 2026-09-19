@@ -14,13 +14,10 @@ import type {
   ListingStatus,
   NotificationChannel,
   NotificationType,
-  PaymentMethod,
-  PaymentStatus,
   Permission,
   Province,
   SaleChannel,
   SectionRating,
-  TransactionStatus,
   Transmission,
   UserRole,
   UserStatus,
@@ -242,8 +239,8 @@ export interface VehicleDetail extends VehicleSummary {
   images: VehicleImage[];
   /**
    * Paperwork — registration, title, CarFax, bill of sale. Empty unless the
-   * viewer is the seller, an administrator, or the buyer on a live order:
-   * these documents carry the owner's name, address and VIN history.
+   * viewer is the seller or an administrator: these documents carry the
+   * owner's name, address and VIN history.
    */
   documents: VehicleDocument[];
   /** How many documents exist, regardless of whether the viewer may open them. */
@@ -360,34 +357,6 @@ export interface InspectionDetail extends InspectionSummary {
   images: VehicleImage[];
   scheduledFor: string | null;
   createdAt: string;
-}
-
-// --- Commerce ----------------------------------------------------------------
-
-export interface PaymentSummary {
-  id: string;
-  amountCad: number;
-  platformFeeCad: number;
-  method: PaymentMethod;
-  status: PaymentStatus;
-  providerReference: string | null;
-  paidAt: string | null;
-  createdAt: string;
-}
-
-export interface TransactionSummary {
-  id: string;
-  reference: string;
-  status: TransactionStatus;
-  salePriceCad: number;
-  platformFeeCad: number;
-  totalCad: number;
-  vehicle: VehicleSummary | null;
-  buyerName: string;
-  sellerName: string;
-  payment: PaymentSummary | null;
-  createdAt: string;
-  completedAt: string | null;
 }
 
 // --- Messaging and notifications ---------------------------------------------
@@ -554,11 +523,9 @@ export interface AdminAnalytics {
   activeListings: number;
   listingsPendingReview: number;
   liveAuctions: number;
-  grossMerchandiseValueCad: number;
-  platformRevenueCad: number;
+  vehiclesSoldThisMonth: number;
   usersSeries: TimeSeriesPoint[];
   listingsSeries: TimeSeriesPoint[];
-  salesSeries: TimeSeriesPoint[];
 }
 
 // --- Audit -------------------------------------------------------------------

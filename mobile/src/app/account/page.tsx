@@ -4,16 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  ChevronRight,
-  Gavel,
-  LogOut,
-  MailCheck,
-  MessageSquare,
-  Moon,
-  Package,
-  Receipt,
-} from 'lucide-react';
+import { ChevronRight, Gavel, LogOut, MailCheck, MessageSquare, Moon, Package } from 'lucide-react';
 import { vintrax } from '@/lib/vintrax';
 import { useAuthStore, useIsSeller, useUser } from '@/store/session';
 import { formatEnum } from '@/lib/format';
@@ -96,7 +87,6 @@ function Account() {
         <Card>
           <ul className="divide-y divide-border">
             <Row href="/account/bids" icon={Gavel} label="My bids" />
-            <Row href="/account/orders" icon={Receipt} label="Purchases" />
             <Row href="/messages" icon={MessageSquare} label="Messages" />
             {isSeller ? <Row href="/dealer/inventory" icon={Package} label="My inventory" /> : null}
           </ul>

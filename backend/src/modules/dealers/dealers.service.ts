@@ -52,8 +52,8 @@ export class DealersService {
       this.prisma.vehicle.count({
         where: { sellerId: dealer.ownerId, status: { in: ['ACTIVE', 'IN_AUCTION'] } },
       }),
-      this.prisma.transactionRecord.count({
-        where: { sellerId: dealer.ownerId, status: 'COMPLETED' },
+      this.prisma.vehicle.count({
+        where: { sellerId: dealer.ownerId, status: 'SOLD' },
       }),
     ]);
 
@@ -221,12 +221,12 @@ export class DealersService {
         where: { sellerId: user.id, status: { in: ['ACTIVE', 'IN_AUCTION'] } },
       }),
       this.prisma.vehicle.count({ where: { sellerId: user.id, status: 'DRAFT' } }),
-      this.prisma.transactionRecord.count({
-        where: { sellerId: user.id, status: 'COMPLETED', completedAt: { gte: monthStart } },
+      this.prisma.vehicle.count({
+        where: { sellerId: user.id, status: 'SOLD', soldAt: { gte: monthStart } },
       }),
-      this.prisma.transactionRecord.aggregate({
-        where: { sellerId: user.id, status: 'COMPLETED', completedAt: { gte: monthStart } },
-        _sum: { salePriceCad: true },
+      this.prisma.vehicle.aggregate({
+        where: { sellerId: user.id, status: 'SOLD', soldAt: { gte: monthStart } },
+        _sum: { priceCad: true },
       }),
       this.prisma.vehicle.aggregate({
         where: { sellerId: user.id },
@@ -264,7 +264,7 @@ export class DealersService {
       activeListings,
       draftListings,
       soldThisMonth,
-      grossSalesCadThisMonth: salesAggregate._sum.salePriceCad ?? 0,
+      grossSalesCadThisMonth: salesAggregate._sum.priceCad ?? 0,
       totalViews: viewsAggregate._sum.viewCount ?? 0,
       totalEnquiries: enquiryCount,
       averageDaysToSell,
@@ -302,11 +302,11 @@ export class DealersService {
 
   private async salesSeries(sellerId: string) {
     const rows = await this.prisma.$queryRaw<Array<{ day: Date; value: bigint }>>`
-      SELECT date_trunc('day', "completedAt") AS day, SUM("salePriceCad")::bigint AS value
-      FROM "TransactionRecord"
+      SELECT date_trunc('day', "soldAt") AS day, SUM("priceCad")::bigint AS value
+      FROM "Vehicle"
       WHERE "sellerId" = ${sellerId}::uuid
-        AND "status" = 'COMPLETED'
-        AND "completedAt" >= NOW() - INTERVAL '30 days'
+        AND "status" = 'SOLD'
+        AND "soldAt" >= NOW() - INTERVAL '30 days'
       GROUP BY day
       ORDER BY day ASC
     `;

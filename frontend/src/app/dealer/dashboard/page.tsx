@@ -79,7 +79,6 @@ function DealerDashboard() {
           value={data?.soldThisMonth ?? 0}
           hint="Your sales"
           icon={DollarSign}
-          href="/dashboard/purchases"
         />
         <StatTile
           label="Gross sales"

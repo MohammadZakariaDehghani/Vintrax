@@ -45,8 +45,6 @@ export const PERMISSIONS = [
   'dealer:verify',
   'user:read',
   'user:manage',
-  'payment:read',
-  'payment:manage',
   'report:read',
   // How the storefront presents itself — the body-type photographs, and
   // whatever joins them. Deliberately separate from `settings:manage`, which
@@ -71,9 +69,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'auction:create',
     'bid:place',
     'inspection:read',
-    // Recording that funds arrived is the seller's side of a sale. Ownership of
-    // the specific order is still checked in the service.
-    'payment:manage',
   ],
   DEALER: [
     'vehicle:read',
@@ -85,8 +80,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'bid:place',
     'inspection:read',
     'dealer:read',
-    'payment:read',
-    'payment:manage',
     'report:read',
   ],
   INSPECTOR: ['vehicle:read', 'inspection:read', 'inspection:write'],
@@ -105,8 +98,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'dealer:verify',
     'user:read',
     'user:manage',
-    'payment:read',
-    'payment:manage',
     'report:read',
     'audit:read',
     'content:manage',
@@ -250,9 +241,8 @@ export const SELLER_STATUS_TRANSITIONS: Record<
   // bidders are committed to it. Cancel the auction first.
   IN_AUCTION: [],
   // Reopening a sold listing is allowed, because "sold" is sometimes a
-  // mistake or a deal that fell through. The service refuses when a real
-  // order exists for the vehicle, so a car someone has paid for cannot be
-  // put back on the market.
+  // mistake or a deal that fell through — there is no order to cancel first,
+  // since a sale here is arranged directly between buyer and seller.
   SOLD: ['DRAFT'],
 };
 
@@ -400,44 +390,6 @@ export function minimumBidIncrement(currentPrice: number): number {
 export const ANTI_SNIPE_WINDOW_SECONDS = 120;
 export const ANTI_SNIPE_EXTENSION_SECONDS = 120;
 
-// --- Commerce ----------------------------------------------------------------
-
-export const PAYMENT_STATUSES = [
-  'PENDING',
-  'AUTHORIZED',
-  'PAID',
-  'PARTIALLY_REFUNDED',
-  'REFUNDED',
-  'FAILED',
-  'CANCELLED',
-] as const;
-export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
-
-export const PAYMENT_METHODS = ['CARD', 'BANK_TRANSFER', 'FINANCING', 'CASH_ON_PICKUP'] as const;
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
-
-export const TRANSACTION_STATUSES = [
-  'INITIATED',
-  'AWAITING_PAYMENT',
-  'PAID',
-  'AWAITING_DELIVERY',
-  'COMPLETED',
-  'CANCELLED',
-  'DISPUTED',
-] as const;
-export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
-
-/** Platform commission on a completed sale, as a fraction of the hammer price. */
-export const PLATFORM_FEE_RATE = 0.05;
-/** Commission floor and ceiling in whole dollars, so small lots stay viable. */
-export const PLATFORM_FEE_MIN = 150;
-export const PLATFORM_FEE_MAX = 2_500;
-
-export function calculatePlatformFee(saleAmount: number): number {
-  const raw = Math.round(saleAmount * PLATFORM_FEE_RATE);
-  return Math.min(PLATFORM_FEE_MAX, Math.max(PLATFORM_FEE_MIN, raw));
-}
-
 // --- Notifications and messaging ---------------------------------------------
 
 export const NOTIFICATION_TYPES = [
@@ -451,8 +403,6 @@ export const NOTIFICATION_TYPES = [
   'LISTING_REJECTED',
   'INSPECTION_COMPLETED',
   'MESSAGE_RECEIVED',
-  'PAYMENT_RECEIVED',
-  'PAYMENT_DUE',
   'DEALER_VERIFIED',
   'SYSTEM',
 ] as const;

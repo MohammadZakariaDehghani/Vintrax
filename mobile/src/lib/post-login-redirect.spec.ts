@@ -40,7 +40,7 @@ describe('postLoginRedirect', () => {
   });
 
   it('honours an ordinary destination for any signed-in account', () => {
-    expect(postLoginRedirect('/account/orders', user())).toBe('/account/orders');
+    expect(postLoginRedirect('/account/bids', user())).toBe('/account/bids');
     expect(postLoginRedirect('/saved', user())).toBe('/saved');
   });
 

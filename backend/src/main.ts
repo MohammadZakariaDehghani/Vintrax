@@ -92,7 +92,6 @@ async function bootstrap(): Promise<void> {
       .addTag('vehicles', 'Inventory and search')
       .addTag('auctions', 'Auctions and bidding')
       .addTag('inspections', 'Vehicle condition reports')
-      .addTag('orders', 'Purchases, payments and settlement')
       .addTag('dealers', 'Dealership profiles and analytics')
       .addTag('admin', 'Platform administration')
       .build();

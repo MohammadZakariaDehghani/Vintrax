@@ -101,22 +101,4 @@ export class MailService {
         `The current bid is $${currentBidCad.toLocaleString('en-CA')}.\n\n${link}`,
     });
   }
-
-  async sendAuctionWon(
-    to: string,
-    firstName: string,
-    vehicleTitle: string,
-    auctionId: string,
-    amountCad: number,
-  ): Promise<void> {
-    const link = `${this.appUrl}/auctions/${auctionId}`;
-    await this.send({
-      to,
-      subject: `You won the auction for ${vehicleTitle}`,
-      text:
-        `Hi ${firstName},\n\n` +
-        `Your bid of $${amountCad.toLocaleString('en-CA')} won ${vehicleTitle}.\n\n` +
-        `Complete your purchase here:\n\n${link}`,
-    });
-  }
 }
