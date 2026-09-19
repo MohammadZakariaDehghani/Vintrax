@@ -7,6 +7,8 @@ import { serverFetch } from '@/lib/api-client';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { CookieConsentBanner } from '@/components/cookie-consent-banner';
+import { CompareBar } from '@/components/compare-bar';
+import { CompareToast } from '@/components/compare-toast';
 import './globals.css';
 
 /**
@@ -82,7 +84,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </main>
             <SiteFooter sections={footer} />
           </div>
-          <CookieConsentBanner />
+          {/* One fixed-to-the-viewport stack rather than two independently
+              `fixed` elements: a visitor who has already started comparing
+              vehicles before answering the cookie prompt would otherwise see
+              them overlap at the same edge of the screen. */}
+          <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col">
+            <CompareBar />
+            <CookieConsentBanner />
+          </div>
+          <CompareToast />
         </Providers>
       </body>
     </html>

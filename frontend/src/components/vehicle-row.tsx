@@ -18,6 +18,7 @@ import { useUser } from '@/store/auth-store';
 import { Badge, Skeleton } from '@/components/ui';
 import { CarfaxBadge } from '@/components/carfax-badge';
 import { AuctionCountdown } from '@/components/auction-countdown';
+import { CompareButton } from '@/components/compare-button';
 
 /**
  * A search result, laid out as a row rather than a card.
@@ -85,6 +86,7 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
               Inspected
             </Badge>
           ) : null}
+          <CompareButton compact vehicleId={vehicle.id} />
         </div>
 
         {vehicle.imageCount > 1 ? (
