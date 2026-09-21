@@ -102,6 +102,9 @@ export const vehicleDetailSelect = {
   features: true,
   viewCount: true,
   favouriteCount: true,
+  showVehicleHistory: true,
+  carfaxFetchedAt: true,
+  carfaxFetchError: true,
   updatedAt: true,
   images: {
     select: { id: true, url: true, alt: true, position: true },
@@ -219,15 +222,21 @@ export function toVehicleSummary(
 /**
  * Builds the detail response.
  *
- * `includeDocuments` defaults to false so a caller has to say, explicitly, that
- * this viewer is allowed to see the paperwork. The documents themselves are
- * addressed by an authorized API route rather than by their location in
+ * `includeDocuments` and `includeCarfaxStatus` both default to false so a
+ * caller has to say, explicitly, that this viewer is allowed to see them —
+ * the seller and an admin, in practice always both flags together, since it
+ * is the same "owns this listing" check either way. The documents themselves
+ * are addressed by an authorized API route rather than by their location in
  * storage, so the response never discloses where the file actually lives.
+ * `includeCarfaxStatus` gates `carfaxFetchedAt`/`carfaxFetchError` — internal
+ * extraction diagnostics with no reason to reach a buyer — the same way, per
+ * D-036's own rule that an unpublished CARFAX finding is withheld by the API
+ * itself rather than merely left undrawn by the page.
  */
 export function toVehicleDetail(
   row: VehicleDetailRow,
   favouritedIds: ReadonlySet<string>,
-  options: { includeDocuments?: boolean } = {},
+  options: { includeDocuments?: boolean; includeCarfaxStatus?: boolean } = {},
 ): VehicleDetail {
   const inspection = row.inspections[0];
 
@@ -266,12 +275,16 @@ export function toVehicleDetail(
         }))
       : [],
     documentCount: row.documents.length,
-    // CARFAX no longer feeds this list at all — Vintrax never fetches a
-    // report, so every row here is the seller's own transcription. The
-    // filter stays as a defensive no-op in case an old CARFAX-sourced row
-    // still sits in the database from before this feature was removed.
+    // Unfiltered for the owner and an admin, who see every CARFAX-sourced row
+    // regardless of `showVehicleHistory` — the edit page needs it to preview
+    // what was extracted before deciding whether to publish it. Anyone else
+    // sees a `CARFAX` row only once that toggle is on; a `SELLER` row is
+    // always shown, to everyone, exactly as before this feature existed.
     historyEvents: row.historyEvents
-      .filter((event) => event.source !== 'CARFAX')
+      .filter(
+        (event) =>
+          event.source !== 'CARFAX' || options.includeCarfaxStatus || row.showVehicleHistory,
+      )
       .map((event) => ({
         id: event.id,
         kind: event.kind,
@@ -280,6 +293,11 @@ export function toVehicleDetail(
         label: event.label,
         detail: event.detail,
       })),
+    showVehicleHistory: row.showVehicleHistory,
+    carfaxFetchedAt: options.includeCarfaxStatus
+      ? (row.carfaxFetchedAt?.toISOString() ?? null)
+      : null,
+    carfaxFetchError: options.includeCarfaxStatus ? row.carfaxFetchError : null,
     seller: {
       id: row.seller.id,
       displayName: `${row.seller.firstName} ${row.seller.lastName}`.trim(),

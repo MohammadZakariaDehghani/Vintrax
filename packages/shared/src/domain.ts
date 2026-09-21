@@ -672,13 +672,13 @@ export function isCarfaxUrl(value: string): boolean {
 }
 
 /**
- * The claims a seller can make from their CARFAX report, beyond linking it.
+ * The claims a report at `carfaxUrl` can support, beyond the link itself.
  *
  * Two, matching the two badges CARFAX Canada prints on a report: One Owner and
- * Low Kilometres. They are stored per vehicle rather than derived, because
- * there is nothing here to derive them from — Vintrax retrieves nothing from
- * CARFAX, and inferring "one owner" from however many SOLD lines a seller
- * happened to type would be the application inventing a fact about a car.
+ * Low Kilometres. Stored per vehicle, written by Vintrax's own extraction from
+ * the report rather than left for a caller to assert — a seller cannot set
+ * these directly, so the badge can never claim more than the report itself
+ * said.
  */
 /** Where a timeline entry came from. */
 export const VEHICLE_HISTORY_SOURCES = ['SELLER', 'CARFAX'] as const;

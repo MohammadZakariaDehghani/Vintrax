@@ -11,20 +11,25 @@ import { CarfaxBadge } from '@/components/carfax-badge';
 /**
  * A vehicle's accident and damage record, as a timeline.
  *
- * Entries are the seller's own account, typed through the history editor —
- * Vintrax has no CARFAX integration and fetches nothing, so there is only one
- * source here. No explanatory prose beyond the heading: the seller's own
- * editor already says what these are; repeating it here is noise between the
- * buyer and the dates.
+ * Two sources, not shown alike. `SELLER` entries, typed through the history
+ * editor, are the seller's own account and always shown — nothing gates
+ * them. `CARFAX` entries are Vintrax's own extraction from the report at
+ * `carfaxUrl`, and are shown only when `showVehicleHistory` is on: a dealer
+ * can hold a report they are not ready to publish a timeline from, and this
+ * is where that choice is applied. `historyEvents` on the API response
+ * itself is unfiltered — the edit page needs the CARFAX rows even while this
+ * toggle is off — so the filter has to happen here, not before it.
  */
 export function VehicleHistory({
   events,
   vehicle,
 }: {
   events: VehicleHistoryEvent[];
-  vehicle: CarfaxBadgeSource;
+  vehicle: CarfaxBadgeSource & { showVehicleHistory: boolean };
 }) {
-  const timeline = events;
+  const timeline = vehicle.showVehicleHistory
+    ? events
+    : events.filter((event) => event.source !== 'CARFAX');
 
   // Nothing to show and nothing to link to: an empty card with a heading is
   // worse than no card. A seller who has typed their own entries gets the
@@ -93,10 +98,9 @@ export function VehicleHistory({
 /**
  * Colour comes from the kind, never from the words beside it.
  *
- * These entries are the server's reading of the report rather than anything a
- * seller typed, so this is less load-bearing than it was — but a parser that
- * one day reads a label it did not expect still must not be able to make a
- * collision look like routine service.
+ * Some of these entries are Vintrax's own extraction rather than anything a
+ * seller typed, so a parser that reads a label it did not expect still must
+ * not be able to make a collision look like routine service.
  */
 function dotFor(kind: VehicleHistoryEventKind): string {
   return kind === 'NO_ACCIDENTS' ? 'bg-success' : 'bg-destructive';

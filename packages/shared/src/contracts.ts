@@ -139,10 +139,14 @@ export interface VehicleDocument {
 /**
  * One entry on a vehicle's history timeline.
  *
- * Seller-asserted, transcribed from the report they hold — Vintrax has no
- * CARFAX integration and retrieves nothing. The uploaded report is the
- * evidence; this is the summary a buyer reads without asking for the PDF, and
- * the interface labels it as the dealer's own account rather than as verified.
+ * Two sources. `SELLER` rows are transcribed by the seller from the report
+ * they hold — the uploaded document is the evidence, and the interface labels
+ * these as the seller's own account rather than as verified. `CARFAX` rows are
+ * written by Vintrax's own extraction from `carfaxUrl`, one per accident/
+ * damage line the report stated, or a single `NO_ACCIDENTS` row when the
+ * report positively said there were none. Whether `CARFAX` rows are shown on
+ * the public listing is controlled separately, by `showVehicleHistory` — this
+ * array itself is not filtered by it.
  */
 export interface VehicleHistoryEvent {
   id: string;
@@ -151,11 +155,6 @@ export interface VehicleHistoryEvent {
   occurredOn: string | null;
   label: string;
   detail: string | null;
-  /**
-   * Whether this line was typed by the seller or read off an old CARFAX
-   * fetch from before that feature was removed. New entries are always
-   * `SELLER` — nothing writes `CARFAX` rows anymore.
-   */
   source: VehicleHistorySource;
 }
 
@@ -193,15 +192,13 @@ export interface VehicleSummary {
    */
   carfaxUrl: string | null;
   /**
-   * What the seller's report says beyond the link itself, drawn as the joined
-   * badge segments beside the CARFAX mark.
+   * What Vintrax's own extraction read off the report at `carfaxUrl`, drawn as
+   * the joined badge segments beside the CARFAX mark.
    *
-   * Tri-state on purpose. `null` is "the seller did not answer", which is not
-   * the same as `false`, "the report says otherwise" — every listing that
-   * predates these fields is the former, and showing them as the latter would
-   * have Vintrax assert something about cars nobody looked at. Neither draws a
-   * segment; the difference matters in the seller's own form, where `null`
-   * leaves the question open and `false` records an answer.
+   * Tri-state on purpose. `null` is "not stated" — no link, an extraction that
+   * has not completed yet, or a report that did not say — which is not the
+   * same as `false`, "the report says otherwise". Showing the former as the
+   * latter would have Vintrax assert something nobody read off any report.
    */
   carfaxOneOwner: boolean | null;
   carfaxLowKilometres: boolean | null;
@@ -247,9 +244,25 @@ export interface VehicleDetail extends VehicleSummary {
   documentCount: number;
   /**
    * The vehicle's history timeline, oldest first. Public: unlike the documents
-   * it summarises, it names no owner and carries no address.
+   * it summarises, it names no owner and carries no address. Not filtered by
+   * `showVehicleHistory` here — the edit page shows a dealer every row Vintrax
+   * extracted regardless of whether it is published; the public page applies
+   * the toggle itself.
    */
   historyEvents: VehicleHistoryEvent[];
+  /**
+   * Whether the accident timeline above is shown on the public listing.
+   * Independent of the CARFAX badge and of the link itself.
+   */
+  showVehicleHistory: boolean;
+  /** When the CARFAX extraction job last finished attempting `carfaxUrl`. */
+  carfaxFetchedAt: string | null;
+  /**
+   * The dealer-facing reason the last extraction attempt failed, or null when
+   * it last succeeded or none has run. A failed extraction never blocks
+   * saving the vehicle — this is how the seller finds out afterwards.
+   */
+  carfaxFetchError: string | null;
   seller: VehicleSeller;
   inspection: InspectionSummary | null;
   updatedAt: string;

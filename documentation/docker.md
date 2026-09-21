@@ -28,11 +28,23 @@ older source and hoping it still compiles.
 
 ## 1. Images
 
-| Image            | From                                        | Runtime                           |
-| ---------------- | ------------------------------------------- | --------------------------------- |
-| `vintrax-api`    | `infrastructure/docker/backend.Dockerfile`  | Node 22 Alpine, non-root, `:3001` |
-| `vintrax-web`    | `infrastructure/docker/frontend.Dockerfile` | Node 22 Alpine, non-root, `:3000` |
-| `vintrax-mobile` | `infrastructure/docker/mobile.Dockerfile`   | Node 22 Alpine, non-root, `:3002` |
+| Image            | From                                        | Runtime                                 |
+| ---------------- | ------------------------------------------- | ---------------------------------------- |
+| `vintrax-api`    | `infrastructure/docker/backend.Dockerfile`  | Node 22 Debian slim, non-root, `:3001`  |
+| `vintrax-web`    | `infrastructure/docker/frontend.Dockerfile` | Node 22 Alpine, non-root, `:3000`       |
+| `vintrax-mobile` | `infrastructure/docker/mobile.Dockerfile`   | Node 22 Alpine, non-root, `:3002`       |
+
+**The API image is Debian, not Alpine, unlike the other two.** It runs a real
+headless Chromium (via Playwright) to read a dealer's CARFAX report, and
+Chromium is not built for musl libc — Alpine is not a supported target at all,
+only a coincidence of what Node happens to also run on. The runtime stage
+installs the browser and its OS libraries with `playwright install --with-deps
+chromium`, as root, before the switch to the unprivileged user; the apt lists
+are removed in the same layer. This is a materially larger image than the
+other two, and has not been built or run in this repository's own sandboxed
+environment — there is no Docker daemon available there to build against, so
+this change is unverified beyond review. Build and run it once before relying
+on it in production.
 
 All three build from the **repository root**, not from the app directory: the
 pnpm workspace only resolves as a whole, and every image copies _all_ workspace
