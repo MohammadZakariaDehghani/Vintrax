@@ -81,15 +81,27 @@ WORKDIR /app
 # compose services additionally set `init: true`, which puts Docker's own init
 # at PID 1 to reap orphans; `docker run --init` is the equivalent by hand.
 
-COPY --from=proddeps /app/node_modules ./node_modules
-COPY --from=proddeps /app/backend/node_modules ./backend/node_modules
-COPY --from=proddeps /app/packages/shared/node_modules ./packages/shared/node_modules
-COPY --from=build /app/packages/shared/dist ./packages/shared/dist
-COPY --from=build /app/packages/shared/package.json ./packages/shared/
-COPY --from=build /app/backend/dist ./backend/dist
-COPY --from=build /app/backend/package.json ./backend/
+# `--chown=node:node` here, not a separate `chown -R` afterward: node_modules
+# is the largest thing this image copies, and re-walking it a second time to
+# fix ownership costs a real amount of build time for no benefit over doing it
+# during the copy itself. This is also the fix for a real deploy failure: the
+# Prisma CLI's `migrate deploy` resolves its own engine binaries against what
+# is on disk and, finding anything it needs to fetch or repair missing, writes
+# into its own package folder under `node_modules` — copied in as root like
+# everything else here, and unwritable by the `node` user this stage runs as.
+# `prisma generate` in `proddeps` already puts the right engine in place, so
+# this should be a no-op in the common case; it stops being one exactly when a
+# mismatch would otherwise be a hard, unrecoverable failure instead of a quiet
+# self-heal.
+COPY --from=proddeps --chown=node:node /app/node_modules ./node_modules
+COPY --from=proddeps --chown=node:node /app/backend/node_modules ./backend/node_modules
+COPY --from=proddeps --chown=node:node /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=build --chown=node:node /app/packages/shared/dist ./packages/shared/dist
+COPY --from=build --chown=node:node /app/packages/shared/package.json ./packages/shared/
+COPY --from=build --chown=node:node /app/backend/dist ./backend/dist
+COPY --from=build --chown=node:node /app/backend/package.json ./backend/
 # Schema and migrations: `prisma migrate deploy` reads both at deploy time.
-COPY --from=build /app/backend/prisma ./backend/prisma
+COPY --from=build --chown=node:node /app/backend/prisma ./backend/prisma
 
 # The browser and its OS-level shared libraries, installed here rather than in
 # `proddeps`: apt packages installed in an earlier stage do not travel with a
