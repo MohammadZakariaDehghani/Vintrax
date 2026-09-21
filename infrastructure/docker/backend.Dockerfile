@@ -23,6 +23,14 @@
 # (see decision D-036 and its own follow-up entry).
 FROM node:22-bookworm-slim AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+# Prisma picks its engine's binary target by probing the OpenSSL actually
+# present on the machine `prisma generate` runs on, and the slim image does
+# not carry it. Detection failing silently falls back to an old default
+# ("debian-openssl-1.1.x") rather than an error — the mismatch only surfaces
+# later, as a runtime crash on a machine that has the real, current OpenSSL
+# bookworm ships (3.0.x) and no matching engine binary to run against it.
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # ---- Dependencies -----------------------------------------------------------
@@ -110,7 +118,13 @@ COPY --from=build --chown=node:node /app/backend/prisma ./backend/prisma
 # for the first time need it — before the switch to the unprivileged user
 # below. It also needs network access to CARFAX's page, at request time, not
 # at build time; nothing about this step reaches CARFAX.
+#
+# `openssl` is in this list for the same reason `base` installs it: the
+# engine binary `proddeps` generated needs the real OpenSSL bookworm ships to
+# load at all, not merely to have been generated against the right target —
+# Chromium's own dependency graph does not pull it in as a side effect.
 RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl \
  && cd backend && npx --no-install playwright install --with-deps chromium \
  && cd .. \
  && rm -rf /var/lib/apt/lists/*
