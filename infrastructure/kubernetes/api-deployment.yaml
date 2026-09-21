@@ -33,9 +33,21 @@ spec:
           envFrom:
             - configMapRef: { name: vintrax-config }
             - secretRef: { name: vintrax-secrets }
+          # Headless Chromium (CARFAX extraction) runs in this same process,
+          # not a separate worker deployment — every replica can hold a
+          # browser instance alongside the HTTP server. HOME is set because
+          # the root filesystem below is read-only and Chromium's cache/font
+          # paths default to under $HOME; the emptyDir at /tmp is writable.
+          # Memory is raised over what a plain API pod needs for the same
+          # reason: a Node/Nest baseline plus one live browser process is
+          # meaningfully more than the API alone. Both are estimates, not
+          # numbers taken from a running deployment — this was never run in a
+          # real cluster, and production traffic should confirm them.
+          env:
+            - { name: HOME, value: /tmp }
           resources:
-            requests: { cpu: 250m, memory: 384Mi }
-            limits: { cpu: '1', memory: 768Mi }
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: '2', memory: 1536Mi }
           # Liveness answers without touching the database, so a slow query
           # cannot trigger a restart loop. Readiness checks dependencies.
           livenessProbe:

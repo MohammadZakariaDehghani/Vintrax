@@ -1,106 +1,43 @@
-import { BadRequestException } from '@nestjs/common';
 import { VehiclesService } from './vehicles.service';
 
 /**
- * A CARFAX highlight must have a report behind it.
+ * `create`/`update` starting a CARFAX extraction.
  *
- * The One Owner and Low Kilometres badges carry CARFAX's name and borrow their
- * authority. What makes that defensible is that the badge opens the report the
- * claim came off, so a buyer who doubts it can check. A highlight with no link
- * is that authority with the evidence removed — the same objection that made
- * `carfaxUrl` a validated host rather than any URL — so the service refuses it.
- *
- * It is checked here rather than in the schema because only this layer sees the
- * merged result: `PATCH { carfaxOneOwner: true }` is legitimate when the stored
- * vehicle already has a link, and the request on its own cannot tell.
+ * The badges and timeline are written by `CarfaxExtractWorker`, never by the
+ * request itself, so what this layer owns is deciding *when* to ask the
+ * worker to run: on a genuinely new or changed link, never on a save that
+ * leaves the same report in place — that is the caching the issue asked for,
+ * and it is also what stops a dealer's unrelated edit (a price change, a new
+ * photo) re-running a fetch that has nothing to do with it.
  */
-
-type Guard = (
-  fields: { carfaxUrl?: string; carfaxOneOwner?: boolean; carfaxLowKilometres?: boolean },
-  stored: string | null,
-) => { hasReport: boolean };
 
 const REPORT = 'https://vhr.carfax.ca/report/abc';
+const OTHER_REPORT = 'https://vhr.carfax.ca/report/xyz';
+const SELLER = { id: 'seller-1', email: 'd@example.test', role: 'DEALER' } as never;
 
-/** The private guard, reached the way the service calls it. */
-const guard = (
-  VehiclesService.prototype as unknown as { requireReportBehindHighlights: Guard }
-).requireReportBehindHighlights.bind(null) as Guard;
+function serviceHarness(stored: { carfaxUrl: string | null } = { carfaxUrl: null }) {
+  const vehicleWrites: Array<Record<string, unknown>> = [];
+  const historyDeletes: Array<Record<string, unknown>> = [];
+  const enqueued: Array<{ name: string; jobName: string; payload: unknown }> = [];
 
-describe('requireReportBehindHighlights', () => {
-  it('allows a report with no highlights', () => {
-    expect(guard({ carfaxUrl: REPORT }, null)).toEqual({ hasReport: true });
-  });
-
-  it('allows highlights when this request supplies the report', () => {
-    expect(guard({ carfaxUrl: REPORT, carfaxOneOwner: true }, null)).toEqual({ hasReport: true });
-  });
-
-  it('allows a highlight on its own when the vehicle already has a report', () => {
-    // The case the schema cannot decide: an edit that ticks the box and sends
-    // nothing else.
-    expect(guard({ carfaxOneOwner: true }, REPORT)).toEqual({ hasReport: true });
-  });
-
-  it('refuses a highlight with nothing behind it', () => {
-    expect(() => guard({ carfaxOneOwner: true }, null)).toThrow(BadRequestException);
-    expect(() => guard({ carfaxLowKilometres: true }, null)).toThrow(BadRequestException);
-  });
-
-  it('names the claims it refused, so the message says what to do', () => {
-    expect(() => guard({ carfaxOneOwner: true, carfaxLowKilometres: true }, null)).toThrow(
-      /One Owner and Low Kilometres/,
-    );
-  });
-
-  it('treats clearing the link as removing the report', () => {
-    // An empty string is how the form clears it. A highlight sent in the same
-    // request is refused rather than kept against a link that is going away.
-    expect(() => guard({ carfaxUrl: '', carfaxOneOwner: true }, REPORT)).toThrow(
-      BadRequestException,
-    );
-    expect(() => guard({ carfaxUrl: '   ', carfaxOneOwner: true }, REPORT)).toThrow(
-      BadRequestException,
-    );
-  });
-
-  it('reports no report when the link is being cleared, so the flags are retired', () => {
-    // `hasReport: false` is what makes `update` write NULL over the stored
-    // highlights. Without it a claim outlives its evidence: invisible while
-    // there is no link, then back on screen the moment any later edit adds one.
-    expect(guard({ carfaxUrl: '' }, REPORT)).toEqual({ hasReport: false });
-    expect(guard({}, null)).toEqual({ hasReport: false });
-  });
-
-  it('does not refuse a highlight that is being turned off', () => {
-    // Unticking the box while clearing the link is a seller tidying up, not a
-    // claim. Refusing it would make the two impossible to do in one save.
-    expect(guard({ carfaxUrl: '', carfaxOneOwner: false }, REPORT)).toEqual({ hasReport: false });
-  });
-});
-
-/**
- * The write itself, not just the guard.
- *
- * `hasReport: false` only matters because `update` acts on it. This drives the
- * real method with a stubbed database and reads the row it would have written,
- * because the bug being prevented is invisible at the time it happens: the
- * flags stay true in a column nothing renders, and reappear months later when
- * some unrelated edit adds a link back.
- */
-function serviceCapturingUpdate(stored: { carfaxUrl: string | null }) {
-  const writes: Array<Record<string, unknown>> = [];
-
-  const service = Object.create(VehiclesService.prototype) as VehiclesService;
   const tx = {
     vehicle: {
       update: async ({ data }: { data: Record<string, unknown> }) => {
-        writes.push(data);
+        vehicleWrites.push(data);
         return {};
       },
     },
+    vehicleHistoryEvent: {
+      deleteMany: async (args: { where: Record<string, unknown> }) => {
+        historyDeletes.push(args.where);
+        return { count: 0 };
+      },
+    },
+    vehicleImage: { deleteMany: async () => ({ count: 0 }) },
+    vehicleDocument: { deleteMany: async () => ({ count: 0 }) },
   };
 
+  const service = Object.create(VehiclesService.prototype) as VehiclesService;
   Object.assign(service, {
     prisma: {
       vehicle: {
@@ -112,46 +49,124 @@ function serviceCapturingUpdate(stored: { carfaxUrl: string | null }) {
           publishedAt: null,
           carfaxUrl: stored.carfaxUrl,
         }),
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          vehicleWrites.push(data);
+          return { id: 'v1' };
+        },
       },
       $transaction: async (run: (client: typeof tx) => Promise<unknown>) => run(tx),
     },
+    queue: {
+      enqueue: async (name: string, jobName: string, payload: unknown) => {
+        enqueued.push({ name, jobName, payload });
+      },
+    },
     afterWrite: async () => undefined,
     findById: async () => ({}) as never,
+    uniqueSlug: async () => 'a-car-2020',
   });
 
-  return { service, written: () => writes[0]! };
+  return {
+    service,
+    vehicleWrites,
+    historyDeletes,
+    enqueued,
+  };
 }
 
-const SELLER = { id: 'seller-1', email: 'd@example.test', role: 'DEALER' } as never;
+describe('update, starting a CARFAX extraction', () => {
+  it('enqueues a fetch when a new link is added', async () => {
+    const { service, enqueued } = serviceHarness({ carfaxUrl: null });
+    await service.update('v1', { carfaxUrl: REPORT } as never, SELLER);
 
-describe('update, on the CARFAX highlights', () => {
-  it('leaves the highlights alone while the report is still there', async () => {
-    const { service, written } = serviceCapturingUpdate({ carfaxUrl: REPORT });
-    await service.update('v1', { carfaxOneOwner: true } as never, SELLER);
-
-    expect(written()).toEqual({ carfaxOneOwner: true });
-  });
-
-  it('retires the highlights when the report link is cleared', async () => {
-    // Written as NULL — "not stated" — rather than false, which would record a
-    // claim the seller never made.
-    const { service, written } = serviceCapturingUpdate({ carfaxUrl: REPORT });
-    await service.update('v1', { carfaxUrl: '' } as never, SELLER);
-
-    expect(written()).toEqual({
-      carfaxUrl: '',
-      carfaxOneOwner: null,
-      carfaxLowKilometres: null,
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]).toMatchObject({
+      name: 'carfax-extraction',
+      jobName: 'extract',
+      payload: { vehicleId: 'v1', url: REPORT },
     });
   });
 
-  it('does not resurrect a highlight from an edit that never mentioned one', async () => {
-    // A vehicle with no link being edited for something else entirely. The
-    // flags are cleared here too, which is what stops a stale tick surviving
-    // until a link is added back.
-    const { service, written } = serviceCapturingUpdate({ carfaxUrl: null });
+  it('enqueues a fetch when the link changes to a different report', async () => {
+    const { service, enqueued } = serviceHarness({ carfaxUrl: REPORT });
+    await service.update('v1', { carfaxUrl: OTHER_REPORT } as never, SELLER);
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]?.payload).toEqual({ vehicleId: 'v1', url: OTHER_REPORT });
+  });
+
+  it('does not enqueue when the same link is saved again', async () => {
+    const { service, enqueued } = serviceHarness({ carfaxUrl: REPORT });
+    await service.update('v1', { carfaxUrl: REPORT, city: 'Toronto' } as never, SELLER);
+
+    expect(enqueued).toHaveLength(0);
+  });
+
+  it('does not enqueue when the request does not touch the link', async () => {
+    const { service, enqueued } = serviceHarness({ carfaxUrl: REPORT });
     await service.update('v1', { city: 'Toronto' } as never, SELLER);
 
-    expect(written()).toMatchObject({ carfaxOneOwner: null, carfaxLowKilometres: null });
+    expect(enqueued).toHaveLength(0);
+  });
+
+  it('does not enqueue when the link is cleared', async () => {
+    const { service, enqueued } = serviceHarness({ carfaxUrl: REPORT });
+    await service.update('v1', { carfaxUrl: '' } as never, SELLER);
+
+    expect(enqueued).toHaveLength(0);
+  });
+});
+
+describe('update, retiring what the extraction wrote when the link is cleared', () => {
+  it('writes the badges and fetch status back to null', async () => {
+    const { service, vehicleWrites } = serviceHarness({ carfaxUrl: REPORT });
+    await service.update('v1', { carfaxUrl: '' } as never, SELLER);
+
+    expect(vehicleWrites[0]).toEqual({
+      carfaxUrl: '',
+      carfaxOneOwner: null,
+      carfaxLowKilometres: null,
+      carfaxFetchedAt: null,
+      carfaxFetchError: null,
+      showVehicleHistory: false,
+    });
+  });
+
+  it('deletes the CARFAX-sourced timeline rows, scoped to that source', async () => {
+    const { service, historyDeletes } = serviceHarness({ carfaxUrl: REPORT });
+    await service.update('v1', { carfaxUrl: '   ' } as never, SELLER);
+
+    expect(historyDeletes).toEqual([{ vehicleId: 'v1', source: 'CARFAX' }]);
+  });
+
+  it('leaves the badges alone when the link is untouched', async () => {
+    const { service, vehicleWrites, historyDeletes } = serviceHarness({ carfaxUrl: REPORT });
+    await service.update('v1', { city: 'Toronto' } as never, SELLER);
+
+    expect(vehicleWrites[0]).toEqual({ city: 'Toronto' });
+    expect(historyDeletes).toEqual([]);
+  });
+});
+
+describe('create, starting a CARFAX extraction', () => {
+  it('enqueues a fetch when the new listing carries a report link', async () => {
+    const { service, enqueued } = serviceHarness();
+    await service.create(
+      { year: 2020, make: 'Toyota', model: 'RAV4', carfaxUrl: REPORT, images: [], documents: [] } as never,
+      SELLER,
+    );
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]?.payload).toEqual({ vehicleId: 'v1', url: REPORT });
+  });
+
+  it('does not enqueue when the new listing has no report link', async () => {
+    const { service, enqueued } = serviceHarness();
+    await service.create(
+      { year: 2020, make: 'Toyota', model: 'RAV4', images: [], documents: [] } as never,
+      SELLER,
+    );
+
+    expect(enqueued).toHaveLength(0);
   });
 });

@@ -258,11 +258,12 @@ export class VehiclesController {
   @RequirePermissions('vehicle:write')
   @Audit('vehicle.history_updated', 'Vehicle')
   @ApiOperation({
-    summary: "Replace a vehicle's history timeline",
+    summary: "Replace a vehicle's own seller-entered history rows",
     description:
-      'The seller transcribes the history report they hold. Vintrax retrieves nothing from ' +
-      'CARFAX and does not verify these entries; the uploaded report is the evidence, and the ' +
-      "interface presents the timeline as the seller's own account.",
+      'The seller transcribes a report they hold and this does not verify the entries; the ' +
+      "uploaded document is the evidence, and the interface presents these rows as the seller's " +
+      'own account. Scoped to source: SELLER — it never touches the rows Vintrax writes from its ' +
+      'own CARFAX extraction of carfaxUrl.',
   })
   replaceHistory(
     @Param('id', ParseUUIDPipe) id: string,

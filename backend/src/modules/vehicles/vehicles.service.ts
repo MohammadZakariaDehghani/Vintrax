@@ -90,8 +90,14 @@ export class VehiclesService {
     }
 
     const favouritedIds = await this.favouritedIds(viewer?.id, [row.id]);
-    const includeDocuments = this.canViewDocuments(row.seller.id, viewer);
-    return toVehicleDetail(row, favouritedIds, { includeDocuments });
+    // The seller and an admin see everything; anyone else sees the paperwork
+    // list, the CARFAX extraction status, and CARFAX-sourced timeline rows
+    // only within what the vehicle itself has already published.
+    const isOwnerOrAdmin = this.canViewDocuments(row.seller.id, viewer);
+    return toVehicleDetail(row, favouritedIds, {
+      includeDocuments: isOwnerOrAdmin,
+      includeCarfaxStatus: isOwnerOrAdmin,
+    });
   }
 
   /**
@@ -146,8 +152,6 @@ export class VehiclesService {
   async create(input: CreateVehicleInput, user: AuthUser): Promise<VehicleDetail> {
     const { images, documents, ...fields } = input;
 
-    this.requireReportBehindHighlights(fields, null);
-
     const vehicle = await this.prisma.vehicle.create({
       data: {
         ...fields,
@@ -184,6 +188,11 @@ export class VehiclesService {
     });
 
     await this.afterWrite(vehicle.id);
+
+    if (fields.carfaxUrl && fields.carfaxUrl.trim().length > 0) {
+      await this.enqueueCarfaxExtraction(vehicle.id, fields.carfaxUrl.trim());
+    }
+
     return this.findById(vehicle.id, user);
   }
 
@@ -191,17 +200,36 @@ export class VehiclesService {
     const existing = await this.requireOwnedVehicle(id, user);
     const { images, documents, ...fields } = input;
 
-    const { hasReport } = this.requireReportBehindHighlights(fields, existing.carfaxUrl);
+    // `fields.carfaxUrl` is the empty string when the seller clears the link,
+    // and absent when this request does not touch it — merged against the
+    // stored value to get the URL this save leaves in place, and to tell
+    // whether it is a different report than the one already on file.
+    const nextCarfaxUrl =
+      fields.carfaxUrl !== undefined ? fields.carfaxUrl.trim() : (existing.carfaxUrl ?? '');
+    const linkChanged =
+      fields.carfaxUrl !== undefined && nextCarfaxUrl !== (existing.carfaxUrl ?? '');
+    const linkCleared = linkChanged && nextCarfaxUrl.length === 0;
 
-    // Removing the link retires the highlights with it. A claim must not
-    // outlive its evidence: left in place they are invisible — nothing draws
-    // them without a link — until some later edit adds a link back, and a
-    // different report's badge reappears on the strength of a tick from months
-    // ago. Cleared to NULL, "not stated", rather than to false, which would be
-    // a claim the seller never made.
-    const data = hasReport
-      ? fields
-      : { ...fields, carfaxOneOwner: null, carfaxLowKilometres: null };
+    // Removing the link retires everything CARFAX's own extraction wrote for
+    // it — the two badges, the fetch status, and (below) the timeline rows.
+    // A claim must not outlive its evidence: left in place it is invisible —
+    // nothing draws a badge without a link — until some later edit adds a
+    // different link back, and a report about a different reading appears on
+    // the strength of a read that was never about it. Cleared to NULL, "not
+    // stated", rather than to false, which would be a claim nobody made.
+    // `showVehicleHistory` goes back to its default too, after `fields` — a
+    // publish toggle for a timeline that no longer has a report behind it is
+    // not a state worth preserving, whatever this same request also sent.
+    const data = linkCleared
+      ? {
+          ...fields,
+          carfaxOneOwner: null,
+          carfaxLowKilometres: null,
+          carfaxFetchedAt: null,
+          carfaxFetchError: null,
+          showVehicleHistory: false,
+        }
+      : fields;
 
     // A vehicle under an active auction cannot have its commercial terms moved
     // out from under the bidders.
@@ -218,6 +246,10 @@ export class VehiclesService {
       // `fields` cannot carry `status` — updateVehicleSchema omits it, so a
       // seller cannot publish their own listing through this path.
       await tx.vehicle.update({ where: { id }, data });
+
+      if (linkCleared) {
+        await tx.vehicleHistoryEvent.deleteMany({ where: { vehicleId: id, source: 'CARFAX' } });
+      }
 
       // Images and documents are replaced wholesale — the client always sends
       // the full ordered set.
@@ -253,6 +285,15 @@ export class VehiclesService {
     });
 
     await this.afterWrite(id);
+
+    // Only when the link is new or different, and only once the write has
+    // committed — a re-save that leaves the same report link in place must
+    // not re-run the fetch, which is what makes this a cache rather than a
+    // fetch-on-every-save.
+    if (linkChanged && !linkCleared) {
+      await this.enqueueCarfaxExtraction(id, nextCarfaxUrl);
+    }
+
     return this.findById(id, user);
   }
 
@@ -743,37 +784,20 @@ export class VehiclesService {
   }
 
   /**
-   * Refuses a CARFAX highlight that has no report behind it.
+   * Starts a CARFAX extraction in the background.
    *
-   * The One Owner and Low Kilometres badges carry CARFAX's name and their
-   * authority. What makes that defensible is that the badge opens the report it
-   * came off, so a buyer who doubts it can look. A highlight with no link is
-   * that authority with the evidence removed, which is the same objection that
-   * made `carfaxUrl` a validated host rather than any URL.
-   *
-   * Checked here rather than in the schema because only this layer can see the
-   * merged result: `PATCH { carfaxOneOwner: true }` is legitimate when the
-   * stored vehicle already has a link, and the request on its own cannot say.
-   *
-   * It refuses rather than quietly dropping the flag. A seller who ticked the
-   * box and got a silent no would believe the badge is showing.
+   * Enqueued rather than awaited: `create`/`update` have already committed
+   * and are about to return, and a dealer saving their listing should never
+   * wait on a third party's page. `CarfaxExtractWorker` runs the fetch and
+   * writes the two badges, the fetch status, and the accident timeline back
+   * onto this vehicle once it finishes — successfully or not.
    */
-  private requireReportBehindHighlights(
-    fields: { carfaxUrl?: string; carfaxOneOwner?: boolean; carfaxLowKilometres?: boolean },
-    storedCarfaxUrl: string | null,
-  ): { hasReport: boolean } {
-    // An empty string is how the form clears the link, so it counts as absent.
-    const url = fields.carfaxUrl !== undefined ? fields.carfaxUrl : (storedCarfaxUrl ?? '');
-    if (url.trim().length > 0) return { hasReport: true };
-
-    const claimed: string[] = [];
-    if (fields.carfaxOneOwner) claimed.push('One Owner');
-    if (fields.carfaxLowKilometres) claimed.push('Low Kilometres');
-    if (claimed.length === 0) return { hasReport: false };
-
-    throw new BadRequestException(
-      `Add the CARFAX report link before marking this vehicle ${claimed.join(' and ')}. ` +
-        'The badge opens the report it came from, so a buyer can check it.',
+  private async enqueueCarfaxExtraction(vehicleId: string, url: string): Promise<void> {
+    await this.queue.enqueue(
+      QUEUE_NAMES.carfax,
+      'extract',
+      { vehicleId, url },
+      { jobId: `carfax-${vehicleId}-${Date.now()}` },
     );
   }
 

@@ -11,8 +11,17 @@
 # The alternative — build, then copy build's node_modules — ships the Nest CLI,
 # TypeScript, ESLint and Jest in the production image. A second install costs
 # one cached layer and removes all of it.
-
-FROM node:22-alpine AS base
+#
+# Debian slim rather than Alpine, as of the CARFAX extraction feature: that
+# module drives a real headless Chromium through Playwright, which Playwright
+# does not build for musl libc at all — Alpine is not a target Chromium
+# supports, only a target Node happens to run on. `playwright install --with-
+# deps` is written for apt, which is the other half of why this is Debian and
+# not merely "some glibc image". This makes the runtime image meaningfully
+# larger; that is the cost of the browser being real rather than a raw fetch,
+# which is what issue #49 asked for after a raw fetch was tried and shelved
+# (see decision D-036 and its own follow-up entry).
+FROM node:22-bookworm-slim AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 WORKDIR /app
 
@@ -57,8 +66,13 @@ COPY backend/prisma ./backend/prisma
 RUN pnpm --filter @vintrax/backend exec prisma generate
 
 # ---- Runtime ----------------------------------------------------------------
-FROM node:22-alpine AS runtime
+FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production
+# A fixed, explicit path rather than Playwright's per-user cache default: it
+# has to be somewhere the `node` user this stage switches to can read after
+# root did the installing, and a path under /app is what makes that an
+# ordinary `chown` rather than a guess at where Playwright decided to put it.
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
 WORKDIR /app
 
 # PID 1 in a container does not get the kernel's default signal handlers. Both
@@ -77,8 +91,21 @@ COPY --from=build /app/backend/package.json ./backend/
 # Schema and migrations: `prisma migrate deploy` reads both at deploy time.
 COPY --from=build /app/backend/prisma ./backend/prisma
 
+# The browser and its OS-level shared libraries, installed here rather than in
+# `proddeps`: apt packages installed in an earlier stage do not travel with a
+# `COPY` of an application directory, only files under that directory do. This
+# has to run as root — both apt and writing under `PLAYWRIGHT_BROWSERS_PATH`
+# for the first time need it — before the switch to the unprivileged user
+# below. It also needs network access to CARFAX's page, at request time, not
+# at build time; nothing about this step reaches CARFAX.
+RUN apt-get update \
+ && cd backend && npx --no-install playwright install --with-deps chromium \
+ && cd .. \
+ && rm -rf /var/lib/apt/lists/*
+
 # Run unprivileged. The node image already provides this user.
-RUN mkdir -p /app/backend/uploads && chown -R node:node /app/backend/uploads
+RUN mkdir -p /app/backend/uploads \
+ && chown -R node:node /app/backend/uploads /app/.playwright-browsers
 USER node
 
 WORKDIR /app/backend

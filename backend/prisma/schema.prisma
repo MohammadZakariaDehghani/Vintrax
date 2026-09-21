@@ -431,23 +431,33 @@ model Vehicle {
   /// third party's name, so it must not be able to point anywhere else.
   carfaxUrl String?
 
-  /// The two badges a CARFAX Canada report prints, as the seller read them off
-  /// their own report. Nullable rather than defaulted to false: every listing
-  /// that predates these columns said nothing, and "not stated" is not the
-  /// same claim as "the report says no". Neither may be set without
-  /// `carfaxUrl` — the service refuses a claim with nothing behind it.
+  /// The two badges a CARFAX Canada report prints, as Vintrax's own fetch read
+  /// them off the report at `carfaxUrl`. Nullable rather than defaulted to
+  /// false: a listing with no link, or one whose fetch has not completed yet,
+  /// has said nothing, and "not stated" is not the same claim as "the report
+  /// says no". Written only by the extraction job — a seller cannot set these
+  /// directly, so the badge can never claim more than the report itself said.
   carfaxOneOwner      Boolean?
   carfaxLowKilometres Boolean?
 
-  /// Whether the dealer approved the accident record read from their CARFAX
-  /// report for display on the listing. False by default and never implied:
-  /// fetching a report is not the same act as publishing what it says, and the
-  /// dealer has the report open to check the reading against.
-  carfaxHistoryApproved Boolean @default(false)
+  /// Whether the vehicle history section (the accident timeline drawn from
+  /// `carfaxUrl`) is shown on the public listing. Independent of the badge and
+  /// of the link itself — a dealer can hold a report they don't want the
+  /// timeline published from yet, or publish it once they've checked the
+  /// extraction against their own copy. False by default and never implied.
+  showVehicleHistory Boolean @default(false)
 
-  /// When the report was last read. Shown to the dealer so they know how stale
-  /// the reading is, and to a buyer as the date behind the timeline.
+  /// When the CARFAX extraction job last finished attempting `carfaxUrl`,
+  /// success or failure. Shown to the dealer so they know how stale the
+  /// reading is, and to a buyer as the date behind the timeline.
   carfaxFetchedAt DateTime?
+
+  /// The dealer-facing reason the last extraction attempt did not produce a
+  /// reading, or null when the last attempt succeeded (or none has run yet).
+  /// A failed fetch never blocks saving the vehicle — this is how the dealer
+  /// finds out afterwards, rather than the save silently doing less than
+  /// asked.
+  carfaxFetchError String?
 
   status      ListingStatus @default(DRAFT)
   saleChannel SaleChannel   @default(FIXED_PRICE)
