@@ -96,6 +96,24 @@ export class UploadsController {
     });
   }
 
+  @Post('partners')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload a partner logo',
+    description: 'Returns a URL to pass to POST /admin/partners or PUT /admin/partners/:id.',
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  uploadPartnerLogo(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.storage.uploadImage({
+      folder: 'partners',
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
   @Post('article-images')
   @RequirePermissions('content:manage')
   @ApiConsumes('multipart/form-data')

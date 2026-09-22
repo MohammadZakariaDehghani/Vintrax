@@ -21,13 +21,14 @@ export const vehicleSummarySelect = {
   city: true,
   status: true,
   saleChannel: true,
-  // On the summary because the search cards draw the CARFAX badge, and one
+  // On the summary because the search cards draw the badge strip, and one
   // extra request per card to find out whether to draw it would be absurd.
-  // The two highlights ride with it: they are segments of that same badge, so
-  // fetching the link without them would draw half of it.
   carfaxUrl: true,
-  carfaxOneOwner: true,
-  carfaxLowKilometres: true,
+  badgeLowKilometres: true,
+  badgeOneOwner: true,
+  badgeNoAccident: true,
+  badgeReport: true,
+  badgeCarfax: true,
   publishedAt: true,
   createdAt: true,
   images: {
@@ -102,9 +103,6 @@ export const vehicleDetailSelect = {
   features: true,
   viewCount: true,
   favouriteCount: true,
-  showVehicleHistory: true,
-  carfaxFetchedAt: true,
-  carfaxFetchError: true,
   updatedAt: true,
   images: {
     select: { id: true, url: true, alt: true, position: true },
@@ -126,7 +124,6 @@ export const vehicleDetailSelect = {
     select: {
       id: true,
       kind: true,
-      source: true,
       occurredOn: true,
       label: true,
       detail: true,
@@ -211,8 +208,13 @@ export function toVehicleSummary(
     hasInspection: Boolean(inspection),
     inspectionGrade: inspection?.overallGrade ?? null,
     carfaxUrl: row.carfaxUrl,
-    carfaxOneOwner: row.carfaxOneOwner,
-    carfaxLowKilometres: row.carfaxLowKilometres,
+    badges: {
+      lowKilometres: row.badgeLowKilometres,
+      oneOwner: row.badgeOneOwner,
+      noAccident: row.badgeNoAccident,
+      report: row.badgeReport,
+      carfax: row.badgeCarfax,
+    },
     activeAuction: auction ? toEmbeddedAuction(auction) : null,
     publishedAt: row.publishedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
@@ -222,21 +224,16 @@ export function toVehicleSummary(
 /**
  * Builds the detail response.
  *
- * `includeDocuments` and `includeCarfaxStatus` both default to false so a
- * caller has to say, explicitly, that this viewer is allowed to see them —
- * the seller and an admin, in practice always both flags together, since it
- * is the same "owns this listing" check either way. The documents themselves
- * are addressed by an authorized API route rather than by their location in
- * storage, so the response never discloses where the file actually lives.
- * `includeCarfaxStatus` gates `carfaxFetchedAt`/`carfaxFetchError` — internal
- * extraction diagnostics with no reason to reach a buyer — the same way, per
- * D-036's own rule that an unpublished CARFAX finding is withheld by the API
- * itself rather than merely left undrawn by the page.
+ * `includeDocuments` defaults to false so a caller has to say, explicitly,
+ * that this viewer is allowed to see them — the seller and an admin, in
+ * practice. The documents themselves are addressed by an authorized API
+ * route rather than by their location in storage, so the response never
+ * discloses where the file actually lives.
  */
 export function toVehicleDetail(
   row: VehicleDetailRow,
   favouritedIds: ReadonlySet<string>,
-  options: { includeDocuments?: boolean; includeCarfaxStatus?: boolean } = {},
+  options: { includeDocuments?: boolean } = {},
 ): VehicleDetail {
   const inspection = row.inspections[0];
 
@@ -275,29 +272,15 @@ export function toVehicleDetail(
         }))
       : [],
     documentCount: row.documents.length,
-    // Unfiltered for the owner and an admin, who see every CARFAX-sourced row
-    // regardless of `showVehicleHistory` — the edit page needs it to preview
-    // what was extracted before deciding whether to publish it. Anyone else
-    // sees a `CARFAX` row only once that toggle is on; a `SELLER` row is
-    // always shown, to everyone, exactly as before this feature existed.
-    historyEvents: row.historyEvents
-      .filter(
-        (event) =>
-          event.source !== 'CARFAX' || options.includeCarfaxStatus || row.showVehicleHistory,
-      )
-      .map((event) => ({
-        id: event.id,
-        kind: event.kind,
-        source: event.source,
-        occurredOn: asDate(event.occurredOn),
-        label: event.label,
-        detail: event.detail,
-      })),
-    showVehicleHistory: row.showVehicleHistory,
-    carfaxFetchedAt: options.includeCarfaxStatus
-      ? (row.carfaxFetchedAt?.toISOString() ?? null)
-      : null,
-    carfaxFetchError: options.includeCarfaxStatus ? row.carfaxFetchError : null,
+    // Every entry is the dealer's own account, so nothing here is filtered by
+    // viewer the way a CARFAX-sourced row briefly was.
+    historyEvents: row.historyEvents.map((event) => ({
+      id: event.id,
+      kind: event.kind,
+      occurredOn: asDate(event.occurredOn),
+      label: event.label,
+      detail: event.detail,
+    })),
     seller: {
       id: row.seller.id,
       displayName: `${row.seller.firstName} ${row.seller.lastName}`.trim(),

@@ -9,7 +9,6 @@ export const QUEUE_NAMES = {
   search: 'search-indexing',
   auctions: 'auction-lifecycle',
   email: 'email',
-  carfax: 'carfax-extraction',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

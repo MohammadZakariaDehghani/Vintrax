@@ -266,6 +266,7 @@ model User {
   articles       Article[]
   footerSections FooterSection[]
   makeLogos      MakeLogo[]
+  partners       Partner[]
 
   inventoryImports    InventoryImport[] @relation("InventoryImportSeller")
   inventoryImportsRun InventoryImport[] @relation("InventoryImportInitiator")
@@ -428,36 +429,22 @@ model Vehicle {
 
   /// The seller's link to this vehicle's CARFAX report. Validated against the
   /// real CARFAX hosts before it is stored — the badge it sits behind carries a
-  /// third party's name, so it must not be able to point anywhere else.
+  /// third party's name, so it must not be able to point anywhere else. Purely
+  /// an associated reference now (issue #67, superseding D-047): nothing reads
+  /// or scrapes this page, so the fields below are never derived from it.
   carfaxUrl String?
 
-  /// The two badges a CARFAX Canada report prints, as Vintrax's own fetch read
-  /// them off the report at `carfaxUrl`. Nullable rather than defaulted to
-  /// false: a listing with no link, or one whose fetch has not completed yet,
-  /// has said nothing, and "not stated" is not the same claim as "the report
-  /// says no". Written only by the extraction job — a seller cannot set these
-  /// directly, so the badge can never claim more than the report itself said.
-  carfaxOneOwner      Boolean?
-  carfaxLowKilometres Boolean?
-
-  /// Whether the vehicle history section (the accident timeline drawn from
-  /// `carfaxUrl`) is shown on the public listing. Independent of the badge and
-  /// of the link itself — a dealer can hold a report they don't want the
-  /// timeline published from yet, or publish it once they've checked the
-  /// extraction against their own copy. False by default and never implied.
-  showVehicleHistory Boolean @default(false)
-
-  /// When the CARFAX extraction job last finished attempting `carfaxUrl`,
-  /// success or failure. Shown to the dealer so they know how stale the
-  /// reading is, and to a buyer as the date behind the timeline.
-  carfaxFetchedAt DateTime?
-
-  /// The dealer-facing reason the last extraction attempt did not produce a
-  /// reading, or null when the last attempt succeeded (or none has run yet).
-  /// A failed fetch never blocks saving the vehicle — this is how the dealer
-  /// finds out afterwards, rather than the save silently doing less than
-  /// asked.
-  carfaxFetchError String?
+  /// Five badges the dealer sets directly, each independent of the others and
+  /// of `carfaxUrl` itself — the one source of truth every badge-drawing
+  /// surface in the app reads (see `toVehicleBadges` in vehicles.mapper.ts).
+  /// All default false rather than being nullable tri-states: there is no
+  /// extraction job whose "has not run yet" a null needs to distinguish from
+  /// "checked and false" any more, so plain booleans are what these are.
+  badgeLowKilometres Boolean @default(false)
+  badgeOneOwner      Boolean @default(false)
+  badgeNoAccident    Boolean @default(false)
+  badgeReport        Boolean @default(false)
+  badgeCarfax        Boolean @default(false)
 
   status      ListingStatus @default(DRAFT)
   saleChannel SaleChannel   @default(FIXED_PRICE)
@@ -609,19 +596,16 @@ model VehicleDocument {
 /// CARFAX by Vintrax — there is no integration, and the UI says so rather than
 /// implying this was verified here. The uploaded report is the evidence and
 /// lives in VehicleDocument; this is the summary a buyer can read without
-/// requesting the PDF.
+/// requesting the PDF. Every entry is dealer-authored (issue #67, superseding
+/// D-047's brief CARFAX-sourced variant): there is no second source to keep
+/// apart from it any more, so unlike D-047's version this has no `source`
+/// field to distinguish one.
 model VehicleHistoryEvent {
   id        String  @id @default(uuid()) @db.Uuid
   vehicleId String  @db.Uuid
   vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
   kind VehicleHistoryEventKind
-
-  /// Where this line came from. CARFAX-sourced entries are replaced wholesale
-  /// on every re-read and cannot be hand-edited, so a dealer cannot reword what
-  /// the report said; seller entries are theirs to write. Keeping them apart is
-  /// what lets the listing say which is which.
-  source VehicleHistorySource @default(SELLER)
 
   /// When it happened. Null for an entry with no date, which still sorts by
   /// `position` alongside the rest.
@@ -644,11 +628,6 @@ enum TitleStatus {
   CLEAN
   REBUILT
   SALVAGE
-}
-
-enum VehicleHistorySource {
-  SELLER
-  CARFAX
 }
 
 enum VehicleHistoryEventKind {
@@ -1036,4 +1015,33 @@ model MakeLogo {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// A logo shown in the homepage's "Our Partners" carousel (issue #67).
+///
+/// Unlike `MakeLogo`/`BodyTypeImage`, which decorate something that exists in
+/// its own right (a make in stock, a body type), a partner exists only as
+/// this row — there is no other record to key it on, so it gets its own id
+/// rather than a natural key. `enabled` is what "only active partner logos
+/// on the homepage" is built on: disabling one keeps the record (and its
+/// logo) for an admin to re-enable later, rather than deleting and re-adding
+/// it, and the public read filters on it directly.
+model Partner {
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+
+  logoUrl String
+  /// Optional: a partner's own name is printed beside its mark on the
+  /// carousel, so a redundant alt is worse for a screen reader than none.
+  alt     String?
+
+  enabled Boolean @default(true)
+
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, createdAt])
 }

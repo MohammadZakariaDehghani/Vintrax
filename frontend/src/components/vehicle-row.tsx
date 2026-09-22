@@ -16,7 +16,7 @@ import {
 } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
 import { Badge, Skeleton } from '@/components/ui';
-import { CarfaxBadge } from '@/components/carfax-badge';
+import { VehicleBadgeStrip } from '@/components/vehicle-badge-strip';
 import { AuctionCountdown } from '@/components/auction-countdown';
 import { CompareButton } from '@/components/compare-button';
 
@@ -195,7 +195,7 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
             title carries a stretched link covering the whole row, and without
             a stacking context above it every click on the badge would open the
             listing instead of the report. */}
-        <CarfaxBadge vehicle={vehicle} compact className="relative z-10 sm:mt-2" />
+        <VehicleBadgeStrip vehicle={vehicle} compact className="relative z-10 sm:mt-2" />
       </div>
     </article>
   );

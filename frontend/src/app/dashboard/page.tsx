@@ -43,7 +43,7 @@ function BuyerDashboard() {
   if (!user) return <Spinner />;
 
   const winningBids =
-    bids?.items.filter((bid) => bid.status === 'WINNING' || bid.status === 'WON').length ?? 0;
+    (bids?.items ?? []).filter((bid) => bid.status === 'WINNING' || bid.status === 'WON').length;
 
   return (
     <div className="container py-8">

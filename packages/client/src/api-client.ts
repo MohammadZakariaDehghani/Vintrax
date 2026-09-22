@@ -119,6 +119,16 @@ async function send(path: string, options: RequestOptions, retryOn401 = true): P
     body:
       options.rawBody ?? (options.body !== undefined ? JSON.stringify(options.body) : undefined),
     signal: options.signal,
+    // Neither this app nor the API sends a Cache-Control header on GET
+    // responses, so without this the browser is free to serve a request from
+    // its own HTTP cache — most likely on exactly a back/forward navigation,
+    // which is when browsers most readily reuse a cached response instead of
+    // refetching. A response cached before a deploy changed the API's shape
+    // then gets read by the newly deployed frontend code, which assumes the
+    // current shape (issue #67's client-side exception on back/forward nav).
+    // `serverFetch` (api-client.ts, web app) already disables caching for the
+    // same reason; this is the one fetch path that had not.
+    cache: 'no-store',
   });
 
   if (response.status === 401 && retryOn401 && tokenStore.refresh) {

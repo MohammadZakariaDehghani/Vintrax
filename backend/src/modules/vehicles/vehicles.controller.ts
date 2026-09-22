@@ -262,8 +262,7 @@ export class VehiclesController {
     description:
       'The seller transcribes a report they hold and this does not verify the entries; the ' +
       "uploaded document is the evidence, and the interface presents these rows as the seller's " +
-      'own account. Scoped to source: SELLER — it never touches the rows Vintrax writes from its ' +
-      'own CARFAX extraction of carfaxUrl.',
+      'own account.',
   })
   replaceHistory(
     @Param('id', ParseUUIDPipe) id: string,

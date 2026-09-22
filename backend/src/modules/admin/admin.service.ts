@@ -1,15 +1,18 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   BODY_TYPES,
   type AdminAnalytics,
   type BodyType,
   type BodyTypeImage,
   type BodyTypeImageInput,
+  type CreatePartnerInput,
   type FooterSection,
   type MakeLogo,
   type MakeLogoInput,
+  type Partner,
   type ReplaceFooterInput,
   type TimeSeriesPoint,
+  type UpdatePartnerInput,
 } from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
@@ -33,6 +36,10 @@ const FOOTER_CACHE_TTL = 600;
 /** Same reasoning again: read on every home page render, written close to never. */
 const MAKE_LOGO_CACHE_KEY = 'site:make-logos';
 const MAKE_LOGO_CACHE_TTL = 600;
+
+/** Same reasoning again: read on every home page render, written close to never. */
+const PARTNER_CACHE_KEY = 'site:partners';
+const PARTNER_CACHE_TTL = 600;
 
 /** How `Vehicle.make` is compared against a stored logo: trimmed and lowercased, since it is free text a dealer typed rather than a fixed enum. */
 function normalizeMake(make: string): string {
@@ -320,4 +327,99 @@ export class AdminService {
   async publicMakeLogos(): Promise<MakeLogo[]> {
     return this.redis.remember(MAKE_LOGO_CACHE_KEY, MAKE_LOGO_CACHE_TTL, () => this.makeLogos());
   }
+
+  /**
+   * Every partner, enabled or not. Read through `publicPartners`'s cache by
+   * every caller, admin page and home page alike — same shape as
+   * `makeLogos`/`publicMakeLogos`. Filtering to `enabled` for display is the
+   * caller's job: the admin page needs both to manage them, and the home
+   * page filters this same list down to what it draws.
+   */
+  async partners(): Promise<Partner[]> {
+    const rows = await this.prisma.partner.findMany({ orderBy: { createdAt: 'asc' } });
+    return rows.map(toPartner);
+  }
+
+  async createPartner(input: CreatePartnerInput, actorId: string): Promise<Partner> {
+    if (!this.storage.isOwnUrl(input.logoUrl)) {
+      throw new BadRequestException(
+        'Upload the image through POST /uploads/partners first, then pass the URL it returns. An address on another server is not accepted.',
+      );
+    }
+
+    const row = await this.prisma.partner.create({
+      data: {
+        name: input.name,
+        logoUrl: input.logoUrl,
+        alt: input.alt ?? null,
+        updatedById: actorId,
+      },
+    });
+
+    await this.redis.del(PARTNER_CACHE_KEY);
+    return toPartner(row);
+  }
+
+  async updatePartner(id: string, input: UpdatePartnerInput, actorId: string): Promise<Partner> {
+    if (input.logoUrl !== undefined && !this.storage.isOwnUrl(input.logoUrl)) {
+      throw new BadRequestException(
+        'Upload the image through POST /uploads/partners first, then pass the URL it returns. An address on another server is not accepted.',
+      );
+    }
+
+    const existing = await this.prisma.partner.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Partner not found');
+
+    const row = await this.prisma.partner.update({
+      where: { id },
+      data: {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.logoUrl !== undefined ? { logoUrl: input.logoUrl } : {}),
+        ...(input.alt !== undefined ? { alt: input.alt } : {}),
+        ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+        updatedById: actorId,
+      },
+    });
+
+    await this.redis.del(PARTNER_CACHE_KEY);
+    return toPartner(row);
+  }
+
+  /**
+   * Deletes the row outright, unlike `clearMakeLogo`'s soft "no row means no
+   * logo": a partner has no fallback state to revert to, so removing it here
+   * is removing it — `enabled` is the reversible action, this is not.
+   */
+  async deletePartner(id: string): Promise<void> {
+    await this.prisma.partner.deleteMany({ where: { id } });
+    await this.redis.del(PARTNER_CACHE_KEY);
+  }
+
+  /**
+   * The cached read both the admin page and the home page use — same shape
+   * as `publicMakeLogos`. Unfiltered, same as `partners()`: a disabled
+   * partner is not sensitive, only unwanted on the home page, and it is the
+   * home page's own carousel that filters to `enabled` before rendering.
+   */
+  async publicPartners(): Promise<Partner[]> {
+    return this.redis.remember(PARTNER_CACHE_KEY, PARTNER_CACHE_TTL, () => this.partners());
+  }
+}
+
+function toPartner(row: {
+  id: string;
+  name: string;
+  logoUrl: string;
+  alt: string | null;
+  enabled: boolean;
+  updatedAt: Date;
+}): Partner {
+  return {
+    id: row.id,
+    name: row.name,
+    logoUrl: row.logoUrl,
+    alt: row.alt,
+    enabled: row.enabled,
+    updatedAt: row.updatedAt.toISOString(),
+  };
 }

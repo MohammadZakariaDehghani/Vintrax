@@ -8,7 +8,7 @@ import { api } from '@/lib/api-client';
 import { cn, formatEnum, formatKm, formatLocation, formatPrice, joinSpecs } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
 import { Badge, Skeleton } from '@/components/ui';
-import { CarfaxBadge } from '@/components/carfax-badge';
+import { VehicleBadgeStrip } from '@/components/vehicle-badge-strip';
 import { AuctionCountdown } from '@/components/auction-countdown';
 import { CompareButton } from '@/components/compare-button';
 
@@ -165,7 +165,7 @@ export function VehicleCard({
             affordance, so this takes the equivalent position here: last, after
             everything else the card says. It draws nothing without a report,
             so a card with no CARFAX link gains no empty row. */}
-        <CarfaxBadge vehicle={vehicle} compact className="mt-2 self-start" />
+        <VehicleBadgeStrip vehicle={vehicle} compact className="mt-2 self-start" />
       </div>
     </article>
   );

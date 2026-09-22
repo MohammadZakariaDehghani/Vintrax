@@ -24,13 +24,13 @@ describe('the popular-makes row', () => {
     ]);
   });
 
-  it('caps the row at the limit, defaulting to 5', () => {
-    const counts = Array.from({ length: 12 }, (_, index) => ({
+  it('caps the row at the limit, defaulting to 15', () => {
+    const counts = Array.from({ length: 20 }, (_, index) => ({
       value: `Make ${index}`,
-      count: 12 - index,
+      count: 20 - index,
     }));
 
-    expect(buildPopularMakes({ counts })).toHaveLength(5);
+    expect(buildPopularMakes({ counts })).toHaveLength(15);
     expect(buildPopularMakes({ counts, limit: 3 })).toHaveLength(3);
   });
 

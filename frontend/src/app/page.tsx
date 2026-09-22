@@ -6,6 +6,7 @@ import type {
   BodyTypeImage,
   MakeLogo,
   Paginated,
+  Partner,
   VehicleSearchResponse,
 } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
@@ -15,14 +16,16 @@ import { VehicleRow } from '@/components/vehicle-row';
 import { BrandLogo } from '@/components/brand-logo';
 import { HomeSearch } from '@/components/home-search';
 import { HomeMasthead } from '@/components/home-masthead';
-import { HomeBlogSlideshow } from '@/components/home-blog-slideshow';
+import { HomeBlogCarousel } from '@/components/home-blog-carousel';
+import { HomePartnersCarousel } from '@/components/home-partners-carousel';
 import { ContinueSearchCard } from '@/components/continue-search-card';
+import { ItemCarousel } from '@/components/item-carousel';
 import { buildBodyTypeShortcuts } from '@/lib/body-type-shortcuts';
 import { buildPopularMakes } from '@/lib/popular-makes';
 import { getServerDictionary } from '@/i18n/server';
 
-/** "Slide show last 5 blog" — issue #43's own words for the row's size. */
-const BLOG_SLIDESHOW_SIZE = 5;
+/** How many recent posts the home page's blog carousel fetches. */
+const BLOG_CAROUSEL_SIZE = 5;
 
 const QUICK_LINKS = [
   { key: 'quickSuvs', query: 'bodyType=SUV' },
@@ -45,14 +48,16 @@ export default async function HomePage() {
   // One wider page, two uses: the ten newest fill the list below, and the rest
   // are scanned for a photographed example of each body type. A second round
   // trip per body type would be nine more queries for nine thumbnails.
-  const [featured, auctions, bodyTypeImages, makeLogos, masthead, blogPosts] = await Promise.all([
-    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
-    serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
-    serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
-    serverFetch<MakeLogo[]>('/admin/make-logos'),
-    serverFetch<ArticleSummary | null>('/articles/masthead'),
-    serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_SLIDESHOW_SIZE}`),
-  ]);
+  const [featured, auctions, bodyTypeImages, makeLogos, masthead, blogPosts, partners] =
+    await Promise.all([
+      serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
+      serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
+      serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
+      serverFetch<MakeLogo[]>('/admin/make-logos'),
+      serverFetch<ArticleSummary | null>('/articles/masthead'),
+      serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_CAROUSEL_SIZE}`),
+      serverFetch<Partner[]>('/admin/partners'),
+    ]);
 
   const recent = featured?.items.slice(0, 10) ?? [];
   const bodyTypeShortcuts = buildBodyTypeShortcuts({
@@ -121,17 +126,26 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Moved up from the bottom of the page (issue #67) — a carousel of
+          recent posts belongs beside the other "what's happening right now"
+          content near the top, not after everything else. */}
+      <HomeBlogCarousel posts={blogPosts?.items ?? []} />
+
       <ContinueSearchCard />
 
       {/* Makes in stock, each under its own mark. The count is the point of
           difference from the site this follows: a marque here is a promise
-          that Vintrax has that many of them right now, not a brand billboard. */}
+          that Vintrax has that many of them right now, not a brand billboard.
+          A carousel showing 4 at a time (issue #67), not a fixed grid — the
+          full set (`buildPopularMakes`'s cap, currently 15) is always in the
+          DOM, reachable by scrolling rather than cut down to what fits. */}
       {popularMakes.length > 0 ? (
         <section className="container pt-10">
           <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.popularMakes}</h2>
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {popularMakes.map((entry) => (
-              <li key={entry.make}>
+          <ItemCarousel
+            items={popularMakes.map((entry) => ({
+              key: entry.make,
+              content: (
                 <Link
                   href={`/vehicles?make=${encodeURIComponent(entry.make)}`}
                   className="flex h-full flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-5 text-center transition-colors hover:border-primary/40 hover:bg-secondary"
@@ -142,9 +156,11 @@ export default async function HomePage() {
                     {entry.count} {entry.count === 1 ? t.home.makeOne : t.home.makeOther}
                   </span>
                 </Link>
-              </li>
-            ))}
-          </ul>
+              ),
+            }))}
+            ariaLabel={t.home.popularMakes}
+            itemClassName="w-1/2 sm:w-1/3 lg:w-1/4"
+          />
         </section>
       ) : null}
 
@@ -196,8 +212,6 @@ export default async function HomePage() {
         )}
       </section>
 
-      <HomeBlogSlideshow posts={blogPosts?.items ?? []} />
-
       <section className="border-t border-border bg-card py-14">
         <div className="container grid gap-8 md:grid-cols-3">
           {VALUE_PROPS.map((prop) => (
@@ -211,6 +225,8 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      <HomePartnersCarousel partners={partners ?? []} />
 
       <section className="container py-14">
         <Card className="overflow-hidden">
