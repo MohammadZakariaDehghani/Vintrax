@@ -5,6 +5,8 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
+  Post,
   Put,
   Query,
 } from '@nestjs/common';
@@ -17,15 +19,20 @@ import {
   type BodyType,
   type BodyTypeImage,
   type BodyTypeImageInput,
+  type CreatePartnerInput,
   type FooterSection,
   type MakeLogo,
   type MakeLogoInput,
   type Paginated,
+  type Partner,
   type ReplaceFooterInput,
+  type UpdatePartnerInput,
   auditLogQuerySchema,
   bodyTypeImageSchema,
+  createPartnerSchema,
   makeLogoSchema,
   replaceFooterSchema,
+  updatePartnerSchema,
 } from '@vintrax/shared';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
@@ -219,6 +226,83 @@ export class AdminController {
       metadata: { make },
     });
     return { make };
+  }
+
+  /**
+   * Every partner, enabled or not — public the same way the footer and
+   * make-logos reads are, so the homepage's carousel renders for every
+   * visitor, signed in or not. The admin partners page reads the same
+   * endpoint and shows every row; the homepage filters to `enabled` itself.
+   */
+  @Public()
+  @Get('partners')
+  @ApiOperation({ summary: 'Partner logos, as shown in the home page carousel' })
+  partners(): Promise<Partner[]> {
+    return this.admin.publicPartners();
+  }
+
+  @Post('partners')
+  @RequirePermissions('content:manage')
+  @ApiOperation({
+    summary: 'Add a partner logo',
+    description: 'The URL must be one returned by POST /uploads/partners.',
+  })
+  async createPartner(
+    @Body(zodBody(createPartnerSchema)) input: CreatePartnerInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<Partner> {
+    const result = await this.admin.createPartner(input, user.id);
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'content.partner.created',
+      entityType: 'Partner',
+      entityId: result.id,
+      metadata: { name: result.name },
+    });
+    return result;
+  }
+
+  @Put('partners/:id')
+  @RequirePermissions('content:manage')
+  @ApiOperation({
+    summary: 'Update a partner — its name, logo, or whether it shows on the home page',
+    description: 'A replacement logo URL must be one returned by POST /uploads/partners.',
+  })
+  async updatePartner(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(updatePartnerSchema)) input: UpdatePartnerInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<Partner> {
+    const result = await this.admin.updatePartner(id, input, user.id);
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'content.partner.updated',
+      entityType: 'Partner',
+      entityId: result.id,
+      metadata: { name: result.name, enabled: result.enabled },
+    });
+    return result;
+  }
+
+  @Delete('partners/:id')
+  @RequirePermissions('content:manage')
+  @ApiOperation({ summary: 'Remove a partner outright' })
+  async deletePartner(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<{ id: string }> {
+    await this.admin.deletePartner(id);
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'content.partner.deleted',
+      entityType: 'Partner',
+      entityId: id,
+      metadata: {},
+    });
+    return { id };
   }
 }
 

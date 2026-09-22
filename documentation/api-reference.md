@@ -135,7 +135,7 @@ year. On `/vehicles/mine` the term is an _additional_ constraint: `sellerId`
 comes from the authenticated user, so the worst a hostile term can do is match
 nothing.
 
-**CARFAX.** A vehicle may carry an optional `carfaxUrl`. The host must be
+**CARFAX link.** A vehicle may carry an optional `carfaxUrl`. The host must be
 exactly `vhr.carfax.ca`, over https, with no credentials — an exact match, not a
 suffix match, so `vhr.carfax.ca.example.com` and `evil.vhr.carfax.ca` are both
 refused. That is the address CARFAX gives a dealer to share a report, so it is
@@ -143,70 +143,27 @@ the only address that holds one to read; a `www.carfax.ca` page is a valid
 CARFAX URL containing nothing about any particular car. Pinning it is also most
 of the SSRF answer, and it keeps a badge carrying a third party's name from
 pointing anywhere else. It appears on the summary as well as the detail, since
-the search cards draw the badge. It is the only way a CARFAX report reaches a
-buyer — there is no report upload, and no `historyReportIssuedOn`.
+the search cards draw the badge. It is purely an associated reference (issue
+#67, superseding D-047): nothing reads or scrapes this page.
 
-**Extraction.** Saving a vehicle with a `carfaxUrl` that is new or different
-from what is stored enqueues a background job — the save itself never waits on
-it. `CarfaxExtractWorker` opens the link with a headless browser (real
-JavaScript execution, not a raw HTTP fetch), because CARFAX's share-link pages
-render their content client-side: an earlier raw-fetch version of this feature
-was removed for exactly that reason (see the decision log's D-036), and a real
-browser is what makes reading the rendered page possible at all. A save that
-repeats the same link does not re-fetch — the stored `carfaxUrl` is the cache
-key.
+**Badges.** Five booleans the dealer sets directly — `badgeLowKilometres`,
+`badgeOneOwner`, `badgeNoAccident`, `badgeReport`, `badgeCarfax` — each
+independent of the others and of `carfaxUrl` itself. `create`/`update` accept
+them as plain fields alongside everything else; there is no background job,
+no fetch, and no per-viewer visibility rule. They ride with `carfaxUrl` on the
+summary as well as the detail response, since the search cards draw the badge
+strip, and `toVehicleSummary` carries them into one nested `badges` object —
+the single source of truth every badge-drawing surface in the app (the card,
+the row, the detail page, search results, comparison) reads from, rather than
+each keeping its own notion of what a listing claims.
 
-The worker writes back, on the vehicle: `carfaxOneOwner` and
-`carfaxLowKilometres` (see below), `carfaxFetchedAt` (when the attempt last
-finished, success or not) and `carfaxFetchError` (the dealer-facing reason it
-did not produce a reading, or `null`). A failed extraction never blocks saving
-the vehicle — this is how the dealer finds out, on their next visit to the
-edit page, not any other way. On success it also replaces every
-`source: 'CARFAX'` row in the vehicle's history timeline with what it read: one
-`ACCIDENT_DAMAGE` row per accident/damage line the report stated, or a single
-`NO_ACCIDENTS` row when the report positively said there were none. Nothing is
-written when neither could be determined. `source: 'SELLER'` rows, written
-through `PUT /vehicles/:id/history`, are never touched by this — the two are
-scoped apart on both the delete and the insert.
-
-Clearing `carfaxUrl` retires everything the extraction wrote for it in the same
-write: both badges and the fetch status back to `null`, `showVehicleHistory`
-back to its `false` default, and every `CARFAX`-sourced history row deleted. A
-claim, and a timeline, must not outlive the report they came from.
-
-`carfaxOneOwner` and `carfaxLowKilometres` are the two badges a CARFAX Canada
-report prints, and ride with `carfaxUrl` on the summary as well as the detail
-response, since the search cards draw the badge. Both are nullable and written
-only by the extraction — a client cannot set them directly, so the badge can
-never claim more than the report itself said. Tri-state: `null` is "not
-stated" (no link, an extraction still running, or a report that did not say),
-`true`/`false` are what the report positively stated. Only the one-owner claim
-has a `false` state in practice — a report saying "2 Owners" is read as a
-positive no; there is no report statement that means "not low kilometres" the
-same way.
-
-**Showing the timeline.** `showVehicleHistory` is a plain boolean, set directly
-by the dealer, independent of the link and the two badges above. It gates only
-the accident timeline's `CARFAX`-sourced rows — the badge shows regardless, and
-a seller's own `SELLER` rows are never gated by it. Enforced in the API, not
-only in the frontend, following D-036's own rule that an unpublished CARFAX
-finding is withheld by the response itself rather than merely left undrawn by
-the page: `toVehicleDetail`'s `includeCarfaxStatus` flag (true only for the
-vehicle's own seller or an admin) controls it. That viewer sees every `CARFAX`
-row and the fetch status (`carfaxFetchedAt`/`carfaxFetchError`) regardless of
-the toggle, because the edit page has to be able to preview a reading before
-deciding whether to publish it. Anyone else sees a `CARFAX` row only once
-`showVehicleHistory` is on, and never sees the fetch status at all — internal
-extraction diagnostics (a DNS failure, a browser crash, an unreadable page)
-have no reason to reach a buyer.
-
-**History.** The `SELLER` set is replaced as a whole, matching images and
-documents — entries a seller transcribes by hand, from whatever they hold;
-`PUT /vehicles/:id/history` is the only way to write one, and it is scoped to
-`source: 'SELLER'` so it can never touch what the CARFAX extraction wrote.
-`VehicleDocument.issuedOn` carries the date printed on an uploaded document;
-that date is public even though the document is not, because it is what lets a
-buyer judge how current an entry is.
+**History.** `historyEvents` is replaced as a whole on `PUT
+/vehicles/:id/history`, matching images and documents — entries a dealer
+transcribes by hand, from whatever they hold. Every entry is the dealer's own
+account; there is no other source, no per-row provenance field, and nothing
+here is filtered by viewer. `VehicleDocument.issuedOn` carries the date
+printed on an uploaded document; that date is public even though the document
+is not, because it is what lets a buyer judge how current an entry is.
 
 `ACCIDENT_DAMAGE` and `NO_ACCIDENTS` are the kinds either source can record.
 They are separate from `CLAIM` so a damage record and an insurance claim stay

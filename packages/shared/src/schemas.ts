@@ -281,14 +281,15 @@ export const createVehicleSchema = z.object({
     .optional(),
 
   /**
-   * Whether the accident timeline Vintrax extracts from `carfaxUrl` is shown
-   * on the public listing. Independent of the link and of the two badges — a
-   * seller can hold a report they are not ready to publish the timeline from,
-   * or publish it once they have checked the extraction against their own
-   * copy. Defaults to false, matching the database default: a listing says
-   * nothing until its seller turns this on.
+   * Five badges the seller sets directly, each independent of the others and
+   * of `carfaxUrl` (issue #67). All default false, matching the database
+   * default: a listing claims nothing until its seller ticks it.
    */
-  showVehicleHistory: z.boolean().default(false),
+  badgeLowKilometres: z.boolean().default(false),
+  badgeOneOwner: z.boolean().default(false),
+  badgeNoAccident: z.boolean().default(false),
+  badgeReport: z.boolean().default(false),
+  badgeCarfax: z.boolean().default(false),
 
   saleChannel: z.enum(SALE_CHANNELS).default('FIXED_PRICE'),
   // Not the full LISTING_STATUSES set: a listing cannot be created published.
@@ -681,6 +682,29 @@ export const makeLogoSchema = z
   })
   .strict();
 export type MakeLogoInput = z.infer<typeof makeLogoSchema>;
+
+/**
+ * A partner logo (issue #67). Same URL-provenance reasoning as
+ * `makeLogoSchema`: `logoUrl` must be one Vintrax's own upload endpoint
+ * issued, never an arbitrary address.
+ */
+export const createPartnerSchema = z
+  .object({
+    name: trimmed(120).min(1),
+    logoUrl: trimmed(500).min(1),
+    alt: trimmed(160).optional(),
+  })
+  .strict();
+export type CreatePartnerInput = z.infer<typeof createPartnerSchema>;
+
+export const updatePartnerSchema = createPartnerSchema
+  .partial()
+  .extend({ enabled: z.boolean().optional() })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Provide at least one field to update',
+  });
+export type UpdatePartnerInput = z.infer<typeof updatePartnerSchema>;
 
 export const MAX_FOOTER_SECTIONS = 6;
 export const MAX_FOOTER_LINKS_PER_SECTION = 8;

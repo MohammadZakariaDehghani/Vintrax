@@ -1,7 +1,14 @@
 import type { MakeLogo } from '@vintrax/shared';
 
-/** "Just show 5 Popular makes" — the row's size. */
-export const MAX_POPULAR_MAKES = 5;
+/**
+ * The row is a carousel showing 4 at a time (issue #67), with the rest
+ * reachable through it rather than hidden — so the cap here is not "how many
+ * show," it is "how many the row ever has to hold," and is set to match the
+ * facet query's own cap (`postgres-search.provider.ts`'s `take: 15` on the
+ * makes group-by) rather than an arbitrary smaller number. Supersedes D-045's
+ * cap of 5, which was sized for a plain grid with no way to see more.
+ */
+export const MAX_POPULAR_MAKES = 15;
 
 /** A make shown in the home page's "popular makes" row. */
 export interface PopularMake {

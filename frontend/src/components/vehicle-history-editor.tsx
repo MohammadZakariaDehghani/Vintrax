@@ -11,7 +11,6 @@ import {
   type VehicleHistoryEventKind,
 } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
-import { sellerHistoryDrafts } from '@/lib/vehicle-history-drafts';
 import { Button, ErrorAlert, Input, Select, Spinner } from '@/components/ui';
 
 /** A row in the editor, with a key that survives reordering and deletion. */
@@ -28,22 +27,10 @@ const newKey = () => `row-${(nextKey += 1)}`;
 
 /**
  * Where a dealer types their own history entries — registrations, sold new,
- * service, safety certificates — as distinct from the CARFAX accident record
- * above, which is read off the report rather than typed.
- *
- * Loaded and saved as `source: 'SELLER'` only. `GET /vehicles/:id` returns
- * both kinds of entry to the owner so they can review a CARFAX reading before
- * approving it, and this editor used to load that whole list into its rows
- * without filtering — which meant opening it, then saving, quietly cloned
- * every CARFAX-sourced entry into a second, seller-authored copy: `PUT
- * .../history` always writes what it is given as `source: 'SELLER'`, and only
- * ever deletes the existing `SELLER` rows, so the CARFAX original survived
- * alongside a duplicate. The "Accidents" figure on the listing counts both
- * sources, so a car with two real accidents would read four after a single
- * unrelated save. Filtering to `SELLER` on load is what stops it recurring.
+ * service, safety certificates, accidents — one manually managed timeline.
  *
  * Vintrax does not retrieve anything from CARFAX and does not check these
- * entries, and the buyer-facing block says so. This form says it too, to the
+ * entries; the buyer-facing block says so, and this form says it too, to the
  * person typing — someone entering "No claims" here should know it is being
  * published as their claim, not ours.
  */
@@ -61,7 +48,7 @@ export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
   useEffect(() => {
     if (!vehicle.data || loaded) return;
     setEvents(
-      sellerHistoryDrafts(vehicle.data.historyEvents).map((event) => ({
+      vehicle.data.historyEvents.map((event) => ({
         key: newKey(),
         kind: event.kind,
         occurredOn: event.occurredOn ?? '',
@@ -114,9 +101,8 @@ export function VehicleHistoryEditor({ vehicleId }: { vehicleId: string }) {
   return (
     <div className="border-t border-border pt-5">
       <p className="text-sm text-muted-foreground">
-        Your own entries — registrations, service, safety certificates. Vintrax does not check
-        these; the listing publishes them as your account of the vehicle. The accident record above
-        comes from the CARFAX report instead, and is not editable here.
+        Your own entries — registrations, service, accidents, safety certificates. Vintrax does not
+        check these; the listing publishes them as your account of the vehicle.
       </p>
 
       <ErrorAlert error={vehicle.error ?? save.error} className="mb-4 mt-3" />

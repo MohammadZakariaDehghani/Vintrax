@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import { BRAND_LOGOS } from '@/components/brand-logos.generated';
 import { cn } from '@/lib/utils';
 
@@ -49,11 +52,25 @@ export function BrandLogo({
   logoUrl?: string | null;
   className?: string;
 }) {
-  if (logoUrl) {
+  // An uploaded logo can fail to load — a storage-routing gap in one
+  // deployment target, a deleted file the record still points at — and a
+  // broken-image icon in a brand mark's place looks worse than the mark
+  // this falls back to below ever would. `'use client'` and this bit of
+  // state are what a plain server-rendered `<img>` cannot do for itself.
+  const [failed, setFailed] = useState(false);
+
+  if (logoUrl && !failed) {
     // Same-origin uploads, already sized for this row; next/image optimisation
     // adds a hop without a benefit, the same reasoning the body-type photos use.
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={logoUrl} alt="" className={cn('h-8 w-8 object-contain', className)} />;
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt=""
+        className={cn('h-8 w-8 object-contain', className)}
+        onError={() => setFailed(true)}
+      />
+    );
   }
 
   const logo = BRAND_LOGOS[make.toLowerCase()];

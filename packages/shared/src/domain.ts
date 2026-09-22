@@ -672,55 +672,41 @@ export function isCarfaxUrl(value: string): boolean {
 }
 
 /**
- * The claims a report at `carfaxUrl` can support, beyond the link itself.
- *
- * Two, matching the two badges CARFAX Canada prints on a report: One Owner and
- * Low Kilometres. Stored per vehicle, written by Vintrax's own extraction from
- * the report rather than left for a caller to assert — a seller cannot set
- * these directly, so the badge can never claim more than the report itself
- * said.
+ * Five badges a dealer sets directly on their own listing (issue #67,
+ * superseding D-047's brief automatic-extraction design). Each is independent
+ * of the others and of `carfaxUrl` — the CARFAX badge is not implied by
+ * having a link on file, and a link is not required to set any of the four
+ * others. This is the one source of truth every badge-drawing surface in the
+ * app reads: the vehicle card, the row, the detail page, search results, and
+ * comparison all render from the same `VehicleBadges` object rather than each
+ * keeping their own notion of what a listing claims.
  */
-/** Where a timeline entry came from. */
-export const VEHICLE_HISTORY_SOURCES = ['SELLER', 'CARFAX'] as const;
-export type VehicleHistorySource = (typeof VEHICLE_HISTORY_SOURCES)[number];
+export const VEHICLE_BADGE_KEYS = [
+  'lowKilometres',
+  'oneOwner',
+  'noAccident',
+  'report',
+  'carfax',
+] as const;
+export type VehicleBadgeKey = (typeof VEHICLE_BADGE_KEYS)[number];
 
-export const CARFAX_HIGHLIGHTS = ['ONE_OWNER', 'LOW_KILOMETRES'] as const;
-export type CarfaxHighlight = (typeof CARFAX_HIGHLIGHTS)[number];
-
-export const CARFAX_HIGHLIGHT_LABELS: Record<CarfaxHighlight, string> = {
-  ONE_OWNER: 'One Owner',
-  LOW_KILOMETRES: 'Low Kilometres',
-};
-
-/** What the badge needs to know about a vehicle. */
-export interface CarfaxBadgeSource {
-  carfaxUrl?: string | null;
-  carfaxOneOwner?: boolean | null;
-  carfaxLowKilometres?: boolean | null;
+export interface VehicleBadges {
+  lowKilometres: boolean;
+  oneOwner: boolean;
+  noAccident: boolean;
+  report: boolean;
+  carfax: boolean;
 }
 
-/**
- * Which segments the CARFAX badge should draw, in order.
- *
- * The badge is one mark, not a row of them: a car with a report and both
- * claims shows a single joined strip reading CARFAX · One Owner · Low
- * Kilometres, and a car with only a report shows the CARFAX mark alone. This
- * returns the highlights in a fixed order so two listings with the same claims
- * always draw the same badge — ordering them by whatever the seller ticked
- * first would make an identical pair of cars look different.
- *
- * The report link is what gates all of it. A highlight without a report is not
- * a weaker claim, it is an unsourced one: the badge exists to say "this came
- * off a report, here it is", and a One Owner mark that opens nothing is the
- * brand's authority with the evidence removed. The write schema refuses that
- * combination rather than storing it, and this refuses to draw it in case one
- * predates the check.
- */
-export function carfaxHighlightsFor(vehicle: CarfaxBadgeSource): CarfaxHighlight[] {
-  if (!vehicle.carfaxUrl) return [];
+export const VEHICLE_BADGE_LABELS: Record<VehicleBadgeKey, string> = {
+  lowKilometres: 'Low Kilometer',
+  oneOwner: 'One Owner',
+  noAccident: 'No Accident',
+  report: 'Report',
+  carfax: 'CARFAX',
+};
 
-  const highlights: CarfaxHighlight[] = [];
-  if (vehicle.carfaxOneOwner) highlights.push('ONE_OWNER');
-  if (vehicle.carfaxLowKilometres) highlights.push('LOW_KILOMETRES');
-  return highlights;
+/** Which badges are set, in the fixed display order `VEHICLE_BADGE_KEYS` gives. */
+export function activeVehicleBadges(badges: VehicleBadges): VehicleBadgeKey[] {
+  return VEHICLE_BADGE_KEYS.filter((key) => badges[key]);
 }

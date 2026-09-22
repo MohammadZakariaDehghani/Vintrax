@@ -151,7 +151,6 @@ development and CI need no broker. Handlers must be idempotent either way.
 | `notifications`     | Outbid, won, lost, moderation and verification fan-out |
 | `search-indexing`   | Keep OpenSearch in step with vehicle writes            |
 | `email`             | Reserved for bulk sends                                |
-| `carfax-extraction` | Read a new/changed CARFAX link with a headless browser |
 
 ## Errors and observability
 

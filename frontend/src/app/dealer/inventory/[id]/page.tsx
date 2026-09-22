@@ -1,7 +1,7 @@
 import { RequireAuth } from '@/components/require-auth';
 import { VehicleForm } from '@/components/vehicle-form';
 import { VehicleHistoryEditor } from '@/components/vehicle-history-editor';
-import { CarfaxReportReader } from '@/components/carfax-report-reader';
+import { VehicleBadgesEditor } from '@/components/vehicle-badges-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
 
 export const metadata = { title: 'Edit vehicle' };
@@ -14,22 +14,22 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
         <VehicleForm vehicleId={id} />
 
         {/* One card for everything that feeds the buyer-facing "Vehicle
-            history" block: the report link and its two badges, and the
-            seller's own typed timeline entries. These are two separate
-            actions underneath — saving the link and saving the timeline each
-            call their own endpoint, which is deliberate: neither should have
-            to wait on, or be blocked by, the other — but a dealer working on
-            this vehicle's history sees one box, not two. */}
+            history" block: the five badges and the CARFAX link, and the
+            dealer's own typed timeline entries. These are two separate
+            actions underneath — saving the badges and saving the timeline
+            each call their own endpoint, which is deliberate: neither should
+            have to wait on, or be blocked by, the other — but a dealer
+            working on this vehicle's history sees one box, not two. */}
         <Card>
           <CardHeader>
             <CardTitle>Vehicle history</CardTitle>
             <CardDescription>
-              What buyers see in the vehicle history section of the listing: a CARFAX badge, and the
-              accident timeline you type below.
+              What buyers see in the vehicle history section of the listing: the badges you set
+              below, and the accident timeline you type below that.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <CarfaxReportReader vehicleId={id} />
+            <VehicleBadgesEditor vehicleId={id} />
             <VehicleHistoryEditor vehicleId={id} />
           </CardContent>
         </Card>

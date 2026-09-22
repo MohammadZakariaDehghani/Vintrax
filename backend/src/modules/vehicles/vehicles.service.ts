@@ -90,14 +90,9 @@ export class VehiclesService {
     }
 
     const favouritedIds = await this.favouritedIds(viewer?.id, [row.id]);
-    // The seller and an admin see everything; anyone else sees the paperwork
-    // list, the CARFAX extraction status, and CARFAX-sourced timeline rows
-    // only within what the vehicle itself has already published.
+    // The seller and an admin see the paperwork list; anyone else does not.
     const isOwnerOrAdmin = this.canViewDocuments(row.seller.id, viewer);
-    return toVehicleDetail(row, favouritedIds, {
-      includeDocuments: isOwnerOrAdmin,
-      includeCarfaxStatus: isOwnerOrAdmin,
-    });
+    return toVehicleDetail(row, favouritedIds, { includeDocuments: isOwnerOrAdmin });
   }
 
   /**
@@ -189,47 +184,13 @@ export class VehiclesService {
 
     await this.afterWrite(vehicle.id);
 
-    if (fields.carfaxUrl && fields.carfaxUrl.trim().length > 0) {
-      await this.enqueueCarfaxExtraction(vehicle.id, fields.carfaxUrl.trim());
-    }
-
     return this.findById(vehicle.id, user);
   }
 
   async update(id: string, input: UpdateVehicleInput, user: AuthUser): Promise<VehicleDetail> {
     const existing = await this.requireOwnedVehicle(id, user);
     const { images, documents, ...fields } = input;
-
-    // `fields.carfaxUrl` is the empty string when the seller clears the link,
-    // and absent when this request does not touch it — merged against the
-    // stored value to get the URL this save leaves in place, and to tell
-    // whether it is a different report than the one already on file.
-    const nextCarfaxUrl =
-      fields.carfaxUrl !== undefined ? fields.carfaxUrl.trim() : (existing.carfaxUrl ?? '');
-    const linkChanged =
-      fields.carfaxUrl !== undefined && nextCarfaxUrl !== (existing.carfaxUrl ?? '');
-    const linkCleared = linkChanged && nextCarfaxUrl.length === 0;
-
-    // Removing the link retires everything CARFAX's own extraction wrote for
-    // it — the two badges, the fetch status, and (below) the timeline rows.
-    // A claim must not outlive its evidence: left in place it is invisible —
-    // nothing draws a badge without a link — until some later edit adds a
-    // different link back, and a report about a different reading appears on
-    // the strength of a read that was never about it. Cleared to NULL, "not
-    // stated", rather than to false, which would be a claim nobody made.
-    // `showVehicleHistory` goes back to its default too, after `fields` — a
-    // publish toggle for a timeline that no longer has a report behind it is
-    // not a state worth preserving, whatever this same request also sent.
-    const data = linkCleared
-      ? {
-          ...fields,
-          carfaxOneOwner: null,
-          carfaxLowKilometres: null,
-          carfaxFetchedAt: null,
-          carfaxFetchError: null,
-          showVehicleHistory: false,
-        }
-      : fields;
+    const data = fields;
 
     // A vehicle under an active auction cannot have its commercial terms moved
     // out from under the bidders.
@@ -246,10 +207,6 @@ export class VehiclesService {
       // `fields` cannot carry `status` — updateVehicleSchema omits it, so a
       // seller cannot publish their own listing through this path.
       await tx.vehicle.update({ where: { id }, data });
-
-      if (linkCleared) {
-        await tx.vehicleHistoryEvent.deleteMany({ where: { vehicleId: id, source: 'CARFAX' } });
-      }
 
       // Images and documents are replaced wholesale — the client always sends
       // the full ordered set.
@@ -285,14 +242,6 @@ export class VehiclesService {
     });
 
     await this.afterWrite(id);
-
-    // Only when the link is new or different, and only once the write has
-    // committed — a re-save that leaves the same report link in place must
-    // not re-run the fetch, which is what makes this a cache rather than a
-    // fetch-on-every-save.
-    if (linkChanged && !linkCleared) {
-      await this.enqueueCarfaxExtraction(id, nextCarfaxUrl);
-    }
 
     return this.findById(id, user);
   }
@@ -492,19 +441,12 @@ export class VehiclesService {
     await this.requireOwnedVehicle(id, user);
 
     await this.prisma.$transaction(async (tx) => {
-      // Scoped to the seller's own lines. Without the filter this wipes the
-      // records read off the CARFAX report every time a dealer saves the
-      // timeline editor, and they come back only on the next fetch — the
-      // listing would quietly lose its accident record on an unrelated edit.
-      await tx.vehicleHistoryEvent.deleteMany({ where: { vehicleId: id, source: 'SELLER' } });
+      await tx.vehicleHistoryEvent.deleteMany({ where: { vehicleId: id } });
       if (input.events.length > 0) {
         await tx.vehicleHistoryEvent.createMany({
           data: input.events.map((event, position) => ({
             vehicleId: id,
             kind: event.kind,
-            // Set here rather than taken from the request: a seller must not be
-            // able to post a line that claims to have come off the report.
-            source: 'SELLER' as const,
             // A `@db.Date` column: parsed at UTC midnight so the calendar date
             // that was typed is the calendar date that is stored, whatever the
             // server's timezone.
@@ -761,7 +703,6 @@ export class VehiclesService {
     title: string;
     status: ListingStatus;
     publishedAt: Date | null;
-    carfaxUrl: string | null;
   }> {
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id },
@@ -771,9 +712,6 @@ export class VehiclesService {
         title: true,
         status: true,
         publishedAt: true,
-        // Carried so `update` can check a CARFAX highlight against the link the
-        // vehicle already has, rather than only against this request.
-        carfaxUrl: true,
       },
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
@@ -781,24 +719,6 @@ export class VehiclesService {
       throw new ForbiddenException('You do not have permission to modify this vehicle');
     }
     return vehicle;
-  }
-
-  /**
-   * Starts a CARFAX extraction in the background.
-   *
-   * Enqueued rather than awaited: `create`/`update` have already committed
-   * and are about to return, and a dealer saving their listing should never
-   * wait on a third party's page. `CarfaxExtractWorker` runs the fetch and
-   * writes the two badges, the fetch status, and the accident timeline back
-   * onto this vehicle once it finishes — successfully or not.
-   */
-  private async enqueueCarfaxExtraction(vehicleId: string, url: string): Promise<void> {
-    await this.queue.enqueue(
-      QUEUE_NAMES.carfax,
-      'extract',
-      { vehicleId, url },
-      { jobId: `carfax-${vehicleId}-${Date.now()}` },
-    );
   }
 
   /** Which of `vehicleIds` the viewer has favourited. Empty when anonymous. */

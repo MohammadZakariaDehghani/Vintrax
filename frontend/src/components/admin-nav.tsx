@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Building2,
+  Handshake,
   ImageIcon,
   LayoutDashboard,
   Newspaper,
@@ -21,6 +22,7 @@ const LINKS = [
   { href: '/admin/blog', label: 'Blog', icon: Newspaper },
   { href: '/admin/body-types', label: 'Body type photos', icon: ImageIcon },
   { href: '/admin/make-logos', label: 'Make logos', icon: Tag },
+  { href: '/admin/partners', label: 'Partners', icon: Handshake },
   { href: '/admin/footer', label: 'Footer', icon: PanelBottom },
 ] as const;
 

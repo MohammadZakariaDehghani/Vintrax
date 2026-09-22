@@ -21,10 +21,10 @@ import type {
   Transmission,
   UserRole,
   UserStatus,
+  VehicleBadges,
   VehicleCondition,
   VehicleDocumentType,
   VehicleHistoryEventKind,
-  VehicleHistorySource,
   TitleStatus,
 } from './domain';
 
@@ -137,16 +137,9 @@ export interface VehicleDocument {
 }
 
 /**
- * One entry on a vehicle's history timeline.
- *
- * Two sources. `SELLER` rows are transcribed by the seller from the report
- * they hold — the uploaded document is the evidence, and the interface labels
- * these as the seller's own account rather than as verified. `CARFAX` rows are
- * written by Vintrax's own extraction from `carfaxUrl`, one per accident/
- * damage line the report stated, or a single `NO_ACCIDENTS` row when the
- * report positively said there were none. Whether `CARFAX` rows are shown on
- * the public listing is controlled separately, by `showVehicleHistory` — this
- * array itself is not filtered by it.
+ * One entry on a vehicle's history timeline, transcribed by the seller from
+ * the report they hold — the uploaded document is the evidence, and the
+ * interface labels this as the seller's own account rather than as verified.
  */
 export interface VehicleHistoryEvent {
   id: string;
@@ -155,7 +148,6 @@ export interface VehicleHistoryEvent {
   occurredOn: string | null;
   label: string;
   detail: string | null;
-  source: VehicleHistorySource;
 }
 
 /** Trimmed vehicle shape used in search results and inventory grids. */
@@ -185,23 +177,16 @@ export interface VehicleSummary {
   inspectionGrade: ConditionGrade | null;
   /**
    * The seller's link to the vehicle's CARFAX report, where they gave one.
-   *
-   * On the summary as well as the detail because the search results carry the
-   * badge, and a second request per card to find out whether to draw it would
-   * be absurd.
+   * An associated reference only — nothing reads it. On the summary as well
+   * as the detail because the search results carry the badge strip, and a
+   * second request per card to find out whether to draw it would be absurd.
    */
   carfaxUrl: string | null;
   /**
-   * What Vintrax's own extraction read off the report at `carfaxUrl`, drawn as
-   * the joined badge segments beside the CARFAX mark.
-   *
-   * Tri-state on purpose. `null` is "not stated" — no link, an extraction that
-   * has not completed yet, or a report that did not say — which is not the
-   * same as `false`, "the report says otherwise". Showing the former as the
-   * latter would have Vintrax assert something nobody read off any report.
+   * The five badges the dealer set directly, one source of truth every
+   * badge-drawing surface in the app reads from (issue #67).
    */
-  carfaxOneOwner: boolean | null;
-  carfaxLowKilometres: boolean | null;
+  badges: VehicleBadges;
   /** Present when the vehicle is currently in an auction. */
   activeAuction: AuctionSummary | null;
   publishedAt: string | null;
@@ -243,26 +228,11 @@ export interface VehicleDetail extends VehicleSummary {
   /** How many documents exist, regardless of whether the viewer may open them. */
   documentCount: number;
   /**
-   * The vehicle's history timeline, oldest first. Public: unlike the documents
-   * it summarises, it names no owner and carries no address. Not filtered by
-   * `showVehicleHistory` here — the edit page shows a dealer every row Vintrax
-   * extracted regardless of whether it is published; the public page applies
-   * the toggle itself.
+   * The vehicle's history timeline, oldest first, entered by the seller.
+   * Public: unlike the documents it summarises, it names no owner and
+   * carries no address.
    */
   historyEvents: VehicleHistoryEvent[];
-  /**
-   * Whether the accident timeline above is shown on the public listing.
-   * Independent of the CARFAX badge and of the link itself.
-   */
-  showVehicleHistory: boolean;
-  /** When the CARFAX extraction job last finished attempting `carfaxUrl`. */
-  carfaxFetchedAt: string | null;
-  /**
-   * The dealer-facing reason the last extraction attempt failed, or null when
-   * it last succeeded or none has run. A failed extraction never blocks
-   * saving the vehicle — this is how the seller finds out afterwards.
-   */
-  carfaxFetchError: string | null;
   seller: VehicleSeller;
   inspection: InspectionSummary | null;
   updatedAt: string;
@@ -470,6 +440,26 @@ export interface MakeLogo {
   make: string;
   imageUrl: string;
   alt: string | null;
+  updatedAt: string;
+}
+
+/**
+ * A logo in the homepage's "Our Partners" carousel (issue #67).
+ *
+ * Unlike `MakeLogo`, a partner is not decorating something else that exists
+ * independently — the row is the whole record — so it carries its own id
+ * rather than being keyed on a name. `enabled` is what lets an admin take a
+ * partner off the homepage without losing the record: `GET /admin/partners`
+ * returns every partner, enabled or not, and it is the caller's job to
+ * filter — the admin page needs to see both to manage them, and the
+ * homepage filters to `enabled` itself.
+ */
+export interface Partner {
+  id: string;
+  name: string;
+  logoUrl: string;
+  alt: string | null;
+  enabled: boolean;
   updatedAt: string;
 }
 

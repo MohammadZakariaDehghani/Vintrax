@@ -56,16 +56,10 @@ function ownersFact(events: VehicleHistoryEvent[]): VehicleFact | null {
 /**
  * What the timeline says about accidents.
  *
- * Counts damage records as well as insurance claims. It used to count only
- * claims, which was right when a seller typing "Insurance claim" was the only
- * way anything got onto the timeline — and became wrong the moment the CARFAX
- * reader started writing `ACCIDENT_DAMAGE` rows. A car whose report shows two
- * accidents would have read "Not stated", on the one field where a buyer least
- * forgives it.
- *
- * `fromSeller` is now only true for entries the seller typed. A CARFAX-sourced
- * record is the report's account, not theirs, and the listing should not
- * attribute it to them.
+ * Counts damage records as well as insurance claims — a seller typing
+ * "Insurance claim" is not the only shape an accident entry takes. Every
+ * entry is the seller's own account (issue #67; there is no other source any
+ * more), so `fromSeller` is always true once there is anything to attribute.
  *
  * Silence is still reported as silence — never as "none".
  */
@@ -75,7 +69,7 @@ function accidentsFact(events: VehicleHistoryEvent[]): VehicleFact {
     return {
       label: 'Accidents',
       value: `${accidents.length} reported`,
-      fromSeller: accidents.every((event) => event.source === 'SELLER'),
+      fromSeller: true,
       adverse: true,
     };
   }
@@ -84,11 +78,7 @@ function accidentsFact(events: VehicleHistoryEvent[]): VehicleFact {
     (event) => event.kind === 'NO_ACCIDENTS' || event.kind === 'NO_CLAIMS',
   );
   if (clear.length > 0) {
-    return {
-      label: 'Accidents',
-      value: 'None reported',
-      fromSeller: clear.every((event) => event.source === 'SELLER'),
-    };
+    return { label: 'Accidents', value: 'None reported', fromSeller: true };
   }
 
   return { label: 'Accidents', value: 'Not stated', fromSeller: false };

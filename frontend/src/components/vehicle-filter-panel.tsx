@@ -72,8 +72,16 @@ export function VehicleFilterPanel({
   // set is almost always an empty page.
   const update = (patch: Partial<VehicleFilters>) => onChange({ ...filters, ...patch, page: 1 });
 
-  const bodyTypeCounts = new Map(facets?.bodyTypes.map((facet) => [facet.value, facet.count]));
-  const fuelTypeCounts = new Map(facets?.fuelTypes.map((facet) => [facet.value, facet.count]));
+  // `facets?.bodyTypes.map(...)` looks guarded but is not: optional chaining
+  // only short-circuits when `facets` itself is nullish, not when a property
+  // on it is. A response missing a facet key — a stale cached payload from
+  // before this key existed, most likely to be served on a browser back/
+  // forward navigation, since neither the API nor this fetch disables HTTP
+  // caching on this endpoint — reached `.map` on `undefined` and crashed the
+  // page (issue #67). Falling back to `[]` treats a missing facet the same
+  // as an empty one: no counts shown, nothing thrown.
+  const bodyTypeCounts = new Map((facets?.bodyTypes ?? []).map((facet) => [facet.value, facet.count]));
+  const fuelTypeCounts = new Map((facets?.fuelTypes ?? []).map((facet) => [facet.value, facet.count]));
   const activeCount = countActiveFilters(filters);
 
   return (
@@ -105,7 +113,7 @@ export function VehicleFilterPanel({
           onChange={(event) => update({ make: event.target.value || undefined })}
         >
           <option value="">Any make</option>
-          {facets?.makes.map((facet) => (
+          {(facets?.makes ?? []).map((facet) => (
             <option key={facet.value} value={facet.value}>
               {facet.value} ({facet.count})
             </option>

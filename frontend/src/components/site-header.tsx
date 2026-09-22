@@ -351,8 +351,17 @@ export function SiteHeader() {
             <Logo className="h-[54px]" />
           </Link>
 
+          {/* `lg:`, not `md:` (issue #67): at exactly 768px the three nav
+              buttons here and the full right-hand cluster (saved/notifications/
+              messages, the divider, dashboard/sign-out, the Sell pill) were
+              both turning on at once — the hamburger disappearing at the same
+              breakpoint the full desktop content appears — and together they
+              were wider than the viewport, overflowing the page horizontally.
+              1024px is where the measured content actually fits; the
+              hamburger and its mobile drawer move with this same breakpoint
+              below. */}
           <nav
-            className="relative ml-3 hidden items-stretch self-stretch md:flex"
+            className="relative ml-3 hidden items-stretch self-stretch lg:flex"
             aria-label="Main"
           >
             {MENUS.map((menu) => {
@@ -477,7 +486,7 @@ export function SiteHeader() {
 
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-header-foreground hover:bg-white/10 md:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-header-foreground hover:bg-white/10 lg:hidden"
               aria-label={mobileOpen ? `${t.nav.close} ${t.nav.menu}` : t.nav.menu}
               aria-expanded={mobileOpen}
               onClick={() => setMobileOpen((open) => !open)}
@@ -494,7 +503,7 @@ export function SiteHeader() {
 
       {mobileOpen ? (
         <nav
-          className="max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-card px-5 py-4 md:hidden"
+          className="max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-card px-5 py-4 lg:hidden"
           aria-label="Mobile"
         >
           {MENUS.map((menu) => (

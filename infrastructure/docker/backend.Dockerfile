@@ -12,25 +12,13 @@
 # TypeScript, ESLint and Jest in the production image. A second install costs
 # one cached layer and removes all of it.
 #
-# Debian slim rather than Alpine, as of the CARFAX extraction feature: that
-# module drives a real headless Chromium through Playwright, which Playwright
-# does not build for musl libc at all — Alpine is not a target Chromium
-# supports, only a target Node happens to run on. `playwright install --with-
-# deps` is written for apt, which is the other half of why this is Debian and
-# not merely "some glibc image". This makes the runtime image meaningfully
-# larger; that is the cost of the browser being real rather than a raw fetch,
-# which is what issue #49 asked for after a raw fetch was tried and shelved
-# (see decision D-036 and its own follow-up entry).
-FROM node:22-bookworm-slim AS base
+# Alpine again, not Debian slim: the Debian move (and the headless-Chromium
+# install below it) was for driving a real browser against a CARFAX report,
+# which issue #67 reverted back to five badges the dealer sets directly (see
+# D-047, superseded). Nothing in this image talks to a browser any more, so
+# there is no more reason to carry Chromium's own dependency footprint.
+FROM node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
-# Prisma picks its engine's binary target by probing the OpenSSL actually
-# present on the machine `prisma generate` runs on, and the slim image does
-# not carry it. Detection failing silently falls back to an old default
-# ("debian-openssl-1.1.x") rather than an error — the mismatch only surfaces
-# later, as a runtime crash on a machine that has the real, current OpenSSL
-# bookworm ships (3.0.x) and no matching engine binary to run against it.
-RUN apt-get update && apt-get install -y --no-install-recommends openssl \
- && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # ---- Dependencies -----------------------------------------------------------
@@ -74,13 +62,8 @@ COPY backend/prisma ./backend/prisma
 RUN pnpm --filter @vintrax/backend exec prisma generate
 
 # ---- Runtime ----------------------------------------------------------------
-FROM node:22-bookworm-slim AS runtime
+FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
-# A fixed, explicit path rather than Playwright's per-user cache default: it
-# has to be somewhere the `node` user this stage switches to can read after
-# root did the installing, and a path under /app is what makes that an
-# ordinary `chown` rather than a guess at where Playwright decided to put it.
-ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
 WORKDIR /app
 
 # PID 1 in a container does not get the kernel's default signal handlers. Both
@@ -111,27 +94,8 @@ COPY --from=build --chown=node:node /app/backend/package.json ./backend/
 # Schema and migrations: `prisma migrate deploy` reads both at deploy time.
 COPY --from=build --chown=node:node /app/backend/prisma ./backend/prisma
 
-# The browser and its OS-level shared libraries, installed here rather than in
-# `proddeps`: apt packages installed in an earlier stage do not travel with a
-# `COPY` of an application directory, only files under that directory do. This
-# has to run as root — both apt and writing under `PLAYWRIGHT_BROWSERS_PATH`
-# for the first time need it — before the switch to the unprivileged user
-# below. It also needs network access to CARFAX's page, at request time, not
-# at build time; nothing about this step reaches CARFAX.
-#
-# `openssl` is in this list for the same reason `base` installs it: the
-# engine binary `proddeps` generated needs the real OpenSSL bookworm ships to
-# load at all, not merely to have been generated against the right target —
-# Chromium's own dependency graph does not pull it in as a side effect.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends openssl \
- && cd backend && npx --no-install playwright install --with-deps chromium \
- && cd .. \
- && rm -rf /var/lib/apt/lists/*
-
 # Run unprivileged. The node image already provides this user.
-RUN mkdir -p /app/backend/uploads \
- && chown -R node:node /app/backend/uploads /app/.playwright-browsers
+RUN mkdir -p /app/backend/uploads && chown -R node:node /app/backend/uploads
 USER node
 
 WORKDIR /app/backend

@@ -6,6 +6,7 @@ import type { VehicleDetail } from '@vintrax/shared';
 import { formatPrice } from '@/lib/utils';
 import { useCompareStore } from '@/store/compare-store';
 import { Button } from '@/components/ui';
+import { VehicleBadgeStrip } from '@/components/vehicle-badge-strip';
 
 /** One vehicle's column header on `/compare`: photo, the fields a shopper reads first, and its two actions. */
 export function CompareVehicleCard({ vehicle }: { vehicle: VehicleDetail }) {
@@ -41,6 +42,7 @@ export function CompareVehicleCard({ vehicle }: { vehicle: VehicleDetail }) {
         {vehicle.stockNumber ? (
           <p className="mt-0.5 text-xs text-muted-foreground">Stock # {vehicle.stockNumber}</p>
         ) : null}
+        <VehicleBadgeStrip vehicle={vehicle} compact className="mt-1.5" />
       </div>
 
       <Link href={`/vehicles/${vehicle.slug}`}>

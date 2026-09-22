@@ -2,7 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import type { ArticleSummary, Paginated } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
-import { Card, CardContent, EmptyState } from '@/components/ui';
+import { EmptyState } from '@/components/ui';
+import { ArticleMeta, BlogCard } from '@/components/blog-card';
 
 export const metadata: Metadata = {
   title: 'Editorial — Vintrax',
@@ -60,28 +61,7 @@ export default async function BlogIndexPage() {
             <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {rest.map((article) => (
                 <li key={article.id}>
-                  <Link href={`/blog/${article.slug}`} className="group block h-full">
-                    <Card className="h-full overflow-hidden transition-colors group-hover:border-primary/40">
-                      <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={article.heroImageUrl}
-                          alt={article.heroAlt ?? ''}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                        />
-                      </div>
-                      <CardContent className="p-4">
-                        <ArticleMeta article={article} />
-                        <h2 className="mt-1 font-semibold leading-snug">{article.title}</h2>
-                        {article.subtitle ? (
-                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                            {article.subtitle}
-                          </p>
-                        ) : null}
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <BlogCard article={article} />
                 </li>
               ))}
             </ul>
@@ -89,21 +69,5 @@ export default async function BlogIndexPage() {
         </>
       )}
     </div>
-  );
-}
-
-function ArticleMeta({ article }: { article: ArticleSummary }) {
-  if (!article.publishedAt) return null;
-  return (
-    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-      <time dateTime={article.publishedAt}>
-        {new Date(article.publishedAt).toLocaleDateString('en-CA', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        })}
-      </time>
-      {article.authorName ? ` · ${article.authorName}` : ''}
-    </p>
   );
 }

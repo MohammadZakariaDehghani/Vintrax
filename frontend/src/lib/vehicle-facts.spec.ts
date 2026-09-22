@@ -15,7 +15,6 @@ function event(kind: VehicleHistoryEvent['kind'], suffix = ''): VehicleHistoryEv
   return {
     id: `${kind}${suffix}`,
     kind,
-    source: 'SELLER',
     occurredOn: '2024-01-01',
     label: kind,
     detail: null,
@@ -63,11 +62,7 @@ describe('vehicleFacts', () => {
     });
   });
 
-  it('counts a damage record read off the report, not only an insurance claim', () => {
-    // The bug this exists for: counting `CLAIM` alone was right while a seller
-    // typing one was the only way anything reached the timeline, and became
-    // wrong the moment the CARFAX reader started writing ACCIDENT_DAMAGE. A car
-    // whose report shows two accidents read "Not stated".
+  it('counts a damage record, not only an insurance claim', () => {
     const facts = vehicleFacts(
       vehicle([event('ACCIDENT_DAMAGE', '1'), event('ACCIDENT_DAMAGE', '2')]),
     );
@@ -84,13 +79,10 @@ describe('vehicleFacts', () => {
     expect(facts.find((fact) => fact.label === 'Accidents')?.value).toBe('None reported');
   });
 
-  it('does not attribute the report\u2019s finding to the seller', () => {
-    // `fromSeller` drives a "seller says" marker on the listing. A record the
-    // server read off CARFAX is the report's account, not the dealer's.
-    const fromReport: VehicleHistoryEvent = { ...event('ACCIDENT_DAMAGE'), source: 'CARFAX' };
-    const facts = vehicleFacts(vehicle([fromReport]));
+  it('attributes every entry to the seller \u2014 there is no other source', () => {
+    const facts = vehicleFacts(vehicle([event('ACCIDENT_DAMAGE')]));
 
-    expect(facts.find((fact) => fact.label === 'Accidents')?.fromSeller).toBe(false);
+    expect(facts.find((fact) => fact.label === 'Accidents')?.fromSeller).toBe(true);
   });
 
   it('lets a claim outweigh a "no claims" entry sitting beside it', () => {

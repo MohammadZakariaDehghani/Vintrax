@@ -36,6 +36,21 @@ spec:
               service:
                 name: vintrax-api
                 port: { number: 3001 }
+          # Uploaded media (make logos, body-type photos, partner logos,
+          # vehicle photos) with STORAGE_DRIVER=local. Routed here, the same
+          # way infrastructure/nginx/vintrax.conf.example already does,
+          # rather than left to fall through to `/` and rely on the web pod's
+          # own Next.js rewrite of `/uploads/:path*` — that rewrite depends on
+          # the web pod resolving `API_ORIGIN` correctly at its own startup,
+          # one more thing that can drift from this ingress's own routing.
+          # With STORAGE_DRIVER=s3 nothing under this path is written and the
+          # rule is simply unused.
+          - path: /uploads
+            pathType: Prefix
+            backend:
+              service:
+                name: vintrax-api
+                port: { number: 3001 }
           - path: /
             pathType: Prefix
             backend:
@@ -52,6 +67,12 @@ spec:
                 name: vintrax-api
                 port: { number: 3001 }
           - path: /socket.io
+            pathType: Prefix
+            backend:
+              service:
+                name: vintrax-api
+                port: { number: 3001 }
+          - path: /uploads
             pathType: Prefix
             backend:
               service:
