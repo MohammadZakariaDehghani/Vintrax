@@ -11,6 +11,7 @@ import { Badge, Skeleton } from '@/components/ui';
 import { VehicleBadgeStrip } from '@/components/vehicle-badge-strip';
 import { AuctionCountdown } from '@/components/auction-countdown';
 import { CompareButton } from '@/components/compare-button';
+import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
 
 const STATUS_VARIANT = {
   DRAFT: 'outline',
@@ -52,13 +53,11 @@ export function VehicleCard({
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         <Link href={href} tabIndex={-1} aria-hidden="true">
           {vehicle.primaryImageUrl ? (
-            // Placeholder images are SVG and served from the same origin, so
-            // next/image optimisation adds cost without benefit here.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <OptimizedImage
+              image={vehicle.primaryImage}
               src={vehicle.primaryImageUrl}
               alt=""
-              loading="lazy"
+              sizes={IMAGE_SIZES.card}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
           ) : (

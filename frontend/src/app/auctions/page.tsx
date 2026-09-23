@@ -19,6 +19,7 @@ import {
 } from '@/components/ui';
 import { VehicleCardSkeleton } from '@/components/vehicle-card';
 import { AuctionCountdown } from '@/components/auction-countdown';
+import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
 
 const STATUS_TABS = [
   { label: 'Live now', value: 'LIVE' },
@@ -107,11 +108,11 @@ function AuctionsContent() {
                 <Link href={`/auctions/${auction.id}`}>
                   <div className="aspect-[4/3] bg-muted">
                     {auction.vehicle?.primaryImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <OptimizedImage
+                        image={auction.vehicle.primaryImage}
                         src={auction.vehicle.primaryImageUrl}
                         alt=""
-                        loading="lazy"
+                        sizes={IMAGE_SIZES.card}
                         className="h-full w-full object-cover"
                       />
                     ) : null}

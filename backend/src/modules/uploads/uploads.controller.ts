@@ -7,8 +7,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RequirePermissions } from '../../common/decorators';
+import type { UploadedVehicleImage } from '@vintrax/shared';
+import type { AuthUser } from '../../common/auth/auth-user';
+import { CurrentUser, RequirePermissions } from '../../common/decorators';
 import { StorageService, type StoredObject } from '../../common/storage/storage.service';
+import { VehicleImagesService } from '../vehicle-images/vehicle-images.service';
 
 /**
  * Binary uploads.
@@ -21,7 +24,10 @@ import { StorageService, type StoredObject } from '../../common/storage/storage.
 @ApiTags('uploads')
 @Controller('uploads')
 export class UploadsController {
-  constructor(private readonly storage: StorageService) {}
+  constructor(
+    private readonly storage: StorageService,
+    private readonly vehicleImages: VehicleImagesService,
+  ) {}
 
   @Post('images')
   @RequirePermissions('vehicle:write')
@@ -29,17 +35,18 @@ export class UploadsController {
   @ApiOperation({
     summary: 'Upload a vehicle photo',
     description:
-      'Returns a URL to reference in a vehicle payload. The response shape is identical for local and S3 storage.',
+      'Validates the photo by its content, then generates responsive WebP renditions ' +
+      '(documentation/images.md). Returns `url` — an optimized rendition, never the ' +
+      'original — to reference in a vehicle payload, plus every rendition in `optimized`. ' +
+      'The filename and declared MIME type are ignored.',
   })
   @UseInterceptors(FileInterceptor('file', { storage: undefined }))
-  uploadImage(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+  uploadImage(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: AuthUser,
+  ): Promise<UploadedVehicleImage> {
     if (!file) throw new BadRequestException('No file was uploaded');
-    return this.storage.uploadImage({
-      folder: 'vehicles',
-      buffer: file.buffer,
-      contentType: file.mimetype,
-      originalName: file.originalname,
-    });
+    return this.vehicleImages.ingest(file.buffer, { uploadedById: user.id });
   }
 
   @Post('inspection-images')
@@ -83,7 +90,7 @@ export class UploadsController {
     summary: "Upload a vehicle make's logo",
     description:
       'Returns a URL to pass to PUT /admin/make-logos/:make. Overrides the generated mark ' +
-      "the popular-makes row otherwise draws for that make.",
+      'the popular-makes row otherwise draws for that make.',
   })
   @UseInterceptors(FileInterceptor('file', { storage: undefined }))
   uploadMakeLogo(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {

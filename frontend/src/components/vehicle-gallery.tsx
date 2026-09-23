@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { VehicleImage } from '@vintrax/shared';
 import { cn } from '@/lib/utils';
+import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
 
 /**
  * A listing's photographs.
@@ -62,10 +63,17 @@ export function VehicleGallery({ images, title }: { images: VehicleImage[]; titl
             }
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          {/* The page's largest paint: fetched eagerly, at high priority. The
+              4:3 box is fixed, so nothing below moves while it loads. `key`
+              swaps the element when the photo changes, rather than letting a
+              new srcset briefly show the previous photo at the new size. */}
+          <OptimizedImage
+            key={current.id}
+            image={current.optimized}
             src={current.url}
             alt={current.alt ?? title}
+            sizes={IMAGE_SIZES.hero}
+            priority
             className="aspect-[4/3] w-full object-cover"
           />
           <p className="absolute bottom-3 left-3 rounded-md bg-background/85 px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
@@ -113,11 +121,11 @@ export function VehicleGallery({ images, title }: { images: VehicleImage[]; titl
                   }
                   className="relative overflow-hidden rounded-lg border border-border bg-muted"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <OptimizedImage
+                    image={image.optimized}
                     src={image.url}
                     alt=""
-                    loading="lazy"
+                    sizes={IMAGE_SIZES.side}
                     className="h-full w-full object-cover"
                   />
                   {isLast ? (
@@ -146,8 +154,13 @@ export function VehicleGallery({ images, title }: { images: VehicleImage[]; titl
                 position === index ? 'border-primary' : 'border-transparent hover:border-border',
               )}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+              <OptimizedImage
+                image={image.optimized}
+                src={image.url}
+                alt=""
+                sizes={IMAGE_SIZES.thumb}
+                className="h-full w-full object-cover"
+              />
             </button>
           ))}
         </div>

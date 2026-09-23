@@ -114,11 +114,49 @@ export interface VehicleSeller {
   memberSince: string;
 }
 
+/** One encoded rendition of a processed photo. */
+export interface ImageSource {
+  width: number;
+  url: string;
+}
+
+/**
+ * A processed photo's responsive renditions (issue #74), for `srcset` and
+ * `<picture>`. `width` × `height` is the largest rendition's size — the
+ * photo's display aspect ratio, for reserving its space before it loads.
+ * `avif` is empty unless IMAGE_AVIF_ENABLED is on.
+ */
+export interface OptimizedImage {
+  width: number;
+  height: number;
+  webp: ImageSource[];
+  avif: ImageSource[];
+}
+
 export interface VehicleImage {
   id: string;
+  /**
+   * A single displayable URL. For a processed photo this is already an
+   * optimized WebP rendition, never the original upload.
+   */
   url: string;
   alt: string | null;
   position: number;
+  /** Null for a photo the image pipeline has not processed (see `images:migrate`). */
+  optimized: OptimizedImage | null;
+}
+
+/** What `POST /uploads/images` returns: a processed photo, not yet on a listing. */
+export interface UploadedVehicleImage {
+  id: string;
+  /** Pass this in a vehicle's `images[].url` to attach the photo. */
+  url: string;
+  key: string;
+  sizeBytes: number;
+  contentType: string;
+  originalWidth: number;
+  originalHeight: number;
+  optimized: OptimizedImage;
 }
 
 export interface VehicleDocument {
@@ -171,6 +209,8 @@ export interface VehicleSummary {
   status: ListingStatus;
   saleChannel: SaleChannel;
   primaryImageUrl: string | null;
+  /** The primary photo's renditions, where it has been processed. */
+  primaryImage: OptimizedImage | null;
   imageCount: number;
   isFavourited: boolean;
   hasInspection: boolean;

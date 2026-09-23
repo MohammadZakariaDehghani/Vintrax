@@ -268,6 +268,8 @@ model User {
   makeLogos      MakeLogo[]
   partners       Partner[]
 
+  vehicleImageAssets VehicleImageAsset[]
+
   inventoryImports    InventoryImport[] @relation("InventoryImportSeller")
   inventoryImportsRun InventoryImport[] @relation("InventoryImportInitiator")
 
@@ -528,8 +530,8 @@ model InventoryImport {
   /// host produces the same line 1200 times and none of them is new.
   photoErrors    String[]             @default([])
 
-  createdAt      DateTime  @default(now())
-  completedAt    DateTime?
+  createdAt        DateTime  @default(now())
+  completedAt      DateTime?
   photosFinishedAt DateTime?
 
   @@index([sellerId, createdAt])
@@ -563,9 +565,17 @@ model VehicleImage {
   /// the identity of an imported photo: unchanged means no second download.
   sourceUpdatedAt DateTime?
 
+  /// The processed photo behind `url`: its dimensions and responsive
+  /// variants. Null for a photo from before the image pipeline that
+  /// `images:migrate` has not reached yet (or cannot: the SVG placeholders),
+  /// which the frontend draws from `url` alone.
+  assetId String?            @db.Uuid
+  asset   VehicleImageAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   @@index([vehicleId, position])
+  @@index([assetId])
   @@index([vehicleId, sourceUrl])
 }
 
@@ -1044,4 +1054,67 @@ model Partner {
   updatedAt DateTime @updatedAt
 
   @@index([enabled, createdAt])
+}
+
+enum ImageProcessingStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+/// One uploaded vehicle photo after the image pipeline (issue #74): the
+/// retained original plus the WebP (and optionally AVIF) variants the site
+/// actually serves.
+///
+/// Separate from `VehicleImage` rather than columns on it because the two
+/// have different lifetimes. A photo is uploaded, and processed, before its
+/// listing exists — the add-vehicle form uploads first and saves later — and
+/// `VehicleImage` rows are replaced wholesale every time a listing's photo
+/// set is saved. What was produced from the file has to outlive both, keyed
+/// by the file itself.
+model VehicleImageAsset {
+  id String @id @default(uuid()) @db.Uuid
+
+  status ImageProcessingStatus @default(PROCESSING)
+  /// Why processing failed, for the logs and the admin; never shown publicly.
+  error  String?
+
+  /// What a single-`src` consumer shows: the variant nearest
+  /// IMAGE_FALLBACK_WIDTH. Also the value clients send back in a vehicle's
+  /// `images[].url`, which is how a saved listing finds its asset.
+  url     String   @unique
+  /// Public URL the variants sit under: `<baseUrl>/<width>.<format>`.
+  baseUrl String
+  /// Rendered widths, ascending. Never above the original's own width.
+  widths  Int[]
+  /// Encoded formats, best-compressing first: `{avif,webp}` or `{webp}`.
+  formats String[]
+  /// Dimensions of the largest variant — the photo's display aspect ratio.
+  width   Int?
+  height  Int?
+
+  /// Storage key of the untouched upload, kept for reprocessing. Stored
+  /// outside the publicly served folders: it still carries the camera's
+  /// EXIF, GPS position included.
+  originalKey         String?
+  originalContentType String?
+  originalWidth       Int?
+  originalHeight      Int?
+  originalSizeBytes   Int?
+
+  /// For a photo `images:migrate` produced from a pre-pipeline upload: the
+  /// URL it was generated from. Unique so a second run finds it instead of
+  /// processing the same file again.
+  legacyUrl String? @unique
+
+  uploadedById String? @db.Uuid
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  processingMs Int?
+  processedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  images VehicleImage[]
+
+  @@index([uploadedById])
 }

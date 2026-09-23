@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { MAX_PHOTOS_PER_IMPORT } from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { VehicleImagesService } from '../vehicle-images/vehicle-images.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import type { PhotoIntent } from './inventory-plan';
 import { RemoteImageError, fetchRemoteImage } from './remote-image';
@@ -55,6 +56,7 @@ export class InventoryPhotosService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly vehicles: VehiclesService,
+    private readonly vehicleImages: VehicleImagesService,
   ) {}
 
   /** How many photos a run will consider, after the per-import cap. */
@@ -161,8 +163,19 @@ export class InventoryPhotosService {
   ): Promise<{ fetched: number; reused: number; failed: number; changed: boolean }> {
     const existing = await this.prisma.vehicleImage.findMany({
       where: { vehicleId },
-      select: { id: true, url: true, position: true, sourceUrl: true, sourceUpdatedAt: true },
+      select: {
+        id: true,
+        url: true,
+        position: true,
+        sourceUrl: true,
+        sourceUpdatedAt: true,
+        assetId: true,
+      },
       orderBy: { position: 'asc' },
+    });
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: { sellerId: true },
     });
 
     const held = new Map(
@@ -176,7 +189,12 @@ export class InventoryPhotosService {
 
     let fetched = 0;
     let failed = 0;
-    const resolved: Array<{ url: string; sourceUrl: string; sourceUpdatedAt: Date | null }> = [];
+    const resolved: Array<{
+      url: string;
+      assetId: string | null;
+      sourceUrl: string;
+      sourceUpdatedAt: Date | null;
+    }> = [];
 
     // Downloads run in parallel, but the result list is rebuilt in the file's
     // own order afterwards: the first photo in the row is the listing's primary
@@ -189,6 +207,7 @@ export class InventoryPhotosService {
       if (already) {
         slots[index] = {
           url: already.url,
+          assetId: already.assetId,
           sourceUrl: photo.sourceUrl,
           sourceUpdatedAt: toDate(photo.sourceUpdatedAt),
         };
@@ -199,13 +218,15 @@ export class InventoryPhotosService {
         const image = await fetchRemoteImage(photo.sourceUrl, {
           maxBytes: InventoryPhotosService.MAX_PHOTO_BYTES,
         });
-        const stored = await this.storage.uploadImage({
-          folder: 'vehicles',
-          buffer: image.buffer,
-          contentType: image.contentType,
+        // The same pipeline as a photo the dealer uploads by hand: validated
+        // by content, resized to the responsive renditions, original kept.
+        const stored = await this.vehicleImages.ingest(image.buffer, {
+          uploadedById: vehicle?.sellerId ?? null,
+          vehicleId,
         });
         slots[index] = {
           url: stored.url,
+          assetId: stored.id,
           sourceUrl: photo.sourceUrl,
           sourceUpdatedAt: toDate(photo.sourceUpdatedAt),
         };
@@ -215,7 +236,10 @@ export class InventoryPhotosService {
         // Recorded by reason and host rather than by URL. One unreachable host
         // produces the same sentence twelve hundred times, and a list of twelve
         // hundred URLs is not a thing anyone reads.
-        const reason = error instanceof RemoteImageError ? error.message : 'could not be saved';
+        const reason =
+          error instanceof RemoteImageError || error instanceof BadRequestException
+            ? error.message
+            : 'could not be saved';
         errors.add(`${hostOf(photo.sourceUrl)}: ${reason}`);
       }
     });
@@ -248,6 +272,7 @@ export class InventoryPhotosService {
         data: resolved.map((entry, position) => ({
           vehicleId,
           url: entry.url,
+          assetId: entry.assetId,
           position,
           sourceUrl: entry.sourceUrl,
           sourceUpdatedAt: entry.sourceUpdatedAt,
@@ -265,7 +290,12 @@ export class InventoryPhotosService {
     // Only the files this importer put in storage, and only once the rows
     // pointing at them are gone. A photo the dealer uploaded is never deleted
     // here, whatever the feed says.
+    await this.vehicleImages.releaseUnused(
+      orphaned.flatMap((image) => (image.assetId ? [image.assetId] : [])),
+    );
     for (const image of orphaned) {
+      if (image.assetId) continue;
+      // A photo imported before the image pipeline: one file, at its URL.
       const key = image.url.replace(/^\/uploads\//, '');
       if (this.storage.isOwnUrl(image.url)) await this.storage.delete(key);
     }

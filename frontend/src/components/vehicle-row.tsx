@@ -19,6 +19,7 @@ import { Badge, Skeleton } from '@/components/ui';
 import { VehicleBadgeStrip } from '@/components/vehicle-badge-strip';
 import { AuctionCountdown } from '@/components/auction-countdown';
 import { CompareButton } from '@/components/compare-button';
+import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
 
 /**
  * A search result, laid out as a row rather than a card.
@@ -53,13 +54,11 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
     <article className="group relative flex flex-col gap-4 border-b border-border bg-card p-3.5 transition-colors last:border-b-0 hover:bg-secondary/40 sm:flex-row">
       <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md bg-muted sm:aspect-auto sm:h-[132px] sm:w-[196px]">
         {vehicle.primaryImageUrl ? (
-          // Placeholder images are SVG from the same origin, so next/image
-          // optimisation adds cost without benefit.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <OptimizedImage
+            image={vehicle.primaryImage}
             src={vehicle.primaryImageUrl}
             alt=""
-            loading="lazy"
+            sizes={IMAGE_SIZES.row}
             className="h-full w-full object-cover"
           />
         ) : (

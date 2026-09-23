@@ -55,9 +55,10 @@ server {
     # and adds a second server block on :80 that redirects to https.
 
     # Listing photographs are the largest thing users send. The API enforces its
-    # own limit through MAX_UPLOAD_BYTES; this has to be at least as large or
-    # Nginx rejects the request with a 413 before the API can explain why.
-    client_max_body_size 12m;
+    # own limits through MAX_UPLOAD_BYTES and IMAGE_MAX_UPLOAD_BYTES (15 MB);
+    # this has to be at least as large or Nginx rejects the request with a 413
+    # before the API can explain why.
+    client_max_body_size 16m;
 
     # Only add headers the application does not already set. The API sends its
     # own CSP, HSTS, X-Frame-Options and X-Content-Type-Options through helmet,
@@ -124,11 +125,21 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host       $host;
         proxy_set_header Connection "";
-        # Vehicle photographs are immutable once uploaded — the filename carries
-        # a hash — but documents are access-checked per request by the API and
-        # must never be cached by a shared proxy, which is why this is private.
+        # Operator uploads (logos, body-type photos, articles). Kept private and
+        # short: this block is the conservative default for any upload folder.
         proxy_cache_valid 200 1h;
         add_header Cache-Control "private, max-age=3600";
+    }
+
+    # Vehicle photos. Every file here has a URL that never changes content — a
+    # new upload or a replaced photo gets a new UUID — so the API sends
+    # `public, max-age=31536000, immutable` and this block passes it through
+    # rather than overriding it (documentation/images.md, "Caching").
+    location /uploads/vehicles/ {
+        proxy_pass http://vintrax_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header Connection "";
     }
 
     # --- Next.js build output ------------------------------------------------
@@ -165,7 +176,7 @@ server {
     listen [::]:80;
     server_name m.vintrax.example.com;
 
-    client_max_body_size 12m;
+    client_max_body_size 16m;
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     server_tokens off;
@@ -204,6 +215,13 @@ server {
         proxy_set_header Host       $host;
         proxy_set_header Connection "";
         add_header Cache-Control "private, max-age=3600";
+    }
+
+    location /uploads/vehicles/ {
+        proxy_pass http://vintrax_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host       $host;
+        proxy_set_header Connection "";
     }
 
     # The service worker must not be cached, or an install keeps serving the

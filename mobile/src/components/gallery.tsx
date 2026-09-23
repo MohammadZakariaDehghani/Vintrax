@@ -1,10 +1,10 @@
 'use client';
 
-import Image from 'next/image';
 import { useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import type { VehicleImage } from '@vintrax/shared';
 import { cn } from '@/lib/format';
+import { OptimizedImage } from '@/components/optimized-image';
 
 /**
  * Swipeable photo gallery.
@@ -41,10 +41,10 @@ export function Gallery({ images, title }: { images: VehicleImage[]; title: stri
       >
         {images.map((image, position) => (
           <div key={image.id} className="relative h-full w-full shrink-0">
-            <Image
+            <OptimizedImage
+              image={image.optimized}
               src={image.url}
               alt={image.alt ?? `${title}, photo ${position + 1} of ${images.length}`}
-              fill
               sizes="(max-width: 512px) 100vw, 512px"
               className="object-cover"
               // The first photo is the largest thing above the fold, so it is

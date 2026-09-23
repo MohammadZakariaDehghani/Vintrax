@@ -281,10 +281,53 @@ imports and carries a warning.
 | `PATCH`        | `/vehicles/:id`                       | owner                                      | Update a listing — everything except its status |
 | `PATCH`        | `/vehicles/:id/status`                | owner + verified                           | Submit for review, withdraw, archive, re-draft  |
 | `DELETE`       | `/vehicles/:id`                       | owner                                      | Delete a listing                                |
+| `POST`         | `/vehicles/:id/images`                | owner                                      | Add one photo (multipart), processed            |
+| `PUT`          | `/vehicles/:id/images/:imageId`       | owner                                      | Replace one photo's file, keeping its place     |
+| `DELETE`       | `/vehicles/:id/images/:imageId`       | owner                                      | Remove one photo and its files (idempotent)     |
 | `PATCH`        | `/vehicles/:id/moderate`              | admin                                      | Approve or reject                               |
 | `GET`          | `/vehicles/:id/documents/:documentId` | seller, admin or the buyer on a live order | Download a document                             |
 | `PUT`/`DELETE` | `/vehicles/:id/favourite`             | ✅                                         | Save or unsave                                  |
 | `GET`          | `/me/favourites`                      | ✅                                         | Saved vehicles                                  |
+
+### Photos
+
+Every vehicle photo goes through the image pipeline
+([images.md](./images.md)): validated by its content, then rendered to
+responsive WebP widths. A vehicle's `images[]` entries, and a summary's
+primary photo, carry the renditions alongside the plain `url`:
+
+```json
+{
+  "id": "…",
+  "url": "/uploads/vehicles/<asset>/960.webp",
+  "alt": null,
+  "position": 0,
+  "optimized": {
+    "width": 1920,
+    "height": 1280,
+    "webp": [
+      { "width": 320, "url": "/uploads/vehicles/<asset>/320.webp" },
+      { "width": 640, "url": "/uploads/vehicles/<asset>/640.webp" },
+      { "width": 960, "url": "/uploads/vehicles/<asset>/960.webp" },
+      { "width": 1440, "url": "/uploads/vehicles/<asset>/1440.webp" },
+      { "width": 1920, "url": "/uploads/vehicles/<asset>/1920.webp" }
+    ],
+    "avif": []
+  }
+}
+```
+
+Summaries carry the same object as `primaryImage`, next to the existing
+`primaryImageUrl`. Both are additive: `url` and `primaryImageUrl` keep their
+meaning — one displayable URL — and for a processed photo they now point at a
+WebP rendition rather than the original upload. `optimized` is `null` for a
+photo the pipeline has not processed yet; clients draw those from `url` as
+before.
+
+Saving a listing (`POST /vehicles`, `PATCH /vehicles/:id`) still takes
+`images: [{ url, alt }]`. A `url` returned by `POST /uploads/images` links the
+listing to that processed photo; photos a save drops have their files deleted
+once the save has committed.
 
 ### Listing status
 
@@ -515,7 +558,7 @@ The message recipient is derived from the vehicle, never supplied by the client
 
 | Method | Path                         | Auth             | Purpose                          |
 | ------ | ---------------------------- | ---------------- | -------------------------------- |
-| `POST` | `/uploads/images`            | seller           | Vehicle photo                    |
+| `POST` | `/uploads/images`            | seller           | Vehicle photo, processed         |
 | `POST` | `/uploads/inspection-images` | inspector        | Inspection photo                 |
 | `POST` | `/uploads/body-type-images`  | `content:manage` | Body-type shortcut photo         |
 | `POST` | `/uploads/make-logos`        | `content:manage` | Vehicle make logo                |
@@ -529,7 +572,18 @@ The message recipient is derived from the vehicle, never supplied by the client
 
 Uploads are held in memory and only written after validation. The extension
 comes from the validated MIME type and the filename is generated, so the
-client-supplied name is discarded entirely.
+client-supplied name is discarded entirely. Every multipart upload is capped
+at the larger of `MAX_UPLOAD_BYTES` and `IMAGE_MAX_UPLOAD_BYTES` (413 above
+it) and one file per request.
+
+`POST /uploads/images` goes further: the photo's type is read from its bytes
+(the declared MIME type and extension are ignored), its dimensions and pixel
+count are checked before it is decoded, and it is rendered to responsive WebP
+widths before the response returns. It answers with an
+`UploadedVehicleImage` — `id`, `url` (a WebP rendition, never the original),
+`originalWidth`/`originalHeight`, and every rendition in `optimized`. A file
+that is not an acceptable photo is a 400 with a message meant for the
+uploader. See [images.md](./images.md).
 
 `/health` returns 503 only when the **database** is unreachable — Redis or a
 search cluster being down reports `degraded` but keeps serving.

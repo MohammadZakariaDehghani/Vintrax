@@ -1,12 +1,12 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Gavel } from 'lucide-react';
 import type { AuctionSummary } from '@vintrax/shared';
 import { formatPrice } from '@/lib/format';
 import { Badge } from '@/components/ui';
 import { Countdown } from '@/components/countdown';
+import { OptimizedImage } from '@/components/optimized-image';
 
 /** One auction in a list: what it costs now, and how long is left. */
 export function AuctionRow({ auction }: { auction: AuctionSummary }) {
@@ -19,7 +19,13 @@ export function AuctionRow({ auction }: { auction: AuctionSummary }) {
     >
       <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
         {vehicle?.primaryImageUrl ? (
-          <Image src={vehicle.primaryImageUrl} alt="" fill sizes="96px" className="object-cover" />
+          <OptimizedImage
+            image={vehicle.primaryImage}
+            src={vehicle.primaryImageUrl}
+            alt=""
+            sizes="96px"
+            className="object-cover"
+          />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Gavel aria-hidden className="h-5 w-5" />

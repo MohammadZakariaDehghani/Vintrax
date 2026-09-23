@@ -5,7 +5,9 @@ metadata:
   namespace: vintrax
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/proxy-body-size: '12m'
+    # At least IMAGE_MAX_UPLOAD_BYTES (15 MB), so the API, not the proxy,
+    # answers an oversized photo — with a message saying why.
+    nginx.ingress.kubernetes.io/proxy-body-size: '16m'
     # Auction bidding uses a WebSocket, which needs a long read timeout or the
     # proxy will cut idle connections between bids.
     nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'

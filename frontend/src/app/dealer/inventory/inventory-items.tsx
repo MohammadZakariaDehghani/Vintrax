@@ -7,6 +7,7 @@ import type { SellerSettableListingStatus, VehicleSummary } from '@vintrax/share
 import { api } from '@/lib/api-client';
 import { formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { Badge, Button, Card, CardContent, ErrorAlert } from '@/components/ui';
+import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
 
 export const STATUS_VARIANT = {
   DRAFT: 'outline',
@@ -196,8 +197,13 @@ export function InventoryRow({ vehicle, selected, onSelect }: ItemProps) {
 
         <div className="h-20 w-28 shrink-0 overflow-hidden rounded-md bg-muted">
           {vehicle.primaryImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={vehicle.primaryImageUrl} alt="" className="h-full w-full object-cover" />
+            <OptimizedImage
+              image={vehicle.primaryImage}
+              src={vehicle.primaryImageUrl}
+              alt=""
+              sizes={IMAGE_SIZES.thumb}
+              className="h-full w-full object-cover"
+            />
           ) : null}
         </div>
 
@@ -224,8 +230,13 @@ export function InventoryCard({ vehicle, selected, onSelect }: ItemProps) {
     <Card className={`flex flex-col ${selected ? 'border-primary' : ''}`}>
       <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-muted">
         {vehicle.primaryImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={vehicle.primaryImageUrl} alt="" className="h-full w-full object-cover" />
+          <OptimizedImage
+            image={vehicle.primaryImage}
+            src={vehicle.primaryImageUrl}
+            alt=""
+            sizes={IMAGE_SIZES.card}
+            className="h-full w-full object-cover"
+          />
         ) : null}
         {/* On its own plate, because the checkbox sits over a photograph that
             may be any colour at all. */}

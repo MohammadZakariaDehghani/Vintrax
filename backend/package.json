@@ -17,7 +17,9 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:reset": "prisma migrate reset --force",
     "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "images:migrate": "node dist/cli/images-migrate.js",
+    "images:benchmark": "node dist/cli/images-benchmark.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -47,6 +49,7 @@
     "prisma": "^6.3.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.4",
     "socket.io": "^4.8.3",
     "zod": "^3.24.1"
   },

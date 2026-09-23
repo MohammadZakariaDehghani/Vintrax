@@ -1,5 +1,6 @@
 export * from './domain';
 export * from './schemas';
 export * from './contracts';
+export * from './images';
 export * from './description';
 export * from './inventory-csv';
