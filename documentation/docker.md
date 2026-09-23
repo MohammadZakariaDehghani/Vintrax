@@ -317,6 +317,14 @@ migration being an inconvenience and being an incident:
 **`deploy.sh` refuses to deploy `latest`.** A moving tag leaves nothing to roll
 back to and no way to say what is running.
 
+**`deploy.sh` keeps the newest 3 versions on disk.** Once every service passes
+its health check, it removes older `sha-` builds of `vintrax-api`, `vintrax-web`
+and `vintrax-mobile` and keeps the newest 3 of each. It never removes an image a
+container uses, the version it just deployed or the recorded previous version,
+and never touches Postgres, Redis, any other image, volumes or networks. A failed
+deploy removes nothing, and a failed cleanup is reported without failing the
+deploy. `VINTRAX_IMAGE_KEEP=5` in the environment keeps 5 instead.
+
 ### 4.1 Automatic releases from `main`
 
 `.github/workflows/release.yml` ends with a `deploy` job. After CI passes and
@@ -647,12 +655,17 @@ uploads`.
 `MAX_UPLOAD_BYTES`. Raise the Nginx value; it must be the larger of the two or
 the API never gets to explain the limit.
 
-**Out of disk.** Old images accumulate. Remove specific ones you no longer need
-— never `docker system prune -a`, which takes the rollback target with it:
+**Out of disk.** Each deploy keeps only the newest 3 versions, but a disk
+that is already full makes deploys fail before they get to clean up. Symptoms:
+`compose pull` failing with a timeout on `containerd.sock`, or services never
+turning healthy. Apply the same retention by hand. It is the same code a
+deploy runs, with the same safeguards. Never use `docker system prune -a`,
+which takes the rollback target with it:
 
 ```bash
-docker images | grep vintrax-
-docker rmi ghcr.io/OWNER/vintrax-api:sha-OLD
+df -h /var/lib/docker
+./deploy.sh --clean-images --dry-run   # lists what it would remove
+./deploy.sh --clean-images
 ```
 
 ---

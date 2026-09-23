@@ -205,8 +205,10 @@ out older source and hoping it still compiles.
   migrations are compatible with the older code, because `migrate deploy` only
   rolls forward and no script can undo a dropped column.
 
-Nothing in the repository prunes images or passes `-v` to `compose down`. The
-previous image is the rollback target, and the volumes are the database.
+Nothing in the repository prunes images or passes `-v` to `compose down`.
+`deploy.sh` removes old `sha-` builds of the three Vintrax images only after a
+healthy deploy, and keeps the newest 3 plus the previous version, which is the
+rollback target. The volumes are the database.
 
 ## Production changes
 
