@@ -7,6 +7,7 @@ import { formatPrice } from '@/lib/utils';
 import { useCompareStore } from '@/store/compare-store';
 import { Button } from '@/components/ui';
 import { VehicleBadgeStrip } from '@/components/vehicle-badge-strip';
+import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
 
 /** One vehicle's column header on `/compare`: photo, the fields a shopper reads first, and its two actions. */
 export function CompareVehicleCard({ vehicle }: { vehicle: VehicleDetail }) {
@@ -26,8 +27,13 @@ export function CompareVehicleCard({ vehicle }: { vehicle: VehicleDetail }) {
         </button>
         <div className="aspect-[4/3] w-full overflow-hidden rounded-md bg-muted">
           {vehicle.primaryImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={vehicle.primaryImageUrl} alt="" className="h-full w-full object-cover" />
+            <OptimizedImage
+              image={vehicle.primaryImage}
+              src={vehicle.primaryImageUrl}
+              alt=""
+              sizes={IMAGE_SIZES.compare}
+              className="h-full w-full object-cover"
+            />
           ) : (
             <div className="grid h-full w-full place-items-center text-sm text-muted-foreground">
               No photo

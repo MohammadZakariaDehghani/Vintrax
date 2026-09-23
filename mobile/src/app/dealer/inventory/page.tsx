@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { Plus } from 'lucide-react';
 import { useDealerAnalytics, useMyVehicles } from '@/lib/queries';
 import { useIsSeller } from '@/store/session';
@@ -10,6 +9,7 @@ import { Badge, Button, Card, Skeleton, StateMessage } from '@/components/ui';
 import { AppBar } from '@/components/app-bar';
 import { RequireAuth } from '@/components/require-auth';
 import { ErrorState } from '@/components/error-state';
+import { OptimizedImage } from '@/components/optimized-image';
 
 export default function InventoryPage() {
   return (
@@ -78,10 +78,10 @@ function Inventory() {
                 <Card className="flex gap-3 p-2.5">
                   <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-muted">
                     {vehicle.primaryImageUrl ? (
-                      <Image
+                      <OptimizedImage
+                        image={vehicle.primaryImage}
                         src={vehicle.primaryImageUrl}
                         alt=""
-                        fill
                         sizes="80px"
                         className="object-cover"
                       />

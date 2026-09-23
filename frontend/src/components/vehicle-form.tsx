@@ -19,6 +19,7 @@ import {
   TRANSMISSIONS,
   VEHICLE_CONDITIONS,
   type ListingStatus,
+  type UploadedVehicleImage,
   type VehicleDetail,
 } from '@vintrax/shared';
 import { ApiError, api } from '@/lib/api-client';
@@ -262,7 +263,7 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
   });
 
   const upload = useMutation({
-    mutationFn: (file: File) => api.upload<{ url: string }>('/uploads/images', file),
+    mutationFn: (file: File) => api.upload<UploadedVehicleImage>('/uploads/images', file),
     onSuccess: (result) => {
       setSaved(false);
       setImages((previous) => [...previous, { url: result.url }]);

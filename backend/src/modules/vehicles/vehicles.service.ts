@@ -22,10 +22,11 @@ import type {
   UpdateListingStatusInput,
   UpdateVehicleInput,
   VehicleDetail,
+  VehicleImage,
   VehicleSearchResponse,
   VehicleSummary,
 } from '@vintrax/shared';
-import { SELLER_STATUS_TRANSITIONS } from '@vintrax/shared';
+import { MAX_LISTING_IMAGES, SELLER_STATUS_TRANSITIONS } from '@vintrax/shared';
 import { Prisma, type ListingStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
@@ -34,9 +35,12 @@ import { AuditService } from '../../common/audit/audit.service';
 import { StorageService, type StoredLocation } from '../../common/storage/storage.service';
 import { SEARCH_PROVIDER, type SearchProvider } from '../../common/search/search.types';
 import { isAdmin, type AuthUser } from '../../common/auth/auth-user';
+import { VehicleImagesService } from '../vehicle-images/vehicle-images.service';
 import {
   toVehicleDetail,
+  toVehicleImage,
   toVehicleSummary,
+  vehicleImageSelect,
   vehicleDetailSelect,
   vehicleSummarySelect,
 } from './vehicles.mapper';
@@ -55,6 +59,7 @@ export class VehiclesService {
     private readonly audit: AuditService,
     private readonly storage: StorageService,
     @Inject(SEARCH_PROVIDER) private readonly search: SearchProvider,
+    private readonly vehicleImages: VehicleImagesService,
   ) {}
 
   searchVehicles(query: SearchVehiclesQuery, viewer?: AuthUser): Promise<VehicleSearchResponse> {
@@ -146,6 +151,10 @@ export class VehiclesService {
 
   async create(input: CreateVehicleInput, user: AuthUser): Promise<VehicleDetail> {
     const { images, documents, ...fields } = input;
+    const assetIds = await this.vehicleImages.assetIdsFor(
+      images.map((image) => image.url),
+      { userId: user.id, isAdmin: isAdmin(user.role) },
+    );
 
     const vehicle = await this.prisma.vehicle.create({
       data: {
@@ -167,6 +176,7 @@ export class VehiclesService {
             url: image.url,
             alt: image.alt ?? null,
             position,
+            assetId: assetIds.get(image.url) ?? null,
           })),
         },
         documents: {
@@ -191,6 +201,16 @@ export class VehiclesService {
     const existing = await this.requireOwnedVehicle(id, user);
     const { images, documents, ...fields } = input;
     const data = fields;
+
+    // The photos this listing used before the save, so any the save drops can
+    // have their files removed once it has committed.
+    const previousAssetIds = images ? await this.assetIdsOn(id) : [];
+    const assetIds = images
+      ? await this.vehicleImages.assetIdsFor(
+          images.map((image) => image.url),
+          { userId: user.id, isAdmin: isAdmin(user.role), vehicleId: id },
+        )
+      : new Map<string, string>();
 
     // A vehicle under an active auction cannot have its commercial terms moved
     // out from under the bidders.
@@ -219,6 +239,7 @@ export class VehiclesService {
               url: image.url,
               alt: image.alt ?? null,
               position,
+              assetId: assetIds.get(image.url) ?? null,
             })),
           });
         }
@@ -241,6 +262,7 @@ export class VehiclesService {
       }
     });
 
+    await this.vehicleImages.releaseUnused(previousAssetIds);
     await this.afterWrite(id);
 
     return this.findById(id, user);
@@ -334,7 +356,11 @@ export class VehiclesService {
       );
     }
 
+    const assetIds = await this.assetIdsOn(id);
     await this.prisma.vehicle.delete({ where: { id } });
+    // After the delete, so the rows that pointed at these files are gone
+    // before the files are.
+    await this.vehicleImages.releaseUnused(assetIds);
     await this.afterWrite(id, { removed: true });
 
     await this.audit.record({
@@ -692,6 +718,102 @@ export class VehiclesService {
     });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
     return vehicle;
+  }
+
+  /**
+   * Adds one photo to the end of a listing: validated and processed exactly
+   * like `POST /uploads/images`, then attached in the same request. For
+   * clients that manage photos one at a time rather than saving the whole
+   * listing.
+   */
+  async addImage(id: string, file: Buffer, user: AuthUser): Promise<VehicleImage> {
+    await this.requireOwnedVehicle(id, user);
+    const count = await this.prisma.vehicleImage.count({ where: { vehicleId: id } });
+    if (count >= MAX_LISTING_IMAGES) {
+      throw new BadRequestException(`A listing can have at most ${MAX_LISTING_IMAGES} photos.`);
+    }
+
+    const uploaded = await this.vehicleImages.ingest(file, {
+      uploadedById: user.id,
+      vehicleId: id,
+    });
+    const image = await this.prisma.vehicleImage.create({
+      data: { vehicleId: id, url: uploaded.url, position: count, assetId: uploaded.id },
+      select: vehicleImageSelect,
+    });
+
+    await this.afterWrite(id);
+    return toVehicleImage(image);
+  }
+
+  /**
+   * Swaps the file behind one photo, keeping its place in the listing. The
+   * new photo is fully processed and stored before the row moves to it, and
+   * the old files are removed only after — there is no moment at which the
+   * listing points at a file that is not there.
+   */
+  async replaceImage(
+    id: string,
+    imageId: string,
+    file: Buffer,
+    user: AuthUser,
+  ): Promise<VehicleImage> {
+    await this.requireOwnedVehicle(id, user);
+    const existing = await this.prisma.vehicleImage.findFirst({
+      where: { id: imageId, vehicleId: id },
+      select: { assetId: true },
+    });
+    if (!existing) throw new NotFoundException('Photo not found');
+
+    const uploaded = await this.vehicleImages.ingest(file, {
+      uploadedById: user.id,
+      vehicleId: id,
+    });
+    const image = await this.prisma.vehicleImage.update({
+      where: { id: imageId },
+      // A replaced feed photo becomes the dealer's own: the importer keys on
+      // `sourceUrl` and would otherwise swap it back on the next run.
+      data: { url: uploaded.url, assetId: uploaded.id, sourceUrl: null, sourceUpdatedAt: null },
+      select: vehicleImageSelect,
+    });
+
+    if (existing.assetId) await this.vehicleImages.releaseUnused([existing.assetId]);
+    await this.afterWrite(id);
+    return toVehicleImage(image);
+  }
+
+  /**
+   * Removes one photo and its files. Idempotent: a photo that is already
+   * gone is not an error — the listing is in the state the caller asked for.
+   */
+  async removeImage(id: string, imageId: string, user: AuthUser): Promise<void> {
+    await this.requireOwnedVehicle(id, user);
+    const existing = await this.prisma.vehicleImage.findFirst({
+      where: { id: imageId, vehicleId: id },
+      select: { position: true, assetId: true },
+    });
+    if (!existing) return;
+
+    await this.prisma.$transaction([
+      this.prisma.vehicleImage.delete({ where: { id: imageId } }),
+      // Close the gap, so position 0 is still the primary photo.
+      this.prisma.vehicleImage.updateMany({
+        where: { vehicleId: id, position: { gt: existing.position } },
+        data: { position: { decrement: 1 } },
+      }),
+    ]);
+
+    if (existing.assetId) await this.vehicleImages.releaseUnused([existing.assetId]);
+    await this.afterWrite(id);
+  }
+
+  /** Processed photos currently on a listing. */
+  private async assetIdsOn(vehicleId: string): Promise<string[]> {
+    const rows = await this.prisma.vehicleImage.findMany({
+      where: { vehicleId, assetId: { not: null } },
+      select: { assetId: true },
+    });
+    return rows.map((row) => row.assetId!);
   }
 
   private async requireOwnedVehicle(

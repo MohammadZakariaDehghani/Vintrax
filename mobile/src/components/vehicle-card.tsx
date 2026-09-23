@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Camera, Heart, ShieldCheck } from 'lucide-react';
 import type { VehicleSummary } from '@vintrax/shared';
@@ -8,6 +7,7 @@ import { cn, formatKm, formatPrice, joinSpecs } from '@/lib/format';
 import { useToggleFavourite } from '@/lib/queries';
 import { useUser } from '@/store/session';
 import { Badge } from '@/components/ui';
+import { OptimizedImage } from '@/components/optimized-image';
 
 /**
  * One listing in a scrolling list.
@@ -28,10 +28,10 @@ export function VehicleCard({ vehicle }: { vehicle: VehicleSummary }) {
       <Link href={`/vehicles/${vehicle.slug}`} className="block active:opacity-90">
         <div className="relative aspect-[4/3] bg-muted">
           {vehicle.primaryImageUrl ? (
-            <Image
+            <OptimizedImage
+              image={vehicle.primaryImage}
               src={vehicle.primaryImageUrl}
               alt={vehicle.title}
-              fill
               // Cards are one per row below 480px and two above, which is what
               // stops a phone downloading a desktop-sized image.
               sizes="(max-width: 480px) 100vw, 320px"

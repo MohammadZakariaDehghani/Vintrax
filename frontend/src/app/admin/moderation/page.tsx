@@ -20,6 +20,7 @@ import {
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
+import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
 
 /**
  * The moderation queue.
@@ -222,10 +223,11 @@ function ModerationQueue() {
 
                     <div className="h-20 w-28 shrink-0 overflow-hidden rounded-md bg-muted">
                       {vehicle.primaryImageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <OptimizedImage
+                          image={vehicle.primaryImage}
                           src={vehicle.primaryImageUrl}
                           alt=""
+                          sizes={IMAGE_SIZES.thumb}
                           className="h-full w-full object-cover"
                         />
                       ) : null}

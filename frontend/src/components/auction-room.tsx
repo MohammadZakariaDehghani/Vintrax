@@ -158,6 +158,7 @@ export function AuctionRoom({ auctionId }: { auctionId: string }) {
                             url: vehicle.primaryImageUrl,
                             alt: vehicle.title,
                             position: 0,
+                            optimized: vehicle.primaryImage,
                           },
                         ]
                       : []

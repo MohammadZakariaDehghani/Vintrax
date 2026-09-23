@@ -50,6 +50,58 @@ const baseEnvSchema = z.object({
   S3_PUBLIC_URL: z.string().optional(),
   S3_FORCE_PATH_STYLE: z.coerce.boolean().default(true),
 
+  // --- Vehicle photo pipeline (see documentation/images.md) ---
+  /** Largest vehicle photo accepted, before any processing. */
+  IMAGE_MAX_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1024)
+    .default(15 * 1024 * 1024),
+  /** Longest edge an upload may have. Anything larger is refused, not shrunk. */
+  IMAGE_MAX_INPUT_DIMENSION: z.coerce.number().int().min(100).default(12_000),
+  /**
+   * Decoded pixel budget per upload — the decompression-bomb guard. A small
+   * file can declare a huge canvas; this refuses it before it is decoded.
+   * 60 MP clears every current phone and most full-frame cameras.
+   */
+  IMAGE_MAX_INPUT_PIXELS: z.coerce.number().int().min(10_000).default(60_000_000),
+  /** The largest variant is fitted inside this box; nothing is ever upscaled. */
+  IMAGE_MAX_WIDTH: z.coerce.number().int().min(320).default(1920),
+  IMAGE_MAX_HEIGHT: z.coerce.number().int().min(320).default(1920),
+  /** Comma-separated widths each photo is rendered at. */
+  IMAGE_VARIANT_WIDTHS: z
+    .string()
+    .default('320,640,960,1440,1920')
+    .transform((value, ctx) => {
+      const widths = [
+        ...new Set(value.split(',').map((part) => Number.parseInt(part.trim(), 10))),
+      ].sort((a, b) => a - b);
+      if (widths.length === 0 || widths.some((width) => !Number.isInteger(width) || width < 16)) {
+        ctx.addIssue({ code: 'custom', message: 'must be a list of widths, e.g. 320,640,960' });
+        return z.NEVER;
+      }
+      return widths;
+    }),
+  /**
+   * The variant stored as a photo's plain `url`, for anything that draws a
+   * single `src` rather than a `srcset` (older clients, emails, admin tables).
+   */
+  IMAGE_FALLBACK_WIDTH: z.coerce.number().int().min(16).default(960),
+  IMAGE_WEBP_QUALITY: z.coerce.number().int().min(1).max(100).default(80),
+  /**
+   * Off by default: the bundled encoder handles AVIF fine, but at the effort
+   * that makes it worth having it multiplies processing time roughly 25×
+   * (documentation/images.md has the measurements). `z.coerce.boolean()`
+   * would read the string "false" as true, hence the enum.
+   */
+  IMAGE_AVIF_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  IMAGE_AVIF_QUALITY: z.coerce.number().int().min(1).max(100).default(60),
+  /** Photos processed at once, per API process. Further uploads wait their turn. */
+  IMAGE_PROCESSING_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(2),
+
   // --- Search ---
   /**
    * `postgres` uses native full-text search and needs no extra infrastructure.

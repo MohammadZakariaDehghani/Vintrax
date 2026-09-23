@@ -9,6 +9,7 @@ import type {
   NotificationDto,
   Paginated,
   PublicUser,
+  UploadedVehicleImage,
   VehicleDetail,
   VehicleSearchResponse,
   VehicleSummary,
@@ -109,14 +110,11 @@ export const vintrax = {
 
   uploads: {
     /**
-     * Returns the stored object. The API owns type and size validation and
-     * decides where the bytes land, so this response is identical whether
-     * storage is local disk or S3.
+     * Returns the processed photo: `url` is an optimized rendition to attach
+     * to the listing, `optimized` every rendition. The API owns validation
+     * and processing (documentation/images.md), so this response is identical
+     * whether storage is local disk or S3.
      */
-    image: (file: File) =>
-      api.upload<{ url: string; key: string; sizeBytes: number; contentType: string }>(
-        '/uploads/images',
-        file,
-      ),
+    image: (file: File) => api.upload<UploadedVehicleImage>('/uploads/images', file),
   },
 };

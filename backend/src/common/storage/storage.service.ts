@@ -41,6 +41,30 @@ const DOCUMENT_TYPES: Record<string, string> = {
   'image/png': '.png',
 };
 
+export function createS3Client(config: ConfigService<Env, true>): S3Client {
+  const endpoint = config.get('S3_ENDPOINT', { infer: true });
+  const options: S3ClientConfig = {
+    region: config.get('S3_REGION', { infer: true }),
+    forcePathStyle: config.get('S3_FORCE_PATH_STYLE', { infer: true }),
+    credentials: {
+      accessKeyId: config.get('S3_ACCESS_KEY_ID', { infer: true }) ?? '',
+      secretAccessKey: config.get('S3_SECRET_ACCESS_KEY', { infer: true }) ?? '',
+    },
+  };
+  // Set only when provided, so the AWS SDK resolves the default endpoint
+  // for real AWS while MinIO and other stores can point somewhere else.
+  if (endpoint) options.endpoint = endpoint;
+  return new S3Client(options);
+}
+
+/** Public base URL objects in the bucket are served from. */
+export function s3PublicBaseUrl(config: ConfigService<Env, true>): string {
+  return (
+    config.get('S3_PUBLIC_URL', { infer: true }) ??
+    `${config.get('S3_ENDPOINT', { infer: true })}/${config.get('S3_BUCKET', { infer: true })}`
+  );
+}
+
 /** Where a stored object lives, once its recorded URL has been resolved. */
 export type StoredLocation =
   { kind: 'local'; path: string; contentType: string } | { kind: 'remote'; url: string };
@@ -84,20 +108,7 @@ export class StorageService {
     this.maxBytes = this.config.get('MAX_UPLOAD_BYTES', { infer: true });
 
     if (this.driver === 's3') {
-      const endpoint = this.config.get('S3_ENDPOINT', { infer: true });
-      const options: S3ClientConfig = {
-        region: this.config.get('S3_REGION', { infer: true }),
-        forcePathStyle: this.config.get('S3_FORCE_PATH_STYLE', { infer: true }),
-        credentials: {
-          accessKeyId: this.config.get('S3_ACCESS_KEY_ID', { infer: true }) ?? '',
-          secretAccessKey: this.config.get('S3_SECRET_ACCESS_KEY', { infer: true }) ?? '',
-        },
-      };
-      // Set only when provided, so the AWS SDK resolves the default endpoint
-      // for real AWS while MinIO and other stores can point somewhere else.
-      if (endpoint) options.endpoint = endpoint;
-
-      this.s3 = new S3Client(options);
+      this.s3 = createS3Client(this.config);
       this.bucket = this.config.get('S3_BUCKET', { infer: true }) ?? null;
       this.publicUrl = this.config.get('S3_PUBLIC_URL', { infer: true }) ?? null;
       this.logger.log(`Storage driver: s3 (bucket ${this.bucket})`);

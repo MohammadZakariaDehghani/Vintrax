@@ -239,6 +239,8 @@ export class InspectionsService {
         url: image.url,
         alt: image.alt,
         position: image.position,
+        // Inspection photos are not run through the vehicle photo pipeline.
+        optimized: null,
       })),
       scheduledFor: row.scheduledFor?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),

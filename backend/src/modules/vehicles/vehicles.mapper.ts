@@ -1,5 +1,42 @@
 import type { Prisma } from '@prisma/client';
-import type { AuctionSummary, VehicleDetail, VehicleSummary } from '@vintrax/shared';
+import type { AuctionSummary, VehicleDetail, VehicleImage, VehicleSummary } from '@vintrax/shared';
+import { buildOptimizedImage } from '@vintrax/shared';
+
+/** What a processed photo needs to list its renditions; see `VehicleImageAsset`. */
+export const imageAssetSelect = {
+  baseUrl: true,
+  widths: true,
+  formats: true,
+  width: true,
+  height: true,
+} as const;
+
+/** One photo row, as every vehicle select reads it. */
+export const vehicleImageSelect = {
+  id: true,
+  url: true,
+  alt: true,
+  position: true,
+  asset: { select: imageAssetSelect },
+} as const;
+
+export function toVehicleImage(
+  image: Prisma.VehicleImageGetPayload<{ select: typeof vehicleImageSelect }>,
+): VehicleImage {
+  return {
+    id: image.id,
+    url: image.url,
+    alt: image.alt,
+    position: image.position,
+    optimized: optimizedFrom(image.asset),
+  };
+}
+
+function optimizedFrom(
+  asset: Prisma.VehicleImageAssetGetPayload<{ select: typeof imageAssetSelect }> | null,
+) {
+  return asset ? buildOptimizedImage(asset) : null;
+}
 
 /** Fields needed to render a vehicle card in search results and inventory grids. */
 export const vehicleSummarySelect = {
@@ -32,7 +69,7 @@ export const vehicleSummarySelect = {
   publishedAt: true,
   createdAt: true,
   images: {
-    select: { id: true, url: true, alt: true, position: true },
+    select: vehicleImageSelect,
     orderBy: { position: 'asc' },
     take: 1,
   },
@@ -105,7 +142,7 @@ export const vehicleDetailSelect = {
   favouriteCount: true,
   updatedAt: true,
   images: {
-    select: { id: true, url: true, alt: true, position: true },
+    select: vehicleImageSelect,
     orderBy: { position: 'asc' },
   },
   documents: {
@@ -203,6 +240,7 @@ export function toVehicleSummary(
     status: row.status,
     saleChannel: row.saleChannel,
     primaryImageUrl: row.images[0]?.url ?? null,
+    primaryImage: optimizedFrom(row.images[0]?.asset ?? null),
     imageCount: row._count.images,
     isFavourited: favouritedIds.has(row.id),
     hasInspection: Boolean(inspection),
@@ -254,12 +292,7 @@ export function toVehicleDetail(
     features: row.features,
     viewCount: row.viewCount,
     favouriteCount: row.favouriteCount,
-    images: row.images.map((image) => ({
-      id: image.id,
-      url: image.url,
-      alt: image.alt,
-      position: image.position,
-    })),
+    images: row.images.map(toVehicleImage),
     documents: options.includeDocuments
       ? row.documents.map((document) => ({
           id: document.id,

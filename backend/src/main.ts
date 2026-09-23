@@ -15,7 +15,13 @@ import { parseCorsOrigins, type Env } from './config/env';
  *
  * Photographs of a car for sale are public by intent — they are the listing.
  * `documents/` is deliberately not here, and nothing should be added without
- * asking whether every anonymous visitor may read it.
+ * asking whether every anonymous visitor may read it. Nor is
+ * `vehicle-originals/`: the untouched uploads the image pipeline keeps for
+ * reprocessing still carry the camera's EXIF, GPS position included.
+ *
+ * `make-logos` and `partners` are operator uploads the home page draws; they
+ * were missing from this list when those features shipped, so every uploaded
+ * logo 404ed in every deployment.
  */
 const PUBLIC_UPLOAD_FOLDERS = [
   'vehicles',
@@ -23,7 +29,16 @@ const PUBLIC_UPLOAD_FOLDERS = [
   'seed',
   'body-types',
   'articles',
+  'make-logos',
+  'partners',
 ] as const;
+
+/**
+ * Folders whose files are never overwritten: every key is a fresh UUID, and a
+ * replaced photo gets a new one. That is the condition under which telling
+ * browsers and proxies to cache for a year without revalidating is safe.
+ */
+const IMMUTABLE_UPLOAD_FOLDERS: ReadonlySet<string> = new Set(['vehicles']);
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -73,7 +88,10 @@ async function bootstrap(): Promise<void> {
     for (const folder of PUBLIC_UPLOAD_FOLDERS) {
       const path = join(uploadDir, folder);
       mkdirSync(path, { recursive: true });
-      app.useStaticAssets(path, { prefix: `/uploads/${folder}/` });
+      app.useStaticAssets(path, {
+        prefix: `/uploads/${folder}/`,
+        ...(IMMUTABLE_UPLOAD_FOLDERS.has(folder) ? { maxAge: '365d', immutable: true } : {}),
+      });
     }
     mkdirSync(join(uploadDir, 'documents'), { recursive: true });
   }

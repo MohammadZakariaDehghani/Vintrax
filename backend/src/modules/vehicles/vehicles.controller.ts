@@ -14,8 +14,12 @@ import {
   Query,
   Res,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
   MAX_PAGE_SIZE,
@@ -31,6 +35,7 @@ import {
   type UpdateListingStatusInput,
   type UpdateVehicleInput,
   type VehicleDetail,
+  type VehicleImage,
   type VehicleSearchResponse,
   type VehicleSummary,
   createVehicleSchema,
@@ -270,6 +275,60 @@ export class VehiclesController {
     @CurrentUser() user: AuthUser,
   ): Promise<VehicleDetail> {
     return this.vehicles.replaceHistory(id, body, user);
+  }
+
+  @Post(':id/images')
+  @RequirePermissions('vehicle:write')
+  @Audit('vehicle.image_added', 'Vehicle')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Add a photo to a vehicle the caller owns',
+    description:
+      'Processed like POST /uploads/images (documentation/images.md) and appended to the ' +
+      'listing in the same request.',
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  addImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: AuthUser,
+  ): Promise<VehicleImage> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.vehicles.addImage(id, file.buffer, user);
+  }
+
+  @Put(':id/images/:imageId')
+  @RequirePermissions('vehicle:write')
+  @Audit('vehicle.image_replaced', 'Vehicle')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Replace the file behind one photo, keeping its position',
+    description:
+      'The new photo is processed and stored before the listing switches to it; the old ' +
+      'files are removed afterwards.',
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  replaceImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @CurrentUser() user: AuthUser,
+  ): Promise<VehicleImage> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.vehicles.replaceImage(id, imageId, file.buffer, user);
+  }
+
+  @Delete(':id/images/:imageId')
+  @RequirePermissions('vehicle:write')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Audit('vehicle.image_removed', 'Vehicle')
+  @ApiOperation({ summary: 'Remove one photo and its files. Idempotent.' })
+  async removeImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<void> {
+    await this.vehicles.removeImage(id, imageId, user);
   }
 
   @Delete(':id')
