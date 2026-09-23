@@ -14,6 +14,7 @@ import { Button, Card, CardContent, ErrorAlert, Spinner } from '@/components/ui'
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
 import { BodyTypeIcon } from '@/components/body-type-icon';
+import { AdminImagePreview } from '@/components/admin-image-preview';
 
 /** What the API accepts, so a wrong file is refused here rather than at upload. */
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
@@ -129,10 +130,7 @@ function BodyTypeImages() {
 
                     <div className="mb-3 grid aspect-[3/2] w-full place-items-center overflow-hidden rounded-md border border-border bg-white">
                       {current?.imageUrl ? (
-                        // Same-origin uploads, often already sized for this row;
-                        // next/image optimisation adds a hop without a benefit.
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <AdminImagePreview
                           src={current.imageUrl}
                           alt=""
                           className="h-full w-full object-contain"
