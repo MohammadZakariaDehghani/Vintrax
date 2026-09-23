@@ -146,12 +146,20 @@ export default async function HomePage() {
             items={popularMakes.map((entry) => ({
               key: entry.make,
               content: (
+                // No card around the make: the logo itself is the icon, drawn
+                // larger, with the name and count under it.
                 <Link
                   href={`/vehicles?make=${encodeURIComponent(entry.make)}`}
-                  className="flex h-full flex-col items-center justify-center gap-2 rounded-md border border-border bg-card px-3 py-5 text-center transition-colors hover:border-primary/40 hover:bg-secondary"
+                  className="group flex h-full flex-col items-center justify-center gap-2 rounded-md px-3 py-4 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
-                  <BrandLogo make={entry.make} logoUrl={entry.logoUrl} className="text-foreground/85" />
-                  <span className="text-sm font-semibold leading-tight">{entry.make}</span>
+                  <BrandLogo
+                    make={entry.make}
+                    logoUrl={entry.logoUrl}
+                    className="h-12 w-12 text-sm text-foreground/85 transition-transform duration-200 group-hover:scale-110"
+                  />
+                  <span className="text-sm font-semibold leading-tight group-hover:text-primary">
+                    {entry.make}
+                  </span>
                   <span className="tabular text-xs text-muted-foreground">
                     {entry.count} {entry.count === 1 ? t.home.makeOne : t.home.makeOther}
                   </span>
