@@ -4,6 +4,9 @@
 #
 #   ./deploy.sh sha-a1b2c3d         deploy that exact build
 #   ./deploy.sh --list              show what is deployed and what it can roll back to
+#   ./deploy.sh --clean-images      apply the image retention below now, without deploying
+#   ./deploy.sh --clean-images --dry-run
+#                                   say what it would remove, and remove nothing
 #   ./deploy.sh --help              every option
 #
 # The server builds nothing. It pulls the images GitHub Actions published to
@@ -12,9 +15,16 @@
 #
 # What this deliberately does not do:
 #
-#   It never removes images. The previous version has to still be on disk for
-#   rollback.sh to work, so there is no prune here, and `docker system prune -a`
-#   is never the right way to reclaim space on this machine.
+#   It never prunes. After a deployment passes its health checks it removes
+#   old builds of exactly three repositories (vintrax-api, vintrax-web and
+#   vintrax-mobile, named by the compose file) and keeps the newest 3 sha-
+#   versions of each, so rollback.sh still has recent versions on disk. It
+#   never removes an image any container uses, the version just deployed or
+#   the recorded previous version; never forces a removal; and never touches
+#   any other image (postgres, redis, ...), dangling images, volumes or
+#   networks. `docker system prune -a` is still never the right way to reclaim
+#   space on this machine. VINTRAX_IMAGE_KEEP changes the 3. A cleanup that
+#   fails is reported, and the deployment still counts as successful.
 #
 #   It never touches volumes. `docker compose down -v` destroys the database.
 #
@@ -43,12 +53,18 @@ COMPOSE_FILE=${VINTRAX_COMPOSE_FILE:-$VINTRAX_ROOT/compose/docker-compose.prod.y
 STATE_DIR=${VINTRAX_STATE_DIR:-$VINTRAX_ROOT/state}
 HEALTH_TIMEOUT=${VINTRAX_HEALTH_TIMEOUT:-180}
 
+IMAGE_KEEP=${VINTRAX_IMAGE_KEEP:-3}
+
 VERSION=""
 LIST=false
+CLEAN_ONLY=false
+DRY_RUN=false
 
 while (( $# )); do
   case $1 in
     --list) LIST=true; shift ;;
+    --clean-images) CLEAN_ONLY=true; shift ;;
+    --dry-run) DRY_RUN=true; shift ;;
     --timeout) HEALTH_TIMEOUT=${2:?--timeout needs seconds}; shift 2 ;;
     --env-file) ENV_FILE=${2:?--env-file needs a path}; shift 2 ;;
     --compose-file) COMPOSE_FILE=${2:?--compose-file needs a path}; shift 2 ;;
@@ -62,6 +78,136 @@ while (( $# )); do
 done
 
 compose() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
+
+[[ $IMAGE_KEEP =~ ^[1-9][0-9]*$ ]] || die "VINTRAX_IMAGE_KEEP must be a whole number of at least 1, not '$IMAGE_KEEP'"
+[[ $DRY_RUN == false || $CLEAN_ONLY == true ]] || die "--dry-run only applies to --clean-images"
+
+# --- Old image cleanup -------------------------------------------------------
+#
+# Removes old sha- builds of the three Vintrax application images and keeps
+# the newest $IMAGE_KEEP of each (newest by image creation time, which is build
+# order). Runs only after a deployment is healthy, or on --clean-images. It
+# runs in a subshell under `if`, so nothing in here can fail the deployment:
+# every error is reported and the function returns non-zero.
+#
+# Never removed: an image any container (running or stopped) uses, the
+# version passed in, the recorded previous version, any tag that is not
+# sha-<hex> (so never `latest` and never a dangling image), and anything
+# outside the three repositories. Removal is `docker image rm` by name, without
+# --force, so Docker itself also refuses an image that is still in use.
+
+cleanup_old_images() {
+  local protect_version=$1 previous="" refs ref repo lines tag id created epoch n
+  local -a repos=() keep_tags=() also_kept=() remove_refs=() in_use=()
+  local failed=false
+
+  [[ -f $PREVIOUS_FILE ]] && previous=$(<"$PREVIOUS_FILE")
+
+  # The repository names come from compose, reading the same env file the
+  # deployment read, so REGISTRY and IMAGE_NAMESPACE (spelling included) are
+  # exactly the ones the running containers were started from.
+  if ! refs=$(VINTRAX_VERSION="$protect_version" compose config --images 2>&1); then
+    printf '%s\n' "$refs" >&2
+    warn "could not read the image names from $COMPOSE_FILE; nothing was removed"
+    return 1
+  fi
+  while IFS= read -r ref; do
+    repo=${ref%:*}
+    [[ $repo =~ ^[a-z0-9.:-]+(/[a-z0-9._-]+)+/vintrax-(api|web|mobile)$ ]] || continue
+    [[ " ${repos[*]} " == *" $repo "* ]] || repos+=("$repo")
+  done <<< "$refs"
+  if (( ${#repos[@]} != 3 )); then
+    warn "expected the vintrax-api, vintrax-web and vintrax-mobile images in $COMPOSE_FILE, found: ${repos[*]:-(none)}; nothing was removed"
+    return 1
+  fi
+
+  # Every image any container uses, by full image ID. If this cannot be read,
+  # nothing is safe to remove.
+  local ids
+  if ! ids=$(docker ps -aq) ||
+     { [[ -n $ids ]] && ! ids=$(docker inspect -f '{{.Image}}' $ids); }; then
+    warn "could not list the images containers use; nothing was removed"
+    return 1
+  fi
+  mapfile -t in_use <<< "$ids"
+  if [[ -z ${in_use[0]:-} ]]; then
+    warn "no container reports using an image, which is not expected after a deploy; nothing was removed"
+    return 1
+  fi
+
+  for repo in "${repos[@]}"; do
+    # "<created epoch> <tag> <image id>", newest first, sha- tags only.
+    local ranked=""
+    if ! lines=$(docker images "$repo" --no-trunc --format '{{.Tag}} {{.ID}}'); then
+      warn "could not list the images of $repo; skipped it"
+      failed=true; continue
+    fi
+    while read -r tag id; do
+      [[ $tag =~ ^sha-[0-9a-f]{7,40}$ ]] || continue
+      if ! created=$(docker image inspect -f '{{.Created}}' "$repo:$tag") ||
+         ! epoch=$(date -d "$created" +%s); then
+        warn "could not read when $repo:$tag was built; skipped $repo"
+        failed=true; continue 2
+      fi
+      ranked+="$epoch $tag $id"$'\n'
+    done <<< "$lines"
+    ranked=$(printf '%s' "$ranked" | sort -k1,1nr -k2,2r)
+
+    n=0
+    while read -r epoch tag id; do
+      [[ -n $tag ]] || continue
+      n=$(( n + 1 ))
+      if (( n <= IMAGE_KEEP )); then
+        [[ " ${keep_tags[*]} " == *" $tag "* ]] || keep_tags+=("$tag")
+      elif [[ " ${in_use[*]} " == *" $id "* ]]; then
+        also_kept+=("$repo:$tag (a container uses it)")
+      elif [[ $tag == "$protect_version" ]]; then
+        also_kept+=("$repo:$tag (the version just deployed)")
+      elif [[ $tag == "$previous" ]]; then
+        also_kept+=("$repo:$tag (the recorded previous version, for rollback.sh)")
+      else
+        remove_refs+=("$repo:$tag")
+      fi
+    done <<< "$ranked"
+  done
+
+  printf 'Keeping latest %s Vintrax versions:\n' "$IMAGE_KEEP"
+  if (( ${#keep_tags[@]} )); then printf '  %s\n' "${keep_tags[@]}"; else printf '  (no sha- images found)\n'; fi
+
+  if (( ${#also_kept[@]} )); then
+    printf 'Also keeping, although older:\n'
+    printf '  %s\n' "${also_kept[@]}"
+  fi
+
+  if (( ${#remove_refs[@]} == 0 )); then
+    printf 'No old Vintrax images to remove.\n'
+  elif [[ $DRY_RUN == true ]]; then
+    printf 'Would remove old Vintrax image (dry run, nothing removed):\n'
+    printf '  %s\n' "${remove_refs[@]}"
+    return 0
+  else
+    printf 'Removing old Vintrax image:\n'
+  fi
+  for ref in "${remove_refs[@]}"; do
+    printf '  %s\n' "$ref"
+    # No --force: if Docker says the image is in use, it stays.
+    if ! docker image rm "$ref" >/dev/null; then
+      warn "could not remove $ref; left it in place"
+      failed=true
+    fi
+  done
+
+  [[ $failed == false ]]
+}
+
+run_image_cleanup() {
+  printf '\nStarting Docker image cleanup...\n'
+  if ( cleanup_old_images "$1" ); then
+    printf 'Docker image cleanup completed.\n'
+  else
+    warn "Docker image cleanup did not finish (errors above). Old images may remain; the deployment is not affected."
+  fi
+}
 
 # --- Preflight ---------------------------------------------------------------
 
@@ -90,6 +236,13 @@ if [[ $LIST == true ]]; then
   info "previous: $([[ -f $PREVIOUS_FILE ]] && cat "$PREVIOUS_FILE" || echo '(none — nothing to roll back to)')"
   step "Images on this machine"
   docker images --format '  {{.Repository}}:{{.Tag}}  {{.CreatedSince}}' | grep vintrax- || info "(none)"
+  exit 0
+fi
+
+if [[ $CLEAN_ONLY == true ]]; then
+  [[ -z $VERSION ]] || die "--clean-images takes no version; it protects the recorded current version"
+  [[ -s $CURRENT_FILE ]] || die "no current version recorded in $CURRENT_FILE, so there is nothing to measure \"old\" against"
+  run_image_cleanup "$(<"$CURRENT_FILE")"
   exit 0
 fi
 
@@ -209,3 +362,7 @@ info "previous: ${PREVIOUS:-(none)}"
 info "roll back with: ./rollback.sh"
 printf '\n'
 VINTRAX_VERSION="$VERSION" compose ps --format 'table {{.Service}}\t{{.Status}}'
+
+# Only reached when every service is healthy: the failure paths above exit.
+printf '\nDeployment successful: %s\n' "$VERSION"
+run_image_cleanup "$VERSION"
