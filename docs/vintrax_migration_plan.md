@@ -1,6 +1,39 @@
 # Vintrax Production Migration Plan
 ## Sep 28 - Oct 16, 2026 | 3 hours/day (2pm-5pm)
-
+                         GitHub
+                           │
+                    ┌──────▼──────┐
+                    │   GitHub    │
+                    │   Actions   │
+                    └──────┬──────┘
+                           │
+              ┌────────────▼────────────┐
+              │      Terraform          │
+              │ Infrastructure as Code  │
+              └────────────┬────────────┘
+                           │
+                    Google Cloud
+                           │
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+        ▼                  ▼                  ▼
+      VPC              GKE Cluster       Cloud DNS
+        │                  │
+        │          ┌───────┴────────┐
+        │          │                │
+        │        Frontend          Backend
+        │        Web/Mobile        API
+        │          │                │
+        │          └───────┬────────┘
+        │                  │
+        │          ┌───────▼────────┐
+        │          │   PostgreSQL    │
+        │          │ Cloud SQL       │
+        │          └────────────────┘
+        │
+        ├── Load Balancer
+        ├── Firewall
+        └── NAT
 ---
 
 ## Executive Summary
