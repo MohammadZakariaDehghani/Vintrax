@@ -146,9 +146,10 @@ pointing anywhere else. It appears on the summary as well as the detail, since
 the search cards draw the badge. It is purely an associated reference (issue
 #67, superseding D-047): nothing reads or scrapes this page.
 
-**Badges.** Five booleans the dealer sets directly — `badgeLowKilometres`,
-`badgeOneOwner`, `badgeNoAccident`, `badgeReport`, `badgeCarfax` — each
-independent of the others and of `carfaxUrl` itself. `create`/`update` accept
+**Badges.** Four booleans the dealer sets directly — `badgeLowKilometres`,
+`badgeOneOwner`, `badgeNoAccident`, `badgeCarfax` — each independent of the
+others and of `carfaxUrl` itself. (A fifth, `badgeReport`, was removed in
+issue #76; the update schema is strict, so sending it is now a 400.) `create`/`update` accept
 them as plain fields alongside everything else; there is no background job,
 no fetch, and no per-viewer visibility rule. They ride with `carfaxUrl` on the
 summary as well as the detail response, since the search cards draw the badge

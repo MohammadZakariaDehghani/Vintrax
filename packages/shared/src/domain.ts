@@ -672,29 +672,23 @@ export function isCarfaxUrl(value: string): boolean {
 }
 
 /**
- * Five badges a dealer sets directly on their own listing (issue #67,
- * superseding D-047's brief automatic-extraction design). Each is independent
- * of the others and of `carfaxUrl` — the CARFAX badge is not implied by
- * having a link on file, and a link is not required to set any of the four
- * others. This is the one source of truth every badge-drawing surface in the
- * app reads: the vehicle card, the row, the detail page, search results, and
+ * Four badges a dealer sets directly on their own listing (issue #67,
+ * superseding D-047's brief automatic-extraction design; issue #76 removed a
+ * fifth, "Report", which had no meaning of its own). Each is independent of
+ * the others and of `carfaxUrl` — the CARFAX badge is not implied by having a
+ * link on file, and a link is not required to set any of the three others.
+ * This is the one source of truth every badge-drawing surface in the app
+ * reads: the vehicle card, the row, the detail page, search results, and
  * comparison all render from the same `VehicleBadges` object rather than each
  * keeping their own notion of what a listing claims.
  */
-export const VEHICLE_BADGE_KEYS = [
-  'lowKilometres',
-  'oneOwner',
-  'noAccident',
-  'report',
-  'carfax',
-] as const;
+export const VEHICLE_BADGE_KEYS = ['lowKilometres', 'oneOwner', 'noAccident', 'carfax'] as const;
 export type VehicleBadgeKey = (typeof VEHICLE_BADGE_KEYS)[number];
 
 export interface VehicleBadges {
   lowKilometres: boolean;
   oneOwner: boolean;
   noAccident: boolean;
-  report: boolean;
   carfax: boolean;
 }
 
@@ -702,7 +696,6 @@ export const VEHICLE_BADGE_LABELS: Record<VehicleBadgeKey, string> = {
   lowKilometres: 'Low Kilometer',
   oneOwner: 'One Owner',
   noAccident: 'No Accident',
-  report: 'Report',
   carfax: 'CARFAX',
 };
 

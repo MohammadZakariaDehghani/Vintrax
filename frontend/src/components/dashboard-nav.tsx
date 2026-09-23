@@ -11,9 +11,10 @@ import {
   MessagesSquare,
   Package,
   Bell,
+  ShieldCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
-import { useIsSeller, useUser } from '@/store/auth-store';
+import { useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
 
 const BUYER_LINKS = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -30,6 +31,13 @@ const SELLER_LINKS = [
 ] as const;
 
 /**
+ * Appended for administrators instead. `useIsSeller` counts admins as sellers
+ * (they may act on any listing), but the dealer tabs here made an admin's
+ * dashboard look like a dealer's session had carried over (issue #76).
+ */
+const ADMIN_LINKS = [{ href: '/admin/dashboard', label: 'Admin', icon: ShieldCheck }] as const;
+
+/**
  * Navigation across the signed-in dashboard.
  *
  * The same idea as `AdminNav`: without it every screen is reachable only from
@@ -41,6 +49,7 @@ export function DashboardNav() {
   const pathname = usePathname();
   const user = useUser();
   const isSeller = useIsSeller();
+  const isAdmin = useIsAdmin();
 
   const messages = useQuery({
     queryKey: ['conversations', 'unread-count'],
@@ -59,7 +68,11 @@ export function DashboardNav() {
     notifications: notifications.data?.unread,
   };
 
-  const links = isSeller ? [...BUYER_LINKS, ...SELLER_LINKS] : BUYER_LINKS;
+  const links = isAdmin
+    ? [...BUYER_LINKS, ...ADMIN_LINKS]
+    : isSeller
+      ? [...BUYER_LINKS, ...SELLER_LINKS]
+      : BUYER_LINKS;
 
   return (
     <nav className="mb-6 flex flex-wrap gap-1 border-b border-border" aria-label="Dashboard">

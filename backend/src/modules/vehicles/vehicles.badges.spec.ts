@@ -32,7 +32,6 @@ function row(overrides: Partial<Record<string, unknown>> = {}) {
     badgeLowKilometres: false,
     badgeOneOwner: true,
     badgeNoAccident: false,
-    badgeReport: false,
     badgeCarfax: true,
     publishedAt: null,
     createdAt: new Date(),
@@ -58,7 +57,14 @@ function row(overrides: Partial<Record<string, unknown>> = {}) {
     favouriteCount: 0,
     documents: [],
     historyEvents: [
-      { id: 'e1', kind: 'ACCIDENT_DAMAGE', occurredOn: null, label: 'Fender bender', detail: null, position: 0 },
+      {
+        id: 'e1',
+        kind: 'ACCIDENT_DAMAGE',
+        occurredOn: null,
+        label: 'Fender bender',
+        detail: null,
+        position: 0,
+      },
     ],
     seller: {
       id: 's1',
@@ -82,7 +88,6 @@ describe('vehicle badges', () => {
       lowKilometres: false,
       oneOwner: true,
       noAccident: false,
-      report: false,
       carfax: true,
     });
   });
@@ -100,7 +105,7 @@ describe('vehicle badges', () => {
     expect(linkNoBadge.badges.carfax).toBe(false);
   });
 
-  it('carries the timeline through unfiltered — every entry is the dealer\'s own', () => {
+  it("carries the timeline through unfiltered — every entry is the dealer's own", () => {
     const detail = toVehicleDetail(row(), new Set());
     expect(detail.historyEvents).toHaveLength(1);
     expect(detail.historyEvents[0]).not.toHaveProperty('source');

@@ -6,7 +6,6 @@ const NONE: VehicleBadges = {
   lowKilometres: false,
   oneOwner: false,
   noAccident: false,
-  report: false,
   carfax: false,
 };
 
@@ -27,7 +26,7 @@ describe('activeVehicleBadges', () => {
 
   it('is independent per badge — any subset can be on', () => {
     expect(activeVehicleBadges({ ...NONE, noAccident: true })).toEqual(['noAccident']);
-    expect(activeVehicleBadges({ ...NONE, report: true })).toEqual(['report']);
+    expect(activeVehicleBadges({ ...NONE, carfax: true })).toEqual(['carfax']);
   });
 });
 

@@ -288,7 +288,6 @@ export const createVehicleSchema = z.object({
   badgeLowKilometres: z.boolean().default(false),
   badgeOneOwner: z.boolean().default(false),
   badgeNoAccident: z.boolean().default(false),
-  badgeReport: z.boolean().default(false),
   badgeCarfax: z.boolean().default(false),
 
   saleChannel: z.enum(SALE_CHANNELS).default('FIXED_PRICE'),
