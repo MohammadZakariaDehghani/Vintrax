@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
@@ -14,7 +14,8 @@ import {
 } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { useAuthStore, useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
+import { homeForRole } from '@/lib/post-login-redirect';
+import { useAuthStore, useIsSeller, useUser } from '@/store/auth-store';
 import { Logo } from '@/components/logo';
 import { useLocale, useT } from '@/i18n/provider';
 import { LOCALE_LABELS, type Locale } from '@/i18n/dictionary';
@@ -252,27 +253,27 @@ function IconLink({
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const user = useUser();
   const isSeller = useIsSeller();
-  const isAdmin = useIsAdmin();
   const logout = useAuthStore((state) => state.logout);
   const t = useT();
 
   /**
-   * Signing out always lands on the home page, and drops every cached query
-   * with it. Without both, whoever signs in next on this tab could briefly
-   * see the outgoing account's page (an admin screen a dealer has no
-   * business on, showing a permission error) or its cached dashboard data —
-   * `RequireAuth` guards the route, but only once it has re-rendered, and a
-   * stale cache entry keyed the same for every user would answer before that
-   * happens.
+   * Signing out lands on the sign-in page (issue #76) through a full page
+   * load, not a client-side push. A full load is what guarantees nothing of
+   * the outgoing account survives into the next one on this tab — no cached
+   * query, no client router cache, no component state. It also beats the race
+   * a soft navigation lost: the moment the session clears, a protected page's
+   * `RequireAuth` redirects to `/login?from=<this page>`, and that `from` —
+   * say `/dealer/dashboard` — was then honoured for whoever signed in next,
+   * which is how an administrator signing in after a dealer landed on the
+   * dealer's dashboard.
    */
   async function handleLogout() {
     await logout();
     queryClient.clear();
-    router.push('/');
+    window.location.replace('/login');
   }
 
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
@@ -323,11 +324,7 @@ export function SiteHeader() {
     setOpenMenu((current) => (current === key ? null : key));
   }
 
-  const dashboardHref = isAdmin
-    ? '/admin/dashboard'
-    : isSeller
-      ? '/dealer/dashboard'
-      : '/dashboard';
+  const dashboardHref = user ? homeForRole(user) : '/dashboard';
   // Signed-in sellers already have an account, so the pill takes them straight
   // to the form rather than back through registration.
   const sellHref = isSeller ? '/dealer/add-vehicle' : '/register?role=SELLER';

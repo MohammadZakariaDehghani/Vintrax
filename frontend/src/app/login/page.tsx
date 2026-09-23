@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api-client';
-import { postLoginRedirect } from '@/lib/post-login-redirect';
+import { homeForRole, postLoginRedirect } from '@/lib/post-login-redirect';
 import { useAuthStore } from '@/store/auth-store';
 import {
   Button,
@@ -44,7 +44,11 @@ function LoginForm() {
       // must not be the thing this account's own dashboard renders first.
       queryClient.clear();
       const user = useAuthStore.getState().user;
-      const destination = from && user ? postLoginRedirect(from, user) : '/dashboard';
+      const destination = user
+        ? from
+          ? postLoginRedirect(from, user)
+          : homeForRole(user)
+        : '/dashboard';
       router.push(destination);
       router.refresh();
     } catch (caught) {

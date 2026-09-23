@@ -601,6 +601,34 @@ Two fixes ride along because this work sat directly on top of them. `make-logos`
 
 **Consequences:** Migration `20260923172522_vehicle_image_assets` adds `VehicleImageAsset`, the `ImageProcessingStatus` enum and a nullable `VehicleImage.assetId`; it is purely additive, and every existing photo keeps rendering from its unchanged `url` until `images:migrate` reaches it. The seed data's SVG placeholders are not photos and are reported `skipped-unsupported`. `sharp` becomes a direct backend dependency. It was already in the lockfile, pinned by the root override for Next.js, with the `linuxmusl` prebuilt binaries the Alpine image needs, so the Dockerfile does not change. Verified: 40 new backend tests (processor validation and variants, local storage, the upload/ownership/delete/replace API through real controllers and the real permissions guard, the backfill's idempotence) and 17 frontend tests alongside the existing suites (337 backend, 149 frontend); typecheck, lint and production builds of all three apps. The production Docker image was built and, with networking disabled, turned JPEG, PNG and WebP into WebP, and AVIF when enabled. A real HTTP upload of a 5 MB 6000 px JPEG returned in under a second. Chromium on the vehicle page downloads the 1440 px rendition on a 3× phone and the 960 px one on a desktop, never the original, with zero layout shift. The Docker build here needed the sandbox's proxy CA injected in a scratch copy of the Dockerfile; the committed one is unchanged. Not yet exercised against real production traffic or real dealer photos: the benchmark uses public test photographs and one enlarged to camera size, because this sandbox cannot download from photo sites.
 
+## D-050 — Four Badges, and a Sign-Out That Resets Everything
+
+**Status:** Accepted. Requested in issue #76, a list of five UI fixes from the owner's own use of the site.
+
+**Decision:**
+
+- **Home page.** The blog row's heading becomes "Read stories from Vintrax", and its cards drop the post photo. `BlogCard` gains a `showImage` flag, defaulting to true, so `/blog` keeps its photos.
+- **Make logos.** The broken uploaded logo needs no change here. D-049 found the cause: `make-logos` was missing from the API's allowlist of served upload folders. Re-verified in a browser: an uploaded Toyota logo loads on the home page's Popular makes row.
+- **Badges.** The "Report" badge is removed from the whole stack: `Vehicle.badgeReport` (migration `20260923175621_remove_report_badge`), `VehicleBadges.report`, the schema field, the mapper, the editor's checkbox, the strip's colour, and the tests. The owner's words: "we dont have this badge in system". It never carried a meaning of its own: the CARFAX badge and the report link already say a report exists. It is dropped rather than folded into another badge, because no other badge means what a dealer ticking "Report" meant.
+- **Sign-out.** Signing out now goes to `/login`, and through a full page load (`window.location.replace`), on web and mobile alike.
+- **Switching accounts.** Signing in lands on the account's own home page from one helper, `homeForRole`, which the header's Dashboard link also uses: `/admin/dashboard`, `/dealer/dashboard` or `/dashboard`. The dashboard tab row now shows an Admin tab to administrators instead of the dealer tabs.
+
+**Rationale:** The account-switching report ("log out as a dealer, log in as admin, the dashboard still shows the dealer's menu") was not stale state in the auth store, which clears correctly. It was two things, both reproduced in a browser before fixing:
+
+1. **A stale `from` survived sign-out.** Signing out on a dealer page cleared the session. The page's `RequireAuth` then redirected to `/login?from=/dealer/dashboard` before the header's own soft navigation to `/` finished. The administrator who signed in next was sent to that `from`, because `postLoginRedirect` rightly allows admins onto seller pages.
+2. **With no `from`, login went to `/dashboard` for every role.** `useIsSeller()` counts administrators as sellers, so an admin's `/dashboard` showed the "Dealer" and "Inventory" tabs.
+
+A full page load on sign-out ends the first. It unloads before any redirect can matter, and leaves no cached query, client router state or component state behind for the next account. Role homes and the admin tab row end the second. The existing `postLoginRedirect` check is kept for the legitimate case of a session that expired mid-page.
+
+**Consequences:** Verified in Chromium against a production build and the real API:
+
+- signing out from `/dealer/dashboard` lands on `/login`, with no `from`;
+- signing in as an administrator next lands on `/admin/dashboard`, and `/dashboard` shows Overview, Saved, My bids, Messages, Notifications and Admin, with no dealer tabs;
+- signing back in as the dealer restores the dealer's tabs and landing page;
+- the badge editor lists four options.
+
+No page errors and no failed upload requests occurred during the run. Backend (337) and frontend (153) suites pass, with four new tests for role homes and sign-out. An older browser tab still showing the five-badge editor would get a 400 naming the unknown field on save; reloading clears it.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

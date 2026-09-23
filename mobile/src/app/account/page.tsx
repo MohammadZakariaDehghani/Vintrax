@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Gavel, LogOut, MailCheck, MessageSquare, Moon, Package } from 'lucide-react';
@@ -25,7 +24,6 @@ export default function AccountPage() {
 }
 
 function Account() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const user = useUser();
   const isSeller = useIsSeller();
@@ -114,9 +112,11 @@ function Account() {
         onClick={async () => {
           await logout();
           // So a cached query from this session cannot answer for whoever
-          // signs in next on this device.
+          // signs in next on this device. A full page load to the sign-in
+          // page, as on the web app (issue #76): nothing of this account's
+          // state survives into the next one.
           queryClient.clear();
-          router.replace('/');
+          window.location.replace('/login');
         }}
       >
         <LogOut aria-hidden className="h-4 w-4" />

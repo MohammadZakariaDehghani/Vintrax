@@ -445,7 +445,6 @@ model Vehicle {
   badgeLowKilometres Boolean @default(false)
   badgeOneOwner      Boolean @default(false)
   badgeNoAccident    Boolean @default(false)
-  badgeReport        Boolean @default(false)
   badgeCarfax        Boolean @default(false)
 
   status      ListingStatus @default(DRAFT)

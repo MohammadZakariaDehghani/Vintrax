@@ -20,15 +20,15 @@ import { cn } from '@/lib/utils';
  * since it is a recognizable third-party brand, and is a link to
  * `carfaxUrl` only when the dealer has also given one — the badge and the
  * link are independent settings, so a dealer can tick CARFAX without a link
- * on file, or hold a link without ticking the badge. The other four badges
+ * on file, or hold a link without ticking the badge. The other three badges
  * are dealer claims with nothing external to open, styled as solid colour
  * pills with a trailing chevron — the same visual family CARFAX Canada's own
  * badge widget uses — so the strip reads as one connected row of credentials
  * rather than a report chip next to a handful of grey tags. CARFAX leads the
  * row when present, matching that same reference. Deliberately kept off
- * these four is CARFAX's own trademarked micro-copy ("Low Kilometres™", "No
+ * these three is CARFAX's own trademarked micro-copy ("Low Kilometres™", "No
  * Reported Accidents™"): those wordings assert a CARFAX-verified finding,
- * and these four booleans are the dealer's own unverified claim, so they
+ * and these three booleans are the dealer's own unverified claim, so they
  * keep Vintrax's own labels rather than borrowing that word-for-word.
  */
 export function VehicleBadgeStrip({
@@ -72,7 +72,6 @@ const CHIP_COLORS: Record<Exclude<VehicleBadgeKey, 'carfax'>, string> = {
   lowKilometres: 'bg-[#5f3d99]',
   oneOwner: 'bg-[#1c7a3e]',
   noAccident: 'bg-[#1565d8]',
-  report: 'bg-[#0f7a72]',
 };
 
 function ColorChip({ badgeKey, compact }: { badgeKey: VehicleBadgeKey; compact: boolean }) {

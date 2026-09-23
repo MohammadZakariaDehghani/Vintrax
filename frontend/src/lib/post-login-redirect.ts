@@ -14,6 +14,19 @@ function isSeller(user: PublicUser): boolean {
 }
 
 /**
+ * Each account's own starting page — the header's "Dashboard" link and where
+ * signing in lands when nothing else asked for a page. One answer per role,
+ * so an administrator never lands on the buyer overview (which, reached as an
+ * admin, used to show the dealer tabs and read as a dealer's session carried
+ * over — issue #76).
+ */
+export function homeForRole(user: Pick<PublicUser, 'role'>): string {
+  if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') return '/admin/dashboard';
+  if (user.role === 'SELLER' || user.role === 'DEALER') return '/dealer/dashboard';
+  return '/dashboard';
+}
+
+/**
  * Where to send someone right after they sign in, given a `from` the URL
  * actually carried — call sites keep their own default (`/dashboard`) for the
  * ordinary case of signing in with no `from` at all.

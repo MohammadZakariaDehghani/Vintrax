@@ -16,12 +16,11 @@ const NO_BADGES: VehicleBadges = {
   lowKilometres: false,
   oneOwner: false,
   noAccident: false,
-  report: false,
   carfax: false,
 };
 
 /**
- * Where the dealer sets the five vehicle-history badges directly, and the
+ * Where the dealer sets the four vehicle-history badges directly, and the
  * associated CARFAX report link (issue #67, superseding D-047's automatic
  * extraction). Nothing here is read from any report — every value is exactly
  * what the dealer ticked, saved as-is, and shown everywhere the app draws a
@@ -60,7 +59,6 @@ export function VehicleBadgesEditor({ vehicleId }: { vehicleId: string }) {
         badgeLowKilometres: badges.lowKilometres,
         badgeOneOwner: badges.oneOwner,
         badgeNoAccident: badges.noAccident,
-        badgeReport: badges.report,
         badgeCarfax: badges.carfax,
       }),
     onSuccess: () => {
