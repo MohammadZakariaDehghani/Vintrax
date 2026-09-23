@@ -266,7 +266,10 @@ export function ErrorAlert({ error, className }: { error: unknown; className?: s
         ? error.message
         : 'Something went wrong. Please try again.';
 
-  const requestId = error instanceof ApiError ? error.requestId : undefined;
+  // Only a server fault gets a reference for support to look up. A wrong
+  // password or a rejected field is the user's own to fix, and a reference
+  // under "Invalid email or password" reads as a system error (issue: login).
+  const requestId = error instanceof ApiError && error.status >= 500 ? error.requestId : undefined;
 
   return (
     <div

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LayoutGrid, List, Plus, Search, Send, Trash2, Upload, X } from 'lucide-react';
+import { EyeOff, LayoutGrid, List, Plus, Search, Send, Trash2, Upload, X } from 'lucide-react';
 import type { BulkVehicleResult, ListingStatus, Paginated, VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
@@ -18,7 +18,6 @@ import {
   Spinner,
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
-import { useIsAdmin } from '@/store/auth-store';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { InventoryCard, InventoryRow } from './inventory-items';
 
@@ -97,7 +96,6 @@ function Inventory() {
   const [searchText, setSearchText] = useState('');
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
-  const isAdmin = useIsAdmin();
 
   const pageSize = Number(pageSizeText);
   const status = TABS[tab]?.status;
@@ -132,11 +130,20 @@ function Inventory() {
     setConfirmingDelete(false);
   }, [tab, page, pageSize, search]);
 
-  const submitMany = useMutation({
-    mutationFn: (ids: string[]) =>
-      api.patch<BulkVehicleResult>('/vehicles/bulk-status', { ids, status: 'PENDING_REVIEW' }),
-    onSuccess: (result) => {
-      setBulkResult({ verb: 'submitted for review', result });
+  /**
+   * Moving a selection to another status: submit drafts for review, or
+   * unpublish — back to DRAFT, off the public site until it is edited and
+   * resubmitted. The server applies the seller transition table per vehicle,
+   * so anything that cannot make the move is reported and left as it is.
+   */
+  const setStatusMany = useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: 'PENDING_REVIEW' | 'DRAFT' }) =>
+      api.patch<BulkVehicleResult>('/vehicles/bulk-status', { ids, status }),
+    onSuccess: (result, { status }) => {
+      setBulkResult({
+        verb: status === 'DRAFT' ? 'unpublished' : 'submitted for review',
+        result,
+      });
       setSelected(new Set());
       void queryClient.invalidateQueries({ queryKey: ['my-inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
@@ -146,10 +153,10 @@ function Inventory() {
   /**
    * Deleting a selection.
    *
-   * Offered to administrators only, which is what issue #34 asked for, and the
-   * server enforces the rest: each id goes through the single-vehicle delete, so
-   * a dealer calling this route directly still reaches only their own vehicles
-   * and the live-auction and sales-record guards still refuse.
+   * Offered to dealers as well as administrators. The server enforces the
+   * rest: each id goes through the single-vehicle delete, so a dealer reaches
+   * only their own vehicles, and the live-auction and sales-record guards
+   * still refuse.
    */
   const deleteMany = useMutation({
     mutationFn: (ids: string[]) =>
@@ -310,47 +317,57 @@ function Inventory() {
             <span className="text-sm font-medium">{selectedIds.length} selected on this page</span>
             <Button
               size="sm"
-              loading={submitMany.isPending}
-              onClick={() => submitMany.mutate(selectedIds)}
+              loading={
+                setStatusMany.isPending && setStatusMany.variables?.status === 'PENDING_REVIEW'
+              }
+              disabled={setStatusMany.isPending}
+              onClick={() => setStatusMany.mutate({ ids: selectedIds, status: 'PENDING_REVIEW' })}
             >
               <Send className="mr-2 h-4 w-4" aria-hidden />
               Submit for review
             </Button>
-            {/* Administrators only. A second click is required because this is
-                the one bulk action that cannot be undone, and the count is
-                repeated in the confirmation so it is read rather than clicked
-                past. */}
-            {isAdmin ? (
-              confirmingDelete ? (
-                <>
-                  <span className="text-sm font-medium text-destructive">
-                    Delete {selectedIds.length} {selectedIds.length === 1 ? 'vehicle' : 'vehicles'}{' '}
-                    permanently?
-                  </span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    loading={deleteMany.isPending}
-                    onClick={() => deleteMany.mutate(selectedIds)}
-                  >
-                    Yes, delete
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setConfirmingDelete(false)}
-                    disabled={deleteMany.isPending}
-                  >
-                    Keep them
-                  </Button>
-                </>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(true)}>
-                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
-                  Delete
+            <Button
+              variant="outline"
+              size="sm"
+              loading={setStatusMany.isPending && setStatusMany.variables?.status === 'DRAFT'}
+              disabled={setStatusMany.isPending}
+              onClick={() => setStatusMany.mutate({ ids: selectedIds, status: 'DRAFT' })}
+            >
+              <EyeOff className="mr-2 h-4 w-4" aria-hidden />
+              Unpublish
+            </Button>
+            {/* A second click is required because this is the one bulk action
+                that cannot be undone, and the count is repeated in the
+                confirmation so it is read rather than clicked past. */}
+            {confirmingDelete ? (
+              <>
+                <span className="text-sm font-medium text-destructive">
+                  Delete {selectedIds.length} {selectedIds.length === 1 ? 'vehicle' : 'vehicles'}{' '}
+                  permanently?
+                </span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  loading={deleteMany.isPending}
+                  onClick={() => deleteMany.mutate(selectedIds)}
+                >
+                  Yes, delete
                 </Button>
-              )
-            ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleteMany.isPending}
+                >
+                  Keep them
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setConfirmingDelete(true)}>
+                <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                Delete
+              </Button>
+            )}
 
             <Button
               variant="ghost"
@@ -363,17 +380,18 @@ function Inventory() {
               <X className="mr-2 h-4 w-4" aria-hidden />
               Clear
             </Button>
-            {/* Said before the click, not discovered after it. Only a draft can
-                enter review, so a mixed selection is partly refused by design. */}
+            {/* Said before the click, not discovered after it: a mixed selection
+                is partly refused by design. */}
             <span className="text-sm text-muted-foreground">
-              Only drafts can enter review. Anything else in the selection is reported and left as
-              it is.
+              Only drafts can enter review; unpublishing returns a listing to draft. A vehicle in a
+              live auction or marked sold cannot be deleted. Anything that cannot change is reported
+              and left as it is.
             </span>
           </CardContent>
         </Card>
       ) : null}
 
-      <ErrorAlert error={error ?? submitMany.error ?? deleteMany.error} className="mb-5" />
+      <ErrorAlert error={error ?? setStatusMany.error ?? deleteMany.error} className="mb-5" />
 
       {/* Partial success is the normal outcome of a bulk action, so the result
           is shown per vehicle rather than as "done". */}
