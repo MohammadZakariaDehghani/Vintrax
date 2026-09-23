@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react';
+import { ChevronRight, ExternalLink } from 'lucide-react';
 import {
   VEHICLE_BADGE_LABELS,
   activeVehicleBadges,
@@ -21,8 +21,15 @@ import { cn } from '@/lib/utils';
  * `carfaxUrl` only when the dealer has also given one — the badge and the
  * link are independent settings, so a dealer can tick CARFAX without a link
  * on file, or hold a link without ticking the badge. The other four badges
- * are plain, non-interactive labels: dealer claims with nothing external to
- * open.
+ * are dealer claims with nothing external to open, styled as solid colour
+ * pills with a trailing chevron — the same visual family CARFAX Canada's own
+ * badge widget uses — so the strip reads as one connected row of credentials
+ * rather than a report chip next to a handful of grey tags. CARFAX leads the
+ * row when present, matching that same reference. Deliberately kept off
+ * these four is CARFAX's own trademarked micro-copy ("Low Kilometres™", "No
+ * Reported Accidents™"): those wordings assert a CARFAX-verified finding,
+ * and these four booleans are the dealer's own unverified claim, so they
+ * keep Vintrax's own labels rather than borrowing that word-for-word.
  */
 export function VehicleBadgeStrip({
   vehicle,
@@ -36,13 +43,21 @@ export function VehicleBadgeStrip({
   const active = activeVehicleBadges(vehicle.badges);
   if (active.length === 0) return null;
 
+  // CARFAX first, then the rest in their fixed order — matching the
+  // reference layout without changing `VEHICLE_BADGE_KEYS`, which also
+  // drives the admin checkbox order.
+  const ordered = [
+    ...active.filter((key) => key === 'carfax'),
+    ...active.filter((key) => key !== 'carfax'),
+  ];
+
   return (
     <div className={cn('flex flex-wrap items-center gap-1', className)}>
-      {active.map((key) =>
+      {ordered.map((key) =>
         key === 'carfax' ? (
           <CarfaxChip key={key} url={vehicle.carfaxUrl ?? null} compact={compact} />
         ) : (
-          <PlainChip key={key} badgeKey={key} compact={compact} />
+          <ColorChip key={key} badgeKey={key} compact={compact} />
         ),
       )}
     </div>
@@ -52,16 +67,26 @@ export function VehicleBadgeStrip({
 const CHIP_BASE =
   'inline-flex items-center whitespace-nowrap rounded-[3px] border font-semibold leading-none';
 
-function PlainChip({ badgeKey, compact }: { badgeKey: VehicleBadgeKey; compact: boolean }) {
+/** One solid background colour per claim, so the strip reads at a glance. */
+const CHIP_COLORS: Record<Exclude<VehicleBadgeKey, 'carfax'>, string> = {
+  lowKilometres: 'bg-[#5f3d99]',
+  oneOwner: 'bg-[#1c7a3e]',
+  noAccident: 'bg-[#1565d8]',
+  report: 'bg-[#0f7a72]',
+};
+
+function ColorChip({ badgeKey, compact }: { badgeKey: VehicleBadgeKey; compact: boolean }) {
   return (
     <span
       className={cn(
         CHIP_BASE,
-        'border-border bg-secondary text-secondary-foreground',
-        compact ? 'px-1.5 py-1 text-[9px]' : 'px-2 py-1 text-[11px]',
+        'gap-0.5 border-transparent text-white',
+        CHIP_COLORS[badgeKey as Exclude<VehicleBadgeKey, 'carfax'>],
+        compact ? 'py-1 pl-1.5 pr-1 text-[9px]' : 'py-1 pl-2 pr-1.5 text-[11px]',
       )}
     >
       {VEHICLE_BADGE_LABELS[badgeKey]}
+      <ChevronRight className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} strokeWidth={3} aria-hidden />
     </span>
   );
 }
@@ -115,7 +140,10 @@ function CarfaxChip({ url, compact }: { url: string | null; compact: boolean }) 
         target="_blank"
         rel="noopener noreferrer"
         aria-label="CARFAX report. Opens in a new tab."
-        className={cn(shared, 'transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring')}
+        className={cn(
+          shared,
+          'transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+        )}
       >
         {content}
       </a>

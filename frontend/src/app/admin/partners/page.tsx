@@ -8,6 +8,7 @@ import { api } from '@/lib/api-client';
 import { Button, Card, CardContent, ErrorAlert, Input, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
+import { AdminImagePreview } from '@/components/admin-image-preview';
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -83,7 +84,9 @@ function Partners() {
     }
     if (file.size > MAX_BYTES) {
       setFailure(
-        new Error(`${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 10 MB.`),
+        new Error(
+          `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 10 MB.`,
+        ),
       );
       return false;
     }
@@ -180,10 +183,7 @@ function Partners() {
                     </div>
 
                     <div className="mb-3 grid aspect-[3/2] w-full place-items-center overflow-hidden rounded-md border border-border bg-white">
-                      {/* Same-origin uploads, already sized for this tile; next/image
-                          optimisation adds a hop without a benefit. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <AdminImagePreview
                         src={partner.logoUrl}
                         alt={partner.alt ?? ''}
                         className="h-full w-full object-contain"

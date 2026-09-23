@@ -10,6 +10,7 @@ import { Button, Card, CardContent, ErrorAlert, Spinner } from '@/components/ui'
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
 import { BrandLogo } from '@/components/brand-logo';
+import { AdminImagePreview } from '@/components/admin-image-preview';
 
 /** What the API accepts, so a wrong file is refused here rather than at upload. */
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
@@ -109,8 +110,8 @@ function MakeLogos() {
         <h1 className="text-2xl font-bold tracking-tight">Make logos</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Overrides the generated mark the home page&rsquo;s <strong>Popular makes</strong> row
-          otherwise draws for a make. Listed here: every make currently in stock, plus any make
-          with a logo already set.
+          otherwise draws for a make. Listed here: every make currently in stock, plus any make with
+          a logo already set.
         </p>
       </header>
 
@@ -140,11 +141,11 @@ function MakeLogos() {
 
                     <div className="mb-3 grid aspect-[3/2] w-full place-items-center overflow-hidden rounded-md border border-border bg-white">
                       {row.imageUrl ? (
-                        // Same-origin uploads, often already sized for this
-                        // row; next/image optimisation adds a hop without a
-                        // benefit.
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={row.imageUrl} alt="" className="h-full w-full object-contain" />
+                        <AdminImagePreview
+                          src={row.imageUrl}
+                          alt=""
+                          className="h-full w-full object-contain"
+                        />
                       ) : (
                         <BrandLogo make={row.make} className="h-14 w-14 text-slate-400" />
                       )}
