@@ -20,6 +20,7 @@ import {
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { ImportPreview } from './import-preview';
+import { ImportPhotoStatus, RecentImports } from './import-photo-status';
 
 /**
  * Importing inventory from a spreadsheet.
@@ -88,6 +89,7 @@ function ImportInventory() {
       setPlan(null);
       void queryClient.invalidateQueries({ queryKey: ['my-inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+      void queryClient.invalidateQueries({ queryKey: ['inventory-imports'] });
     },
   });
 
@@ -310,10 +312,14 @@ function ImportInventory() {
                 difference between "it worked" and "why are there no pictures". */}
             {importPhotos &&
             result.rows.some((row) => row.action !== 'ERROR' && (row.photoCount ?? 0) > 0) ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Photos are downloading in the background and will appear on the listings over the
-                next few minutes. You can leave this page.
-              </p>
+              <>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Photos are downloading in the background and will appear on the listings over the
+                  next few minutes. You can leave this page; the progress and any problems stay
+                  under Recent imports.
+                </p>
+                <ImportPhotoStatus importId={result.importId} />
+              </>
             ) : null}
 
             {result.summary.errors > 0 ? (
@@ -379,6 +385,8 @@ function ImportInventory() {
           </CardContent>
         </Card>
       ) : null}
+
+      {!plan && !validate.isPending ? <RecentImports /> : null}
     </div>
   );
 }

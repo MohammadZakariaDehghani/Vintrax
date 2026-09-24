@@ -43,7 +43,34 @@ export interface RemoteImage {
   finalUrl: string;
 }
 
-export class RemoteImageError extends Error {}
+export class RemoteImageError extends Error {
+  constructor(
+    message: string,
+    /** The HTTP status the host answered with, when it answered at all. */
+    readonly status?: number,
+    /** Worth one more try: a timeout, a dropped connection, a 5xx. */
+    readonly transient = false,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * How the importer names itself first. Honest, so a dealer's host can see who
+ * is pulling their photos.
+ */
+const IMPORTER_USER_AGENT = 'Vintrax-InventoryImporter/1 (+https://vintrax.ca)';
+
+/**
+ * How it names itself on the one retry after a refusal. Many photo CDNs in
+ * front of dealer systems answer 403 to anything that is not a browser, and
+ * these are the dealer's own photos, which the dealer asked us to copy.
+ */
+const BROWSER_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 Vintrax-InventoryImporter/1';
+
+/** Statuses that mean "not you", which a browser-looking retry often gets past. */
+const REFUSED_STATUSES = new Set([401, 403, 406, 429]);
 
 const MAX_REDIRECTS = 3;
 const CONNECT_TIMEOUT_MS = 8_000;
@@ -178,7 +205,10 @@ async function resolveSafely(hostname: string): Promise<LookupAddress[]> {
       throw new RemoteImageError('address is not publicly routable');
     }
   }
-  return addresses;
+  // IPv4 first. A server on a Docker network usually has no IPv6 route, and a
+  // dual-stack photo host whose AAAA record came back first failed every
+  // download with "network unreachable".
+  return ipv4First(addresses);
 }
 
 interface FetchOptions {
@@ -188,12 +218,56 @@ interface FetchOptions {
   deadline?: number;
 }
 
-/** Downloads one image, or throws a `RemoteImageError` saying why it did not. */
+/**
+ * Downloads one image, or throws a `RemoteImageError` saying why it did not.
+ *
+ * One retry at most, for one of two reasons: the host refused a non-browser
+ * (401, 403, 406, 429), in which case the retry names itself as a browser; or
+ * the attempt failed in a way that is usually momentary (a timeout, a dropped
+ * connection, a 5xx). Every other failure, and a second failure, is final.
+ */
 export async function fetchRemoteImage(
   rawUrl: string,
   options: FetchOptions,
 ): Promise<RemoteImage> {
   const deadline = options.deadline ?? Date.now() + TOTAL_TIMEOUT_MS;
+  try {
+    return await fetchOnce(rawUrl, options.maxBytes, deadline, IMPORTER_USER_AGENT);
+  } catch (error) {
+    const retryAs = retryUserAgent(error);
+    if (!retryAs) throw error;
+    return fetchOnce(
+      rawUrl,
+      options.maxBytes,
+      Math.max(deadline, Date.now() + TOTAL_TIMEOUT_MS / 2),
+      retryAs,
+    );
+  }
+}
+
+/**
+ * Whether a failed download is worth one more try, and as whom: a browser
+ * after a refusal, the importer again after a momentary failure, or null for
+ * a failure that another try would only repeat (a 404, not an image, a
+ * private address, too large).
+ */
+export function retryUserAgent(error: unknown): string | null {
+  if (!(error instanceof RemoteImageError)) return null;
+  if (error.status !== undefined && REFUSED_STATUSES.has(error.status)) return BROWSER_USER_AGENT;
+  return error.transient ? IMPORTER_USER_AGENT : null;
+}
+
+/** IPv4 first, then IPv6, each keeping the resolver's own order. */
+export function ipv4First(addresses: readonly LookupAddress[]): LookupAddress[] {
+  return [...addresses].sort((a, b) => a.family - b.family);
+}
+
+async function fetchOnce(
+  rawUrl: string,
+  maxBytes: number,
+  deadline: number,
+  userAgent: string,
+): Promise<RemoteImage> {
   let target = normalisePhotoUrl(rawUrl);
   if (!target) throw new RemoteImageError('not an http(s) image URL');
 
@@ -202,7 +276,7 @@ export async function fetchRemoteImage(
 
     const url = new URL(target);
     const addresses = await resolveSafely(url.hostname);
-    const response = await requestOnce(url, addresses, deadline, options.maxBytes);
+    const response = await requestOnce(url, addresses, deadline, maxBytes, userAgent);
 
     if (response.kind === 'redirect') {
       const next = normalisePhotoUrl(new URL(response.location, url).toString());
@@ -243,6 +317,7 @@ export function requestOnce(
   addresses: LookupAddress[],
   deadline: number,
   maxBytes: number,
+  userAgent: string = IMPORTER_USER_AGENT,
 ): Promise<RemoteResponse> {
   return new Promise((resolve, reject) => {
     const secure = url.protocol === 'https:';
@@ -253,10 +328,10 @@ export function requestOnce(
       port: url.port || (secure ? 443 : 80),
       path: `${url.pathname}${url.search}`,
       headers: {
-        // Named honestly. A dealer's host should be able to see who is pulling
-        // their photos, and to block us if they want to.
-        'user-agent': 'Vintrax-InventoryImporter/1 (+https://vintrax.ca)',
-        accept: 'image/jpeg,image/png,image/webp,image/avif',
+        'user-agent': userAgent,
+        // What a browser sends for an <img>. A narrower list got 406 from
+        // hosts that negotiate, and the bytes are sniffed on arrival anyway.
+        accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
         // The body is read into memory, so a compressed stream would let a
         // small response expand past the cap after it was checked.
         'accept-encoding': 'identity',
@@ -299,7 +374,7 @@ export function requestOnce(
 
       if (status !== 200) {
         message.destroy();
-        reject(new RemoteImageError(`the server answered HTTP ${status}`));
+        reject(new RemoteImageError(`the server answered HTTP ${status}`, status, status >= 500));
         return;
       }
 
@@ -320,14 +395,18 @@ export function requestOnce(
         chunks.push(chunk);
       });
       message.on('end', () => resolve({ kind: 'body', body: Buffer.concat(chunks) }));
-      message.on('error', (error) => reject(new RemoteImageError(error.message)));
+      message.on('error', (error) => reject(new RemoteImageError(error.message, undefined, true)));
     });
 
     request.setTimeout(Math.min(CONNECT_TIMEOUT_MS, Math.max(1, deadline - Date.now())), () => {
-      request.destroy(new RemoteImageError('timed out'));
+      request.destroy(new RemoteImageError('timed out', undefined, true));
     });
     request.on('error', (error) =>
-      reject(error instanceof RemoteImageError ? error : new RemoteImageError(error.message)),
+      reject(
+        error instanceof RemoteImageError
+          ? error
+          : new RemoteImageError(error.message, undefined, true),
+      ),
     );
     request.end();
   });

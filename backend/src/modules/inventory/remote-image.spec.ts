@@ -1,6 +1,14 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { isPrivateAddress, normalisePhotoUrl, requestOnce, sniff } from './remote-image';
+import {
+  RemoteImageError,
+  ipv4First,
+  isPrivateAddress,
+  normalisePhotoUrl,
+  requestOnce,
+  retryUserAgent,
+  sniff,
+} from './remote-image';
 
 /**
  * The importer's server-side request forgery defence.
@@ -252,5 +260,69 @@ describe('the transport', () => {
     await call('/photo.jpg');
 
     expect(String(lastHeaders['user-agent'])).toContain('Vintrax');
+  });
+  /** A narrow list drew 406 from hosts that negotiate; the bytes are sniffed anyway. */
+  it('accepts what a browser accepts for an image', async () => {
+    await call('/photo.jpg');
+
+    expect(String(lastHeaders['accept'])).toContain('image/*');
+  });
+
+  it('can name itself as a browser for the retry after a refusal', async () => {
+    const browser = retryUserAgent(new RemoteImageError('the server answered HTTP 403', 403));
+    await requestOnce(
+      new URL(`http://127.0.0.1:${port}/photo.jpg`),
+      [{ address: '127.0.0.1', family: 4 }],
+      Date.now() + 5_000,
+      1024 * 1024,
+      browser!,
+    );
+
+    expect(String(lastHeaders['user-agent'])).toMatch(/^Mozilla\/5\.0/);
+    // Still says who it is, at the end, for anyone reading the logs.
+    expect(String(lastHeaders['user-agent'])).toContain('Vintrax');
+  });
+});
+
+/**
+ * Photo CDNs in front of dealer systems commonly refuse anything that is not
+ * a browser, and a network blip should not cost a listing its photo. Neither
+ * should turn into hammering a host that said no for a reason.
+ */
+describe('when a download is retried', () => {
+  it('retries a refusal once, as a browser', () => {
+    for (const status of [401, 403, 406, 429]) {
+      expect(retryUserAgent(new RemoteImageError('refused', status))).toMatch(/^Mozilla/);
+    }
+  });
+
+  it('retries a momentary failure once, as itself', () => {
+    expect(retryUserAgent(new RemoteImageError('timed out', undefined, true))).toContain(
+      'Vintrax-InventoryImporter',
+    );
+    expect(retryUserAgent(new RemoteImageError('HTTP 503', 503, true))).toContain(
+      'Vintrax-InventoryImporter',
+    );
+  });
+
+  it('does not retry what another try would only repeat', () => {
+    expect(retryUserAgent(new RemoteImageError('the server answered HTTP 404', 404))).toBeNull();
+    expect(retryUserAgent(new RemoteImageError('address is not publicly routable'))).toBeNull();
+    expect(retryUserAgent(new RemoteImageError('not a JPEG, PNG, WebP or AVIF image'))).toBeNull();
+    expect(retryUserAgent(new Error('something else'))).toBeNull();
+  });
+});
+
+/** A Docker network usually has no IPv6 route; a dual-stack host must not fail every photo. */
+describe('the address a download connects to', () => {
+  it('tries IPv4 before IPv6, keeping the resolver order within each', () => {
+    expect(
+      ipv4First([
+        { address: '2606:4700::1', family: 6 },
+        { address: '104.18.1.1', family: 4 },
+        { address: '2606:4700::2', family: 6 },
+        { address: '104.18.1.2', family: 4 },
+      ]).map((entry) => entry.address),
+    ).toEqual(['104.18.1.1', '104.18.1.2', '2606:4700::1', '2606:4700::2']);
   });
 });
