@@ -629,7 +629,20 @@ export function normaliseFeatures(value: string | undefined): string[] | null {
 export function splitPhotoList(value: string | undefined): string[] {
   const text = normaliseText(value);
   if (text === null) return [];
-  return text.split(PHOTO_LIST_SEPARATOR).map((part) => part.trim());
+  if (text.includes(PHOTO_LIST_SEPARATOR)) {
+    return text.split(PHOTO_LIST_SEPARATOR).map((part) => part.trim());
+  }
+  // Feeds that do not use our separator list their photos with "|", ",",
+  // spaces or line breaks instead. Read as one address, the whole list failed
+  // to download and the vehicle got no extra photos. Split only where the
+  // next piece starts a new http(s) address, so a comma inside a URL (image
+  // CDNs use them for sizes) is left alone; a list of dates has no such
+  // boundary and stays whole, as before.
+  if (!/https?:\/\//i.test(text) && text.includes('|')) {
+    // The matching list of dates, written with the same "|" as its photos.
+    return text.split('|').map((part) => part.trim());
+  }
+  return text.split(/[\s|,]+(?=https?:\/\/)/i).map((part) => part.trim());
 }
 
 /**

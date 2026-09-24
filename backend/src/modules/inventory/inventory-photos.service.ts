@@ -59,12 +59,14 @@ export class InventoryPhotosService {
     private readonly vehicleImages: VehicleImagesService,
   ) {}
 
-  /** How many photos a run will consider, after the per-import cap. */
+  /**
+   * How many photos a run will consider: every vehicle's main photo, then the
+   * others up to the per-import cap (see `run`).
+   */
   static expectedCount(work: readonly VehiclePhotoWork[]): number {
-    return Math.min(
-      work.reduce((total, entry) => total + entry.photos.length, 0),
-      MAX_PHOTOS_PER_IMPORT,
-    );
+    const total = work.reduce((sum, entry) => sum + entry.photos.length, 0);
+    const primaries = work.filter((entry) => entry.photos.length > 0).length;
+    return Math.min(total, Math.max(MAX_PHOTOS_PER_IMPORT, primaries));
   }
 
   /**
@@ -89,15 +91,20 @@ export class InventoryPhotosService {
         data: { photoStatus: 'RUNNING' },
       });
 
-      let budget = MAX_PHOTOS_PER_IMPORT;
+      // Every vehicle's main photo is downloaded whatever the cap; only the
+      // others share what is left of it. Spending the cap in file order gave
+      // the first vehicles thirty photos each and the rest of a large feed no
+      // photo at all, so they listed as "No photo". Photos already held cost
+      // nothing and are never counted.
+      const primaries = work.filter((entry) => entry.photos.length > 0).length;
+      const budget: PhotoBudget = {
+        extras: Math.max(0, MAX_PHOTOS_PER_IMPORT - primaries),
+        deferred: 0,
+      };
       const touched: string[] = [];
 
       for (const entry of work) {
-        if (budget <= 0) break;
-        const allowed = entry.photos.slice(0, budget);
-        budget -= allowed.length;
-
-        const outcome = await this.syncVehicle(entry.vehicleId, allowed, errors);
+        const outcome = await this.syncVehicle(entry.vehicleId, entry.photos, errors, budget);
         fetched += outcome.fetched;
         reused += outcome.reused;
         failed += outcome.failed;
@@ -113,10 +120,16 @@ export class InventoryPhotosService {
       // so they are stale until this runs.
       await this.vehicles.afterBulkWrite(touched);
 
+      if (budget.deferred > 0) {
+        errors.add(
+          `${budget.deferred} more ${budget.deferred === 1 ? 'photo was' : 'photos were'} not downloaded: one import downloads at most ${MAX_PHOTOS_PER_IMPORT.toLocaleString('en-CA')} new photos, with every vehicle's main photo first. Import the same file again to fetch the rest; photos already copied are not downloaded twice.`,
+        );
+      }
+
       await this.prisma.inventoryImport.update({
         where: { id: importId },
         data: {
-          photoStatus: failed > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED',
+          photoStatus: failed > 0 || errors.size > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED',
           photosFetched: fetched,
           photosReused: reused,
           photosFailed: failed,
@@ -160,6 +173,7 @@ export class InventoryPhotosService {
     vehicleId: string,
     wanted: readonly PhotoIntent[],
     errors: Set<string>,
+    budget: PhotoBudget = { extras: Number.POSITIVE_INFINITY, deferred: 0 },
   ): Promise<{ fetched: number; reused: number; failed: number; changed: boolean }> {
     const existing = await this.prisma.vehicleImage.findMany({
       where: { vehicleId },
@@ -212,6 +226,17 @@ export class InventoryPhotosService {
           sourceUpdatedAt: toDate(photo.sourceUpdatedAt),
         };
         return;
+      }
+
+      // The main photo always goes; the others only while the cap lasts. A
+      // photo left out here is simply not on the listing yet — it was never
+      // held, so nothing is removed — and the next import fetches it.
+      if (index > 0) {
+        if (budget.extras <= 0) {
+          budget.deferred += 1;
+          return;
+        }
+        budget.extras -= 1;
       }
 
       try {
@@ -323,6 +348,14 @@ export class InventoryPhotosService {
     );
     await Promise.all(lanes);
   }
+}
+
+/** What is left of one import's download cap, shared across its vehicles. */
+interface PhotoBudget {
+  /** Downloads still allowed for photos other than a vehicle's main one. */
+  extras: number;
+  /** Photos skipped because the cap ran out. */
+  deferred: number;
 }
 
 /** The pair that decides whether a stored photo is still the right photo. */
