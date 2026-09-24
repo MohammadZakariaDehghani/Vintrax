@@ -109,6 +109,66 @@ function ArticleList() {
     bulk.mutate({ ids: selection.selectedIds, action });
   }
 
+  // The toolbar, page size included, stays reachable when the list is empty
+  // or failed to load: the size is remembered, so one the server refused must
+  // never leave the page with no way to pick another.
+  const toolbar = (
+    <ListToolbar
+      selection={selection}
+      itemCount={items.length}
+      pageSize={pageSize}
+      onPageSizeChange={(size) => {
+        setPageSize(size);
+        setPage(1);
+      }}
+      noun="Posts"
+    >
+      <Button
+        size="sm"
+        loading={bulk.isPending && bulk.variables?.action === 'publish'}
+        disabled={bulk.isPending}
+        onClick={() => run('publish')}
+      >
+        Publish
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        loading={bulk.isPending && bulk.variables?.action === 'unpublish'}
+        disabled={bulk.isPending}
+        onClick={() => run('unpublish')}
+      >
+        Unpublish
+      </Button>
+      {confirmingDelete ? (
+        <>
+          <Button
+            size="sm"
+            variant="destructive"
+            loading={bulk.isPending && bulk.variables?.action === 'delete'}
+            disabled={bulk.isPending}
+            onClick={() => run('delete')}
+          >
+            Yes, delete {selection.selectedIds.length}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)}>
+            Cancel
+          </Button>
+        </>
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={bulk.isPending}
+          onClick={() => setConfirmingDelete(true)}
+        >
+          <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
+          Delete
+        </Button>
+      )}
+    </ListToolbar>
+  );
+
   return (
     <>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -132,62 +192,11 @@ function ArticleList() {
 
       {articles.isLoading ? (
         <Spinner label="Loading posts" />
+      ) : items.length === 0 && articles.error ? (
+        toolbar
       ) : articles.data && items.length > 0 ? (
         <>
-          <ListToolbar
-            selection={selection}
-            itemCount={items.length}
-            pageSize={pageSize}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            noun="Posts"
-          >
-            <Button
-              size="sm"
-              loading={bulk.isPending && bulk.variables?.action === 'publish'}
-              disabled={bulk.isPending}
-              onClick={() => run('publish')}
-            >
-              Publish
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              loading={bulk.isPending && bulk.variables?.action === 'unpublish'}
-              disabled={bulk.isPending}
-              onClick={() => run('unpublish')}
-            >
-              Unpublish
-            </Button>
-            {confirmingDelete ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  loading={bulk.isPending && bulk.variables?.action === 'delete'}
-                  disabled={bulk.isPending}
-                  onClick={() => run('delete')}
-                >
-                  Yes, delete {selection.selectedIds.length}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setConfirmingDelete(false)}>
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={bulk.isPending}
-                onClick={() => setConfirmingDelete(true)}
-              >
-                <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
-                Delete
-              </Button>
-            )}
-          </ListToolbar>
+          {toolbar}
           {bulkOutcome ? (
             <div className="mb-4">
               <BulkOutcomeNote outcome={bulkOutcome.outcome} verb={bulkOutcome.verb} />

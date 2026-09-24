@@ -22,6 +22,7 @@ import {
   type UpdateProfileInput,
   type UpdateUserRoleInput,
   type UpdateUserStatusInput,
+  MAX_PAGE_SIZE,
   addressSchema,
   adminCreateUserSchema,
   adminSetPasswordSchema,
@@ -35,12 +36,13 @@ import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { UsersService } from './users.service';
 
-const listUsersQuerySchema = z.object({
+/** Up to the server-wide 100, the largest page size the admin Users list offers. */
+export const listUsersQuerySchema = z.object({
   role: z.string().optional(),
   status: z.string().optional(),
   q: z.string().trim().max(120).optional(),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(60).default(25),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(25),
 });
 
 @ApiTags('users')

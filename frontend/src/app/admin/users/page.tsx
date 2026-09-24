@@ -148,6 +148,54 @@ function UserDirectory() {
     },
   });
 
+  // The toolbar, page size included, stays reachable when the list is empty
+  // or failed to load: the size is remembered, so one the server refused must
+  // never leave the page with no way to pick another.
+  const toolbar = (
+    <ListToolbar
+      selection={selection}
+      itemCount={selectableIds.length}
+      pageSize={pageSize}
+      onPageSizeChange={(size) => {
+        setPageSize(size);
+        setPage(1);
+      }}
+      noun="Users"
+    >
+      <Button
+        size="sm"
+        loading={changeStatusMany.isPending && changeStatusMany.variables?.next === 'ACTIVE'}
+        disabled={changeStatusMany.isPending}
+        onClick={() => {
+          setBulkOutcome(null);
+          changeStatusMany.mutate({
+            ids: selection.selectedIds,
+            next: 'ACTIVE',
+            verb: 'activated',
+          });
+        }}
+      >
+        Activate
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        loading={changeStatusMany.isPending && changeStatusMany.variables?.next === 'SUSPENDED'}
+        disabled={changeStatusMany.isPending}
+        onClick={() => {
+          setBulkOutcome(null);
+          changeStatusMany.mutate({
+            ids: selection.selectedIds,
+            next: 'SUSPENDED',
+            verb: 'suspended',
+          });
+        }}
+      >
+        Suspend
+      </Button>
+    </ListToolbar>
+  );
+
   return (
     <div className="container py-8">
       <AdminNav />
@@ -231,6 +279,8 @@ function UserDirectory() {
 
       {users.isPending ? (
         <Spinner label="Loading users" />
+      ) : items.length === 0 && users.error ? (
+        toolbar
       ) : items.length === 0 ? (
         <Card>
           <EmptyState
@@ -241,50 +291,7 @@ function UserDirectory() {
         </Card>
       ) : (
         <>
-          <ListToolbar
-            selection={selection}
-            itemCount={selectableIds.length}
-            pageSize={pageSize}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            noun="Users"
-          >
-            <Button
-              size="sm"
-              loading={changeStatusMany.isPending && changeStatusMany.variables?.next === 'ACTIVE'}
-              disabled={changeStatusMany.isPending}
-              onClick={() => {
-                setBulkOutcome(null);
-                changeStatusMany.mutate({
-                  ids: selection.selectedIds,
-                  next: 'ACTIVE',
-                  verb: 'activated',
-                });
-              }}
-            >
-              Activate
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              loading={
-                changeStatusMany.isPending && changeStatusMany.variables?.next === 'SUSPENDED'
-              }
-              disabled={changeStatusMany.isPending}
-              onClick={() => {
-                setBulkOutcome(null);
-                changeStatusMany.mutate({
-                  ids: selection.selectedIds,
-                  next: 'SUSPENDED',
-                  verb: 'suspended',
-                });
-              }}
-            >
-              Suspend
-            </Button>
-          </ListToolbar>
+          {toolbar}
           {bulkOutcome ? (
             <div className="mb-4">
               <BulkOutcomeNote outcome={bulkOutcome.outcome} verb={bulkOutcome.verb} />
