@@ -72,9 +72,14 @@ const myVehiclesQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(20),
 });
 
-const paginationQuerySchema = z.object({
+/**
+ * The moderation queue's paging. Up to the server-wide 100, which is the
+ * largest page size the admin lists offer; a lower cap here once turned
+ * "100 per page" into "Validation failed".
+ */
+export const pendingReviewQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(60).default(25),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(25),
 });
 
 @ApiTags('vehicles')
@@ -112,7 +117,7 @@ export class VehiclesController {
   @RequirePermissions('vehicle:publish', 'user:read')
   @ApiOperation({ summary: 'List vehicles awaiting moderation' })
   listPendingReview(
-    @Query(zodQuery(paginationQuerySchema)) query: z.infer<typeof paginationQuerySchema>,
+    @Query(zodQuery(pendingReviewQuerySchema)) query: z.infer<typeof pendingReviewQuerySchema>,
   ): Promise<Paginated<VehicleSummary>> {
     return this.vehicles.listPendingReview(query.page, query.pageSize);
   }

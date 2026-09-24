@@ -112,6 +112,30 @@ function ModerationQueue() {
 
   const items = queueItems;
 
+  // Always reachable, even when the list is empty or failed to load: the
+  // size is remembered, so a size the server ever refused must never leave
+  // the page with no way to choose another.
+  const perPage = (
+    <label className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+      Per page
+      <Select
+        value={pageSize}
+        onChange={(event) => {
+          setPageSize(Number(event.target.value));
+          setPage(1);
+        }}
+        className="w-20"
+        aria-label="Listings per page"
+      >
+        {PAGE_SIZE_OPTIONS.map((size) => (
+          <option key={size} value={size}>
+            {size}
+          </option>
+        ))}
+      </Select>
+    </label>
+  );
+
   return (
     <div className="container py-8">
       <AdminNav />
@@ -126,7 +150,9 @@ function ModerationQueue() {
 
       <ErrorAlert error={queue.error ?? moderate.error ?? publishMany.error} className="mb-5" />
 
-      {items.length === 0 ? (
+      {items.length === 0 && queue.error ? (
+        <div className="mb-4 flex">{perPage}</div>
+      ) : items.length === 0 ? (
         <Card>
           <EmptyState
             icon={<ShieldCheck className="h-8 w-8" aria-hidden />}
@@ -182,24 +208,7 @@ function ModerationQueue() {
               </>
             ) : null}
 
-            <label className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-              Per page
-              <Select
-                value={pageSize}
-                onChange={(event) => {
-                  setPageSize(Number(event.target.value));
-                  setPage(1);
-                }}
-                className="w-20"
-                aria-label="Listings per page"
-              >
-                {PAGE_SIZE_OPTIONS.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </Select>
-            </label>
+            {perPage}
           </div>
 
           {bulkResult ? (

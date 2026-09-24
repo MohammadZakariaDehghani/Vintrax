@@ -121,6 +121,34 @@ function DealerQueue() {
     },
   });
 
+  // The toolbar, page size included, stays reachable when the list is empty
+  // or failed to load: the size is remembered, so one the server refused must
+  // never leave the page with no way to pick another.
+  const toolbar = (
+    <ListToolbar
+      selection={selection}
+      itemCount={items.length}
+      pageSize={pageSize}
+      onPageSizeChange={(size) => {
+        setPageSize(size);
+        setPage(1);
+      }}
+      noun="Dealerships"
+    >
+      <Button
+        size="sm"
+        loading={verifyMany.isPending}
+        onClick={() => {
+          setBulkOutcome(null);
+          verifyMany.mutate(selection.selectedIds);
+        }}
+      >
+        <Check className="mr-1.5 h-4 w-4" aria-hidden />
+        Verify selected
+      </Button>
+    </ListToolbar>
+  );
+
   return (
     <div className="container py-8">
       <AdminNav />
@@ -175,6 +203,8 @@ function DealerQueue() {
 
       {dealers.isPending ? (
         <Spinner label="Loading dealerships" />
+      ) : items.length === 0 && dealers.error ? (
+        toolbar
       ) : items.length === 0 ? (
         <Card>
           <EmptyState
@@ -198,28 +228,7 @@ function DealerQueue() {
         </Card>
       ) : (
         <>
-          <ListToolbar
-            selection={selection}
-            itemCount={items.length}
-            pageSize={pageSize}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            noun="Dealerships"
-          >
-            <Button
-              size="sm"
-              loading={verifyMany.isPending}
-              onClick={() => {
-                setBulkOutcome(null);
-                verifyMany.mutate(selection.selectedIds);
-              }}
-            >
-              <Check className="mr-1.5 h-4 w-4" aria-hidden />
-              Verify selected
-            </Button>
-          </ListToolbar>
+          {toolbar}
           {bulkOutcome ? (
             <div className="mb-4">
               <BulkOutcomeNote outcome={bulkOutcome} verb="verified" />
