@@ -9,6 +9,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  SellerContact,
   BulkDeleteVehiclesInput,
   BulkListingStatusInput,
   BulkModerateListingsInput,
@@ -36,6 +37,7 @@ import { StorageService, type StoredLocation } from '../../common/storage/storag
 import { SEARCH_PROVIDER, type SearchProvider } from '../../common/search/search.types';
 import { isAdmin, type AuthUser } from '../../common/auth/auth-user';
 import { VehicleImagesService } from '../vehicle-images/vehicle-images.service';
+import { previousPriceUpdate } from './previous-price';
 import {
   toVehicleDetail,
   toVehicleImage,
@@ -98,6 +100,46 @@ export class VehiclesService {
     // The seller and an admin see the paperwork list; anyone else does not.
     const isOwnerOrAdmin = this.canViewDocuments(row.seller.id, viewer);
     return toVehicleDetail(row, favouritedIds, { includeDocuments: isOwnerOrAdmin });
+  }
+
+  /**
+   * The seller's phone number, for a signed-in visitor who pressed "Show
+   * phone number" on a listing.
+   *
+   * Behind sign-in, not in the public listing payload, so the number is not
+   * scraped from every page by anyone crawling the catalogue. The listing has
+   * to be one the viewer can see; an unpublished one is "not found" as it is
+   * on the detail route. A dealership's own number comes first — it is the
+   * one the business answers — then the seller's.
+   */
+  async sellerContact(vehicleId: string, viewer: AuthUser): Promise<SellerContact> {
+    const row = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: {
+        status: true,
+        seller: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            dealer: { select: { name: true, phone: true } },
+          },
+        },
+      },
+    });
+    const mayView =
+      !!row &&
+      (PUBLICLY_VISIBLE.includes(row.status) ||
+        row.seller.id === viewer.id ||
+        isAdmin(viewer.role));
+    if (!row || !mayView) throw new NotFoundException('Vehicle not found');
+
+    const { seller } = row;
+    return {
+      name: seller.dealer?.name ?? `${seller.firstName} ${seller.lastName}`.trim(),
+      phone: seller.dealer?.phone || seller.phone || null,
+    };
   }
 
   /**
@@ -224,9 +266,17 @@ export class VehiclesService {
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // A changed price keeps the one it replaced, which listings show struck
+      // through above the new one. Saving the same price leaves it alone.
+      const priceChange =
+        fields.priceCad !== undefined
+          ? await tx.vehicle.findUnique({ where: { id }, select: { priceCad: true } })
+          : null;
+      const previousPrice = previousPriceUpdate(priceChange?.priceCad, fields.priceCad);
+
       // `fields` cannot carry `status` — updateVehicleSchema omits it, so a
       // seller cannot publish their own listing through this path.
-      await tx.vehicle.update({ where: { id }, data });
+      await tx.vehicle.update({ where: { id }, data: { ...data, ...previousPrice } });
 
       // Images and documents are replaced wholesale — the client always sends
       // the full ordered set.

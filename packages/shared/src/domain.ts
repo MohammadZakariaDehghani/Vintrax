@@ -209,6 +209,22 @@ export const SOCIAL_FOOTER_ICONS: readonly FooterLinkIcon[] = [
   'LINKEDIN',
 ];
 
+/** Where a home feature block's button sits: under the text, or over the photograph. */
+export const HOME_FEATURE_BUTTON_PLACEMENTS = [
+  'TEXT_LEFT',
+  'TEXT_CENTER',
+  'TEXT_RIGHT',
+  'ON_IMAGE',
+] as const;
+export type HomeFeatureButtonPlacement = (typeof HOME_FEATURE_BUTTON_PLACEMENTS)[number];
+
+export const HOME_FEATURE_BUTTON_PLACEMENT_LABELS: Record<HomeFeatureButtonPlacement, string> = {
+  TEXT_LEFT: 'Under the text, left',
+  TEXT_CENTER: 'Under the text, centred',
+  TEXT_RIGHT: 'Under the text, right',
+  ON_IMAGE: 'On the photo',
+};
+
 /** How many columns the footer has. A section says which one it sits in. */
 export const FOOTER_COLUMNS = 4;
 

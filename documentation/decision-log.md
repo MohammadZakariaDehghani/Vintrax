@@ -659,6 +659,50 @@ No page errors and no failed upload requests occurred during the run. Backend (3
   - a phone-width page has no horizontal overflow.
 - Backend (378) and frontend (157) suites pass.
 
+## D-052 — Admin List Controls, Quick Price Edit, Phone Reveal and Home Feature Blocks
+
+**Status:** Accepted. Eight requests from the owner.
+
+**Decision:**
+
+- **Research & advice menu:** post titles only, no photos.
+- **"Read stories from Vintrax":** title and standfirst only, with no date or author (`BlogCard` gains `showMeta`).
+- **Footer:** the header's black (`bg-header`). The language switcher is removed from it; the header's FR / EN toggle is on every page.
+- **Admin lists:** moderation, dealerships, users and blog get "Select all on this page" and 10 / 20 / 50 / 100 per page, remembered per list in the browser. The dealer inventory uses the same sizes. All of this is in one shared `list-controls.tsx`.
+  - Bulk actions: verify dealerships, activate or suspend users, and publish, unpublish or delete posts.
+  - Rejections stay one at a time, as in moderation, because each carries its own note.
+  - Users can only tick accounts the administrator may act on.
+  - The blog list gains paging it did not have, and its "on the home page" badge now marks the five banner posts.
+- **Phone number on a listing:** "Show phone number" under "Send message".
+  - Signed out, it leads to sign-in and back to the listing.
+  - Signed in, it calls `GET /vehicles/:id/contact` and shows the dealership's phone, or the seller's own, as a `tel:` link.
+- **Quick price edit:** "Edit price" beside "Edit" in the dealer inventory.
+  - A changed price keeps the one it replaced in `Vehicle.previousPriceCad`, set by the edit form, the quick edit and the CSV import through one helper.
+  - The old price is shown struck through above the new one on the inventory, cards, rows and the listing page.
+  - Saving an unchanged price writes nothing.
+- **Home feature blocks:** any number, stacked under "Recently listed". Each has a title, text, an optional photo and an optional button to a page here or a website over https.
+  - The button goes under the text (left, centred or right) or over the photo.
+  - Admin → Home features adds, edits with a live preview, shows or hides, reorders and deletes them.
+  - They are a separate model, so they never reach the blog, the banner or the Research menu.
+
+**Rationale:**
+
+- **The phone number is not in the listing payload.** Otherwise anyone crawling the catalogue could collect every seller's number. It sits behind sign-in and a 20-a-minute limit, and a listing the viewer cannot see answers 404.
+- **Bulk admin actions loop the existing per-row endpoints.** Each row is already audited and permission-checked there, and admin lists top out at 100 rows.
+- **Home feature blocks get their own model.** Their buttons go to other websites, which the blog's internal-only button rule forbids.
+
+**Consequences:**
+
+- Migration `20260924120000_home_features_previous_price` is additive: `Vehicle.previousPriceCad`, `HomeFeature` and its placement enum. The `home-features` upload folder is served publicly, and the folder test covers it.
+- Verified in Chromium against production builds and the real API:
+  - two feature blocks created, one with its button on the photo, reordered, and rendered in that order under Recently listed;
+  - the four admin lists show the new controls, and 10 per page lists 10 users;
+  - a quick price edit shows the old price struck through in the inventory and on the listing;
+  - "Show phone number" signed out returns to the listing after sign-in, then shows "North Shore Motors: 604-555-0142";
+  - the footer's background matches the header, `rgb(5, 5, 5)`;
+  - the Research menu has no photos, and the stories row has no dates.
+- New backend and frontend tests cover the phone lookup, the previous-price rule, the feature-block schema and service, and the bulk runner.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

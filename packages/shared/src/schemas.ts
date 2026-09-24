@@ -12,6 +12,7 @@ import {
   FOOTER_COLUMNS,
   FOOTER_LINK_ICONS,
   FUEL_TYPES,
+  HOME_FEATURE_BUTTON_PLACEMENTS,
   INSPECTION_SECTIONS,
   LISTING_SORTS,
   MAX_INSPECTION_IMAGES,
@@ -864,6 +865,71 @@ export const articleQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(12),
 });
 export type ArticleQuery = z.infer<typeof articleQuerySchema>;
+
+// --- Home feature blocks -----------------------------------------------------
+
+/**
+ * Where a feature block's button may go: a page on Vintrax or a website over
+ * `https://`. Pasted addresses are normalised the way footer links are, so
+ * `example.com/offer` saves as `https://example.com/offer`.
+ */
+const featureButtonUrl = trimmed(500)
+  .min(1)
+  .transform(normalizeFooterHref)
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^(\/(?!\/)|https:\/\/)/i,
+        'Link to a page on Vintrax starting with /, or a website such as https://example.com.',
+      ),
+  );
+
+const homeFeatureFields = {
+  title: trimmed(140).min(1),
+  body: trimmed(2_000).nullable().optional(),
+  /** An issued upload URL; the service checks it. */
+  imageUrl: trimmed(500).min(1).nullable().optional(),
+  imageAlt: trimmed(160).nullable().optional(),
+  buttonLabel: trimmed(40).min(1).nullable().optional(),
+  buttonUrl: featureButtonUrl.nullable().optional(),
+  buttonPlacement: z.enum(HOME_FEATURE_BUTTON_PLACEMENTS).optional(),
+  enabled: z.boolean().optional(),
+};
+
+/** A button with no destination, or a destination with no button, is half a control. */
+const buttonComplete = (data: { buttonLabel?: string | null; buttonUrl?: string | null }) =>
+  data.buttonLabel === undefined && data.buttonUrl === undefined
+    ? true
+    : !data.buttonLabel === !data.buttonUrl;
+
+export const createHomeFeatureSchema = z
+  .object(homeFeatureFields)
+  .strict()
+  .refine(buttonComplete, {
+    message: 'Give the button both a label and a link, or neither',
+    path: ['buttonUrl'],
+  });
+export type CreateHomeFeatureInput = z.infer<typeof createHomeFeatureSchema>;
+
+export const updateHomeFeatureSchema = z
+  .object(homeFeatureFields)
+  .partial()
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'Provide at least one field to update',
+  })
+  .refine(buttonComplete, {
+    message: 'Give the button both a label and a link, or neither',
+    path: ['buttonUrl'],
+  });
+export type UpdateHomeFeatureInput = z.infer<typeof updateHomeFeatureSchema>;
+
+/** The whole order, top to bottom: every block's id exactly once. */
+export const reorderHomeFeaturesSchema = z
+  .object({ ids: z.array(z.string().uuid()).max(200) })
+  .strict();
+export type ReorderHomeFeaturesInput = z.infer<typeof reorderHomeFeaturesSchema>;
 
 // --- Site settings and the Contact page ---------------------------------------
 

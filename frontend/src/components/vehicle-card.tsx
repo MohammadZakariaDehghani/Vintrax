@@ -12,6 +12,7 @@ import { VehicleBadgeStrip } from '@/components/vehicle-badge-strip';
 import { AuctionCountdown } from '@/components/auction-countdown';
 import { CompareButton } from '@/components/compare-button';
 import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
+import { PreviousPrice } from '@/components/previous-price';
 
 const STATUS_VARIANT = {
   DRAFT: 'outline',
@@ -135,7 +136,12 @@ export function VehicleCard({
             />
           </div>
         ) : (
-          <p className="tabular text-xl font-bold text-primary">{formatPrice(vehicle.priceCad)}</p>
+          <div>
+            <PreviousPrice previous={vehicle.previousPriceCad} current={vehicle.priceCad} />
+            <p className="tabular text-xl font-bold text-primary">
+              {formatPrice(vehicle.priceCad)}
+            </p>
+          </div>
         )}
 
         <p className="text-sm text-muted-foreground">

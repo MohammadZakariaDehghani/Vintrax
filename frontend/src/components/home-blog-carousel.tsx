@@ -8,7 +8,8 @@ import { BlogCard } from '@/components/blog-card';
  * multi-card strip using the same `ItemCarousel` Popular Makes and Partners
  * use). Desktop shows several cards at once; `itemClassName` is the same
  * fractional-width trick that drives every other carousel's "how many show."
- * Text-only cards, without the post photos (issue #76).
+ * Text-only cards, without the post photos (issue #76), the date or the
+ * author: a title and its standfirst.
  */
 export function HomeBlogCarousel({ posts }: { posts: ArticleSummary[] }) {
   if (posts.length === 0) return null;
@@ -19,7 +20,7 @@ export function HomeBlogCarousel({ posts }: { posts: ArticleSummary[] }) {
       <ItemCarousel
         items={posts.map((post) => ({
           key: post.id,
-          content: <BlogCard article={post} showImage={false} />,
+          content: <BlogCard article={post} showImage={false} showMeta={false} />,
         }))}
         ariaLabel="Stories from Vintrax"
         itemClassName="w-[85%] sm:w-1/2 lg:w-1/4"

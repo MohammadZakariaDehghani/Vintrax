@@ -473,6 +473,14 @@ routes.
 | `DELETE` | `/admin/contact-messages/:id`       | `content:manage` | Delete one                          |
 | `POST`   | `/uploads/footer-icons`             | `content:manage` | Upload a footer link's icon image   |
 | `POST`   | `/uploads/site-images`              | `content:manage` | Upload a site image, such as the Contact map |
+| `GET`    | `/home-features`                    | —                | Home page feature blocks, in order  |
+| `GET`    | `/admin/home-features`              | `content:manage` | Every feature block, hidden ones too |
+| `POST`   | `/admin/home-features`              | `content:manage` | Add a block at the bottom           |
+| `PATCH`  | `/admin/home-features/:id`          | `content:manage` | Edit, show or hide a block          |
+| `PUT`    | `/admin/home-features/order`        | `content:manage` | Set the order (every id, top to bottom) |
+| `DELETE` | `/admin/home-features/:id`          | `content:manage` | Delete a block                      |
+| `POST`   | `/uploads/home-features`            | `content:manage` | Upload a feature block's photo      |
+| `GET`    | `/vehicles/:id/contact`             | signed in (20/min) | The seller's phone number for a listing |
 | `GET`    | `/admin/make-logos`                 | —                | Logos set for vehicle makes         |
 | `PUT`    | `/admin/make-logos/:make`           | `content:manage` | Set one                             |
 | `DELETE` | `/admin/make-logos/:make`           | `content:manage` | Remove one, restoring the generated mark |

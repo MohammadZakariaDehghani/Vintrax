@@ -4,12 +4,58 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Heart } from 'lucide-react';
-import type { ConversationDetail, VehicleDetail } from '@vintrax/shared';
+import { Heart, Phone } from 'lucide-react';
+import type { ConversationDetail, SellerContact, VehicleDetail } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
 import { Button, Card, CardContent, ErrorAlert, Textarea } from '@/components/ui';
+import { PreviousPrice } from '@/components/previous-price';
+
+/**
+ * The seller's phone number, fetched only when a signed-in visitor asks for it.
+ * The number is not in the listing payload, so it cannot be read off every
+ * page by anyone crawling the catalogue.
+ */
+function ShowPhoneNumber({ vehicleId }: { vehicleId: string }) {
+  const reveal = useMutation({
+    mutationFn: () => api.get<SellerContact>(`/vehicles/${vehicleId}/contact`),
+  });
+
+  if (reveal.data) {
+    return reveal.data.phone ? (
+      <a
+        href={`tel:${reveal.data.phone.replace(/[^\d+]/g, '')}`}
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-md border border-primary/40 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+      >
+        <Phone className="h-4 w-4" aria-hidden />
+        <span>
+          {reveal.data.name}: <span className="tabular">{reveal.data.phone}</span>
+        </span>
+      </a>
+    ) : (
+      <p className="mt-2 text-center text-sm text-muted-foreground">
+        {reveal.data.name} has not added a phone number. Send them a message instead.
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-2 w-full"
+        loading={reveal.isPending}
+        onClick={() => reveal.mutate()}
+      >
+        <Phone className="h-4 w-4" aria-hidden />
+        Show phone number
+      </Button>
+      <ErrorAlert error={reveal.error} className="mt-2" />
+    </>
+  );
+}
 
 export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
   const user = useUser();
@@ -45,6 +91,11 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
   return (
     <Card>
       <CardContent className="pt-5">
+        <PreviousPrice
+          previous={vehicle.previousPriceCad}
+          current={vehicle.priceCad}
+          className="text-base"
+        />
         <p className="tabular text-3xl font-bold text-primary">{formatPrice(vehicle.priceCad)}</p>
         <p className="mt-1 text-sm text-muted-foreground">
           {formatKm(vehicle.mileageKm)} · {formatEnum(vehicle.condition)}
@@ -61,9 +112,17 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
           </>
         ) : !user ? (
           <>
-            <p className="mb-3 text-sm">Sign in to message the seller or save this vehicle.</p>
-            <Link href="/login">
+            <p className="mb-3 text-sm">
+              Sign in to message the seller, see their phone number or save this vehicle.
+            </p>
+            <Link href={`/login?from=${encodeURIComponent(`/vehicles/${vehicle.slug}`)}`}>
               <Button className="w-full">Sign in to continue</Button>
+            </Link>
+            <Link href={`/login?from=${encodeURIComponent(`/vehicles/${vehicle.slug}`)}`}>
+              <Button type="button" variant="outline" className="mt-2 w-full">
+                <Phone className="h-4 w-4" aria-hidden />
+                Show phone number
+              </Button>
             </Link>
           </>
         ) : vehicle.status === 'SOLD' ? (
@@ -101,6 +160,8 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
             >
               Send message
             </Button>
+
+            <ShowPhoneNumber vehicleId={vehicle.id} />
 
             <Button
               type="button"

@@ -6,8 +6,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { SellerSettableListingStatus, VehicleSummary } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatEnum, formatKm, formatPrice } from '@/lib/utils';
-import { Badge, Button, Card, CardContent, ErrorAlert } from '@/components/ui';
+import { Badge, Button, Card, CardContent, ErrorAlert, Input } from '@/components/ui';
 import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
+import { PreviousPrice } from '@/components/previous-price';
 
 export const STATUS_VARIANT = {
   DRAFT: 'outline',
@@ -55,15 +56,106 @@ function useVehicleActions(vehicle: VehicleSummary) {
     onSuccess: invalidate,
   });
 
-  return { changeStatus, remove, confirming, setConfirming };
+  return { changeStatus, remove, confirming, setConfirming, invalidate };
+}
+
+/**
+ * Changing the asking price without opening the full edit form. The price it
+ * replaces is kept and shown struck through above the new one, here and on
+ * the public listing.
+ *
+ * Not offered in a live auction, where the API refuses a price change so the
+ * terms do not move under the bidders, nor on a sold vehicle.
+ */
+function QuickPriceEdit({
+  vehicle,
+  onDone,
+  onSaved,
+}: {
+  vehicle: VehicleSummary;
+  onDone: () => void;
+  onSaved: () => void;
+}) {
+  const [text, setText] = useState(String(vehicle.priceCad));
+  const price = Number(text.replace(/[^\d]/g, ''));
+  const valid = Number.isInteger(price) && price >= 1;
+
+  const save = useMutation({
+    mutationFn: () => api.patch(`/vehicles/${vehicle.id}`, { priceCad: price }),
+    onSuccess: () => {
+      onSaved();
+      onDone();
+    },
+  });
+
+  return (
+    <form
+      className="mt-3 flex flex-wrap items-center gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!valid || price === vehicle.priceCad) {
+          onDone();
+          return;
+        }
+        save.mutate();
+      }}
+    >
+      <label className="sr-only" htmlFor={`price-${vehicle.id}`}>
+        New price for {vehicle.title}
+      </label>
+      <span className="text-sm text-muted-foreground">$</span>
+      <Input
+        id={`price-${vehicle.id}`}
+        inputMode="numeric"
+        autoFocus
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        className="h-9 w-32"
+        aria-invalid={!valid}
+      />
+      <Button type="submit" size="sm" loading={save.isPending} disabled={!valid}>
+        Save price
+      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+        Cancel
+      </Button>
+      <ErrorAlert error={save.error} className="w-full" />
+    </form>
+  );
+}
+
+/** The price line: the previous price struck through, when there is one, above the current one. */
+function PriceLine({ vehicle }: { vehicle: VehicleSummary }) {
+  return (
+    <div className="mt-1">
+      <PreviousPrice previous={vehicle.previousPriceCad} current={vehicle.priceCad} />
+      <p className="text-sm text-muted-foreground">
+        <span className="tabular font-semibold text-foreground">
+          {formatPrice(vehicle.priceCad)}
+        </span>{' '}
+        · {formatKm(vehicle.mileageKm)}
+      </p>
+    </div>
+  );
 }
 
 function VehicleActions({ vehicle }: { vehicle: VehicleSummary }) {
-  const { changeStatus, remove, confirming, setConfirming } = useVehicleActions(vehicle);
+  const { changeStatus, remove, confirming, setConfirming, invalidate } =
+    useVehicleActions(vehicle);
+  const [editingPrice, setEditingPrice] = useState(false);
+  const priceEditable = vehicle.status !== 'IN_AUCTION' && vehicle.status !== 'SOLD';
 
   return (
     <>
       <ErrorAlert error={changeStatus.error ?? remove.error} className="mt-2" />
+
+      {editingPrice ? (
+        <QuickPriceEdit
+          vehicle={vehicle}
+          onDone={() => setEditingPrice(false)}
+          onSaved={invalidate}
+        />
+      ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
         <Link href={`/dealer/inventory/${vehicle.id}`}>
@@ -71,6 +163,11 @@ function VehicleActions({ vehicle }: { vehicle: VehicleSummary }) {
             Edit
           </Button>
         </Link>
+        {priceEditable && !editingPrice ? (
+          <Button variant="outline" size="sm" onClick={() => setEditingPrice(true)}>
+            Edit price
+          </Button>
+        ) : null}
 
         {vehicle.status === 'DRAFT' ? (
           <Button
@@ -214,9 +311,7 @@ export function InventoryRow({ vehicle, selected, onSelect }: ItemProps) {
             </Link>
             <Badge variant={STATUS_VARIANT[vehicle.status]}>{formatEnum(vehicle.status)}</Badge>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {formatPrice(vehicle.priceCad)} · {formatKm(vehicle.mileageKm)}
-          </p>
+          <PriceLine vehicle={vehicle} />
 
           <VehicleActions vehicle={vehicle} />
         </div>
@@ -255,9 +350,7 @@ export function InventoryCard({ vehicle, selected, onSelect }: ItemProps) {
         >
           {vehicle.title}
         </Link>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {formatPrice(vehicle.priceCad)} · {formatKm(vehicle.mileageKm)}
-        </p>
+        <PriceLine vehicle={vehicle} />
 
         <div className="mt-auto">
           <VehicleActions vehicle={vehicle} />

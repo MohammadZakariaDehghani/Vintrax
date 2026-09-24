@@ -33,6 +33,15 @@ import { CreateUserPanel } from './create-user-panel';
 import { SetPasswordPanel } from './set-password-panel';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
+import {
+  BulkOutcomeNote,
+  ListToolbar,
+  RowCheckbox,
+  runBulk,
+  usePageSize,
+  useRowSelection,
+  type BulkOutcome,
+} from '@/components/list-controls';
 
 const STATUS_VARIANT: Record<UserStatus, 'outline' | 'success' | 'warning' | 'destructive'> = {
   PENDING: 'warning',
@@ -69,14 +78,18 @@ function UserDirectory() {
   // control that would be refused. The server decides; this just keeps the page
   // honest about what it is offering.
   const canAssign = me ? assignableRoles(me.role) : [];
+  const [pageSize, setPageSize] = usePageSize('vintrax.admin.users.pageSize');
+  const [bulkOutcome, setBulkOutcome] = useState<{ verb: string; outcome: BulkOutcome } | null>(
+    null,
+  );
 
-  const query = new URLSearchParams({ page: String(page), pageSize: '25' });
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (role) query.set('role', role);
   if (status) query.set('status', status);
   if (term) query.set('q', term);
 
   const users = useQuery({
-    queryKey: ['admin-users', role, status, term, page],
+    queryKey: ['admin-users', role, status, term, page, pageSize],
     queryFn: () => api.get<Paginated<PublicUser>>(`/admin/users?${query.toString()}`),
   });
 
@@ -117,6 +130,23 @@ function UserDirectory() {
   });
 
   const items = users.data?.items ?? [];
+  // Only rows this administrator may act on can be ticked: their own account
+  // and accounts at or above their role would only come back as refusals.
+  const selectableIds = items
+    .filter((user) => !!me && me.id !== user.id && canAdministerUser(me.role, user.role))
+    .map((user) => user.id);
+  const selection = useRowSelection(selectableIds, `${role}:${status}:${term}:${page}:${pageSize}`);
+
+  const changeStatusMany = useMutation({
+    mutationFn: ({ ids, next }: { ids: string[]; next: UserStatus; verb: string }) =>
+      runBulk(ids, (id) => api.patch(`/admin/users/${id}/status`, { status: next })),
+    onSuccess: (outcome, variables) => {
+      setBulkOutcome({ verb: variables.verb, outcome });
+      selection.clear();
+      void queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    },
+  });
 
   return (
     <div className="container py-8">
@@ -194,7 +224,10 @@ function UserDirectory() {
         />
       ) : null}
 
-      <ErrorAlert error={users.error ?? changeStatus.error ?? changeRole.error} className="mb-5" />
+      <ErrorAlert
+        error={users.error ?? changeStatus.error ?? changeRole.error ?? changeStatusMany.error}
+        className="mb-5"
+      />
 
       {users.isPending ? (
         <Spinner label="Loading users" />
@@ -208,6 +241,55 @@ function UserDirectory() {
         </Card>
       ) : (
         <>
+          <ListToolbar
+            selection={selection}
+            itemCount={selectableIds.length}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            noun="Users"
+          >
+            <Button
+              size="sm"
+              loading={changeStatusMany.isPending && changeStatusMany.variables?.next === 'ACTIVE'}
+              disabled={changeStatusMany.isPending}
+              onClick={() => {
+                setBulkOutcome(null);
+                changeStatusMany.mutate({
+                  ids: selection.selectedIds,
+                  next: 'ACTIVE',
+                  verb: 'activated',
+                });
+              }}
+            >
+              Activate
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              loading={
+                changeStatusMany.isPending && changeStatusMany.variables?.next === 'SUSPENDED'
+              }
+              disabled={changeStatusMany.isPending}
+              onClick={() => {
+                setBulkOutcome(null);
+                changeStatusMany.mutate({
+                  ids: selection.selectedIds,
+                  next: 'SUSPENDED',
+                  verb: 'suspended',
+                });
+              }}
+            >
+              Suspend
+            </Button>
+          </ListToolbar>
+          {bulkOutcome ? (
+            <div className="mb-4">
+              <BulkOutcomeNote outcome={bulkOutcome.outcome} verb={bulkOutcome.verb} />
+            </div>
+          ) : null}
           <ul className="flex flex-col gap-3">
             {items.map((user) => {
               // Your own row offers nothing: the server refuses a self role
@@ -220,7 +302,16 @@ function UserDirectory() {
                 <li key={user.id}>
                   <Card>
                     <CardContent className="flex flex-wrap items-start justify-between gap-4 pt-5">
-                      <div className="min-w-[220px]">
+                      {mayAdminister ? (
+                        <RowCheckbox
+                          checked={selection.selected.has(user.id)}
+                          onChange={(next) => selection.toggle(user.id, next)}
+                          label={`Select ${user.displayName}`}
+                        />
+                      ) : (
+                        <span className="w-4 shrink-0" aria-hidden />
+                      )}
+                      <div className="min-w-[220px] flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold">{user.displayName}</p>
                           <Badge variant={STATUS_VARIANT[user.status]}>

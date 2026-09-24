@@ -24,6 +24,7 @@ export const PUBLIC_UPLOAD_FOLDERS = [
   'partners',
   'footer-icons',
   'site',
+  'home-features',
 ] as const;
 
 /** Folders an upload route writes to that must never be served to anyone who asks. */

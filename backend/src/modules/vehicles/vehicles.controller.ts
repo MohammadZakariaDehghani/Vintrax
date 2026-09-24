@@ -19,6 +19,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
@@ -34,6 +35,7 @@ import {
   type SearchVehiclesQuery,
   type UpdateListingStatusInput,
   type UpdateVehicleInput,
+  type SellerContact,
   type VehicleDetail,
   type VehicleImage,
   type VehicleSearchResponse,
@@ -123,6 +125,21 @@ export class VehiclesController {
     @CurrentUser() user?: AuthUser,
   ): Promise<VehicleDetail> {
     return this.vehicles.findById(idOrSlug, user);
+  }
+
+  /**
+   * Signed-in only — the global guard applies, as this is not `@Public` — and
+   * throttled well below the global limit, so a signed-in account cannot walk
+   * the catalogue collecting every seller's number.
+   */
+  @Get(':id/contact')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: "The seller's phone number, for a signed-in visitor" })
+  sellerContact(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+  ): Promise<SellerContact> {
+    return this.vehicles.sellerContact(id, user);
   }
 
   @Get(':id/documents/:documentId')
