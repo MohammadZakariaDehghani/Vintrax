@@ -10,10 +10,13 @@ import { Card, CardContent } from '@/components/ui';
 export function BlogCard({
   article,
   showImage = true,
+  showMeta = true,
 }: {
   article: ArticleSummary;
   /** Off on the home page's story row (issue #76), which is text only. */
   showImage?: boolean;
+  /** Off on the home page's story row too, which shows the title and standfirst alone. */
+  showMeta?: boolean;
 }) {
   return (
     <Link href={`/blog/${article.slug}`} className="group block h-full">
@@ -32,7 +35,7 @@ export function BlogCard({
           </div>
         ) : null}
         <CardContent className="p-4">
-          <ArticleMeta article={article} />
+          {showMeta ? <ArticleMeta article={article} /> : null}
           <h2 className="mt-1 font-semibold leading-snug">{article.title}</h2>
           {article.subtitle ? (
             <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{article.subtitle}</p>

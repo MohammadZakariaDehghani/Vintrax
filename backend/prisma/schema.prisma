@@ -266,6 +266,7 @@ model User {
   articles       Article[]
   footerSections FooterSection[]
   siteSettings   SiteSettings[]
+  homeFeatures   HomeFeature[]
   makeLogos      MakeLogo[]
   partners       Partner[]
 
@@ -402,10 +403,13 @@ model Vehicle {
   trim        String?
   year        Int
 
-  priceCad        Int
+  priceCad         Int
+  /// The asking price before the most recent change, shown struck through
+  /// above the current one. Null until the price is first changed.
+  previousPriceCad Int?
   /// Lowest price the seller will accept. Never exposed to buyers.
-  reservePriceCad Int?
-  mileageKm       Int
+  reservePriceCad  Int?
+  mileageKm        Int
 
   condition    VehicleCondition
   bodyType     BodyType
@@ -1115,6 +1119,46 @@ model Partner {
   updatedAt DateTime @updatedAt
 
   @@index([enabled, createdAt])
+}
+
+/// Where a home feature block's button sits: under the text (left, centred
+/// or right), or over the photograph.
+enum HomeFeatureButtonPlacement {
+  TEXT_LEFT
+  TEXT_CENTER
+  TEXT_RIGHT
+  ON_IMAGE
+}
+
+/// A feature block on the home page, under "Recently listed": a photograph,
+/// a title, a few lines of text and an optional button to a page on Vintrax
+/// or another website. Any number of them, stacked one under another in
+/// `position` order — not a slideshow, and separate from the blog, so none
+/// appears on the blog, the banner or the Research & advice menu.
+model HomeFeature {
+  id    String  @id @default(uuid()) @db.Uuid
+  title String
+  body  String? @db.Text
+
+  /// An issued upload URL, checked by the service.
+  imageUrl String?
+  imageAlt String?
+
+  buttonLabel     String?
+  /// A site path or an `https://` address, validated by the shared schema.
+  buttonUrl       String?
+  buttonPlacement HomeFeatureButtonPlacement @default(TEXT_LEFT)
+
+  position Int
+  enabled  Boolean @default(true)
+
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, position])
 }
 
 enum ImageProcessingStatus {

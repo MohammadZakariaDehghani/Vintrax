@@ -31,6 +31,7 @@ import {
   type PlannedRow,
   type VehicleDraft,
 } from './inventory-plan';
+import { previousPriceUpdate } from '../vehicles/previous-price';
 
 /**
  * Dealer inventory as a CSV file.
@@ -481,9 +482,20 @@ export class InventoryService {
     // from a match against this seller's own vehicles, writing it as part of
     // the where clause means a bug elsewhere in this file cannot turn into a
     // write to another dealer's row: the update would match nothing instead.
+    // A re-imported price that differs keeps the old one, as an edit in the
+    // app does, so the listing shows it struck through.
+    const current =
+      draft.priceCad !== undefined
+        ? await tx.vehicle.findFirst({
+            where: { id, sellerId: user.id },
+            select: { priceCad: true },
+          })
+        : null;
+    const previousPrice = previousPriceUpdate(current?.priceCad, draft.priceCad);
+
     const result = await tx.vehicle.updateMany({
       where: { id, sellerId: user.id },
-      data: draft,
+      data: { ...draft, ...previousPrice },
     });
 
     if (result.count === 0) {

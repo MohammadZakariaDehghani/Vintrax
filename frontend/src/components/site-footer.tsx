@@ -9,7 +9,6 @@ import {
   type SiteSettings,
 } from '@vintrax/shared';
 import { Logo } from '@/components/logo';
-import { LanguageSwitcher } from '@/components/language-switcher';
 import { FOOTER_GLYPHS, SocialBadge } from '@/components/footer-icons';
 
 /** A site path goes through Next's router; anything else is a plain anchor. */
@@ -114,8 +113,8 @@ function FooterSectionBlock({ section }: { section: FooterSection }) {
 }
 
 /**
- * The site footer, drawn after the reference design: four columns on a
- * charcoal ground, social networks as a row of round badges in their own
+ * The site footer, drawn after the reference design: four columns on the
+ * header's black, so the page is framed top and bottom in one colour, social networks as a row of round badges in their own
  * colours, then a rule, the copyright lines and the logo.
  *
  * Everything in it is administrator-authored — sections, their column, links,
@@ -127,8 +126,8 @@ function FooterSectionBlock({ section }: { section: FooterSection }) {
  * unreachable), never when an administrator has genuinely emptied the
  * footer: a real empty footer renders as just the copyright bar.
  *
- * `dark` scopes the theme's dark tokens to the footer, so the language
- * switcher's own colours read on the charcoal whichever theme the page is in.
+ * There is no language switcher here: the header's FR / EN toggle is on every
+ * page already.
  */
 export function SiteFooter({
   sections,
@@ -144,7 +143,7 @@ export function SiteFooter({
   ).filter((column) => column.length > 0);
 
   return (
-    <footer className="dark bg-[#3f3f3f] text-white">
+    <footer className="bg-header text-header-foreground">
       <div className="container max-w-6xl pb-6 pt-8">
         {columns.length > 0 ? (
           <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
@@ -158,17 +157,14 @@ export function SiteFooter({
           </div>
         ) : null}
 
-        <div className="mt-8 flex flex-col gap-4 border-t border-[#757575] pt-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mt-8 flex flex-col gap-4 border-t border-white/25 pt-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="text-[13px] leading-relaxed">
             <p>
               © Copyright {new Date().getFullYear()} {settings?.footerCopyright || 'Vintrax.'}
             </p>
             {settings?.footerNote ? <p>{settings.footerNote}</p> : null}
           </div>
-          <div className="flex items-center gap-5">
-            <LanguageSwitcher />
-            <Logo className="h-14" />
-          </div>
+          <Logo className="h-14" />
         </div>
       </div>
     </footer>

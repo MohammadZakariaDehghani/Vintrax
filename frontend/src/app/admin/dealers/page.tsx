@@ -22,6 +22,15 @@ import {
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
+import {
+  BulkOutcomeNote,
+  ListToolbar,
+  RowCheckbox,
+  runBulk,
+  usePageSize,
+  useRowSelection,
+  type BulkOutcome,
+} from '@/components/list-controls';
 
 const TABS: Array<{ label: string; status?: DealerStatus }> = [
   { label: 'Pending', status: 'PENDING' },
@@ -55,14 +64,16 @@ function DealerQueue() {
   const [searchText, setSearchText] = useState('');
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
+  const [pageSize, setPageSize] = usePageSize('vintrax.admin.dealers.pageSize');
+  const [bulkOutcome, setBulkOutcome] = useState<BulkOutcome | null>(null);
 
   const status = TABS[tab]?.status;
-  const query = new URLSearchParams({ page: String(page), pageSize: '20' });
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (status) query.set('status', status);
   if (search) query.set('q', search);
 
   const dealers = useQuery({
-    queryKey: ['admin-dealers', status ?? 'ALL', page, search],
+    queryKey: ['admin-dealers', status ?? 'ALL', page, pageSize, search],
     queryFn: () => api.get<Paginated<DealerSummary>>(`/dealers?${query.toString()}`),
   });
 
@@ -89,6 +100,26 @@ function DealerQueue() {
   });
 
   const items = dealers.data?.items ?? [];
+  const selection = useRowSelection(
+    items.map((dealer) => dealer.id),
+    `${tab}:${page}:${pageSize}:${search}`,
+  );
+
+  /**
+   * Verifying several at once. Only verification, as in moderation: a
+   * rejection carries notes the applicant reads, and one note pasted across
+   * twenty applications is not feedback.
+   */
+  const verifyMany = useMutation({
+    mutationFn: (ids: string[]) =>
+      runBulk(ids, (id) => api.patch(`/dealers/${id}/verification`, { approved: true })),
+    onSuccess: (outcome) => {
+      setBulkOutcome(outcome);
+      selection.clear();
+      void queryClient.invalidateQueries({ queryKey: ['admin-dealers'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin-analytics'] });
+    },
+  });
 
   return (
     <div className="container py-8">
@@ -140,7 +171,7 @@ function DealerQueue() {
         />
       </div>
 
-      <ErrorAlert error={dealers.error ?? verify.error} className="mb-5" />
+      <ErrorAlert error={dealers.error ?? verify.error ?? verifyMany.error} className="mb-5" />
 
       {dealers.isPending ? (
         <Spinner label="Loading dealerships" />
@@ -167,11 +198,43 @@ function DealerQueue() {
         </Card>
       ) : (
         <>
+          <ListToolbar
+            selection={selection}
+            itemCount={items.length}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            noun="Dealerships"
+          >
+            <Button
+              size="sm"
+              loading={verifyMany.isPending}
+              onClick={() => {
+                setBulkOutcome(null);
+                verifyMany.mutate(selection.selectedIds);
+              }}
+            >
+              <Check className="mr-1.5 h-4 w-4" aria-hidden />
+              Verify selected
+            </Button>
+          </ListToolbar>
+          {bulkOutcome ? (
+            <div className="mb-4">
+              <BulkOutcomeNote outcome={bulkOutcome} verb="verified" />
+            </div>
+          ) : null}
           <ul className="flex flex-col gap-3">
             {items.map((dealer) => (
               <li key={dealer.id}>
                 <Card>
                   <CardContent className="flex flex-wrap items-start justify-between gap-4 pt-5">
+                    <RowCheckbox
+                      checked={selection.selected.has(dealer.id)}
+                      onChange={(next) => selection.toggle(dealer.id, next)}
+                      label={`Select ${dealer.name}`}
+                    />
                     <div className="min-w-[220px] flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link

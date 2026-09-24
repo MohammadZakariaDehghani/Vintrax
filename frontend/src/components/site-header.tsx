@@ -141,17 +141,10 @@ function LatestArticles({ enabled }: { enabled: boolean }) {
             <li key={article.id}>
               <Link
                 href={`/blog/${article.slug}`}
-                className="group flex gap-3 rounded-md p-1 -m-1 transition-colors hover:bg-secondary"
+                className="group block rounded-md p-1 -m-1 transition-colors hover:bg-secondary"
               >
-                <span className="relative h-11 w-[68px] shrink-0 overflow-hidden rounded bg-muted">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={article.heroImageUrl ?? undefined}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                </span>
+                {/* Titles only: the post photos made the menu read as a
+                    second blog page rather than a list of links. */}
                 <span className="line-clamp-2 text-sm leading-snug text-muted-foreground group-hover:text-foreground">
                   {article.title}
                 </span>

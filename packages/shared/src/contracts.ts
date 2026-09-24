@@ -9,6 +9,7 @@ import type {
   DealerStatus,
   Drivetrain,
   FooterLinkIcon,
+  HomeFeatureButtonPlacement,
   FuelType,
   InspectionSection,
   InspectionStatus,
@@ -103,6 +104,16 @@ export interface Address {
 }
 
 // --- Vehicles ----------------------------------------------------------------
+
+/**
+ * How to phone a listing's seller, shown on the vehicle page to a signed-in
+ * visitor who asks for it. The dealership's number when the seller is one,
+ * otherwise the seller's own; null when neither is on file.
+ */
+export interface SellerContact {
+  name: string;
+  phone: string | null;
+}
 
 /** The seller as shown on a listing. Never exposes a private email address. */
 export interface VehicleSeller {
@@ -199,6 +210,8 @@ export interface VehicleSummary {
   trim: string | null;
   year: number;
   priceCad: number;
+  /** The price before the most recent change, shown struck through; null if it never changed. */
+  previousPriceCad: number | null;
   mileageKm: number;
   condition: VehicleCondition;
   bodyType: BodyType;
@@ -587,6 +600,25 @@ export interface SiteSettings {
 export interface AdminSiteSettings extends SiteSettings {
   /** Where Contact-form messages are emailed; falls back to `contactEmail`. */
   contactRecipient: string | null;
+}
+
+/**
+ * A feature block on the home page, under "Recently listed". Stacked one under
+ * another in `position` order; separate from the blog.
+ */
+export interface HomeFeature {
+  id: string;
+  title: string;
+  body: string | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  buttonLabel: string | null;
+  /** A site path or an `https://` address. */
+  buttonUrl: string | null;
+  buttonPlacement: HomeFeatureButtonPlacement;
+  position: number;
+  enabled: boolean;
+  updatedAt: string;
 }
 
 /** A message sent through the Contact page, as an administrator reads it. */

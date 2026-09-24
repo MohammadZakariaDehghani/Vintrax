@@ -4,6 +4,7 @@ import type {
   ArticleSummary,
   AuctionSummary,
   BodyTypeImage,
+  HomeFeature,
   MakeLogo,
   Paginated,
   Partner,
@@ -18,6 +19,7 @@ import { HomeSearch } from '@/components/home-search';
 import { HomeMastheadSlider } from '@/components/home-masthead-slider';
 import { HomeBlogCarousel } from '@/components/home-blog-carousel';
 import { HomePartnersCarousel } from '@/components/home-partners-carousel';
+import { HomeFeatures } from '@/components/home-features';
 import { ContinueSearchCard } from '@/components/continue-search-card';
 import { ItemCarousel } from '@/components/item-carousel';
 import { buildBodyTypeShortcuts } from '@/lib/body-type-shortcuts';
@@ -48,14 +50,16 @@ export default async function HomePage() {
   // One wider page, two uses: the ten newest fill the list below, and the rest
   // are scanned for a photographed example of each body type. A second round
   // trip per body type would be nine more queries for nine thumbnails.
-  const [featured, auctions, bodyTypeImages, makeLogos, blogPosts, partners] = await Promise.all([
-    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
-    serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
-    serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
-    serverFetch<MakeLogo[]>('/admin/make-logos'),
-    serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_CAROUSEL_SIZE}`),
-    serverFetch<Partner[]>('/admin/partners'),
-  ]);
+  const [featured, auctions, bodyTypeImages, makeLogos, blogPosts, partners, homeFeatures] =
+    await Promise.all([
+      serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
+      serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
+      serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
+      serverFetch<MakeLogo[]>('/admin/make-logos'),
+      serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_CAROUSEL_SIZE}`),
+      serverFetch<Partner[]>('/admin/partners'),
+      serverFetch<HomeFeature[]>('/home-features'),
+    ]);
 
   const recent = featured?.items.slice(0, 10) ?? [];
   // Every post has a photograph; the filter only keeps the banner honest if
@@ -219,6 +223,9 @@ export default async function HomePage() {
           </Card>
         )}
       </section>
+
+      {/* Administrator-made feature blocks, stacked under the newest listings. */}
+      <HomeFeatures features={homeFeatures ?? []} />
 
       <section className="border-t border-border bg-card py-14">
         <div className="container grid gap-8 md:grid-cols-3">

@@ -15,12 +15,14 @@ import {
   ErrorAlert,
   Field,
   Pagination,
+  Select,
   Spinner,
   Textarea,
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
 import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
+import { PAGE_SIZE_OPTIONS, usePageSize } from '@/components/list-controls';
 
 /**
  * The moderation queue.
@@ -37,11 +39,14 @@ function ModerationQueue() {
   const [reason, setReason] = useState('');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [bulkResult, setBulkResult] = useState<BulkVehicleResult | null>(null);
+  const [pageSize, setPageSize] = usePageSize('vintrax.admin.moderation.pageSize');
 
   const queue = useQuery({
-    queryKey: ['pending-review', page],
+    queryKey: ['pending-review', page, pageSize],
     queryFn: () =>
-      api.get<Paginated<VehicleSummary>>(`/vehicles/pending-review?page=${page}&pageSize=20`),
+      api.get<Paginated<VehicleSummary>>(
+        `/vehicles/pending-review?page=${page}&pageSize=${pageSize}`,
+      ),
   });
 
   const queueItems = useMemo(() => queue.data?.items ?? [], [queue.data]);
@@ -51,7 +56,7 @@ function ModerationQueue() {
   useEffect(() => {
     setSelected(new Set());
     setBulkResult(null);
-  }, [page]);
+  }, [page, pageSize]);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['pending-review'] });
@@ -176,6 +181,25 @@ function ModerationQueue() {
                 </span>
               </>
             ) : null}
+
+            <label className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+              Per page
+              <Select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                className="w-20"
+                aria-label="Listings per page"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </Select>
+            </label>
           </div>
 
           {bulkResult ? (

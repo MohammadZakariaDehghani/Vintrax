@@ -20,6 +20,7 @@ import { VehicleBadgeStrip } from '@/components/vehicle-badge-strip';
 import { AuctionCountdown } from '@/components/auction-countdown';
 import { CompareButton } from '@/components/compare-button';
 import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
+import { PreviousPrice } from '@/components/previous-price';
 
 /**
  * A search result, laid out as a row rather than a card.
@@ -149,6 +150,9 @@ export function VehicleRow({ vehicle }: { vehicle: VehicleSummary }) {
           {auction ? (
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Current bid</p>
           ) : null}
+          {auction ? null : (
+            <PreviousPrice previous={vehicle.previousPriceCad} current={vehicle.priceCad} />
+          )}
           <p className="tabular text-2xl font-bold leading-tight text-primary">
             {formatPrice(price)}
           </p>

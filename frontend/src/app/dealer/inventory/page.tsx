@@ -18,6 +18,7 @@ import {
   Spinner,
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { PAGE_SIZE_OPTIONS } from '@/components/list-controls';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { InventoryCard, InventoryRow } from './inventory-items';
 
@@ -33,8 +34,8 @@ const TABS: Array<{ label: string; status?: ListingStatus }> = [
   { label: 'Archived', status: 'ARCHIVED' },
 ];
 
-/** Capped by MAX_PAGE_SIZE on the server, which is 100. */
-const PAGE_SIZES = [10, 50, 100] as const;
+/** Capped by MAX_PAGE_SIZE on the server, which is 100. The same sizes as every admin list. */
+const PAGE_SIZES = PAGE_SIZE_OPTIONS;
 
 type View = 'list' | 'grid';
 

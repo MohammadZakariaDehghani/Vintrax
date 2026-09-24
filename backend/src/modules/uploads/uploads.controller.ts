@@ -188,6 +188,24 @@ export class UploadsController {
     });
   }
 
+  @Post('home-features')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload the photograph for a home page feature block',
+    description: 'Returns a URL to pass as imageUrl to POST or PATCH /admin/home-features.',
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  uploadHomeFeatureImage(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.storage.uploadImage({
+      folder: 'home-features',
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
   @Post('documents')
   @RequirePermissions('vehicle:write')
   @ApiConsumes('multipart/form-data')
