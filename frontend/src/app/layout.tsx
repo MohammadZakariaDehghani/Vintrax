@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Oswald } from 'next/font/google';
-import type { FooterSection } from '@vintrax/shared';
+import type { FooterSection, SiteSettings } from '@vintrax/shared';
 import { Providers } from './providers';
 import { getServerLocale } from '@/i18n/server';
 import { serverFetch } from '@/lib/api-client';
@@ -65,7 +65,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // the same reasoning `serverFetch` documents for the home page's inventory.
   // `null` on failure rather than `[]`, so `SiteFooter` can tell an API
   // hiccup apart from an administrator who genuinely emptied the footer.
-  const footer = await serverFetch<FooterSection[]>('/admin/footer');
+  const [footer, siteSettings] = await Promise.all([
+    serverFetch<FooterSection[]>('/admin/footer'),
+    serverFetch<SiteSettings>('/admin/site-settings/public'),
+  ]);
 
   return (
     <html lang={locale} suppressHydrationWarning className={`${sans.variable} ${display.variable}`}>
@@ -82,7 +85,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main id="main" className="flex-1">
               {children}
             </main>
-            <SiteFooter sections={footer} />
+            <SiteFooter sections={footer} settings={siteSettings} />
           </div>
           {/* One fixed-to-the-viewport stack rather than two independently
               `fixed` elements: a visitor who has already started comparing

@@ -7,6 +7,8 @@ export interface MailMessage {
   subject: string;
   /** Plain-text body. HTML templating is deliberately out of scope for now. */
   text: string;
+  /** Where a reply goes, when not back to `from` — the sender of a Contact-page message. */
+  replyTo?: string;
 }
 
 /**
@@ -36,6 +38,7 @@ export class MailService {
     if (this.driver === 'log') {
       this.logger.log(
         `\n--- email (${this.from} -> ${message.to}) ---\n` +
+          (message.replyTo ? `Reply-To: ${message.replyTo}\n` : '') +
           `Subject: ${message.subject}\n\n${message.text}\n--- end ---`,
       );
       return;

@@ -64,7 +64,24 @@ export class ArticlesController {
   @Get(':slug')
   @ApiOperation({ summary: 'One published post' })
   findOne(@Param('slug') slug: string): Promise<Article> {
-    return this.articles.findBySlug(slug);
+    return this.articles.findBySlug(slug, { kind: 'POST' });
+  }
+}
+
+/**
+ * Standalone pages such as "About us": written in the same editor as a post,
+ * but never listed on the blog or the home page.
+ */
+@ApiTags('articles')
+@Controller('pages')
+export class PagesController {
+  constructor(private readonly articles: ArticlesService) {}
+
+  @Public()
+  @Get(':slug')
+  @ApiOperation({ summary: 'One published page, such as About us' })
+  findOne(@Param('slug') slug: string): Promise<Article> {
+    return this.articles.findBySlug(slug, { kind: 'PAGE' });
   }
 }
 
@@ -115,7 +132,7 @@ export class AdminArticlesController {
       action: 'content.article.created',
       entityType: 'Article',
       entityId: article.id,
-      metadata: { slug: article.slug, status: article.status },
+      metadata: { slug: article.slug, kind: article.kind, status: article.status },
     });
     return article;
   }
@@ -135,7 +152,7 @@ export class AdminArticlesController {
       action: 'content.article.updated',
       entityType: 'Article',
       entityId: article.id,
-      metadata: { slug: article.slug, status: article.status },
+      metadata: { slug: article.slug, kind: article.kind, status: article.status },
     });
     return article;
   }

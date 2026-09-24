@@ -265,6 +265,7 @@ model User {
   bodyTypeImages BodyTypeImage[]
   articles       Article[]
   footerSections FooterSection[]
+  siteSettings   SiteSettings[]
   makeLogos      MakeLogo[]
   partners       Partner[]
 
@@ -911,6 +912,15 @@ enum ArticleStatus {
   ARCHIVED
 }
 
+/// A blog post, or a standalone page such as "About us". Pages share the
+/// editor and the body rules but never appear on the blog, the home page
+/// banner or its carousel; they are reached by their own address,
+/// `/pages/<slug>`, usually from a footer link.
+enum ArticleKind {
+  POST
+  PAGE
+}
+
 /// An editorial post — the car writing that fronts the home page.
 ///
 /// The newest published row becomes the masthead: hero photograph, headline,
@@ -927,7 +937,8 @@ model Article {
   /// markup, so an author cannot put script or an iframe on the home page.
   body     String
 
-  heroImageUrl String
+  /// Required for a post, which fronts the home page; optional for a page.
+  heroImageUrl String?
   heroAlt      String?
 
   /// Where the masthead button goes. An Vintrax path, never another origin —
@@ -935,6 +946,7 @@ model Article {
   ctaLabel String?
   ctaHref  String?
 
+  kind        ArticleKind   @default(POST)
   status      ArticleStatus @default(DRAFT)
   publishedAt DateTime?
 
@@ -944,7 +956,7 @@ model Article {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([status, publishedAt])
+  @@index([kind, status, publishedAt])
 }
 
 /// A social or contact link in the "Stay in touch" footer section. Purely
@@ -959,6 +971,9 @@ enum FooterLinkIcon {
   LINKEDIN
   EMAIL
   PHONE
+  TIKTOK
+  APPLE
+  ANDROID
 }
 
 /// One column of the site footer — "About us", "Resources", "Partners",
@@ -968,6 +983,9 @@ model FooterSection {
   id       String @id @default(uuid()) @db.Uuid
   title    String
   position Int
+  /// Which of the footer's four columns the section sits in, 1–4. Two
+  /// sections may share a column and stack, in `position` order.
+  column   Int    @default(1)
 
   links FooterLink[]
 
@@ -988,9 +1006,12 @@ model FooterLink {
   sectionId String        @db.Uuid
   section   FooterSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
-  label String
-  href  String
-  icon  FooterLinkIcon?
+  label    String
+  href     String
+  icon     FooterLinkIcon?
+  /// An uploaded image drawn instead of the built-in icon — an issued upload
+  /// URL, checked by the service, never an address on another server.
+  imageUrl String?
 
   position Int
 
@@ -998,6 +1019,47 @@ model FooterLink {
   updatedAt DateTime @updatedAt
 
   @@index([sectionId, position])
+}
+
+/// Site-wide settings an administrator edits: the footer's copyright lines
+/// and everything the Contact page shows. One row, id 1, created by the
+/// migration that introduced it.
+model SiteSettings {
+  id Int @id @default(1)
+
+  footerCopyright String  @default("")
+  footerNote      String?
+
+  contactIntro       String?
+  contactAddress     String?
+  contactPhone       String?
+  contactEmail       String?
+  contactHours       String?
+  /// An uploaded map or location image. Without one, the Contact page embeds
+  /// a map of `contactAddress`.
+  contactMapImageUrl String?
+  /// Where Contact-form messages are emailed. Falls back to `contactEmail`.
+  contactRecipient   String?
+
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  updatedAt DateTime @updatedAt
+}
+
+/// A message sent through the Contact page. Kept as well as emailed, so a
+/// mail outage or an unconfigured SMTP server loses nothing.
+model ContactMessage {
+  id      String  @id @default(uuid()) @db.Uuid
+  name    String
+  email   String
+  phone   String?
+  subject String
+  message String
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 /// The logo an administrator sets for a vehicle make, overriding the

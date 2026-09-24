@@ -42,7 +42,7 @@ export default async function BlogIndexPage() {
               <div className="relative aspect-[21/9] w-full overflow-hidden bg-muted sm:aspect-[3/1]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={lead.heroImageUrl}
+                  src={lead.heroImageUrl ?? undefined}
                   alt={lead.heroAlt ?? ''}
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />

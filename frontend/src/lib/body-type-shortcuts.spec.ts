@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BODY_TYPES, type BodyTypeImage, type VehicleSummary } from '@vintrax/shared';
+import { BODY_TYPES, type BodyTypeImage } from '@vintrax/shared';
 import { buildBodyTypeShortcuts } from './body-type-shortcuts';
-
-const vehicle = (bodyType: VehicleSummary['bodyType'], primaryImageUrl: string | null) =>
-  ({ bodyType, primaryImageUrl }) as VehicleSummary;
 
 const curated = (bodyType: BodyTypeImage['bodyType'], imageUrl: string | null): BodyTypeImage => ({
   bodyType,
@@ -23,7 +20,6 @@ describe('the body-type shortcut row', () => {
   it('keeps a curated photo for a body type nothing is listed under', () => {
     const shortcuts = buildBodyTypeShortcuts({
       curated: [curated('VAN', '/uploads/body-types/van.png')],
-      vehicles: [vehicle('SUV', '/uploads/vehicles/suv.png')],
       counts: [{ value: 'SUV', count: 6 }],
     });
 
@@ -38,25 +34,16 @@ describe('the body-type shortcut row', () => {
     expect(shortcuts.map((entry) => entry.bodyType)).toEqual([...BODY_TYPES]);
   });
 
-  it('prefers the curated photo over an inventory one', () => {
+  it('draws the silhouette, never a listing photo, for a shape with no uploaded icon', () => {
     const shortcuts = buildBodyTypeShortcuts({
       curated: [curated('SUV', '/uploads/body-types/suv.png')],
-      vehicles: [vehicle('SUV', '/uploads/vehicles/listing.png')],
+      counts: [{ value: 'TRUCK', count: 3 }],
     });
 
     expect(shortcuts.find((entry) => entry.bodyType === 'SUV')?.imageUrl).toBe(
       '/uploads/body-types/suv.png',
     );
-  });
-
-  it('falls back to an inventory photo, then to nothing', () => {
-    const shortcuts = buildBodyTypeShortcuts({
-      vehicles: [vehicle('TRUCK', null), vehicle('TRUCK', '/uploads/vehicles/truck.png')],
-    });
-
-    expect(shortcuts.find((entry) => entry.bodyType === 'TRUCK')?.imageUrl).toBe(
-      '/uploads/vehicles/truck.png',
-    );
-    expect(shortcuts.find((entry) => entry.bodyType === 'WAGON')?.imageUrl).toBeNull();
+    expect(shortcuts.find((entry) => entry.bodyType === 'TRUCK')?.imageUrl).toBeNull();
+    expect(shortcuts.find((entry) => entry.bodyType === 'TRUCK')?.count).toBe(3);
   });
 });

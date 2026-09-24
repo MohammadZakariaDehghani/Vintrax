@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, ImagePlus, Trash2 } from 'lucide-react';
-import type { Article, ArticleStatus } from '@vintrax/shared';
+import type { Article, ArticleKind, ArticleStatus } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
   Button,
@@ -34,7 +34,18 @@ interface Uploaded {
  * "preview" built to look similar is a thing that drifts, and the first person
  * to notice would be a visitor.
  */
-export function ArticleEditor({ article }: { article?: Article }) {
+export function ArticleEditor({
+  article,
+  kind: newKind = 'POST',
+}: {
+  article?: Article;
+  /** What a new one is; an existing one keeps the kind it was created as. */
+  kind?: ArticleKind;
+}) {
+  const kind = article?.kind ?? newKind;
+  const isPage = kind === 'PAGE';
+  const adminBase = isPage ? '/admin/pages' : '/admin/blog';
+  const listKey = isPage ? 'admin-pages' : 'admin-articles';
   const router = useRouter();
   const queryClient = useQueryClient();
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -60,19 +71,22 @@ export function ArticleEditor({ article }: { article?: Article }) {
         title: title.trim(),
         subtitle: subtitle.trim() || (article ? null : undefined),
         body,
-        heroImageUrl,
+        // A page may go without a photograph; clearing one on an existing
+        // page sends null, which removes it.
+        heroImageUrl: heroImageUrl || (article ? null : undefined),
         heroAlt: heroAlt.trim() || (article ? null : undefined),
         ctaLabel: ctaLabel.trim() || (article ? null : undefined),
         ctaHref: ctaHref.trim() || (article ? null : undefined),
         status,
+        ...(article ? {} : { kind }),
       };
       return article
         ? api.patch<Article>(`/admin/articles/${article.id}`, payload)
         : api.post<Article>('/admin/articles', payload);
     },
     onSuccess: (saved) => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
-      router.push(`/admin/blog/${saved.slug}`);
+      void queryClient.invalidateQueries({ queryKey: [listKey] });
+      router.push(`${adminBase}/${saved.slug}`);
       router.refresh();
     },
   });
@@ -80,8 +94,8 @@ export function ArticleEditor({ article }: { article?: Article }) {
   const remove = useMutation({
     mutationFn: () => api.delete(`/admin/articles/${article?.id}`),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin-articles'] });
-      router.push('/admin/blog');
+      void queryClient.invalidateQueries({ queryKey: [listKey] });
+      router.push(adminBase);
       router.refresh();
     },
   });
@@ -113,7 +127,7 @@ export function ArticleEditor({ article }: { article?: Article }) {
   const canSave =
     title.trim().length >= 4 &&
     body.trim().length > 0 &&
-    heroImageUrl !== '' &&
+    (isPage || heroImageUrl !== '') &&
     !ctaIncomplete &&
     !ctaExternal;
 
@@ -123,37 +137,52 @@ export function ArticleEditor({ article }: { article?: Article }) {
           previewed is 1920×330 — a wide, short band. In a sidebar it is either
           clipped or too small to judge, and a preview you cannot judge is
           worse than none. */}
-      <section>
-        <h2 className="mb-2 text-sm font-semibold">Home page preview</h2>
-        {heroImageUrl ? (
-          <div className="overflow-hidden rounded-lg border border-border">
-            <HomeMasthead
-              article={{
-                id: article?.id ?? 'preview',
-                slug: article?.slug ?? 'preview',
-                title: title || 'Your headline',
-                subtitle: subtitle || null,
-                heroImageUrl,
-                heroAlt: heroAlt || null,
-                ctaLabel: ctaLabel || null,
-                ctaHref: ctaHref || null,
-                status,
-                publishedAt: article?.publishedAt ?? new Date().toISOString(),
-                authorName: article?.authorName ?? null,
-                createdAt: article?.createdAt ?? new Date().toISOString(),
-                updatedAt: article?.updatedAt ?? new Date().toISOString(),
-              }}
+      {isPage ? (
+        heroImageUrl ? (
+          <section>
+            <h2 className="mb-2 text-sm font-semibold">Photograph</h2>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={heroImageUrl}
+              alt=""
+              className="aspect-[1920/460] w-full rounded-lg border border-border object-cover"
             />
-          </div>
-        ) : (
-          <div className="grid w-full aspect-[1920/330] min-h-[10rem] place-items-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-            Upload a photograph to see the masthead
-          </div>
-        )}
-        <p className="mt-2 text-xs text-muted-foreground">
-          The same component the home page renders, so this is exactly what a visitor sees.
-        </p>
-      </section>
+          </section>
+        ) : null
+      ) : (
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">Home page preview</h2>
+          {heroImageUrl ? (
+            <div className="overflow-hidden rounded-lg border border-border">
+              <HomeMasthead
+                article={{
+                  id: article?.id ?? 'preview',
+                  slug: article?.slug ?? 'preview',
+                  kind,
+                  title: title || 'Your headline',
+                  subtitle: subtitle || null,
+                  heroImageUrl,
+                  heroAlt: heroAlt || null,
+                  ctaLabel: ctaLabel || null,
+                  ctaHref: ctaHref || null,
+                  status,
+                  publishedAt: article?.publishedAt ?? new Date().toISOString(),
+                  authorName: article?.authorName ?? null,
+                  createdAt: article?.createdAt ?? new Date().toISOString(),
+                  updatedAt: article?.updatedAt ?? new Date().toISOString(),
+                }}
+              />
+            </div>
+          ) : (
+            <div className="grid w-full aspect-[1920/330] min-h-[10rem] place-items-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+              Upload a photograph to see the masthead
+            </div>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            The same component the home page renders, so this is exactly what a visitor sees.
+          </p>
+        </section>
+      )}
 
       <div className="space-y-4">
         {failure ? <ErrorAlert error={failure} /> : null}
@@ -164,9 +193,13 @@ export function ArticleEditor({ article }: { article?: Article }) {
         <Card>
           <CardContent className="space-y-4 p-5">
             <Field
-              label="Headline"
+              label={isPage ? 'Title' : 'Headline'}
               htmlFor="title"
-              hint="Shown on the masthead. Keep it short enough to read at a glance."
+              hint={
+                isPage
+                  ? `The page's heading. Its address is made from it: /pages/${article?.slug ?? 'your-title'}.`
+                  : 'Shown on the masthead. Keep it short enough to read at a glance.'
+              }
             >
               <Input
                 id="title"
@@ -192,7 +225,11 @@ export function ArticleEditor({ article }: { article?: Article }) {
             <Field
               label="Photograph"
               htmlFor="hero"
-              hint="A wide, landscape shot. It is cropped to about 1920×330 on the home page, so keep the subject away from the edges."
+              hint={
+                isPage
+                  ? 'Optional. A wide, landscape shot across the top of the page.'
+                  : 'A wide, landscape shot. It is cropped to about 1920×330 on the home page, so keep the subject away from the edges.'
+              }
             >
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -216,9 +253,22 @@ export function ArticleEditor({ article }: { article?: Article }) {
                   {heroImageUrl ? 'Replace photograph' : 'Upload photograph'}
                 </Button>
                 {heroImageUrl ? (
-                  <span className="text-xs text-muted-foreground">Uploaded</span>
+                  isPage ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setHeroImageUrl('')}
+                    >
+                      Remove photograph
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Uploaded</span>
+                  )
                 ) : (
-                  <span className="text-xs text-muted-foreground">Required</span>
+                  <span className="text-xs text-muted-foreground">
+                    {isPage ? 'Optional' : 'Required'}
+                  </span>
                 )}
               </div>
             </Field>
@@ -237,7 +287,7 @@ export function ArticleEditor({ article }: { article?: Article }) {
             </Field>
 
             <Field
-              label="Article"
+              label={isPage ? 'Page text' : 'Article'}
               htmlFor="body"
               hint="Plain text. Leave a blank line between paragraphs."
             >
@@ -299,7 +349,11 @@ export function ArticleEditor({ article }: { article?: Article }) {
             <Field
               label="Status"
               htmlFor="status"
-              hint="Only a published post appears on the site. Archived keeps the writing but takes it off."
+              hint={
+                isPage
+                  ? 'Only a published page can be visited. Link to it from Admin → Footer.'
+                  : 'Only a published post appears on the site. Archived keeps the writing but takes it off.'
+              }
             >
               <Select
                 id="status"
@@ -315,7 +369,10 @@ export function ArticleEditor({ article }: { article?: Article }) {
             <div className="flex flex-wrap gap-2">
               {article ? (
                 <>
-                  <Link href={`/blog/${article.slug}`} target="_blank">
+                  <Link
+                    href={isPage ? `/pages/${article.slug}` : `/blog/${article.slug}`}
+                    target="_blank"
+                  >
                     <Button type="button" variant="outline">
                       <ExternalLink className="mr-1.5 h-4 w-4" aria-hidden />
                       View
@@ -338,7 +395,7 @@ export function ArticleEditor({ article }: { article?: Article }) {
                 disabled={!canSave}
                 onClick={() => save.mutate()}
               >
-                {article ? 'Save changes' : 'Create post'}
+                {article ? 'Save changes' : isPage ? 'Create page' : 'Create post'}
               </Button>
             </div>
           </CardContent>

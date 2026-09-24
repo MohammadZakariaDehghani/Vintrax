@@ -12,6 +12,10 @@ import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermissions } from '../../common/decorators';
 import { StorageService, type StoredObject } from '../../common/storage/storage.service';
 import { VehicleImagesService } from '../vehicle-images/vehicle-images.service';
+import { removeFlatBackground } from './remove-background';
+
+/** The image types body-type photos are accepted in, and so may be cut out of their backdrop. */
+const CUTOUT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
 
 /**
  * Binary uploads.
@@ -73,12 +77,21 @@ export class UploadsController {
       'Returns a URL to pass to PUT /admin/body-type-images/:bodyType. Separate from vehicle photos because it is an operator action, not a seller one, and carries a different permission.',
   })
   @UseInterceptors(FileInterceptor('file', { storage: undefined }))
-  uploadBodyTypeImage(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+  async uploadBodyTypeImage(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
     if (!file) throw new BadRequestException('No file was uploaded');
+    // The shortcuts are drawn as icons, with no frame behind them, so a car
+    // photographed on a flat backdrop is cut out of it. A photograph of a
+    // scene has no flat backdrop and is stored as sent.
+    // Only a file the storage service would accept anyway is converted, so
+    // the cut-out never becomes a way around its type and size checks.
+    const cutOut =
+      CUTOUT_TYPES.has(file.mimetype) && file.size <= this.storage.maxUploadBytes
+        ? await removeFlatBackground(file.buffer)
+        : null;
     return this.storage.uploadImage({
       folder: 'body-types',
-      buffer: file.buffer,
-      contentType: file.mimetype,
+      buffer: cutOut ?? file.buffer,
+      contentType: cutOut ? 'image/png' : file.mimetype,
       originalName: file.originalname,
     });
   }
@@ -133,6 +146,42 @@ export class UploadsController {
     if (!file) throw new BadRequestException('No file was uploaded');
     return this.storage.uploadImage({
       folder: 'articles',
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
+  @Post('footer-icons')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload an icon for a footer link, such as a Facebook or Instagram logo',
+    description: "Returns a URL to pass as a link's imageUrl in PUT /admin/footer.",
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  uploadFooterIcon(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.storage.uploadImage({
+      folder: 'footer-icons',
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
+  @Post('site-images')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload an image for a site page, such as the Contact page map',
+    description: 'Returns a URL to pass as contactMapImageUrl in PUT /admin/site-settings.',
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  uploadSiteImage(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.storage.uploadImage({
+      folder: 'site',
       buffer: file.buffer,
       contentType: file.mimetype,
       originalName: file.originalname,

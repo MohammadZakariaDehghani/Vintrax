@@ -25,7 +25,7 @@ export async function generateMetadata({
     openGraph: {
       title: article.title,
       description: article.subtitle ?? undefined,
-      images: [article.heroImageUrl],
+      ...(article.heroImageUrl ? { images: [article.heroImageUrl] } : {}),
       type: 'article',
       publishedTime: article.publishedAt ?? undefined,
     },
@@ -50,7 +50,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
       <div className="relative isolate w-full min-h-[16rem] overflow-hidden sm:aspect-[1920/460]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={article.heroImageUrl}
+          src={article.heroImageUrl ?? undefined}
           alt={article.heroAlt ?? ''}
           className="absolute inset-0 -z-10 h-full w-full object-cover"
           fetchPriority="high"

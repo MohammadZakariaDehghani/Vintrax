@@ -146,7 +146,7 @@ function LatestArticles({ enabled }: { enabled: boolean }) {
                 <span className="relative h-11 w-[68px] shrink-0 overflow-hidden rounded bg-muted">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={article.heroImageUrl}
+                    src={article.heroImageUrl ?? undefined}
                     alt=""
                     loading="lazy"
                     className="h-full w-full object-cover"

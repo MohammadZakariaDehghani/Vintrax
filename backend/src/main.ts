@@ -9,29 +9,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { parseCorsOrigins, type Env } from './config/env';
+import { PUBLIC_UPLOAD_FOLDERS } from './common/storage/public-upload-folders';
 
-/**
- * Upload folders served without authentication.
- *
- * Photographs of a car for sale are public by intent — they are the listing.
- * `documents/` is deliberately not here, and nothing should be added without
- * asking whether every anonymous visitor may read it. Nor is
- * `vehicle-originals/`: the untouched uploads the image pipeline keeps for
- * reprocessing still carry the camera's EXIF, GPS position included.
- *
- * `make-logos` and `partners` are operator uploads the home page draws; they
- * were missing from this list when those features shipped, so every uploaded
- * logo 404ed in every deployment.
- */
-const PUBLIC_UPLOAD_FOLDERS = [
-  'vehicles',
-  'inspections',
-  'seed',
-  'body-types',
-  'articles',
-  'make-logos',
-  'partners',
-] as const;
 
 /**
  * Folders whose files are never overwritten: every key is a fresh UUID, and a

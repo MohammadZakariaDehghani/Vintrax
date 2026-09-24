@@ -152,6 +152,16 @@ export const ARTICLE_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
 export type ArticleStatus = (typeof ARTICLE_STATUSES)[number];
 
 /**
+ * A blog post, or a standalone page such as "About us".
+ *
+ * Pages share the editor and the body rules but never appear on the blog, the
+ * home page banner or its carousel; each is reached at `/pages/<slug>`,
+ * usually from a footer link.
+ */
+export const ARTICLE_KINDS = ['POST', 'PAGE'] as const;
+export type ArticleKind = (typeof ARTICLE_KINDS)[number];
+
+/**
  * A social or contact icon drawn beside a "Stay in touch" footer link.
  *
  * Purely decorative — choosing `FACEBOOK` does not check that the link's
@@ -166,6 +176,9 @@ export const FOOTER_LINK_ICONS = [
   'LINKEDIN',
   'EMAIL',
   'PHONE',
+  'TIKTOK',
+  'APPLE',
+  'ANDROID',
 ] as const;
 export type FooterLinkIcon = (typeof FOOTER_LINK_ICONS)[number];
 
@@ -177,7 +190,27 @@ export const FOOTER_LINK_ICON_LABELS: Record<FooterLinkIcon, string> = {
   LINKEDIN: 'LinkedIn',
   EMAIL: 'Email',
   PHONE: 'Phone',
+  TIKTOK: 'TikTok',
+  APPLE: 'Apple (App Store)',
+  ANDROID: 'Android (Google Play)',
 };
+
+/**
+ * The icons drawn as a row of round brand badges under "Stay in touch",
+ * rather than beside a text link — the social networks, as opposed to email,
+ * phone and the app stores, which read better as labelled links.
+ */
+export const SOCIAL_FOOTER_ICONS: readonly FooterLinkIcon[] = [
+  'FACEBOOK',
+  'TWITTER',
+  'INSTAGRAM',
+  'YOUTUBE',
+  'TIKTOK',
+  'LINKEDIN',
+];
+
+/** How many columns the footer has. A section says which one it sits in. */
+export const FOOTER_COLUMNS = 4;
 
 export const USER_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];

@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Building2,
+  FileText,
   Handshake,
   ImageIcon,
   LayoutDashboard,
+  Mail,
   Newspaper,
   PanelBottom,
   ShieldAlert,
@@ -20,9 +22,11 @@ const LINKS = [
   { href: '/admin/dealers', label: 'Dealerships', icon: Building2 },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper },
-  { href: '/admin/body-types', label: 'Body type photos', icon: ImageIcon },
+  { href: '/admin/body-types', label: 'Body type icons', icon: ImageIcon },
   { href: '/admin/make-logos', label: 'Make logos', icon: Tag },
   { href: '/admin/partners', label: 'Partners', icon: Handshake },
+  { href: '/admin/pages', label: 'Pages', icon: FileText },
+  { href: '/admin/contact', label: 'Contact', icon: Mail },
   { href: '/admin/footer', label: 'Footer', icon: PanelBottom },
 ] as const;
 
@@ -38,7 +42,8 @@ export function AdminNav() {
   return (
     <nav className="mb-6 flex flex-wrap gap-1 border-b border-border" aria-label="Administration">
       {LINKS.map((link) => {
-        const active = pathname === link.href;
+        // A section's own sub-screens (a page's editor) keep its tab lit.
+        const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
         return (
           <Link
             key={link.href}

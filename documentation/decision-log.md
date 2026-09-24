@@ -629,6 +629,36 @@ A full page load on sign-out ends the first. It unloads before any redirect can 
 
 No page errors and no failed upload requests occurred during the run. Backend (337) and frontend (153) suites pass, with four new tests for role homes and sign-out. An older browser tab still showing the five-badge editor would get a 400 naming the unknown field on save; reloading clears it.
 
+## D-051 — Banner Slideshow, Icon Body Types, a Footer After the Reference, Pages and Contact
+
+**Status:** Accepted. Requested by the owner with a screenshot of the footer to follow.
+
+**Decision:**
+
+- **Home banner.** The band across the top shows the five newest posts as a slideshow instead of only the newest. It advances every six seconds, pauses on hover or focus, and does not advance on its own under reduced motion. It has arrows, dots and swipe. Every slide is the existing `HomeMasthead`, and `/articles/masthead` is no longer called by the web app.
+- **Body types.** The shortcuts are icons with no tile behind them. A listing's photograph is no longer borrowed for a shape without an uploaded image; the drawn silhouette stands in. `POST /uploads/body-type-images` cuts a car out of a flat backdrop: it floods inward from the edges, so white inside the car survives. A scene, an already transparent image or an undecodable file is stored as sent.
+- **Footer.** Drawn after the reference: charcoal `#3f3f3f`, four columns, headings in the body face, social networks as round badges in their own colours, then a rule, two copyright lines and the logo. Sections gain `column`, links gain an uploaded `imageUrl`, and the icon set gains TikTok, Apple and Android. The copyright lines move into the new `SiteSettings` row. The year is added automatically.
+- **"When I add a URL it does not work."** An address pasted without `https://`, such as `instagram.com/name`, was refused by the schema, so the footer did not save. It is now normalised, and the editor shows what it will be saved as.
+- **Pages.** About us and any other page is an `Article` with `kind = PAGE`, at `/pages/<slug>`. It uses the same editor, its photograph is optional, and it is never on the blog. `heroImageUrl` becomes nullable for that reason; a post still requires one.
+- **Contact.** `/contact` shows the address, phone, email, hours and map set under Admin → Contact. The map is an uploaded image, or a Google map of the address without one. The form is throttled to 5 a minute and has a honeypot. Messages are stored in `ContactMessage` and emailed with the sender as Reply-To, so a mail outage loses nothing, and the admin screen lists them.
+
+**Rationale:** Reusing `Article` for pages gives the owner "a page like blog with photo, not on the blog" without a second editor, upload route and body renderer to keep in step. A column number, rather than CSS flow, is the only way to reproduce the reference's stacked third column predictably. The upload-folder allowlist has now missed new folders twice, first make and partner logos and then, during this change, footer icons and the Contact map. It moves to `public-upload-folders.ts`, with a test that fails when an upload route writes to a folder it neither serves nor lists as private.
+
+**Consequences:**
+
+- Migration `20260924000000_site_pages_contact_footer` is additive. It adds `ArticleKind`, `Article.kind` (default `POST`), a nullable `heroImageUrl`, `FooterSection.column`, `FooterLink.imageUrl`, three icon values, `SiteSettings` and `ContactMessage`.
+- The migration seeds the settings row, a published About us page, and a Customer Support section with a Contact link. It repoints the seeded "About Vintrax" and "Contact us" links only where they still hold their seeded values, so an administrator's edits are never overwritten.
+- Existing body-type uploads keep their backgrounds until re-uploaded.
+- Verified in Chromium against production builds and the real API:
+  - the banner advances and the arrows work, with hidden slides inert;
+  - the footer renders at `rgb(63, 63, 63)`, and pasting `instagram.com/myvintrax` saves as `https://instagram.com/myvintrax` with an uploaded icon drawn in its badge;
+  - an About us photograph appears on the page, and the page is absent from the blog;
+  - Contact settings and map render;
+  - a submitted message is logged as an email with Reply-To and appears in the admin inbox;
+  - a body-type upload on white is stored as a PNG whose corner is transparent;
+  - a phone-width page has no horizontal overflow.
+- Backend (378) and frontend (157) suites pass.
+
 ## Decision Log Rules
 
 1. Assign the next sequential identifier to every significant approved decision.

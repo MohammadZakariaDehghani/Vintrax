@@ -6,11 +6,14 @@ import {
   type BodyTypeImage,
   type BodyTypeImageInput,
   type CreatePartnerInput,
+  type AdminSiteSettings,
   type FooterSection,
   type MakeLogo,
   type MakeLogoInput,
   type Partner,
   type ReplaceFooterInput,
+  type SiteSettings,
+  type SiteSettingsInput,
   type TimeSeriesPoint,
   type UpdatePartnerInput,
 } from '@vintrax/shared';
@@ -32,6 +35,10 @@ const BODY_TYPE_IMAGE_CACHE_TTL = 600;
 /** Same reasoning as the body-type images: every visitor's first paint reads it, an administrator rarely writes it, and the write invalidates the key. */
 const FOOTER_CACHE_KEY = 'site:footer';
 const FOOTER_CACHE_TTL = 600;
+
+/** Same reasoning as the footer, which renders these settings on every page. */
+const SITE_SETTINGS_CACHE_KEY = 'site:settings';
+const SITE_SETTINGS_CACHE_TTL = 600;
 
 /** Same reasoning again: read on every home page render, written close to never. */
 const MAKE_LOGO_CACHE_KEY = 'site:make-logos';
@@ -205,11 +212,13 @@ export class AdminService {
       id: section.id,
       title: section.title,
       position: section.position,
+      column: section.column,
       links: section.links.map((link) => ({
         id: link.id,
         label: link.label,
         href: link.href,
         icon: link.icon,
+        imageUrl: link.imageUrl,
         position: link.position,
       })),
     }));
@@ -238,6 +247,12 @@ export class AdminService {
    * section takes its links with it without a separate statement.
    */
   async replaceFooter(input: ReplaceFooterInput, actorId: string): Promise<FooterSection[]> {
+    for (const section of input.sections) {
+      for (const link of section.links) {
+        if (link.imageUrl) this.requireOwnImage(link.imageUrl, '/uploads/footer-icons');
+      }
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await tx.footerSection.deleteMany();
 
@@ -246,12 +261,14 @@ export class AdminService {
           data: {
             title: section.title,
             position: sectionIndex,
+            column: section.column,
             updatedById: actorId,
             links: {
               create: section.links.map((link, linkIndex) => ({
                 label: link.label,
                 href: link.href,
                 icon: link.icon ?? null,
+                imageUrl: link.imageUrl ?? null,
                 position: linkIndex,
               })),
             },
@@ -262,6 +279,62 @@ export class AdminService {
 
     await this.redis.del(FOOTER_CACHE_KEY);
     return this.footer();
+  }
+
+  /**
+   * The footer's copyright lines and the Contact page's content, including
+   * where Contact-form messages go. The row is created by the migration that
+   * introduced it; an empty default stands in if it has been removed.
+   */
+  async siteSettings(): Promise<AdminSiteSettings> {
+    const row = await this.prisma.siteSettings.findUnique({ where: { id: 1 } });
+    return {
+      footerCopyright: row?.footerCopyright ?? '',
+      footerNote: row?.footerNote ?? null,
+      contactIntro: row?.contactIntro ?? null,
+      contactAddress: row?.contactAddress ?? null,
+      contactPhone: row?.contactPhone ?? null,
+      contactEmail: row?.contactEmail ?? null,
+      contactHours: row?.contactHours ?? null,
+      contactMapImageUrl: row?.contactMapImageUrl ?? null,
+      contactRecipient: row?.contactRecipient ?? null,
+      updatedAt: row?.updatedAt.toISOString() ?? null,
+    };
+  }
+
+  /** The public view: everything but the address messages are sent to. */
+  async publicSiteSettings(): Promise<SiteSettings> {
+    return this.redis.remember(SITE_SETTINGS_CACHE_KEY, SITE_SETTINGS_CACHE_TTL, async () => {
+      const { contactRecipient: _recipient, ...settings } = await this.siteSettings();
+      return settings;
+    });
+  }
+
+  async updateSiteSettings(input: SiteSettingsInput, actorId: string): Promise<AdminSiteSettings> {
+    if (input.contactMapImageUrl) {
+      this.requireOwnImage(input.contactMapImageUrl, '/uploads/site-images');
+    }
+    const data = { ...input, updatedById: actorId };
+    await this.prisma.siteSettings.upsert({
+      where: { id: 1 },
+      create: { id: 1, ...data },
+      update: data,
+    });
+    await this.redis.del(SITE_SETTINGS_CACHE_KEY);
+    return this.siteSettings();
+  }
+
+  /**
+   * An operator-supplied image has to be one Vintrax issued — the same rule as
+   * the make logos and partner logos, for the same reason: it loads on every
+   * visitor's page.
+   */
+  private requireOwnImage(url: string, uploadRoute: string): void {
+    if (!this.storage.isOwnUrl(url)) {
+      throw new BadRequestException(
+        `Upload the image through POST ${uploadRoute} first, then pass the URL it returns. An address on another server is not accepted.`,
+      );
+    }
   }
 
   /**
