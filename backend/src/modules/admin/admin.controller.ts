@@ -17,6 +17,7 @@ import {
   type AuditLogEntry,
   type AuditLogQuery,
   type BodyType,
+  type AdminSiteSettings,
   type BodyTypeImage,
   type BodyTypeImageInput,
   type CreatePartnerInput,
@@ -26,12 +27,15 @@ import {
   type Paginated,
   type Partner,
   type ReplaceFooterInput,
+  type SiteSettings,
+  type SiteSettingsInput,
   type UpdatePartnerInput,
   auditLogQuerySchema,
   bodyTypeImageSchema,
   createPartnerSchema,
   makeLogoSchema,
   replaceFooterSchema,
+  siteSettingsSchema,
   updatePartnerSchema,
 } from '@vintrax/shared';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators';
@@ -168,6 +172,44 @@ export class AdminController {
   }
 
   /**
+   * The footer's copyright lines and the Contact page's address, phone, email,
+   * hours and map. Public like the footer itself; the address Contact-form
+   * messages are sent to is left out here and only on the admin read below.
+   */
+  @Public()
+  @Get('site-settings/public')
+  @ApiOperation({ summary: 'Footer copyright and Contact page content' })
+  publicSiteSettings(): Promise<SiteSettings> {
+    return this.admin.publicSiteSettings();
+  }
+
+  @Get('site-settings')
+  @RequirePermissions('content:manage')
+  @ApiOperation({ summary: 'Site settings, including where Contact-form messages are emailed' })
+  siteSettings(): Promise<AdminSiteSettings> {
+    return this.admin.siteSettings();
+  }
+
+  @Put('site-settings')
+  @RequirePermissions('content:manage')
+  @ApiOperation({ summary: 'Replace the site settings' })
+  async updateSiteSettings(
+    @Body(zodBody(siteSettingsSchema)) body: SiteSettingsInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<AdminSiteSettings> {
+    const result = await this.admin.updateSiteSettings(body, user.id);
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'content.site-settings.updated',
+      entityType: 'SiteSettings',
+      entityId: null,
+      metadata: null,
+    });
+    return result;
+  }
+
+  /**
    * Logos an administrator has set for a vehicle make, overriding the
    * generated mark the home page's popular-makes row otherwise draws.
    *
@@ -184,7 +226,7 @@ export class AdminController {
   @Put('make-logos/:make')
   @RequirePermissions('content:manage')
   @ApiOperation({
-    summary: "Set the logo for one vehicle make",
+    summary: 'Set the logo for one vehicle make',
     description:
       'The URL must be one returned by POST /uploads/make-logos. Upserted on the make, ' +
       'matched case-insensitively, so saving twice replaces rather than duplicates.',

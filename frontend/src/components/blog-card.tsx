@@ -24,7 +24,7 @@ export function BlogCard({
                 optimisation adds a hop without a benefit. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={article.heroImageUrl}
+              src={article.heroImageUrl ?? undefined}
               alt={article.heroAlt ?? ''}
               loading="lazy"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"

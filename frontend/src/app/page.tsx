@@ -15,7 +15,7 @@ import { Button, Card, CardContent } from '@/components/ui';
 import { VehicleRow } from '@/components/vehicle-row';
 import { BrandLogo } from '@/components/brand-logo';
 import { HomeSearch } from '@/components/home-search';
-import { HomeMasthead } from '@/components/home-masthead';
+import { HomeMastheadSlider } from '@/components/home-masthead-slider';
 import { HomeBlogCarousel } from '@/components/home-blog-carousel';
 import { HomePartnersCarousel } from '@/components/home-partners-carousel';
 import { ContinueSearchCard } from '@/components/continue-search-card';
@@ -24,7 +24,7 @@ import { buildBodyTypeShortcuts } from '@/lib/body-type-shortcuts';
 import { buildPopularMakes } from '@/lib/popular-makes';
 import { getServerDictionary } from '@/i18n/server';
 
-/** How many recent posts the home page's blog carousel fetches. */
+/** How many recent posts the banner slideshow and the blog carousel show. */
 const BLOG_CAROUSEL_SIZE = 5;
 
 const QUICK_LINKS = [
@@ -48,21 +48,21 @@ export default async function HomePage() {
   // One wider page, two uses: the ten newest fill the list below, and the rest
   // are scanned for a photographed example of each body type. A second round
   // trip per body type would be nine more queries for nine thumbnails.
-  const [featured, auctions, bodyTypeImages, makeLogos, masthead, blogPosts, partners] =
-    await Promise.all([
-      serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
-      serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
-      serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
-      serverFetch<MakeLogo[]>('/admin/make-logos'),
-      serverFetch<ArticleSummary | null>('/articles/masthead'),
-      serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_CAROUSEL_SIZE}`),
-      serverFetch<Partner[]>('/admin/partners'),
-    ]);
+  const [featured, auctions, bodyTypeImages, makeLogos, blogPosts, partners] = await Promise.all([
+    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
+    serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
+    serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
+    serverFetch<MakeLogo[]>('/admin/make-logos'),
+    serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_CAROUSEL_SIZE}`),
+    serverFetch<Partner[]>('/admin/partners'),
+  ]);
 
   const recent = featured?.items.slice(0, 10) ?? [];
+  // Every post has a photograph; the filter only keeps the banner honest if
+  // one ever arrives without.
+  const mastheadPosts = (blogPosts?.items ?? []).filter((post) => post.heroImageUrl);
   const bodyTypeShortcuts = buildBodyTypeShortcuts({
     curated: bodyTypeImages ?? [],
-    vehicles: featured?.items ?? [],
     counts: featured?.facets.bodyTypes ?? [],
   });
   const popularMakes = buildPopularMakes({
@@ -77,16 +77,16 @@ export default async function HomePage() {
           than a picture, and the band's height is set by its content instead
           of by an arbitrary hero size.
 
-          When an editor has published something the band is that post's
-          masthead; otherwise it is the plain gradient and the standing
-          proposition. The fallback is not a placeholder — a marketplace whose
+          When an editor has published something the band is a slideshow of
+          the newest posts, up to five; otherwise it is the plain gradient and
+          the standing proposition. The fallback is not a placeholder — a marketplace whose
           front page goes blank because nobody wrote this week is worse than
           one that never had a masthead. */}
       <section className="relative">
-        {masthead ? (
-          // The padding lives inside the masthead so the photograph runs
+        {mastheadPosts.length > 0 ? (
+          // The padding lives inside each slide so the photograph runs
           // behind the search card that overlaps it, as the gradient does.
-          <HomeMasthead article={masthead} className="pb-28" />
+          <HomeMastheadSlider articles={mastheadPosts} className="pb-28" />
         ) : (
           // Red into carbon, not red into navy. The old end-stop was a deep
           // blue, which sat far enough from a green brand to read as depth;

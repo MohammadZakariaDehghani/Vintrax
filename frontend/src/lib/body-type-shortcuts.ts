@@ -1,20 +1,15 @@
-import {
-  BODY_TYPES,
-  type BodyType,
-  type BodyTypeImage,
-  type VehicleSummary,
-} from '@vintrax/shared';
+import { BODY_TYPES, type BodyType, type BodyTypeImage } from '@vintrax/shared';
 
 /**
- * A body-type shortcut on the home page: the picture, and how many are listed.
+ * A body-type shortcut on the home page: the icon, and how many are listed.
  *
- * `imageUrl` null means neither an administrator nor live inventory supplied a
- * photograph, and the drawn silhouette stands in.
+ * `imageUrl` null means no administrator uploaded an image for that shape, and
+ * the drawn silhouette stands in.
  */
 export interface BodyTypeShortcut {
   bodyType: BodyType;
   imageUrl: string | null;
-  /** Set only when an administrator gave the photo one. */
+  /** Set only when an administrator gave the image one. */
   alt: string | null;
   count: number;
 }
@@ -22,25 +17,23 @@ export interface BodyTypeShortcut {
 /**
  * Builds the row from the enum, not from what happens to be in stock.
  *
- * Three sources for the picture, in order of how much say a person had in it:
- * what an administrator chose, then the newest photographed listing of that
- * shape, then nothing — which the component draws as a silhouette. Falling
- * through rather than requiring the first means the row works on a fresh
- * install and improves as it is used.
+ * The shortcuts are icons, drawn without a frame: the image an administrator
+ * uploaded for a shape (cut out of its backdrop when it was uploaded), or the
+ * drawn silhouette. A listing's photograph is no longer borrowed for a shape
+ * without one — it is a car in a car park, with a background no icon can
+ * lose.
  *
  * The enum is the driver because facets only carry body types something is
- * listed under. Building the row from facets silently dropped the photograph
- * for any shape with nothing in stock: a van uploaded through the admin screen
+ * listed under. Building the row from facets silently dropped the image for
+ * any shape with nothing in stock: a van uploaded through the admin screen
  * and then ignored here, with no error anywhere to say why. The row always
  * renders all nine, so the data behind it has to cover all nine.
  */
 export function buildBodyTypeShortcuts({
   curated = [],
-  vehicles = [],
   counts = [],
 }: {
   curated?: BodyTypeImage[];
-  vehicles?: VehicleSummary[];
   counts?: Array<{ value: BodyType; count: number }>;
 }): BodyTypeShortcut[] {
   const byType = new Map(curated.map((entry) => [entry.bodyType, entry]));
@@ -48,11 +41,7 @@ export function buildBodyTypeShortcuts({
 
   return BODY_TYPES.map((bodyType) => ({
     bodyType,
-    imageUrl:
-      byType.get(bodyType)?.imageUrl ??
-      vehicles.find((vehicle) => vehicle.bodyType === bodyType && vehicle.primaryImageUrl)
-        ?.primaryImageUrl ??
-      null,
+    imageUrl: byType.get(bodyType)?.imageUrl ?? null,
     alt: byType.get(bodyType)?.alt ?? null,
     count: byCount.get(bodyType) ?? 0,
   }));

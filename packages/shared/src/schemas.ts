@@ -2,12 +2,14 @@ import { z } from 'zod';
 import { isCarfaxUrl } from './domain';
 import {
   ADDRESS_TYPES,
+  ARTICLE_KINDS,
   ARTICLE_STATUSES,
   AUCTION_STATUSES,
   BODY_TYPES,
   CONDITION_GRADES,
   CREATABLE_LISTING_STATUSES,
   DRIVETRAINS,
+  FOOTER_COLUMNS,
   FOOTER_LINK_ICONS,
   FUEL_TYPES,
   INSPECTION_SECTIONS,
@@ -719,16 +721,42 @@ export const MAX_FOOTER_LINKS_PER_SECTION = 8;
  */
 const FOOTER_HREF_PATTERN = /^(\/(?!\/)|https:\/\/|mailto:|tel:)/i;
 
+/**
+ * Turns what an administrator is likely to paste into a link the footer
+ * accepts: `instagram.com/vintrax` or `www.facebook.com/vintrax` gains
+ * `https://`, an `http://` address is upgraded to `https://`, and a bare
+ * email address gains `mailto:`. Anything else is returned as typed, for the
+ * pattern above to accept or refuse. Without this, pasting an address the way
+ * a browser's address bar shows it was refused, and the link never saved.
+ */
+export function normalizeFooterHref(value: string): string {
+  const href = value.trim();
+  if (/^http:\/\//i.test(href)) return `https://${href.slice('http://'.length)}`;
+  if (/^[^\s/@:]+@[^\s/@:]+\.[a-z]{2,}$/i.test(href)) return `mailto:${href}`;
+  if (/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(?::\d+)?([/?#]|$)/i.test(href)) {
+    return `https://${href}`;
+  }
+  return href;
+}
+
 const footerLinkSchema = z
   .object({
     label: trimmed(60).min(1),
     href: trimmed(300)
       .min(1, 'A link needs a destination')
-      .regex(
-        FOOTER_HREF_PATTERN,
-        'Use a site path starting with /, an https:// address, a mailto: address or a tel: number.',
+      .transform(normalizeFooterHref)
+      .pipe(
+        z
+          .string()
+          .max(300)
+          .regex(
+            FOOTER_HREF_PATTERN,
+            'Use a site path starting with /, a web address such as https://instagram.com/…, a mailto: address or a tel: number.',
+          ),
       ),
     icon: z.enum(FOOTER_LINK_ICONS).optional(),
+    /** An uploaded image to draw instead of the icon; the service checks it is an issued upload. */
+    imageUrl: trimmed(500).min(1).optional(),
   })
   .strict();
 export type FooterLinkInput = z.infer<typeof footerLinkSchema>;
@@ -736,6 +764,7 @@ export type FooterLinkInput = z.infer<typeof footerLinkSchema>;
 const footerSectionSchema = z
   .object({
     title: trimmed(60).min(1),
+    column: z.number().int().min(1).max(FOOTER_COLUMNS).default(1),
     links: z.array(footerLinkSchema).max(MAX_FOOTER_LINKS_PER_SECTION),
   })
   .strict();
@@ -775,11 +804,13 @@ const internalPath = z
 
 export const articleSchema = z
   .object({
+    /** Fixed at creation: a post does not turn into a page later, or back. */
+    kind: z.enum(ARTICLE_KINDS).default('POST'),
     title: trimmed(140).min(4),
     /** The standfirst under the headline. Short, because the masthead is short. */
     subtitle: trimmed(180).optional(),
     body: trimmed(20_000).min(1),
-    heroImageUrl: trimmed(500).min(1),
+    heroImageUrl: trimmed(500).min(1).optional(),
     heroAlt: trimmed(160).optional(),
     ctaLabel: trimmed(40).optional(),
     ctaHref: internalPath.optional(),
@@ -792,6 +823,12 @@ export const articleSchema = z
   .refine((data) => !data.ctaLabel === !data.ctaHref, {
     message: 'Give the button both a label and a link, or neither',
     path: ['ctaHref'],
+  })
+  // A post fronts the home page banner, which is a photograph; a page such as
+  // "About us" may be words alone.
+  .refine((data) => data.kind === 'PAGE' || Boolean(data.heroImageUrl), {
+    message: 'A blog post needs a photograph',
+    path: ['heroImageUrl'],
   });
 export type ArticleInput = z.infer<typeof articleSchema>;
 
@@ -805,7 +842,8 @@ export const updateArticleSchema = z
     title: trimmed(140).min(4),
     subtitle: trimmed(180).nullable(),
     body: trimmed(20_000).min(1),
-    heroImageUrl: trimmed(500).min(1),
+    /** Null removes a page's photograph; the service refuses it for a post. */
+    heroImageUrl: trimmed(500).min(1).nullable(),
     heroAlt: trimmed(160).nullable(),
     ctaLabel: trimmed(40).nullable(),
     ctaHref: internalPath.nullable(),
@@ -819,11 +857,70 @@ export const updateArticleSchema = z
 export type UpdateArticleInput = z.infer<typeof updateArticleSchema>;
 
 export const articleQuerySchema = z.object({
+  /** Posts unless asked otherwise, so the blog never lists a page. */
+  kind: z.enum(ARTICLE_KINDS).default('POST'),
   status: z.enum(ARTICLE_STATUSES).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(12),
 });
 export type ArticleQuery = z.infer<typeof articleQuerySchema>;
+
+// --- Site settings and the Contact page ---------------------------------------
+
+const optionalText = (max: number) =>
+  trimmed(max)
+    .nullable()
+    .optional()
+    .transform((value) => (value ? value : null));
+
+/**
+ * Everything an administrator can set for the footer's copyright lines and
+ * the Contact page, replaced as a whole. Blank fields are stored as null, so
+ * the page leaves them out rather than printing an empty line.
+ */
+export const siteSettingsSchema = z
+  .object({
+    footerCopyright: trimmed(120).default(''),
+    footerNote: optionalText(300),
+    contactIntro: optionalText(600),
+    contactAddress: optionalText(300),
+    contactPhone: optionalText(40),
+    contactEmail: z
+      .union([emailSchema, z.literal('')])
+      .nullable()
+      .optional()
+      .transform((value) => (value ? value : null)),
+    contactHours: optionalText(300),
+    /** An issued upload URL; the service checks it. */
+    contactMapImageUrl: optionalText(500),
+    contactRecipient: z
+      .union([emailSchema, z.literal('')])
+      .nullable()
+      .optional()
+      .transform((value) => (value ? value : null)),
+  })
+  .strict();
+export type SiteSettingsInput = z.infer<typeof siteSettingsSchema>;
+
+/**
+ * A message from the Contact page.
+ *
+ * `website` is a honeypot: the form hides it from people, so anything in it
+ * came from a bot filling every field. It is accepted here and checked by the
+ * service, which then drops the message quietly rather than telling the bot
+ * what gave it away.
+ */
+export const contactMessageSchema = z
+  .object({
+    name: trimmed(100).min(1, 'Tell us your name'),
+    email: emailSchema,
+    phone: optionalText(40),
+    subject: trimmed(150).min(1, 'Add a subject'),
+    message: trimmed(5_000).min(10, 'Write a little more, at least 10 characters'),
+    website: trimmed(200).optional(),
+  })
+  .strict();
+export type ContactMessageInput = z.infer<typeof contactMessageSchema>;
 
 // --- Pagination --------------------------------------------------------------
 

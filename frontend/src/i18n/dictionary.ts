@@ -236,11 +236,6 @@ const en = {
     tooManyHelp: 'Wait a moment and try again.',
   },
 
-  footer: {
-    demonstration: 'Demonstration platform.',
-    currency: 'Prices in Canadian dollars.',
-  },
-
   language: {
     label: 'Language',
     change: 'Change language',
@@ -491,11 +486,6 @@ const fr: Dictionary = {
     somethingChanged: 'Quelque chose a changé',
     tooMany: 'Trop de requêtes',
     tooManyHelp: 'Patientez un instant et réessayez.',
-  },
-
-  footer: {
-    demonstration: 'Plateforme de démonstration.',
-    currency: 'Prix en dollars canadiens.',
   },
 
   language: {

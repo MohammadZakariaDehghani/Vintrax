@@ -1,5 +1,6 @@
 import type {
   AddressType,
+  ArticleKind,
   ArticleStatus,
   AuctionStatus,
   BidStatus,
@@ -515,10 +516,12 @@ export interface Partner {
 export interface Article {
   id: string;
   slug: string;
+  kind: ArticleKind;
   title: string;
   subtitle: string | null;
   body: string;
-  heroImageUrl: string;
+  /** Always set on a post; a page may have no photograph. */
+  heroImageUrl: string | null;
   heroAlt: string | null;
   ctaLabel: string | null;
   ctaHref: string | null;
@@ -539,6 +542,8 @@ export interface FooterLink {
   /** A site path, an `https://` address, a `mailto:` or a `tel:`. */
   href: string;
   icon: FooterLinkIcon | null;
+  /** An uploaded image drawn instead of the built-in icon. */
+  imageUrl: string | null;
   position: number;
 }
 
@@ -556,7 +561,43 @@ export interface FooterSection {
   id: string;
   title: string;
   position: number;
+  /** Which of the footer's four columns it sits in, 1–4. Sections sharing one stack. */
+  column: number;
   links: FooterLink[];
+}
+
+/**
+ * Site-wide settings an administrator edits: the footer's copyright lines and
+ * everything the Contact page shows. Public except `contactRecipient`, which
+ * only the admin read carries.
+ */
+export interface SiteSettings {
+  /** Shown after "© Copyright <year>". */
+  footerCopyright: string;
+  footerNote: string | null;
+  contactIntro: string | null;
+  contactAddress: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  contactHours: string | null;
+  contactMapImageUrl: string | null;
+  updatedAt: string | null;
+}
+
+export interface AdminSiteSettings extends SiteSettings {
+  /** Where Contact-form messages are emailed; falls back to `contactEmail`. */
+  contactRecipient: string | null;
+}
+
+/** A message sent through the Contact page, as an administrator reads it. */
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  subject: string;
+  message: string;
+  createdAt: string;
 }
 
 export interface AdminAnalytics {

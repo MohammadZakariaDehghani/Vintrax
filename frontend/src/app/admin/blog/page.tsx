@@ -59,7 +59,7 @@ function ArticleList() {
                     <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded bg-muted sm:h-[86px] sm:w-[152px]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={article.heroImageUrl}
+                        src={article.heroImageUrl ?? undefined}
                         alt=""
                         loading="lazy"
                         className="h-full w-full object-cover"

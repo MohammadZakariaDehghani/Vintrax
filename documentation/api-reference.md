@@ -464,6 +464,15 @@ routes.
 | `DELETE` | `/admin/body-type-images/:bodyType` | `content:manage` | Remove one, restoring the fallback |
 | `GET`    | `/admin/footer`                     | —                | The site footer, sections and links |
 | `PUT`    | `/admin/footer`                     | `content:manage` | Replace the whole footer            |
+| `GET`    | `/admin/site-settings/public`       | —                | Footer copyright lines and Contact page content |
+| `GET`    | `/admin/site-settings`              | `content:manage` | The same, plus where Contact messages are emailed |
+| `PUT`    | `/admin/site-settings`              | `content:manage` | Replace the site settings           |
+| `GET`    | `/pages/:slug`                      | —                | One published page, such as About us |
+| `POST`   | `/contact`                          | — (5/min)        | Send a Contact-page message         |
+| `GET`    | `/admin/contact-messages`           | `content:manage` | Contact-page messages, newest first |
+| `DELETE` | `/admin/contact-messages/:id`       | `content:manage` | Delete one                          |
+| `POST`   | `/uploads/footer-icons`             | `content:manage` | Upload a footer link's icon image   |
+| `POST`   | `/uploads/site-images`              | `content:manage` | Upload a site image, such as the Contact map |
 | `GET`    | `/admin/make-logos`                 | —                | Logos set for vehicle makes         |
 | `PUT`    | `/admin/make-logos/:make`           | `content:manage` | Set one                             |
 | `DELETE` | `/admin/make-logos/:make`           | `content:manage` | Remove one, restoring the generated mark |
@@ -488,10 +497,26 @@ of its own.
 
 A link's `href` is restricted to a site path starting with `/`, an `https://`
 address, a `mailto:` or a `tel:` — never `javascript:` or a protocol-relative
-`//` address, which the schema refuses outright. `icon` is one of
-`FACEBOOK` / `INSTAGRAM` / `TWITTER` / `YOUTUBE` / `LINKEDIN` / `EMAIL` /
-`PHONE`, or omitted for a plain text link; it is purely decorative and is
-never checked against where the link actually goes.
+`//` address, which the schema refuses outright. What an administrator is
+likely to paste is normalised first: `instagram.com/x` and `www.x.com` gain
+`https://`, `http://` becomes `https://`, and a bare email address gains
+`mailto:`. `icon` is one of `FACEBOOK` / `INSTAGRAM` / `TWITTER` / `YOUTUBE` /
+`LINKEDIN` / `EMAIL` / `PHONE` / `TIKTOK` / `APPLE` / `ANDROID`, or omitted
+for a plain text link; it is purely decorative and is never checked against
+where the link actually goes. A social network's icon draws the link as a
+round badge. `imageUrl`, an upload from `POST /uploads/footer-icons`,
+replaces the built-in icon. Each section's `column` (1–4) places it; two
+sections in one column stack.
+
+Pages such as About us are articles with `kind: "PAGE"`, written through the
+same `/admin/articles` routes (`?kind=PAGE` to list them). A page may have no
+photograph, and never appears on the blog, the home page banner or
+`/articles/:slug`; it is read at `/pages/:slug`.
+
+`POST /contact` stores the message and emails it to the settings'
+`contactRecipient`, or failing that `contactEmail`, with the sender as
+Reply-To. A message whose hidden `website` field is filled is dropped
+without an error.
 
 ## Inspections
 

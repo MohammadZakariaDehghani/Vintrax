@@ -216,28 +216,26 @@ export function HomeSearch({
         </div>
       </form>
 
-      {/* Shortcuts by shape, each showing a photograph of that shape — the one
-          an administrator chose, or failing that one from a live listing.
-
-          The picture is contained rather than cropped, on a plain ground: a
-          body type is a silhouette, and cropping a side profile to fill a box
-          cuts off the nose or the tail, which is precisely the part that tells
-          a wagon from a hatchback. */}
+      {/* Shortcuts by shape, drawn as icons with nothing behind them — no
+          tile, no box, no hover fill. The icon is the image an administrator
+          uploaded (cut out of its backdrop on upload), or the drawn
+          silhouette. Contained, never cropped: a body type is a side profile,
+          and cropping cuts off the nose or the tail, which is precisely the
+          part that tells a wagon from a hatchback. */}
       <div className="border-t border-border px-3 pb-5 pt-4 sm:px-5">
         <h2 className="mb-3 text-sm font-semibold">{t.home.shopByType}</h2>
-        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9">
+        <ul className="grid grid-cols-3 gap-x-2 gap-y-4 sm:grid-cols-5 lg:grid-cols-9">
           {BODY_TYPES.map((bodyType: BodyType) => {
             const shortcut = byBodyType.get(bodyType);
             return (
               <li key={bodyType}>
                 <Link
                   href={`/vehicles?bodyType=${bodyType}`}
-                  className="group flex flex-col items-center gap-1.5 rounded-md p-1 text-center transition-colors hover:bg-secondary"
+                  className="group flex flex-col items-center gap-1.5 text-center"
                 >
-                  <span className="relative block aspect-[3/2] w-full overflow-hidden rounded">
+                  <span className="flex h-12 w-full items-center justify-center text-foreground/75 transition-[color,transform] duration-200 group-hover:scale-110 group-hover:text-primary">
                     {shortcut?.imageUrl ? (
-                      // Uploads and listing photos are served from the API
-                      // origin, and the placeholders among them are SVG;
+                      // Operator uploads served from the API origin;
                       // next/image optimisation helps with neither.
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -245,16 +243,13 @@ export function HomeSearch({
                         alt={shortcut.alt ?? ''}
                         loading="lazy"
                         decoding="async"
-                        className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"
+                        className="max-h-full max-w-full object-contain"
                       />
                     ) : (
-                      // No photo set and nothing of this shape listed with one.
-                      <span className="grid h-full w-full place-items-center text-foreground/70">
-                        <BodyTypeIcon bodyType={bodyType} className="h-9 w-auto" />
-                      </span>
+                      <BodyTypeIcon bodyType={bodyType} className="h-10 w-auto" />
                     )}
                   </span>
-                  <span className="text-xs font-semibold leading-tight">
+                  <span className="text-xs font-semibold leading-tight group-hover:text-primary">
                     {BODY_TYPE_PLURAL_LABELS[bodyType]}
                   </span>
                 </Link>

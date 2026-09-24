@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type {
   Article,
   ArticleInput,
+  ArticleKind,
   ArticleQuery,
   ArticleSummary,
   Paginated,
@@ -15,6 +16,7 @@ import { StorageService } from '../../common/storage/storage.service';
 const articleSelect = {
   id: true,
   slug: true,
+  kind: true,
   title: true,
   subtitle: true,
   body: true,
@@ -39,7 +41,7 @@ const MASTHEAD_CACHE_KEY = 'content:masthead';
 const MASTHEAD_CACHE_TTL = 300;
 
 /** Slugs the routing already uses, so a post can never take one. */
-const RESERVED_SLUGS = new Set(['new', 'masthead', 'admin']);
+const RESERVED_SLUGS = new Set(['new', 'masthead', 'admin', 'pages']);
 
 @Injectable()
 export class ArticlesService {
@@ -59,7 +61,7 @@ export class ArticlesService {
   async masthead(): Promise<ArticleSummary | null> {
     return this.redis.remember(MASTHEAD_CACHE_KEY, MASTHEAD_CACHE_TTL, async () => {
       const row = await this.prisma.article.findFirst({
-        where: { status: 'PUBLISHED' },
+        where: { kind: 'POST', status: 'PUBLISHED' },
         orderBy: { publishedAt: 'desc' },
         select: articleSelect,
       });
@@ -81,9 +83,9 @@ export class ArticlesService {
   ): Promise<Paginated<ArticleSummary>> {
     const where: Prisma.ArticleWhereInput = includeUnpublished
       ? query.status
-        ? { status: query.status }
-        : {}
-      : { status: 'PUBLISHED' };
+        ? { kind: query.kind, status: query.status }
+        : { kind: query.kind }
+      : { kind: query.kind, status: 'PUBLISHED' };
 
     const [total, rows] = await Promise.all([
       this.prisma.article.count({ where }),
@@ -107,26 +109,39 @@ export class ArticlesService {
     };
   }
 
-  async findBySlug(slug: string, { includeUnpublished = false } = {}): Promise<Article> {
+  /**
+   * One post or page by slug. `kind` is set on the public routes, so a page is
+   * not readable at `/blog/<slug>` and a post not at `/pages/<slug>`; the
+   * admin route leaves it unset and reaches either.
+   */
+  async findBySlug(
+    slug: string,
+    { includeUnpublished = false, kind }: { includeUnpublished?: boolean; kind?: ArticleKind } = {},
+  ): Promise<Article> {
     const row = await this.prisma.article.findUnique({ where: { slug }, select: articleSelect });
     // An unpublished post is "not found" rather than "forbidden": whether a
     // draft exists at a given slug is not a visitor's business either.
-    if (!row || (!includeUnpublished && row.status !== 'PUBLISHED')) {
-      throw new NotFoundException('Article not found');
+    if (
+      !row ||
+      (!includeUnpublished && row.status !== 'PUBLISHED') ||
+      (kind !== undefined && row.kind !== kind)
+    ) {
+      throw new NotFoundException(kind === 'PAGE' ? 'Page not found' : 'Article not found');
     }
     return this.toDetail(row);
   }
 
   async create(input: ArticleInput, authorId: string): Promise<Article> {
-    this.requireOwnImage(input.heroImageUrl);
+    if (input.heroImageUrl) this.requireOwnImage(input.heroImageUrl);
 
     const row = await this.prisma.article.create({
       data: {
         slug: await this.uniqueSlug(input.title),
+        kind: input.kind,
         title: input.title,
         subtitle: input.subtitle ?? null,
         body: input.body,
-        heroImageUrl: input.heroImageUrl,
+        heroImageUrl: input.heroImageUrl ?? null,
         heroAlt: input.heroAlt ?? null,
         ctaLabel: input.ctaLabel ?? null,
         ctaHref: input.ctaHref ?? null,
@@ -144,10 +159,13 @@ export class ArticlesService {
   async update(id: string, input: UpdateArticleInput): Promise<Article> {
     const existing = await this.prisma.article.findUnique({
       where: { id },
-      select: { id: true, status: true, publishedAt: true },
+      select: { id: true, kind: true, status: true, publishedAt: true },
     });
     if (!existing) throw new NotFoundException('Article not found');
     if (input.heroImageUrl) this.requireOwnImage(input.heroImageUrl);
+    if (input.heroImageUrl === null && existing.kind === 'POST') {
+      throw new BadRequestException('A blog post needs a photograph');
+    }
 
     // The first publication stamps the date; later edits leave it alone, so
     // fixing a typo does not reorder the site.
@@ -228,6 +246,7 @@ export class ArticlesService {
     return {
       id: row.id,
       slug: row.slug,
+      kind: row.kind,
       title: row.title,
       subtitle: row.subtitle,
       body: row.body,

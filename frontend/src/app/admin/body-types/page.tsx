@@ -27,11 +27,10 @@ interface Uploaded {
 /**
  * The photographs behind the home page's "Browse by body type" row.
  *
- * The row falls back on its own — an inventory photo, then a drawn silhouette
- * — so nothing here is required. It exists for the case the fallbacks cannot
- * cover: a consistent set of studio shots, all lit the same way and facing the
- * same direction, which is what makes the row read as a row rather than as
- * nine unrelated pictures.
+ * The row falls back on its own to a drawn silhouette, so nothing here is
+ * required. The shortcuts are drawn as icons with nothing behind them, so an
+ * upload on a flat backdrop (white, say) has the backdrop cut away by the API
+ * when it is uploaded.
  */
 function BodyTypeImages() {
   const queryClient = useQueryClient();
@@ -94,13 +93,13 @@ function BodyTypeImages() {
   return (
     <>
       <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Body type photos</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Body type icons</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          The pictures on the home page&rsquo;s <strong>Browse by body type</strong> row. A body
-          type with no photo here uses one from a live listing of that shape, and falls back to a
-          drawn outline if nothing is listed — so every shortcut works whether or not you set
-          anything. Photos shot the same way, on the same background, facing the same direction are
-          what make the row read as a set.
+          The icons on the home page&rsquo;s <strong>Browse by body type</strong> row, drawn with no
+          box or background behind them. A body type with no image here shows a drawn outline
+          instead. Upload a car on a plain white or single-colour background and the background is
+          removed automatically; a transparent PNG is used as it is. Cars facing the same direction
+          make the row read as a set.
         </p>
       </header>
 

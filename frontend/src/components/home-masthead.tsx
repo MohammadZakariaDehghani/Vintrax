@@ -22,13 +22,19 @@ import { cn } from '@/lib/utils';
 export function HomeMasthead({
   article,
   className,
+  headingId = 'masthead-title',
+  eager = true,
 }: {
   article: ArticleSummary;
   className?: string;
+  /** Unique per slide when several mastheads share the page, as in the slideshow. */
+  headingId?: string;
+  /** False for a slideshow's later slides, which are not the first thing painted. */
+  eager?: boolean;
 }) {
   return (
     <section
-      aria-labelledby="masthead-title"
+      aria-labelledby={headingId}
       className={cn(
         // `w-full` is load-bearing, not decorative: without an explicit width
         // on the same box as `aspect-ratio`, a browser that has to satisfy
@@ -47,11 +53,13 @@ export function HomeMasthead({
           hop without improving anything. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={article.heroImageUrl}
+        src={article.heroImageUrl ?? undefined}
         alt={article.heroAlt ?? ''}
         className="absolute inset-0 -z-10 h-full w-full object-cover"
-        // The masthead is the first thing painted, so it is never lazy.
-        fetchPriority="high"
+        // The first masthead is the first thing painted, so it is never lazy;
+        // a slideshow's later slides wait their turn.
+        fetchPriority={eager ? 'high' : 'low'}
+        loading={eager ? 'eager' : 'lazy'}
         decoding="async"
       />
       {/* Two scrims: one across the whole frame so the photograph never fights
@@ -65,7 +73,7 @@ export function HomeMasthead({
             they answer a question the reader is actually asking. */}
         <div className="max-w-xl">
           <h2
-            id="masthead-title"
+            id={headingId}
             className="text-3xl font-bold leading-tight tracking-tight text-white drop-shadow-sm md:text-[2.6rem]"
           >
             {article.title}

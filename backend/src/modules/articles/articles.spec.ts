@@ -1,4 +1,11 @@
-import { ROLE_PERMISSIONS, articleSchema, updateArticleSchema } from '@vintrax/shared';
+import { NotFoundException } from '@nestjs/common';
+import {
+  ROLE_PERMISSIONS,
+  articleQuerySchema,
+  articleSchema,
+  updateArticleSchema,
+} from '@vintrax/shared';
+import { ArticlesService } from './articles.service';
 
 /**
  * Editorial posts are operator content on the busiest page of the site.
@@ -84,5 +91,85 @@ describe('the payload', () => {
 
   it('lets an edit clear an optional field', () => {
     expect(updateArticleSchema.parse({ subtitle: null }).subtitle).toBeNull();
+  });
+});
+
+describe('pages such as About us', () => {
+  it('lets a page go without a photograph', () => {
+    const { heroImageUrl: _photo, ...words } = valid;
+    expect(articleSchema.parse({ ...words, kind: 'PAGE' }).heroImageUrl).toBeUndefined();
+  });
+
+  it('still requires a photograph on a blog post, which fronts the home page banner', () => {
+    const { heroImageUrl: _photo, ...words } = valid;
+    expect(() => articleSchema.parse(words)).toThrow(/photograph/);
+  });
+
+  it('is a blog post unless it says otherwise', () => {
+    expect(articleSchema.parse(valid).kind).toBe('POST');
+    expect(articleQuerySchema.parse({}).kind).toBe('POST');
+  });
+
+  /** A post does not turn into a page, which would take it off the blog without anyone deciding to. */
+  it('fixes the kind at creation', () => {
+    expect(() => updateArticleSchema.parse({ kind: 'PAGE' })).toThrow();
+  });
+});
+
+describe('where a page and a post can be read', () => {
+  const row = (kind: 'POST' | 'PAGE') => ({
+    id: 'a1',
+    slug: 'about-us',
+    kind,
+    title: 'About us',
+    subtitle: null,
+    body: 'Words.',
+    heroImageUrl: null,
+    heroAlt: null,
+    ctaLabel: null,
+    ctaHref: null,
+    status: 'PUBLISHED' as const,
+    publishedAt: new Date('2026-09-01T00:00:00Z'),
+    createdAt: new Date('2026-09-01T00:00:00Z'),
+    updatedAt: new Date('2026-09-01T00:00:00Z'),
+    author: null,
+  });
+
+  function service(kind: 'POST' | 'PAGE') {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const prisma = {
+      article: {
+        findUnique: jest.fn().mockResolvedValue(row(kind)),
+        findMany,
+        count: jest.fn().mockResolvedValue(0),
+      },
+    };
+    return {
+      articles: new ArticlesService(prisma as never, {} as never, {} as never),
+      findMany,
+    };
+  }
+
+  it('serves a page at /pages but not at /blog', async () => {
+    const { articles } = service('PAGE');
+    await expect(articles.findBySlug('about-us', { kind: 'PAGE' })).resolves.toMatchObject({
+      kind: 'PAGE',
+    });
+    await expect(articles.findBySlug('about-us', { kind: 'POST' })).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('serves a post at /blog but not at /pages', async () => {
+    const { articles } = service('POST');
+    await expect(articles.findBySlug('about-us', { kind: 'PAGE' })).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('lists only posts on the blog', async () => {
+    const { articles, findMany } = service('POST');
+    await articles.list(articleQuerySchema.parse({}));
+    expect(findMany.mock.calls[0][0].where).toEqual({ kind: 'POST', status: 'PUBLISHED' });
   });
 });
