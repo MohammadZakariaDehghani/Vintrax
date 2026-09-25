@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Gavel, ShieldCheck, Truck } from 'lucide-react';
+import { ArrowRight, Calculator, Gauge, Gavel, ShieldCheck, Truck } from 'lucide-react';
 import type {
   ArticleSummary,
   AuctionSummary,
@@ -8,6 +8,7 @@ import type {
   MakeLogo,
   Paginated,
   Partner,
+  PromoTile,
   VehicleSearchResponse,
 } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
@@ -20,6 +21,7 @@ import { HomeMastheadSlider } from '@/components/home-masthead-slider';
 import { HomeBlogCarousel } from '@/components/home-blog-carousel';
 import { HomePartnersCarousel } from '@/components/home-partners-carousel';
 import { HomeFeatures } from '@/components/home-features';
+import { PromoTiles } from '@/components/promo-tiles';
 import { ContinueSearchCard } from '@/components/continue-search-card';
 import { ItemCarousel } from '@/components/item-carousel';
 import { buildBodyTypeShortcuts } from '@/lib/body-type-shortcuts';
@@ -50,16 +52,25 @@ export default async function HomePage() {
   // One wider page, two uses: the ten newest fill the list below, and the rest
   // are scanned for a photographed example of each body type. A second round
   // trip per body type would be nine more queries for nine thumbnails.
-  const [featured, auctions, bodyTypeImages, makeLogos, blogPosts, partners, homeFeatures] =
-    await Promise.all([
-      serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
-      serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
-      serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
-      serverFetch<MakeLogo[]>('/admin/make-logos'),
-      serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_CAROUSEL_SIZE}`),
-      serverFetch<Partner[]>('/admin/partners'),
-      serverFetch<HomeFeature[]>('/home-features'),
-    ]);
+  const [
+    featured,
+    auctions,
+    bodyTypeImages,
+    makeLogos,
+    blogPosts,
+    partners,
+    homeFeatures,
+    promoTiles,
+  ] = await Promise.all([
+    serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
+    serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
+    serverFetch<BodyTypeImage[]>('/admin/body-type-images'),
+    serverFetch<MakeLogo[]>('/admin/make-logos'),
+    serverFetch<Paginated<ArticleSummary>>(`/articles?pageSize=${BLOG_CAROUSEL_SIZE}`),
+    serverFetch<Partner[]>('/admin/partners'),
+    serverFetch<HomeFeature[]>('/home-features'),
+    serverFetch<PromoTile[]>('/promo-tiles'),
+  ]);
 
   const recent = featured?.items.slice(0, 10) ?? [];
   // Every post has a photograph; the filter only keeps the banner honest if
@@ -137,6 +148,9 @@ export default async function HomePage() {
 
       <ContinueSearchCard />
 
+      {/* Administrator-made photo boxes, each linking somewhere. */}
+      <PromoTiles tiles={promoTiles ?? []} />
+
       {/* Makes in stock, each under its own mark. The count is the point of
           difference from the site this follows: a marque here is a promise
           that Vintrax has that many of them right now, not a brand billboard.
@@ -175,6 +189,47 @@ export default async function HomePage() {
           />
         </section>
       ) : null}
+
+      {/* The two calculators, after CarGurus' pair: what a visitor's car is
+          worth, and how much car they can afford. */}
+      <section className="container pt-10">
+        <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.toolsTitle}</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          {[
+            {
+              href: '/tools/car-value',
+              icon: Gauge,
+              title: t.home.carValueTitle,
+              body: t.home.carValueBody,
+              cta: t.home.carValueCta,
+            },
+            {
+              href: '/tools/budget',
+              icon: Calculator,
+              title: t.home.budgetTitle,
+              body: t.home.budgetBody,
+              cta: t.home.budgetCta,
+            },
+          ].map((tool) => (
+            <Link
+              key={tool.href}
+              href={tool.href}
+              className="group flex gap-4 rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                <tool.icon className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="flex flex-col gap-1">
+                <span className="font-semibold">{tool.title}</span>
+                <span className="text-sm text-muted-foreground">{tool.body}</span>
+                <span className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary group-hover:underline">
+                  {tool.cta} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                </span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {auctions && auctions.items.length > 0 ? (
         <section className="container py-12">

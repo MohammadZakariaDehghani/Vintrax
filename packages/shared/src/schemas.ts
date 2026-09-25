@@ -20,6 +20,8 @@ import {
   MAX_VEHICLE_DOCUMENTS,
   MIN_MODEL_YEAR,
   NOTIFICATION_CHANNELS,
+  PROMO_TILE_HEIGHT,
+  PROMO_TILE_WIDTHS,
   PROVINCES,
   SALE_CHANNELS,
   SECTION_RATINGS,
@@ -930,6 +932,45 @@ export const reorderHomeFeaturesSchema = z
   .object({ ids: z.array(z.string().uuid()).max(200) })
   .strict();
 export type ReorderHomeFeaturesInput = z.infer<typeof reorderHomeFeaturesSchema>;
+
+// --- Home page promo tiles ---------------------------------------------------
+
+/**
+ * Saves one promo tile whole. The link goes where a feature block's button
+ * may: a page on Vintrax or a website over `https://`.
+ */
+export const savePromoTileSchema = z
+  .object({
+    /** An issued upload URL; the service checks it. */
+    imageUrl: trimmed(500).min(1).nullable(),
+    imageAlt: trimmed(160).nullable().optional(),
+    linkUrl: featureButtonUrl.nullable(),
+    widthSpan: z
+      .number()
+      .int()
+      .refine((value) => (PROMO_TILE_WIDTHS as readonly number[]).includes(value), {
+        message: `Width must be one of ${PROMO_TILE_WIDTHS.join(', ')} twelfths of the row`,
+      }),
+    heightPx: z.number().int().min(PROMO_TILE_HEIGHT.min).max(PROMO_TILE_HEIGHT.max),
+    enabled: z.boolean(),
+  })
+  .strict();
+export type SavePromoTileInput = z.infer<typeof savePromoTileSchema>;
+
+// --- Car tools --------------------------------------------------------------
+
+export const carValueModelsQuerySchema = z.object({ make: trimmed(60).min(1) });
+export type CarValueModelsQuery = z.infer<typeof carValueModelsQuerySchema>;
+
+export const vehicleValueQuerySchema = z.object({
+  year: z.coerce.number().int().min(MIN_MODEL_YEAR).max(maxModelYear()),
+  make: trimmed(60).min(1),
+  model: trimmed(60).min(1),
+  trim: trimmed(80).min(1).optional(),
+  mileageKm: z.coerce.number().int().min(0).max(2_000_000),
+  province: z.enum(PROVINCES).optional(),
+});
+export type VehicleValueQuery = z.infer<typeof vehicleValueQuerySchema>;
 
 // --- Site settings and the Contact page ---------------------------------------
 

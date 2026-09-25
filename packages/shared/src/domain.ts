@@ -228,6 +228,35 @@ export const HOME_FEATURE_BUTTON_PLACEMENT_LABELS: Record<HomeFeatureButtonPlace
 /** How many columns the footer has. A section says which one it sits in. */
 export const FOOTER_COLUMNS = 4;
 
+// --- Home page promo tiles ---------------------------------------------------
+
+/** The home page has exactly this many promo tiles, under the last-search card. */
+export const PROMO_TILE_SLOTS = 3;
+
+/**
+ * How wide a promo tile is, in twelfths of the row: a quarter, a third, a
+ * half, two thirds, three quarters or the whole row. Tiles that add up to more
+ * than twelve wrap onto the next row.
+ */
+export const PROMO_TILE_WIDTHS = [3, 4, 6, 8, 9, 12] as const;
+export type PromoTileWidth = (typeof PROMO_TILE_WIDTHS)[number];
+
+export const PROMO_TILE_WIDTH_LABELS: Record<PromoTileWidth, string> = {
+  3: 'Quarter (1/4)',
+  4: 'Third (1/3)',
+  6: 'Half (1/2)',
+  8: 'Two thirds (2/3)',
+  9: 'Three quarters (3/4)',
+  12: 'Full width',
+};
+
+/**
+ * A tile's height, in pixels, on a full-width desktop page. It is kept as a
+ * shape rather than a fixed height, so the tile scales with the window and a
+ * phone shows the same picture, smaller.
+ */
+export const PROMO_TILE_HEIGHT = { min: 80, max: 600, default: 220 } as const;
+
 export const USER_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
