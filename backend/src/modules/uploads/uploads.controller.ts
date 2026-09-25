@@ -206,6 +206,24 @@ export class UploadsController {
     });
   }
 
+  @Post('promo-tiles')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload the photograph for a home page promo tile',
+    description: 'Returns a URL to pass as imageUrl to PUT /admin/promo-tiles/:slot.',
+  })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
+  uploadPromoTileImage(@UploadedFile() file?: Express.Multer.File): Promise<StoredObject> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    return this.storage.uploadImage({
+      folder: 'promo-tiles',
+      buffer: file.buffer,
+      contentType: file.mimetype,
+      originalName: file.originalname,
+    });
+  }
+
   @Post('documents')
   @RequirePermissions('vehicle:write')
   @ApiConsumes('multipart/form-data')

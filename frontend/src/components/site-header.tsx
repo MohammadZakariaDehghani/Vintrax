@@ -75,6 +75,13 @@ function buildColumns(t: Dictionary, key: MenuKey): MenuColumn[] {
           { href: '/vehicles?fuelType=ELECTRIC', label: t.menu.electric },
         ],
       },
+      {
+        heading: t.menu.tools,
+        links: [
+          { href: '/tools/budget', label: t.menu.budget },
+          { href: '/tools/car-value', label: t.menu.carValue },
+        ],
+      },
     ];
   }
 
@@ -86,6 +93,7 @@ function buildColumns(t: Dictionary, key: MenuKey): MenuColumn[] {
           { href: '/register?role=SELLER', label: t.menu.sellVehicle },
           { href: '/dealer/add-vehicle', label: t.menu.listVehicle },
           { href: '/auctions/new', label: t.menu.startAuction },
+          { href: '/tools/car-value', label: t.menu.carValue },
         ],
       },
       {
@@ -103,6 +111,13 @@ function buildColumns(t: Dictionary, key: MenuKey): MenuColumn[] {
     {
       heading: t.menu.editorial,
       links: [{ href: '/blog', label: t.menu.allArticles }],
+    },
+    {
+      heading: t.menu.tools,
+      links: [
+        { href: '/tools/car-value', label: t.menu.carValue },
+        { href: '/tools/budget', label: t.menu.budget },
+      ],
     },
     {
       heading: t.menu.popularSearches,

@@ -10,6 +10,7 @@ import type {
   Drivetrain,
   FooterLinkIcon,
   HomeFeatureButtonPlacement,
+  PromoTileWidth,
   FuelType,
   InspectionSection,
   InspectionStatus,
@@ -619,6 +620,66 @@ export interface HomeFeature {
   position: number;
   enabled: boolean;
   updatedAt: string;
+}
+
+/**
+ * One of the home page's promo tiles: a photograph that links to a page on
+ * Vintrax or another website. There are always `PROMO_TILE_SLOTS` of them,
+ * numbered from 1; an empty slot has no image and is not shown.
+ */
+export interface PromoTile {
+  slot: number;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  /** A site path or an `https://` address. */
+  linkUrl: string | null;
+  /** Twelfths of the row: one of `PROMO_TILE_WIDTHS`. */
+  widthSpan: PromoTileWidth;
+  /** Height on a full-width desktop page; it scales with the window. */
+  heightPx: number;
+  enabled: boolean;
+  /** Null for a slot that has never been saved. */
+  updatedAt: string | null;
+}
+
+/** A make or model a visitor can pick in the car value tool, with how many listings back it. */
+export interface CarValueOption {
+  value: string;
+  count: number;
+}
+
+/**
+ * "Check your car's value": what comparable cars on Vintrax are listed or
+ * sold for, adjusted to the visitor's year and kilometres.
+ */
+export interface VehicleValueEstimate {
+  query: {
+    year: number;
+    make: string;
+    model: string;
+    trim: string | null;
+    mileageKm: number;
+    province: Province | null;
+  };
+  /** Null when too few comparable cars were found to say anything useful. */
+  estimate: {
+    /** The typical price a dealer would list this car at. */
+    marketValue: number;
+    /** The middle half of the adjusted comparable prices. */
+    low: number;
+    high: number;
+    /** What a dealer would typically offer for it as a trade-in. */
+    tradeInLow: number;
+    tradeInHigh: number;
+    /** How much weight the figure deserves, from how many cars and how close they were. */
+    confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  } | null;
+  comparableCount: number;
+  /** The model years the comparables were drawn from. */
+  yearsCompared: { from: number; to: number };
+  averageMileageKm: number | null;
+  /** A few of the comparable cars currently for sale, closest first. */
+  comparables: VehicleSummary[];
 }
 
 /** A message sent through the Contact page, as an administrator reads it. */

@@ -60,6 +60,15 @@ const en = {
     dealerCta: 'Register as a dealer',
     priceRange: 'Current inventory ranges from',
     priceRangeTo: 'to',
+    toolsTitle: 'Tools to help you decide',
+    carValueTitle: 'Check your car’s value instantly',
+    carValueBody:
+      'Year, make, model and kilometres in; what it’s worth to sell or trade, from similar cars on Vintrax.',
+    carValueCta: 'Get my car’s value',
+    budgetTitle: 'Estimate your budget',
+    budgetBody:
+      'Start from a monthly payment and see how much car you can afford, with tax, trade-in and interest counted.',
+    budgetCta: 'Estimate my budget',
   },
 
   menu: {
@@ -97,6 +106,9 @@ const en = {
     latest: 'Latest',
     noArticles: 'Nothing published yet',
     popularSearches: 'Popular searches',
+    tools: 'Tools',
+    carValue: 'What’s my car worth?',
+    budget: 'Budget calculator',
 
     logInSignUp: 'Log in / Sign up',
     sellMyCar: 'Sell my car',
@@ -310,6 +322,15 @@ const fr: Dictionary = {
     dealerCta: 'S’inscrire comme concessionnaire',
     priceRange: 'L’inventaire actuel va de',
     priceRangeTo: 'à',
+    toolsTitle: 'Des outils pour vous aider à décider',
+    carValueTitle: 'Estimez la valeur de votre auto en un instant',
+    carValueBody:
+      'Année, marque, modèle et kilométrage : ce qu’elle vaut à la vente ou en échange, d’après des autos semblables sur Vintrax.',
+    carValueCta: 'Estimer mon auto',
+    budgetTitle: 'Estimez votre budget',
+    budgetBody:
+      'Partez d’un paiement mensuel et voyez quelle auto vous pouvez vous offrir, taxes, échange et intérêts compris.',
+    budgetCta: 'Estimer mon budget',
   },
 
   menu: {
@@ -347,6 +368,9 @@ const fr: Dictionary = {
     latest: 'Derniers articles',
     noArticles: 'Rien de publié pour le moment',
     popularSearches: 'Recherches populaires',
+    tools: 'Outils',
+    carValue: 'Combien vaut mon auto?',
+    budget: 'Calculateur de budget',
 
     logInSignUp: 'Connexion / Inscription',
     sellMyCar: 'Vendre ma voiture',

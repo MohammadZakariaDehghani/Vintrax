@@ -25,6 +25,7 @@ export const PUBLIC_UPLOAD_FOLDERS = [
   'footer-icons',
   'site',
   'home-features',
+  'promo-tiles',
 ] as const;
 
 /** Folders an upload route writes to that must never be served to anyone who asks. */

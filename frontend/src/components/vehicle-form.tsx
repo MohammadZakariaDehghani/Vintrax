@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save, X } from 'lucide-react';
+import { Save } from 'lucide-react';
 import {
   BODY_TYPES,
   CREATABLE_LISTING_STATUSES,
@@ -38,6 +38,7 @@ import {
   Spinner,
   Textarea,
 } from '@/components/ui';
+import { PhotoOrganizer } from '@/components/photo-organizer';
 
 interface FormImage {
   url: string;
@@ -548,7 +549,8 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-sm text-muted-foreground">
-            The first photo is the main image. Up to {MAX_LISTING_IMAGES} photos.
+            The first photo is the main photo, shown in search results. Up to {MAX_LISTING_IMAGES}{' '}
+            photos.
           </p>
 
           {uploadError ? (
@@ -575,31 +577,13 @@ export function VehicleForm({ vehicleId }: { vehicleId?: string }) {
             <p className="mt-2 text-sm text-muted-foreground">Uploading…</p>
           ) : null}
 
-          {images.length > 0 ? (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {images.map((image, index) => (
-                <figure key={`${image.url}-${index}`} className="relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={image.url}
-                    alt={`Photo ${index + 1}`}
-                    className="h-20 w-28 rounded-md border border-border object-cover"
-                  />
-                  <button
-                    type="button"
-                    aria-label={`Remove photo ${index + 1}`}
-                    onClick={() => {
-                      setSaved(false);
-                      setImages(images.filter((_, i) => i !== index));
-                    }}
-                    className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-destructive text-destructive-foreground"
-                  >
-                    <X className="h-3 w-3" aria-hidden />
-                  </button>
-                </figure>
-              ))}
-            </div>
-          ) : null}
+          <PhotoOrganizer
+            images={images}
+            onChange={(next) => {
+              setSaved(false);
+              setImages(next);
+            }}
+          />
 
           <SaveSection isEditing={isEditing} pending={save.isPending} saved={saved} />
         </CardContent>

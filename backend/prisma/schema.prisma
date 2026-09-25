@@ -267,6 +267,7 @@ model User {
   footerSections FooterSection[]
   siteSettings   SiteSettings[]
   homeFeatures   HomeFeature[]
+  promoTiles     PromoTile[]
   makeLogos      MakeLogo[]
   partners       Partner[]
 
@@ -1159,6 +1160,33 @@ model HomeFeature {
   updatedAt DateTime @updatedAt
 
   @@index([enabled, position])
+}
+
+/// One of the three promo tiles on the home page, under the last-search card:
+/// a photograph linking to a page on Vintrax or another website. Slots are
+/// numbered 1 to 3 and saved whole; a slot without a row, or without an image,
+/// is not shown.
+model PromoTile {
+  id   String @id @default(uuid()) @db.Uuid
+  slot Int    @unique
+
+  /// An issued upload URL, checked by the service.
+  imageUrl String?
+  imageAlt String?
+  /// A site path or an `https://` address, validated by the shared schema.
+  linkUrl  String?
+
+  /// Twelfths of the row.
+  widthSpan Int     @default(4)
+  /// Height on a full-width desktop page; the tile keeps its shape as it scales.
+  heightPx  Int     @default(220)
+  enabled   Boolean @default(true)
+
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum ImageProcessingStatus {
