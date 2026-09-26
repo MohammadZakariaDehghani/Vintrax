@@ -535,11 +535,16 @@ model InventoryImport {
   /// host produces the same line 1200 times and none of them is new.
   photoErrors    String[]             @default([])
 
-  createdAt        DateTime  @default(now())
-  completedAt      DateTime?
-  photosFinishedAt DateTime?
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
+  photosFinishedAt  DateTime?
+  /// Written while a photo run is alive. The run lives in the API process, so a
+  /// restart ends it without a word; a PENDING or RUNNING import whose heartbeat
+  /// has gone quiet is marked FAILED rather than shown as working forever.
+  photosHeartbeatAt DateTime?
 
   @@index([sellerId, createdAt])
+  @@index([photoStatus])
 }
 
 enum InventoryPhotoStatus {

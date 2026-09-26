@@ -1,4 +1,11 @@
-import { InventoryPhotosService, type VehiclePhotoWork } from './inventory-photos.service';
+import {
+  InventoryPhotosService,
+  PHOTO_RUN_DEADLINE_MS,
+  PHOTO_RUN_STALE_MS,
+  STALE_RUN_MESSAGE,
+  TIMED_OUT_MESSAGE,
+  type VehiclePhotoWork,
+} from './inventory-photos.service';
 import { fetchRemoteImage } from './remote-image';
 
 /**
@@ -37,10 +44,36 @@ function harness() {
   const prisma = {
     vehicleImage: { findMany: jest.fn().mockResolvedValue([]) },
     vehicle: { findUnique: jest.fn().mockResolvedValue({ sellerId: 'dealer-1' }) },
+    // One import row, with a status the conditional writes check the way
+    // the database would: a write that requires RUNNING finds nothing once
+    // something else has marked the run finished.
     inventoryImport: {
+      status: 'PENDING' as string,
       update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
         updates.push(data);
+        if (typeof data.photoStatus === 'string') prisma.inventoryImport.status = data.photoStatus;
       }),
+      updateMany: jest.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: { photoStatus?: string | { in: string[] } };
+          data: Record<string, unknown>;
+        }) => {
+          const wanted = where.photoStatus;
+          const matches =
+            wanted === undefined ||
+            (typeof wanted === 'string'
+              ? wanted === prisma.inventoryImport.status
+              : wanted.in.includes(prisma.inventoryImport.status));
+          if (!matches) return { count: 0 };
+          updates.push(data);
+          if (typeof data.photoStatus === 'string')
+            prisma.inventoryImport.status = data.photoStatus;
+          return { count: 1 };
+        },
+      ),
     },
     $transaction: jest.fn(async (work: (client: typeof tx) => Promise<void>) => work(tx)),
   };
@@ -56,7 +89,7 @@ function harness() {
       releaseUnused: jest.fn(),
     } as never,
   );
-  return { service, created, updates };
+  return { service, created, updates, prisma };
 }
 
 const photos = (vehicle: string, count: number) =>
@@ -102,5 +135,99 @@ describe("an import's photo budget", () => {
 
     expect(created).toHaveLength(3);
     expect(updates[updates.length - 1]!.photoStatus).toBe('COMPLETED');
+  });
+});
+
+describe('a photo run that stops', () => {
+  beforeEach(() => (fetchRemoteImage as jest.Mock).mockClear());
+  afterEach(() => jest.useRealTimers());
+
+  it('writes a heartbeat as it goes', async () => {
+    const { service, updates } = harness();
+    await service.run('import-3', [
+      { vehicleId: 'a', photos: photos('a', 2) },
+      { vehicleId: 'b', photos: photos('b', 2) },
+    ]);
+    expect(updates.filter((update) => update.photosHeartbeatAt instanceof Date).length).toBe(
+      updates.length,
+    );
+  });
+
+  it('ends quietly, without overwriting the status, once the sweep has marked it stopped', async () => {
+    const { service, prisma, updates, created } = harness();
+    // The sweep calls it dead while the first vehicle is downloading.
+    (fetchRemoteImage as jest.Mock).mockImplementationOnce(async () => {
+      prisma.inventoryImport.status = 'FAILED';
+      return { buffer: Buffer.from('jpeg'), contentType: 'image/jpeg' };
+    });
+
+    await service.run('import-4', [
+      { vehicleId: 'a', photos: photos('a', 1) },
+      { vehicleId: 'b', photos: photos('b', 1) },
+    ]);
+
+    expect(prisma.inventoryImport.status).toBe('FAILED');
+    expect(updates.some((update) => update.photoStatus === 'COMPLETED')).toBe(false);
+    // Nothing downloaded for the second vehicle once the run was stopped.
+    expect(fetchRemoteImage).toHaveBeenCalledTimes(1);
+    expect(created.map((image) => image.vehicleId)).toEqual(['a']);
+  });
+
+  it('stops itself, and says why, once it runs past its time limit', async () => {
+    const { service, prisma, updates } = harness();
+    const start = Date.now();
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(start);
+    (fetchRemoteImage as jest.Mock).mockImplementationOnce(async () => {
+      now.mockReturnValue(start + PHOTO_RUN_DEADLINE_MS + 1);
+      return { buffer: Buffer.from('jpeg'), contentType: 'image/jpeg' };
+    });
+
+    await service.run('import-5', [
+      { vehicleId: 'a', photos: photos('a', 1) },
+      { vehicleId: 'b', photos: photos('b', 1) },
+    ]);
+    now.mockRestore();
+
+    expect(prisma.inventoryImport.status).toBe('FAILED');
+    const final = updates[updates.length - 1]!;
+    expect(final.photoErrors).toContain(TIMED_OUT_MESSAGE);
+    expect(fetchRemoteImage).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the stale photo run sweep', () => {
+  it('fails PENDING and RUNNING runs whose heartbeat has gone quiet, and older runs without one', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 2 });
+    const service = new InventoryPhotosService(
+      { inventoryImport: { updateMany } } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    const before = Date.now();
+    expect(await service.failStaleRuns({ sellerId: 'dealer-1' })).toBe(2);
+
+    const { where, data } = updateMany.mock.calls[0]![0];
+    expect(where.sellerId).toBe('dealer-1');
+    expect(where.photoStatus).toEqual({ in: ['PENDING', 'RUNNING'] });
+    const cutoff = where.OR[0].photosHeartbeatAt.lt as Date;
+    expect(before - cutoff.getTime()).toBeGreaterThanOrEqual(PHOTO_RUN_STALE_MS - 1000);
+    expect(where.OR[1]).toEqual({ photosHeartbeatAt: null, createdAt: { lt: cutoff } });
+    expect(data).toMatchObject({
+      photoStatus: 'FAILED',
+      photoErrors: { push: STALE_RUN_MESSAGE },
+    });
+  });
+
+  it('never throws', async () => {
+    const service = new InventoryPhotosService(
+      { inventoryImport: { updateMany: jest.fn().mockRejectedValue(new Error('down')) } } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    await expect(service.failStaleRuns()).resolves.toBe(0);
   });
 });
