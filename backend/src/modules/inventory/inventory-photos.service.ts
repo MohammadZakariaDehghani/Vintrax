@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  type OnApplicationBootstrap,
+  type OnModuleDestroy,
+} from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { MAX_PHOTOS_PER_IMPORT } from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { StorageService } from '../../common/storage/storage.service';
@@ -6,6 +13,42 @@ import { VehicleImagesService } from '../vehicle-images/vehicle-images.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import type { PhotoIntent } from './inventory-plan';
 import { RemoteImageError, fetchRemoteImage } from './remote-image';
+
+/**
+ * A run that has not said it is alive for this long is taken to have died with
+ * the process it ran in. A live run writes a heartbeat at least every
+ * `HEARTBEAT_MS`, and no single photo takes longer than the download timeout
+ * (20 seconds) plus processing, so five quiet minutes means it is gone.
+ */
+export const PHOTO_RUN_STALE_MS = 5 * 60_000;
+
+/** How often a live run records that it is still working. */
+const HEARTBEAT_MS = 20_000;
+
+/** The longest one run may take before it stops itself. */
+export const PHOTO_RUN_DEADLINE_MS = 60 * 60_000;
+
+/** How often the API looks for runs that died without a word. */
+const SWEEP_EVERY_MS = 60_000;
+
+export const STALE_RUN_MESSAGE =
+  'Stopped: no progress for 5 minutes, most likely because the server restarted while photos were downloading. Import the same file again to finish; photos already copied are not downloaded twice.';
+
+export const TIMED_OUT_MESSAGE =
+  'Stopped after 60 minutes, the longest one import may spend on photos. Import the same file again to continue; photos already copied are not downloaded twice.';
+
+/** The run was already marked finished elsewhere, by the stale-run sweep. */
+class RunEnded extends Error {}
+
+/** The run passed `PHOTO_RUN_DEADLINE_MS`. */
+class RunTimedOut extends Error {}
+
+/** Shared by a run and the photo downloads inside it, so a stop reaches all of them. */
+interface RunControl {
+  stopped: Error | null;
+  /** Records progress and the heartbeat, at most every `HEARTBEAT_MS` unless forced. */
+  beat: (force?: boolean) => Promise<void>;
+}
 
 /** One vehicle's worth of work: the row's photos, and where they belong. */
 export interface VehiclePhotoWork {
@@ -37,8 +80,9 @@ export interface VehiclePhotoWork {
  * interrupted.
  */
 @Injectable()
-export class InventoryPhotosService {
+export class InventoryPhotosService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(InventoryPhotosService.name);
+  private sweepTimer: NodeJS.Timeout | null = null;
 
   /**
    * Simultaneous downloads.
@@ -58,6 +102,53 @@ export class InventoryPhotosService {
     private readonly vehicles: VehiclesService,
     private readonly vehicleImages: VehicleImagesService,
   ) {}
+
+  /**
+   * Runs from before a restart are swept at start-up, then once a minute —
+   * and the history endpoints sweep the caller's own imports before reading,
+   * so the screen never waits on the timer to stop showing a dead run.
+   */
+  onApplicationBootstrap(): void {
+    void this.failStaleRuns();
+    this.sweepTimer = setInterval(() => void this.failStaleRuns(), SWEEP_EVERY_MS);
+    this.sweepTimer.unref();
+  }
+
+  onModuleDestroy(): void {
+    if (this.sweepTimer) clearInterval(this.sweepTimer);
+  }
+
+  /**
+   * Marks FAILED every PENDING or RUNNING photo run whose heartbeat has been
+   * quiet for `PHOTO_RUN_STALE_MS` — a run cut off by a restart or a deploy,
+   * which otherwise shows "Downloading photos" forever. A run from before
+   * heartbeats existed is judged by when its import started. Never throws.
+   */
+  async failStaleRuns(scope: Prisma.InventoryImportWhereInput = {}): Promise<number> {
+    const cutoff = new Date(Date.now() - PHOTO_RUN_STALE_MS);
+    try {
+      const { count } = await this.prisma.inventoryImport.updateMany({
+        where: {
+          ...scope,
+          photoStatus: { in: ['PENDING', 'RUNNING'] },
+          OR: [
+            { photosHeartbeatAt: { lt: cutoff } },
+            { photosHeartbeatAt: null, createdAt: { lt: cutoff } },
+          ],
+        },
+        data: {
+          photoStatus: 'FAILED',
+          photosFinishedAt: new Date(),
+          photoErrors: { push: STALE_RUN_MESSAGE },
+        },
+      });
+      if (count > 0) this.logger.warn(`Marked ${count} stalled photo run(s) as failed`);
+      return count;
+    } catch (error) {
+      this.logger.error(`Stale photo run sweep failed: ${String(error)}`);
+      return 0;
+    }
+  }
 
   /**
    * How many photos a run will consider: every vehicle's main photo, then the
@@ -80,16 +171,46 @@ export class InventoryPhotosService {
    */
   async run(importId: string, work: readonly VehiclePhotoWork[]): Promise<void> {
     const started = Date.now();
+    const deadline = started + PHOTO_RUN_DEADLINE_MS;
     let fetched = 0;
     let reused = 0;
     let failed = 0;
     const errors = new Set<string>();
+    let lastBeat = 0;
+
+    // Every write after the first is conditional on the run still being
+    // RUNNING. If the stale-run sweep has already called it — a run that went
+    // quiet long enough to look dead — this one stops rather than carrying on
+    // behind a status that says it stopped.
+    const control: RunControl = {
+      stopped: null,
+      beat: async (force = false) => {
+        if (control.stopped) return;
+        if (Date.now() > deadline) {
+          control.stopped = new RunTimedOut();
+          return;
+        }
+        if (!force && Date.now() - lastBeat < HEARTBEAT_MS) return;
+        lastBeat = Date.now();
+        const { count } = await this.prisma.inventoryImport.updateMany({
+          where: { id: importId, photoStatus: 'RUNNING' },
+          data: {
+            photosFetched: fetched,
+            photosReused: reused,
+            photosFailed: failed,
+            photosHeartbeatAt: new Date(),
+          },
+        });
+        if (count === 0) control.stopped = new RunEnded();
+      },
+    };
 
     try {
       await this.prisma.inventoryImport.update({
         where: { id: importId },
-        data: { photoStatus: 'RUNNING' },
+        data: { photoStatus: 'RUNNING', photosHeartbeatAt: new Date() },
       });
+      lastBeat = Date.now();
 
       // Every vehicle's main photo is downloaded whatever the cap; only the
       // others share what is left of it. Spending the cap in file order gave
@@ -101,19 +222,23 @@ export class InventoryPhotosService {
         extras: Math.max(0, MAX_PHOTOS_PER_IMPORT - primaries),
         deferred: 0,
       };
-      const touched: string[] = [];
 
+      const touched: string[] = [];
       for (const entry of work) {
-        const outcome = await this.syncVehicle(entry.vehicleId, entry.photos, errors, budget);
+        const outcome = await this.syncVehicle(
+          entry.vehicleId,
+          entry.photos,
+          errors,
+          budget,
+          control,
+        );
         fetched += outcome.fetched;
         reused += outcome.reused;
         failed += outcome.failed;
         if (outcome.changed) touched.push(entry.vehicleId);
-
-        await this.prisma.inventoryImport.update({
-          where: { id: importId },
-          data: { photosFetched: fetched, photosReused: reused, photosFailed: failed },
-        });
+        if (control.stopped) throw control.stopped;
+        await control.beat(true);
+        if (control.stopped) throw control.stopped;
       }
 
       // The listing card and the search document both carry the primary image,
@@ -126,8 +251,8 @@ export class InventoryPhotosService {
         );
       }
 
-      await this.prisma.inventoryImport.update({
-        where: { id: importId },
+      const { count } = await this.prisma.inventoryImport.updateMany({
+        where: { id: importId, photoStatus: 'RUNNING' },
         data: {
           photoStatus: failed > 0 || errors.size > 0 ? 'COMPLETED_WITH_ERRORS' : 'COMPLETED',
           photosFetched: fetched,
@@ -135,23 +260,34 @@ export class InventoryPhotosService {
           photosFailed: failed,
           photoErrors: [...errors].slice(0, 20),
           photosFinishedAt: new Date(),
+          photosHeartbeatAt: new Date(),
         },
       });
+      if (count === 0) throw new RunEnded();
 
       this.logger.log(
         `Import ${importId} photos: ${fetched} downloaded, ${reused} already held, ${failed} failed in ${Math.round((Date.now() - started) / 1000)}s`,
       );
     } catch (error) {
-      this.logger.error(`Import ${importId} photo run failed: ${String(error)}`);
+      if (error instanceof RunEnded) {
+        this.logger.warn(`Import ${importId} photo run was already marked stopped; ending it`);
+        return;
+      }
+      const timedOut = error instanceof RunTimedOut;
+      if (!timedOut) this.logger.error(`Import ${importId} photo run failed: ${String(error)}`);
+      else this.logger.warn(`Import ${importId} photo run hit its time limit`);
       await this.prisma.inventoryImport
-        .update({
-          where: { id: importId },
+        .updateMany({
+          where: { id: importId, photoStatus: { in: ['PENDING', 'RUNNING'] } },
           data: {
             photoStatus: 'FAILED',
             photosFetched: fetched,
             photosReused: reused,
             photosFailed: failed,
-            photoErrors: [...errors, 'The photo run stopped early.'].slice(0, 20),
+            photoErrors: [
+              ...errors,
+              timedOut ? TIMED_OUT_MESSAGE : 'The photo run stopped early.',
+            ].slice(-20),
             photosFinishedAt: new Date(),
           },
         })
@@ -174,6 +310,7 @@ export class InventoryPhotosService {
     wanted: readonly PhotoIntent[],
     errors: Set<string>,
     budget: PhotoBudget = { extras: Number.POSITIVE_INFINITY, deferred: 0 },
+    control?: RunControl,
   ): Promise<{ fetched: number; reused: number; failed: number; changed: boolean }> {
     const existing = await this.prisma.vehicleImage.findMany({
       where: { vehicleId },
@@ -216,6 +353,9 @@ export class InventoryPhotosService {
     const slots = new Array<(typeof resolved)[number] | null>(wanted.length).fill(null);
 
     await this.inParallel(wanted, async (photo, index) => {
+      // A stopped run starts nothing new; the downloads already in flight
+      // finish, bounded by their own timeouts.
+      if (control?.stopped) return;
       const key = identity(photo.sourceUrl, photo.sourceUpdatedAt);
       const already = held.get(key);
       if (already) {
@@ -267,7 +407,23 @@ export class InventoryPhotosService {
             : 'could not be saved';
         errors.add(`${hostOf(photo.sourceUrl)}: ${reason}`);
       }
+      await control?.beat();
     });
+
+    // Stopped part-way: write nothing. The photos this vehicle already had are
+    // kept as they were — the slots never reached would otherwise read as
+    // photos the feed dropped, and be deleted — and the copies made just now
+    // are released, since no listing points at them.
+    if (control?.stopped) {
+      await this.vehicleImages.releaseUnused(
+        slots.flatMap((slot) =>
+          slot?.assetId && !existing.some((image) => image.assetId === slot.assetId)
+            ? [slot.assetId]
+            : [],
+        ),
+      );
+      return { fetched, reused: 0, failed, changed: false };
+    }
 
     for (const slot of slots) if (slot) resolved.push(slot);
     const reused = resolved.length - fetched;

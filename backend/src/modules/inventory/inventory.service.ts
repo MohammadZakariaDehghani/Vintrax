@@ -281,7 +281,7 @@ export class InventoryService {
     const expected = InventoryPhotosService.expectedCount(work);
     await this.prisma.inventoryImport.update({
       where: { id: importId },
-      data: { photoStatus: 'PENDING', photosExpected: expected },
+      data: { photoStatus: 'PENDING', photosExpected: expected, photosHeartbeatAt: new Date() },
     });
 
     // Floating on purpose, and the reason it is safe to float: `run` never
@@ -298,6 +298,9 @@ export class InventoryService {
     pageSize: number,
   ): Promise<Paginated<InventoryImportRecord>> {
     const where = { sellerId: user.id };
+    // A run cut off by a restart is called here rather than left to the
+    // once-a-minute sweep, so this screen never shows a dead run as working.
+    await this.photos.failStaleRuns(where);
     const [total, records] = await Promise.all([
       this.prisma.inventoryImport.count({ where }),
       this.prisma.inventoryImport.findMany({
@@ -323,6 +326,7 @@ export class InventoryService {
     id: string,
     user: AuthUser,
   ): Promise<InventoryImportRecord & { rows: InventoryRowResult[] }> {
+    await this.photos.failStaleRuns({ id, sellerId: user.id });
     const record = await this.prisma.inventoryImport.findUnique({
       where: { id },
       select: { ...HISTORY_SELECT, rows: true, sellerId: true },
