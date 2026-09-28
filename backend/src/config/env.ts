@@ -131,6 +131,12 @@ const baseEnvSchema = z.object({
   AI_MODEL: z.string().default('claude-opus-5-5'),
   AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
 
+  // --- Video ---
+  // The ffmpeg binary that optimises uploaded promo tile videos. The API image
+  // installs it on PATH; a machine without it refuses video uploads with a
+  // clear message rather than storing an unoptimised original.
+  FFMPEG_PATH: z.string().default('ffmpeg'),
+
   // --- Rate limiting ---
   RATE_LIMIT_TTL_MS: z.coerce.number().int().min(1000).default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),

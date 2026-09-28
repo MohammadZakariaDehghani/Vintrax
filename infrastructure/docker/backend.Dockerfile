@@ -94,6 +94,11 @@ COPY --from=build --chown=node:node /app/backend/package.json ./backend/
 # Schema and migrations: `prisma migrate deploy` reads both at deploy time.
 COPY --from=build --chown=node:node /app/backend/prisma ./backend/prisma
 
+# ffmpeg optimises uploaded promo tile videos and takes their poster frame
+# (VideoProcessor). Without it the API refuses video uploads with a clear
+# message instead of storing unoptimised originals.
+RUN apk add --no-cache ffmpeg
+
 # Run unprivileged. The node image already provides this user.
 RUN mkdir -p /app/backend/uploads && chown -R node:node /app/backend/uploads
 USER node

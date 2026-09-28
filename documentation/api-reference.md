@@ -208,6 +208,23 @@ Create, edit, status changes and delete stay on the `/vehicles` routes, whose
 ownership, auction and sold-vehicle guards apply unchanged. Cost bodies are
 strict: a `vehicleId`, `sellerId` or any other unknown field is a 400.
 
+### Home page promo tiles: image or video
+
+| Method | Path                         | Auth              | Purpose                                                |
+| ------ | ---------------------------- | ----------------- | ------------------------------------------------------ |
+| `GET`  | `/promo-tiles`               | Public            | Switched-on tiles that have their photo or video       |
+| `GET`  | `/admin/promo-tiles`         | `content:manage`  | All three slots, saved or not                          |
+| `PUT`  | `/admin/promo-tiles/:slot`   | `content:manage`  | Save a slot: layout, link, and `mediaType`             |
+| `POST` | `/uploads/promo-tiles`       | `content:manage`  | Upload a tile photo                                    |
+| `POST` | `/uploads/promo-tiles/video` | `content:manage`  | Upload a tile video; returns `videoUrl` and `posterUrl` |
+
+A tile's layout — `widthSpan`, `heightPx`, its slot — is the same fields
+whether `mediaType` is `IMAGE` or `VIDEO`; there is no separate video layout.
+`VIDEO` needs a `videoUrl` issued by the video upload route, which re-encodes
+the upload (H.264 MP4, no sound, at most 1920 px wide and 30 s) and takes a
+poster frame before storing anything. A save that omits `mediaType` leaves it
+as it was. Switching keeps the other medium's fields.
+
 **Ownership is never in the request.** Every route scopes to
 `sellerId: <the authenticated user>`, taken from the JWT. No route accepts a
 seller or dealer id from the query, the body or the file, and the columns that

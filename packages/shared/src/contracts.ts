@@ -10,6 +10,7 @@ import type {
   Drivetrain,
   FooterLinkIcon,
   HomeFeatureButtonPlacement,
+  PromoTileMediaType,
   PromoTileWidth,
   FuelType,
   InspectionSection,
@@ -638,8 +639,31 @@ export interface PromoTile {
   /** Height on a full-width desktop page; it scales with the window. */
   heightPx: number;
   enabled: boolean;
+  /** What fills the tile. The size and placement above are the same for either. */
+  mediaType: PromoTileMediaType;
+  /** The optimised, silent MP4 when the tile is a video. Kept when switching back to Image. */
+  videoUrl: string | null;
+  /** A frame of that video, shown before it plays and whenever it cannot. */
+  videoPosterUrl: string | null;
   /** Null for a slot that has never been saved. */
   updatedAt: string | null;
+}
+
+/** Whether a tile has what its media type needs to be drawn. */
+export function promoTileHasMedia(
+  tile: Pick<PromoTile, 'mediaType' | 'imageUrl' | 'videoUrl'>,
+): boolean {
+  return tile.mediaType === 'VIDEO' ? Boolean(tile.videoUrl) : Boolean(tile.imageUrl);
+}
+
+/** What `POST /uploads/promo-tiles/video` returns. */
+export interface PromoTileVideoUpload {
+  videoUrl: string;
+  posterUrl: string;
+  width: number;
+  height: number;
+  durationSeconds: number;
+  sizeBytes: number;
 }
 
 /** A make or model a visitor can pick in the car value tool, with how many listings back it. */

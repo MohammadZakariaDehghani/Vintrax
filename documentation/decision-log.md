@@ -739,3 +739,27 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 - New settings: `AI_PROVIDER` (default `none`), `AI_API_KEY`, `AI_MODEL` (default `claude-opus-5-5`), `AI_TIMEOUT_MS`. The API refuses to start with a provider but no key.
 - The CSV quoting helpers move to `@vintrax/shared` so the browser's error reports escape formulas as the API's exports do.
 
+## D-054 — Video in the Home Page Boxes, Not a Reel
+
+**Status:** Accepted. Requested by the owner, replacing an earlier idea of a separate vertical video reel.
+
+**Decision:**
+
+- A home page promo tile ("Home page box") shows an image **or** a video. `PromoTile.mediaType` (`IMAGE` by default) chooses; `videoUrl` and `videoPosterUrl` hold the video.
+- The tile's existing layout — width in twelfths of the row, height, slot, and how it scales — applies to both, unchanged. There is no video layout, no reel section and no fixed aspect ratio: the video fills exactly the box the photo would, cropped the same way (`object-cover`, the only fit the tiles have).
+- `PromoTileRow` draws the same box for both; only the media inside differs (`TileMedia` → `<img>` or `PromoTileVideo`).
+- The admin chooses Image or Video in each box's existing editor. The width and height controls and the live preview are the ones that already existed.
+- Videos are re-encoded on upload with ffmpeg (H.264, CRF 26, no audio or metadata, at most 1920 px wide, 30 s, `+faststart`) and a WebP poster is taken. The original is deleted, never stored.
+- On the page: muted, looping, inline, no controls. `preload="none"` with the poster, so nothing downloads until it plays; an `IntersectionObserver` plays it when a quarter is on screen and pauses it otherwise; reduced motion shows the poster only; a failed video falls back to the poster, then the tile's photo.
+
+**Rationale:**
+
+- **One box system.** The tile already owns size, span, order and responsiveness; a second layout for video would drift from it.
+- **Optimise on the server, once.** A phone clip is tens of megabytes; the stored file is a few. Stored through `StorageService`, so the URLs move to S3 or a CDN with the images.
+
+**Consequences:**
+
+- Migration `20260929000000_promo_tile_video` is additive: every existing tile becomes an `IMAGE` tile exactly as before.
+- The API image installs `ffmpeg` (`apk add ffmpeg`); `FFMPEG_PATH` overrides the binary. Without it, video uploads answer 503 and nothing unoptimised is stored.
+- The video route accepts up to 100 MB. The example Nginx config gives that one route a 101 MB body limit; the Next.js proxy's body limit is raised to match (it kept only 10 MB, which also cut off photos between 10 and 15 MB).
+

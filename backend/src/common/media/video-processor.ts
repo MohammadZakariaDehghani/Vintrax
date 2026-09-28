@@ -1,0 +1,173 @@
+import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PROMO_VIDEO } from '@vintrax/shared';
+import sharp from 'sharp';
+import type { Env } from '../../config/env';
+
+const run = promisify(execFile);
+
+/** A transcode of a 30-second clip takes seconds; this is a guard, not an estimate. */
+const TRANSCODE_TIMEOUT_MS = 5 * 60_000;
+
+export class VideoProcessingUnavailableError extends Error {}
+export class UnreadableVideoError extends Error {}
+
+export interface ProcessedVideo {
+  /** H.264 MP4, silent, `+faststart`, at most `PROMO_VIDEO.maxWidth` wide. */
+  video: Buffer;
+  /** A WebP frame from the start of the clip. */
+  poster: Buffer;
+  width: number;
+  height: number;
+  durationSeconds: number;
+}
+
+/** Reads the duration and frame size ffmpeg prints for an input. Exported for tests. */
+export function readVideoInfo(
+  stderr: string,
+): { durationSeconds: number; width: number; height: number } | null {
+  const duration = /Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/.exec(stderr);
+  const size = /Stream #\d+:\d+[^\n]*Video:[^\n]*?\b(\d{2,5})x(\d{2,5})\b/.exec(stderr);
+  if (!duration || !size) return null;
+  return {
+    durationSeconds: Number(duration[1]) * 3600 + Number(duration[2]) * 60 + Number(duration[3]),
+    width: Number(size[1]),
+    height: Number(size[2]),
+  };
+}
+
+/**
+ * The ffmpeg arguments that turn an upload into the file the site serves.
+ * Exported for tests, which pin the parts that matter: no audio, no metadata,
+ * a width cap with even dimensions, a length cap, and `+faststart` so the
+ * browser can start playing before the whole file has arrived.
+ */
+export function transcodeArgs(input: string, output: string): string[] {
+  return [
+    '-hide_banner',
+    '-nostdin',
+    '-y',
+    '-i',
+    input,
+    '-t',
+    String(PROMO_VIDEO.maxSeconds),
+    // The tile is always muted, so sound would only be bytes nobody hears.
+    '-an',
+    '-sn',
+    '-dn',
+    // Camera metadata includes GPS coordinates.
+    '-map_metadata',
+    '-1',
+    '-vf',
+    `scale='trunc(min(${PROMO_VIDEO.maxWidth},iw)/2)*2':-2:flags=lanczos`,
+    '-fpsmax',
+    '30',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '26',
+    '-pix_fmt',
+    'yuv420p',
+    '-movflags',
+    '+faststart',
+    output,
+  ];
+}
+
+/**
+ * Optimises an uploaded video for a promo tile and takes its poster frame.
+ *
+ * The upload is re-encoded before anything is stored, and only the result is
+ * kept: a phone's 80 MB clip becomes a few megabytes, and the site never
+ * serves an original. `execFile` passes arguments without a shell, and every
+ * path is one this class created, so nothing from the upload reaches a
+ * command line.
+ */
+@Injectable()
+export class VideoProcessor {
+  private readonly logger = new Logger(VideoProcessor.name);
+  private readonly ffmpeg: string;
+
+  constructor(config: ConfigService<Env, true>) {
+    this.ffmpeg = config.get('FFMPEG_PATH', { infer: true });
+  }
+
+  async process(inputPath: string): Promise<ProcessedVideo> {
+    const workDir = await mkdtemp(join(tmpdir(), 'vintrax-video-'));
+    const output = join(workDir, 'video.mp4');
+    const posterJpeg = join(workDir, 'poster.jpg');
+
+    try {
+      try {
+        await run(this.ffmpeg, transcodeArgs(inputPath, output), {
+          timeout: TRANSCODE_TIMEOUT_MS,
+          maxBuffer: 16 * 1024 * 1024,
+        });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new VideoProcessingUnavailableError(
+            'Video processing is not available on this server (ffmpeg is not installed).',
+          );
+        }
+        this.logger.warn(
+          `ffmpeg could not read an uploaded video: ${String((error as Error).message).slice(-400)}`,
+        );
+        throw new UnreadableVideoError(
+          'That file could not be read as a video. Upload an MP4, MOV or WebM file.',
+        );
+      }
+
+      const info = await this.probe(output);
+      if (!info) throw new UnreadableVideoError('The video has no picture to show.');
+
+      // A frame just after the start: the very first is often black.
+      const at = Math.min(0.5, info.durationSeconds / 2);
+      await run(
+        this.ffmpeg,
+        [
+          '-hide_banner',
+          '-nostdin',
+          '-y',
+          '-ss',
+          at.toFixed(2),
+          '-i',
+          output,
+          '-frames:v',
+          '1',
+          '-q:v',
+          '2',
+          posterJpeg,
+        ],
+        { timeout: 60_000 },
+      );
+      const poster = await sharp(await readFile(posterJpeg))
+        .webp({ quality: 80 })
+        .toBuffer();
+
+      const video = await readFile(output);
+      this.logger.log(
+        `Optimised a promo video: ${(await stat(inputPath)).size} → ${video.byteLength} bytes, ${info.width}×${info.height}, ${info.durationSeconds.toFixed(1)} s`,
+      );
+      return { video, poster, ...info };
+    } finally {
+      await rm(workDir, { recursive: true, force: true });
+    }
+  }
+
+  /** ffmpeg with an input and no output prints the stream details, then exits with an error. */
+  private async probe(path: string) {
+    try {
+      await run(this.ffmpeg, ['-hide_banner', '-nostdin', '-i', path], { timeout: 30_000 });
+      return null;
+    } catch (error) {
+      return readVideoInfo(String((error as { stderr?: string }).stderr ?? ''));
+    }
+  }
+}

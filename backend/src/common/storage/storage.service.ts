@@ -35,6 +35,11 @@ const IMAGE_TYPES: Record<string, string> = {
 };
 
 /** Document types accepted for vehicle paperwork. */
+/** Only what the video processor writes. Uploads are re-encoded before they get here. */
+const VIDEO_TYPES: Record<string, string> = {
+  'video/mp4': '.mp4',
+};
+
 const DOCUMENT_TYPES: Record<string, string> = {
   'application/pdf': '.pdf',
   'image/jpeg': '.jpg',
@@ -81,6 +86,7 @@ function contentTypeFor(path: string): string {
     '.png': 'image/png',
     '.webp': 'image/webp',
     '.avif': 'image/avif',
+    '.mp4': 'video/mp4',
   };
   return byExtension[extname(path).toLowerCase()] ?? 'application/octet-stream';
 }
@@ -125,6 +131,14 @@ export class StorageService {
   /** Validates and stores an image, returning its public URL. */
   async uploadImage(options: UploadOptions): Promise<StoredObject> {
     return this.upload(options, IMAGE_TYPES, 'image');
+  }
+
+  /**
+   * Stores an optimised video, returning its public URL. `maxBytes` is the
+   * caller's, since a processed video legitimately exceeds the image limit.
+   */
+  async uploadVideo(options: UploadOptions, maxBytes: number): Promise<StoredObject> {
+    return this.upload(options, VIDEO_TYPES, 'video', maxBytes);
   }
 
   /** Validates and stores a document, returning its public URL. */
@@ -192,6 +206,7 @@ export class StorageService {
     options: UploadOptions,
     allowed: Record<string, string>,
     kind: string,
+    maxBytes: number = this.maxBytes,
   ): Promise<StoredObject> {
     const extension = allowed[options.contentType];
     if (!extension) {
@@ -200,9 +215,9 @@ export class StorageService {
       );
     }
 
-    if (options.buffer.byteLength > this.maxBytes) {
+    if (options.buffer.byteLength > maxBytes) {
       throw new BadRequestException(
-        `File is too large. Maximum size is ${Math.floor(this.maxBytes / 1024 / 1024)} MB`,
+        `File is too large. Maximum size is ${Math.floor(maxBytes / 1024 / 1024)} MB`,
       );
     }
 

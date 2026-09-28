@@ -1,17 +1,25 @@
+import { unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import {
   BadRequestException,
   Controller,
   Post,
+  ServiceUnavailableException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { UploadedVehicleImage } from '@vintrax/shared';
+import { PROMO_VIDEO, type PromoTileVideoUpload, type UploadedVehicleImage } from '@vintrax/shared';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { CurrentUser, RequirePermissions } from '../../common/decorators';
 import { StorageService, type StoredObject } from '../../common/storage/storage.service';
 import { VehicleImagesService } from '../vehicle-images/vehicle-images.service';
+import {
+  UnreadableVideoError,
+  VideoProcessingUnavailableError,
+  VideoProcessor,
+} from '../../common/media/video-processor';
 import { removeFlatBackground } from './remove-background';
 
 /** The image types body-type photos are accepted in, and so may be cut out of their backdrop. */
@@ -31,6 +39,7 @@ export class UploadsController {
   constructor(
     private readonly storage: StorageService,
     private readonly vehicleImages: VehicleImagesService,
+    private readonly videos: VideoProcessor,
   ) {}
 
   @Post('images')
@@ -222,6 +231,77 @@ export class UploadsController {
       contentType: file.mimetype,
       originalName: file.originalname,
     });
+  }
+
+  /**
+   * A video for a promo tile. Unlike every other upload here it is written to
+   * a temporary file rather than held in memory — a phone clip is tens of
+   * megabytes — and it is never stored as sent: it is re-encoded to a small,
+   * silent, web-ready MP4 and a poster frame is taken, and only those two are
+   * kept. The temporary file is deleted whatever happens.
+   */
+  @Post('promo-tiles/video')
+  @RequirePermissions('content:manage')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload a video for a home page promo tile',
+    description:
+      'Optimises the video (H.264 MP4, no sound, at most 1920 px wide and 30 seconds) and takes a poster frame. Returns videoUrl and posterUrl to pass to PUT /admin/promo-tiles/:slot with mediaType VIDEO.',
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      dest: tmpdir(),
+      limits: { fileSize: PROMO_VIDEO.maxUploadBytes, files: 1 },
+    }),
+  )
+  async uploadPromoTileVideo(
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<PromoTileVideoUpload> {
+    if (!file) throw new BadRequestException('No file was uploaded');
+    try {
+      if (!(PROMO_VIDEO.acceptedTypes as readonly string[]).includes(file.mimetype)) {
+        throw new BadRequestException(
+          `Unsupported video type "${file.mimetype}". Upload an MP4, MOV or WebM file.`,
+        );
+      }
+
+      const processed = await this.videos.process(file.path).catch((error: unknown) => {
+        if (error instanceof VideoProcessingUnavailableError) {
+          throw new ServiceUnavailableException(error.message);
+        }
+        if (error instanceof UnreadableVideoError) throw new BadRequestException(error.message);
+        throw error;
+      });
+
+      const [video, poster] = await Promise.all([
+        this.storage.uploadVideo(
+          {
+            folder: 'promo-tiles',
+            buffer: processed.video,
+            contentType: 'video/mp4',
+            originalName: 'video.mp4',
+          },
+          PROMO_VIDEO.maxUploadBytes,
+        ),
+        this.storage.uploadImage({
+          folder: 'promo-tiles',
+          buffer: processed.poster,
+          contentType: 'image/webp',
+          originalName: 'poster.webp',
+        }),
+      ]);
+
+      return {
+        videoUrl: video.url,
+        posterUrl: poster.url,
+        width: processed.width,
+        height: processed.height,
+        durationSeconds: Math.round(processed.durationSeconds * 10) / 10,
+        sizeBytes: video.sizeBytes,
+      };
+    } finally {
+      await unlink(file.path).catch(() => undefined);
+    }
   }
 
   @Post('documents')

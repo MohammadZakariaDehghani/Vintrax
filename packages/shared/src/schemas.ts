@@ -21,6 +21,7 @@ import {
   MIN_MODEL_YEAR,
   NOTIFICATION_CHANNELS,
   PROMO_TILE_HEIGHT,
+  PROMO_TILE_MEDIA_TYPES,
   PROMO_TILE_WIDTHS,
   PROVINCES,
   SALE_CHANNELS,
@@ -953,8 +954,20 @@ export const savePromoTileSchema = z
       }),
     heightPx: z.number().int().min(PROMO_TILE_HEIGHT.min).max(PROMO_TILE_HEIGHT.max),
     enabled: z.boolean(),
+    /**
+     * Image or video. Optional: a save without it leaves the tile's current
+     * media type alone. The layout fields above apply to both.
+     */
+    mediaType: z.enum(PROMO_TILE_MEDIA_TYPES).optional(),
+    /** Both issued by the video upload route; the service checks them. */
+    videoUrl: trimmed(500).min(1).nullable().optional(),
+    videoPosterUrl: trimmed(500).min(1).nullable().optional(),
   })
-  .strict();
+  .strict()
+  .refine((tile) => tile.mediaType !== 'VIDEO' || Boolean(tile.videoUrl), {
+    message: 'Upload a video before choosing Video, or switch the box back to Image.',
+    path: ['videoUrl'],
+  });
 export type SavePromoTileInput = z.infer<typeof savePromoTileSchema>;
 
 // --- Car tools --------------------------------------------------------------

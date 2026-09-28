@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import type { PromoTile, PromoTileWidth } from '@vintrax/shared';
+import { promoTileHasMedia, type PromoTile, type PromoTileWidth } from '@vintrax/shared';
 import { cn } from '@/lib/utils';
+import { PromoTileVideo } from '@/components/promo-tile-video';
 
 /**
  * The width, in pixels, of the page's content column at its widest (the
@@ -78,9 +79,40 @@ function TileLink({
   );
 }
 
+/** Every medium fills the tile the same way: edge to edge, cropped to the tile's shape. */
+const MEDIA_CLASS =
+  'absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]';
+
+/**
+ * What goes inside a tile. The tile itself — size, span, order, corners and
+ * scaling — is `PromoTileRow`'s and is the same for both, so only this changes
+ * when a tile switches between a photo and a video.
+ */
+function TileMedia({ tile }: { tile: PromoTile }) {
+  if (tile.mediaType === 'VIDEO' && tile.videoUrl) {
+    return (
+      <PromoTileVideo
+        src={tile.videoUrl}
+        poster={tile.videoPosterUrl}
+        fallbackImageUrl={tile.imageUrl}
+        className={MEDIA_CLASS}
+      />
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={tile.imageUrl ?? ''}
+      alt={tile.imageAlt ?? ''}
+      loading="lazy"
+      className={MEDIA_CLASS}
+    />
+  );
+}
+
 /** The tiles themselves, without the page's container; also the admin preview. */
 export function PromoTileRow({ tiles }: { tiles: PromoTile[] }) {
-  const shown = tiles.filter((tile) => tile.imageUrl);
+  const shown = tiles.filter(promoTileHasMedia);
   if (shown.length === 0) return null;
   return (
     <div className="grid gap-4 [container-type:inline-size] sm:grid-cols-12">
@@ -97,13 +129,7 @@ export function PromoTileRow({ tiles }: { tiles: PromoTile[] }) {
             SPAN_CLASS[tile.widthSpan] ?? SPAN_CLASS[4],
           )}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={tile.imageUrl ?? ''}
-            alt={tile.imageAlt ?? ''}
-            loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-          />
+          <TileMedia tile={tile} />
         </TileLink>
       ))}
     </div>
@@ -112,11 +138,12 @@ export function PromoTileRow({ tiles }: { tiles: PromoTile[] }) {
 
 /**
  * Up to three administrator-made promo tiles under the last-search card: a
- * photograph each, linking to a page on Vintrax or opening another website in
- * its own tab, each as wide and tall as the administrator set it.
+ * photograph or a silent looping video each, linking to a page on Vintrax or
+ * opening another website in its own tab, each as wide and tall as the
+ * administrator set it.
  */
 export function PromoTiles({ tiles }: { tiles: PromoTile[] }) {
-  if (!tiles.some((tile) => tile.imageUrl)) return null;
+  if (!tiles.some(promoTileHasMedia)) return null;
   return (
     <section aria-label="Promotions" className="container pt-6">
       <PromoTileRow tiles={tiles} />
