@@ -142,13 +142,45 @@ async function send(path: string, options: RequestOptions, retryOn401 = true): P
   return response;
 }
 
+const NOT_JSON = Symbol('not-json');
+
+function parseBody(text: string): unknown {
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return NOT_JSON;
+  }
+}
+
+/** What to say when something between the browser and the API answered instead of it. */
+export function messageForNonJson(status: number): string {
+  if (status === 413) {
+    return 'The file is larger than the server accepts in one request. Try a smaller file, or ask the site administrator to raise the upload limit.';
+  }
+  if (status === 502 || status === 503 || status === 504) {
+    return 'The server took too long to answer or is restarting. Wait a moment and try again.';
+  }
+  if (status >= 200 && status < 300) {
+    return 'The server sent an unexpected response. Try again, and contact support if it keeps happening.';
+  }
+  return `The server could not complete the request (status ${status}). Try again in a moment.`;
+}
+
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await send(path, options);
 
   if (response.status === 204) return undefined as T;
 
   const text = await response.text();
-  const payload: unknown = text ? JSON.parse(text) : undefined;
+  const payload = parseBody(text);
+
+  // Not JSON at all: an error page from a proxy in front of the API (Nginx's
+  // "413 Request Entity Too Large", a gateway timeout), not from the API.
+  // Reported as what happened rather than as a JSON syntax error.
+  if (payload === NOT_JSON) {
+    throw new ApiError(response.status, messageForNonJson(response.status));
+  }
 
   if (!response.ok) {
     const error = payload as ApiErrorBody | undefined;

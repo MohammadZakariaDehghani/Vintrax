@@ -22,9 +22,9 @@ const nextConfig = {
   experimental: {
     // Requests reaching the API through the rewrite below are buffered by
     // Next, which keeps only the first 10 MB by default and cuts off anything
-    // larger. The largest upload the API accepts is a promo tile video
-    // (PROMO_VIDEO.maxUploadBytes, 100 MB); vehicle photos go to 15 MB.
-    middlewareClientMaxBodySize: '101mb',
+    // larger. Vehicle photos go to 15 MB; promo tile videos are sent in 8 MB
+    // pieces (PROMO_VIDEO.chunkBytes), so this only needs to cover a photo.
+    middlewareClientMaxBodySize: '16mb',
   },
   images: {
     remotePatterns: [

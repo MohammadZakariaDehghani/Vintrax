@@ -216,11 +216,18 @@ strict: a `vehicleId`, `sellerId` or any other unknown field is a 400.
 | `GET`  | `/admin/promo-tiles`         | `content:manage`  | All three slots, saved or not                          |
 | `PUT`  | `/admin/promo-tiles/:slot`   | `content:manage`  | Save a slot: layout, link, and `mediaType`             |
 | `POST` | `/uploads/promo-tiles`       | `content:manage`  | Upload a tile photo                                    |
-| `POST` | `/uploads/promo-tiles/video` | `content:manage`  | Upload a tile video; returns `videoUrl` and `posterUrl` |
+| `POST` | `/uploads/promo-tiles/video` | `content:manage`  | Upload a small tile video in one request (scripts)     |
+| `POST` | `/uploads/promo-tiles/video/sessions` | `content:manage` | Start a video upload: `sizeBytes`, `contentType` |
+| `POST` | `/uploads/promo-tiles/video/sessions/:id/chunks/:index` | `content:manage` | Send the next 8 MB piece |
+| `POST` | `/uploads/promo-tiles/video/sessions/:id/complete` | `content:manage` | All pieces sent; optimising starts (202) |
+| `GET`  | `/uploads/promo-tiles/video/sessions/:id` | `content:manage` | `UPLOADING`, `PROCESSING`, `READY` (with URLs) or `FAILED` |
 
 A tile's layout — `widthSpan`, `heightPx`, its slot — is the same fields
 whether `mediaType` is `IMAGE` or `VIDEO`; there is no separate video layout.
-`VIDEO` needs a `videoUrl` issued by the video upload route, which re-encodes
+The admin page uploads videos through the session routes: no request carries
+more than one 8 MB piece, so a proxy's body limit never sees the whole file,
+and optimisation runs in the background while the page asks for the status.
+`VIDEO` needs a `videoUrl` issued by the video upload routes, which re-encode
 the upload (H.264 MP4, no sound, at most 1920 px wide and 30 s) and takes a
 poster frame before storing anything. A save that omits `mediaType` leaves it
 as it was. Switching keeps the other medium's fields.
