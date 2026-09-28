@@ -5,3 +5,4 @@ export * from './images';
 export * from './description';
 export * from './inventory-csv';
 export * from './car-tools';
+export * from './dealer-portal';

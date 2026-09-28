@@ -1,5 +1,6 @@
 import { RequireAuth } from '@/components/require-auth';
 import { VehicleForm } from '@/components/vehicle-form';
+import { DealerNav } from '@/components/dealer-nav';
 import { VehicleHistoryEditor } from '@/components/vehicle-history-editor';
 import { VehicleBadgesEditor } from '@/components/vehicle-badges-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
@@ -11,6 +12,9 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
   return (
     <RequireAuth sellersOnly>
       <div className="container flex flex-col gap-6 py-8">
+        <div className="-mb-6">
+          <DealerNav />
+        </div>
         <VehicleForm vehicleId={id} />
 
         {/* One card for everything that feeds the buyer-facing "Vehicle

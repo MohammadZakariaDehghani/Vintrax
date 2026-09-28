@@ -710,3 +710,32 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 3. Do not delete superseded decisions. Mark them as superseded and reference the replacing decision.
 4. Keep exploratory ideas and unresolved questions outside this log until a decision is approved.
 5. Update related project documents when a logged decision changes their direction.
+
+## D-053 — Dealer Portal: Inventory Table, Vehicle Costs and a Help Assistant
+
+**Status:** Accepted. Requested by the owner.
+
+**Decision:**
+
+- **Inventory** (`/dealer/inventory`) becomes a table on desktop and cards on phones, with stats cards, search, filters (status, make, model, year, price, source), sort, row actions (view, edit, costs, duplicate, delete, a menu for status moves, price and auctions), and a selection bar (change status, unpublish, export CSV, delete). "Select all N matching" fetches the ids from the server; bulk actions run in the existing 200-id batches.
+  - A new server route lists inventory with the private fields the public summary lacks (VIN, stock number, source, cost total). Writes stay on `/vehicles`.
+  - `Vehicle.source` (`MANUAL` or `CSV_IMPORT`) records where a vehicle came from, backfilled from past imports' stored row outcomes.
+  - "Upload CSV" opens the existing validate → preview → confirm flow in a modal; the import page keeps it too. Both gain a downloadable error report. A row with a stock number but no VIN now carries a "Missing VIN" warning.
+- **Costs**: a `VehicleCost` table, many per vehicle, in integer cents, in twelve categories. Totals and gross margin are computed on the server with one shared function; gross margin is the asking price less total cost, and is labelled an estimate, not profit.
+- **Help assistant**: a button on every dealer portal page. Answers come from a written help library covering only features that exist; a question it does not cover gets "I’m not sure about that. Please contact Vintrax support."
+  - With `AI_PROVIDER=anthropic` and `AI_API_KEY`, Claude phrases the answer from the same library; without them, or if the call fails, the best-matching article is the answer.
+  - The provider sits behind a `HelpModel` interface, chosen at start-up. The key is read on the server only.
+  - Conversations are not stored; the browser sends the last eight turns.
+
+**Rationale:**
+
+- **Costs are owned through the vehicle, not a copied dealer id.** Every query filters on `vehicle.sellerId`, so a cost cannot drift from the dealer that owns the car.
+- **Costs are the dealer's alone.** Administrators get no cost route, and the audit log records that a cost changed but not its amount.
+- **The assistant cannot leak dealer data because it is given none.** It receives only the caller's dealership name and page; it has no tools and no inventory access, and a test fails if it touches vehicles or costs.
+
+**Consequences:**
+
+- Migration `20260928000000_dealer_costs_and_source` is additive: `VehicleSource`, `VehicleCostCategory`, `Vehicle.source`, `VehicleCost` (cascade on vehicle delete, set-null on the recording user), a positive-amount check, and indexes on the new lookups.
+- New settings: `AI_PROVIDER` (default `none`), `AI_API_KEY`, `AI_MODEL` (default `claude-opus-5-5`), `AI_TIMEOUT_MS`. The API refuses to start with a provider but no key.
+- The CSV quoting helpers move to `@vintrax/shared` so the browser's error reports escape formulas as the API's exports do.
+

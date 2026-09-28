@@ -37,6 +37,8 @@ import { PromoTilesModule } from './modules/promo-tiles/promo-tiles.module';
 import { CarValueModule } from './modules/car-value/car-value.module';
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { VehicleCostsModule } from './modules/vehicle-costs/vehicle-costs.module';
+import { DealerHelpModule } from './modules/dealer-help/dealer-help.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 @Module({
@@ -74,6 +76,8 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     DealersModule,
     VehiclesModule,
     InventoryModule,
+    VehicleCostsModule,
+    DealerHelpModule,
     InspectionsModule,
     AuctionsModule,
     FavouritesModule,

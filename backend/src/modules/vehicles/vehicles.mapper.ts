@@ -32,7 +32,7 @@ export function toVehicleImage(
   };
 }
 
-function optimizedFrom(
+export function optimizedFrom(
   asset: Prisma.VehicleImageAssetGetPayload<{ select: typeof imageAssetSelect }> | null,
 ) {
   return asset ? buildOptimizedImage(asset) : null;

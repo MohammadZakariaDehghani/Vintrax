@@ -1,8 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, Check } from 'lucide-react';
-import type { InventoryImportPlan, InventoryRowAction } from '@vintrax/shared';
+import { AlertTriangle, Check, Download } from 'lucide-react';
+import {
+  importReportCsv,
+  type InventoryImportPlan,
+  type InventoryRowAction,
+} from '@vintrax/shared';
+import { saveCsv } from '@/lib/save-file';
 import { Badge, Button, Card, CardContent } from '@/components/ui';
 
 /**
@@ -68,7 +73,24 @@ export function ImportPreview({
               Nothing has changed yet. Confirm to apply.
             </p>
           </div>
-          <Badge variant="outline">CSV schema v{plan.schemaVersion}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            {plan.rows.some((row) => row.errors.length > 0 || row.warnings.length > 0) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  saveCsv(
+                    importReportCsv(plan.rows),
+                    `${plan.filename.replace(/\.csv$/i, '')}-problems.csv`,
+                  )
+                }
+              >
+                <Download className="h-4 w-4" aria-hidden />
+                Download error report
+              </Button>
+            ) : null}
+            <Badge variant="outline">CSV schema v{plan.schemaVersion}</Badge>
+          </div>
         </div>
 
         <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">

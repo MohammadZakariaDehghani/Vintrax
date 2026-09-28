@@ -386,6 +386,14 @@ export function planInventoryImport(input: PlanInput): PlanOutput {
         };
       }
 
+      // A row with neither identifier was refused while reading it. One with
+      // only a stock number is allowed, but the dealer should know.
+      if (!draft.vin) {
+        warnings.push(
+          'Missing VIN: the vehicle will be created without one and matched by its stock number on later imports. Buyers see no VIN on the listing until you add it.',
+        );
+      }
+
       // The same VIN under another seller is legitimate here — a car can be
       // relisted after a sale — so this creates rather than refusing. What it
       // must never do is move that other seller's vehicle, and matching is

@@ -2,6 +2,8 @@
 
 import {
   forwardRef,
+  useEffect,
+  useRef,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -9,7 +11,7 @@ import {
   type TextareaHTMLAttributes,
 } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '@/lib/api-client';
 
@@ -321,5 +323,91 @@ export function Pagination({
         Next
       </Button>
     </nav>
+  );
+}
+
+/* ---------------------------------------------------------------- Dialog */
+
+/**
+ * A modal, on the browser's own `<dialog>`: `showModal()` gives focus
+ * trapping, Escape to close and an inert page behind it without a library.
+ * Clicking the backdrop closes it too. Open and closed are controlled by the
+ * parent, so the dialog never closes itself without the parent knowing.
+ */
+export function Dialog({
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  size = 'md',
+  className,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  description?: ReactNode;
+  children: ReactNode;
+  footer?: ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  className?: string;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  const widths = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' } as const;
+
+  return (
+    <dialog
+      ref={ref}
+      aria-label={title}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        // Only a click on the backdrop lands on the dialog element itself.
+        if (event.target === ref.current) onClose();
+      }}
+      className={cn(
+        'w-[calc(100%-2rem)] rounded-lg border border-border bg-card p-0 text-card-foreground shadow-xl backdrop:bg-black/50',
+        widths[size],
+        className,
+      )}
+    >
+      {open ? (
+        <div className="flex max-h-[calc(100vh-4rem)] flex-col">
+          <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+            <div>
+              <h2 className="text-lg font-semibold leading-tight">{title}</h2>
+              {description ? (
+                <div className="mt-1 text-sm text-muted-foreground">{description}</div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </button>
+          </div>
+          <div className="overflow-y-auto px-5 py-4">{children}</div>
+          {footer ? (
+            <div className="flex flex-wrap justify-end gap-2 border-t border-border px-5 py-3">
+              {footer}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </dialog>
   );
 }

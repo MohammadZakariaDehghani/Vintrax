@@ -111,31 +111,6 @@ export function isBlankRow(cells: readonly string[]): boolean {
   return cells.every((cell) => cell.trim().length === 0);
 }
 
-/**
- * Quotes one value for output.
- *
- * The leading apostrophe is not cosmetic. A cell beginning `=`, `+`, `-`, `@`
- * or a control character is executed as a formula when the file is opened in
- * Excel, Sheets or LibreOffice, which turns an exported listing description
- * into code running on the dealer's machine. Prefixing neutralises it, and the
- * apostrophe is not displayed as content by those applications.
- *
- * This is applied on export only. On import the same text is data, and stripping
- * it there would corrupt a legitimate value.
- */
-export function escapeCsvCell(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return '';
-
-  let text = String(value);
-  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
-
-  if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-  return text;
-}
-
-/** Joins rows into a CSV document, CRLF-terminated as RFC 4180 specifies. */
-export function toCsv(
-  rows: ReadonlyArray<ReadonlyArray<string | number | null | undefined>>,
-): string {
-  return rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
-}
+// Output quoting lives in @vintrax/shared so the web app's downloadable reports
+// escape exactly as the API's exports do.
+export { escapeCsvCell, toCsv } from '@vintrax/shared';
