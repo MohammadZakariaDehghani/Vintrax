@@ -9,7 +9,14 @@
  */
 export { configureVintraxClient, vintraxClientConfig, type VintraxClientConfig } from './config';
 
-export { ApiError, api, apiRequest, setSessionExpiredHandler, tokenStore } from './api-client';
+export {
+  ApiError,
+  api,
+  apiRequest,
+  messageForNonJson,
+  setSessionExpiredHandler,
+  tokenStore,
+} from './api-client';
 
 export {
   useAuthStore,

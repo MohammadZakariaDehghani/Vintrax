@@ -34,6 +34,7 @@ import { AdminNav } from '@/components/admin-nav';
 import { PromoTileRow } from '@/components/promo-tiles';
 import { PromoTileVideo } from '@/components/promo-tile-video';
 import { cn } from '@/lib/utils';
+import { uploadPromoVideo, type PromoVideoProgress } from '@/lib/promo-video-upload';
 
 /** Blank fields go as null, so clearing one removes it. */
 function payloadFrom(tile: PromoTile) {
@@ -73,9 +74,10 @@ function SlotEditor({ tile, onChange }: { tile: PromoTile; onChange: (next: Prom
 
   const videoInput = useRef<HTMLInputElement | null>(null);
   const [videoInfo, setVideoInfo] = useState<PromoTileVideoUpload | null>(null);
+  const [videoProgress, setVideoProgress] = useState<PromoVideoProgress | null>(null);
   const uploadVideo = useMutation({
-    mutationFn: (file: File) =>
-      api.upload<PromoTileVideoUpload>('/uploads/promo-tiles/video', file),
+    mutationFn: (file: File) => uploadPromoVideo(file, setVideoProgress),
+    onSettled: () => setVideoProgress(null),
     onSuccess: (stored) => {
       setVideoInfo(stored);
       setSaved(false);
@@ -166,8 +168,23 @@ function SlotEditor({ tile, onChange }: { tile: PromoTile; onChange: (next: Prom
             </span>
           )}
           {uploadVideo.isPending ? (
-            <div className="absolute inset-0 grid place-items-center bg-background/80 px-4 text-center text-sm">
-              Optimising the video for the web — this can take a minute.
+            <div
+              role="status"
+              className="absolute inset-0 grid place-items-center bg-background/85 px-4 text-center text-sm"
+            >
+              {videoProgress?.phase === 'uploading' ? (
+                <div className="w-full max-w-[220px]">
+                  <p>Uploading… {videoProgress.percent}%</p>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary transition-[width]"
+                      style={{ width: `${videoProgress.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p>Optimising the video for the web — this can take a minute.</p>
+              )}
             </div>
           ) : null}
         </div>

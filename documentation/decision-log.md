@@ -763,3 +763,25 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 - The API image installs `ffmpeg` (`apk add ffmpeg`); `FFMPEG_PATH` overrides the binary. Without it, video uploads answer 503 and nothing unoptimised is stored.
 - The video route accepts up to 100 MB. The example Nginx config gives that one route a 101 MB body limit; the Next.js proxy's body limit is raised to match (it kept only 10 MB, which also cut off photos between 10 and 15 MB).
 
+## D-055 — Promo Videos Upload in Pieces and Optimise in the Background
+
+**Status:** Accepted. Follows D-054, after the first real upload failed.
+
+**Decision:**
+
+- The admin page sends a promo tile video in 8 MB pieces (`PROMO_VIDEO.chunkBytes`) to `/uploads/promo-tiles/video/sessions/…`, appended in order to one temporary file. Each piece is checked for order and size, and the total against the announced size.
+- Completing the upload starts optimisation in the background and returns at once; the page asks for the status every two seconds and shows upload progress, then "Optimising…".
+- The API client turns a non-JSON error page into a sentence (413: file too large for the server; 502/503/504: took too long) instead of `Unexpected token '<'`.
+- The example Nginx config's special 101 MB location for video is removed: no request is larger than 8 MB now. The Next.js proxy limit only needs to cover a 15 MB photo.
+
+**Rationale:**
+
+- **The first upload hit Nginx, not the API.** The live proxy refused the body with an HTML 413, which the page could not read. Changing every proxy in front of the API is a deploy step someone forgets; pieces work under any sensible limit.
+- **Encoding outlasts a proxy's patience.** A 30-second 1080p clip takes long enough on a small server to meet a gateway timeout. Polling holds no request open.
+- **Sound stays out.** The optimised file has no audio track at all (ffmpeg `-an`), and the page plays it muted — there is nothing to hear even if a browser ignored `muted`.
+
+**Consequences:**
+
+- Upload sessions live in the API process and its temporary directory: at most 3 per administrator and 12 in total, deleted after an hour idle, and lost on restart (the page then says to start again). The API runs as one instance; several would need the sessions in shared storage.
+- `POST /uploads/promo-tiles/video` (one request) remains for small files and scripts.
+

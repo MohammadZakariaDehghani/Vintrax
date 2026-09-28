@@ -656,6 +656,27 @@ export function promoTileHasMedia(
   return tile.mediaType === 'VIDEO' ? Boolean(tile.videoUrl) : Boolean(tile.imageUrl);
 }
 
+/** A video upload in progress: sent in pieces, then optimised in the background. */
+export interface PromoVideoUploadSession {
+  uploadId: string;
+  chunkBytes: number;
+  chunkCount: number;
+}
+
+export const PROMO_VIDEO_UPLOAD_STATUSES = ['UPLOADING', 'PROCESSING', 'READY', 'FAILED'] as const;
+export type PromoVideoUploadStatusValue = (typeof PROMO_VIDEO_UPLOAD_STATUSES)[number];
+
+export interface PromoVideoUploadStatus {
+  uploadId: string;
+  status: PromoVideoUploadStatusValue;
+  receivedBytes: number;
+  sizeBytes: number;
+  /** Set when READY. */
+  result: PromoTileVideoUpload | null;
+  /** Set when FAILED: why, in words an administrator can act on. */
+  error: string | null;
+}
+
 /** What `POST /uploads/promo-tiles/video` returns. */
 export interface PromoTileVideoUpload {
   videoUrl: string;

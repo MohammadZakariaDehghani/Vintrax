@@ -277,6 +277,11 @@ export const PROMO_VIDEO = {
   /** No stored rendition is wider than this; a full-width tile at 1360 px on a 1.5× screen. */
   maxWidth: 1920,
   acceptedTypes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska'] as const,
+  /**
+   * Uploads are sent in pieces of this size, so no single request is larger
+   * than a reverse proxy's usual body limit (Nginx's example config: 16 MB).
+   */
+  chunkBytes: 8 * 1024 * 1024,
 } as const;
 
 export const USER_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'] as const;

@@ -23,6 +23,7 @@ import {
   PROMO_TILE_HEIGHT,
   PROMO_TILE_MEDIA_TYPES,
   PROMO_TILE_WIDTHS,
+  PROMO_VIDEO,
   PROVINCES,
   SALE_CHANNELS,
   SECTION_RATINGS,
@@ -969,6 +970,24 @@ export const savePromoTileSchema = z
     path: ['videoUrl'],
   });
 export type SavePromoTileInput = z.infer<typeof savePromoTileSchema>;
+
+/** Starting a video upload: what is about to be sent, so each piece can be checked against it. */
+export const startPromoVideoUploadSchema = z
+  .object({
+    sizeBytes: z
+      .number()
+      .int()
+      .min(1, 'The file is empty.')
+      .max(
+        PROMO_VIDEO.maxUploadBytes,
+        `Videos can be up to ${PROMO_VIDEO.maxUploadBytes / 1024 / 1024} MB.`,
+      ),
+    contentType: z.enum(PROMO_VIDEO.acceptedTypes, {
+      errorMap: () => ({ message: 'Upload an MP4, MOV or WebM file.' }),
+    }),
+  })
+  .strict();
+export type StartPromoVideoUploadInput = z.infer<typeof startPromoVideoUploadSchema>;
 
 // --- Car tools --------------------------------------------------------------
 
