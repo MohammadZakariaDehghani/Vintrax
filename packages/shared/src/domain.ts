@@ -257,6 +257,28 @@ export const PROMO_TILE_WIDTH_LABELS: Record<PromoTileWidth, string> = {
  */
 export const PROMO_TILE_HEIGHT = { min: 80, max: 600, default: 220 } as const;
 
+/**
+ * What fills a promo tile. The tile — its width, height, slot and how it
+ * scales — is the same whichever it is; only what is drawn inside changes.
+ */
+export const PROMO_TILE_MEDIA_TYPES = ['IMAGE', 'VIDEO'] as const;
+export type PromoTileMediaType = (typeof PROMO_TILE_MEDIA_TYPES)[number];
+
+/**
+ * Promo tile videos: short, silent loops. The upload may be larger than the
+ * stored file — it is re-encoded for the web before anything is kept, and the
+ * original is discarded.
+ */
+export const PROMO_VIDEO = {
+  /** Largest upload accepted, before optimisation. */
+  maxUploadBytes: 100 * 1024 * 1024,
+  /** Longer uploads are cut to this, since the tile loops. */
+  maxSeconds: 30,
+  /** No stored rendition is wider than this; a full-width tile at 1360 px on a 1.5× screen. */
+  maxWidth: 1920,
+  acceptedTypes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska'] as const,
+} as const;
+
 export const USER_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 

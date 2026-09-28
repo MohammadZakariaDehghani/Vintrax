@@ -19,6 +19,13 @@ const nextConfig = {
   transpilePackages: ['@vintrax/shared', '@vintrax/client'],
   eslint: { ignoreDuringBuilds: false },
   typescript: { ignoreBuildErrors: false },
+  experimental: {
+    // Requests reaching the API through the rewrite below are buffered by
+    // Next, which keeps only the first 10 MB by default and cuts off anything
+    // larger. The largest upload the API accepts is a promo tile video
+    // (PROMO_VIDEO.maxUploadBytes, 100 MB); vehicle photos go to 15 MB.
+    middlewareClientMaxBodySize: '101mb',
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },

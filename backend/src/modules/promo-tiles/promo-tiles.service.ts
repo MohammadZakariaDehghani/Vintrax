@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   PROMO_TILE_HEIGHT,
   PROMO_TILE_SLOTS,
+  promoTileHasMedia,
   type PromoTile,
   type PromoTileWidth,
   type SavePromoTileInput,
@@ -25,6 +26,9 @@ function emptySlot(slot: number): PromoTile {
     widthSpan: 4,
     heightPx: PROMO_TILE_HEIGHT.default,
     enabled: true,
+    mediaType: 'IMAGE',
+    videoUrl: null,
+    videoPosterUrl: null,
     updatedAt: null,
   };
 }
@@ -38,6 +42,9 @@ function toPromoTile(row: PromoTileRow): PromoTile {
     widthSpan: row.widthSpan as PromoTileWidth,
     heightPx: row.heightPx,
     enabled: row.enabled,
+    mediaType: row.mediaType,
+    videoUrl: row.videoUrl,
+    videoPosterUrl: row.videoPosterUrl,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
@@ -71,10 +78,13 @@ export class PromoTilesService {
     );
   }
 
-  /** What the home page shows: switched-on tiles that have a picture, in slot order. */
+  /**
+   * What the home page shows: switched-on tiles that have their media — a
+   * photo for an image tile, a video for a video tile — in slot order.
+   */
   async published(): Promise<PromoTile[]> {
     return this.redis.remember(CACHE_KEY, CACHE_TTL, async () =>
-      (await this.all()).filter((tile) => tile.enabled && tile.imageUrl),
+      (await this.all()).filter((tile) => tile.enabled && promoTileHasMedia(tile)),
     );
   }
 
@@ -87,6 +97,13 @@ export class PromoTilesService {
         'Upload the image through POST /uploads/promo-tiles first, then pass the URL it returns. An address on another server is not accepted.',
       );
     }
+    for (const url of [input.videoUrl, input.videoPosterUrl]) {
+      if (url && !this.storage.isOwnUrl(url)) {
+        throw new BadRequestException(
+          'Upload the video through POST /uploads/promo-tiles/video first, then pass the URLs it returns. An address on another server is not accepted.',
+        );
+      }
+    }
 
     const data = {
       imageUrl: input.imageUrl,
@@ -95,6 +112,11 @@ export class PromoTilesService {
       widthSpan: input.widthSpan,
       heightPx: input.heightPx,
       enabled: input.enabled,
+      // The layout above is the tile's, whichever medium fills it. A client
+      // that does not send the video fields leaves them as they were.
+      ...(input.mediaType ? { mediaType: input.mediaType } : {}),
+      ...(input.videoUrl !== undefined ? { videoUrl: input.videoUrl } : {}),
+      ...(input.videoPosterUrl !== undefined ? { videoPosterUrl: input.videoPosterUrl } : {}),
       updatedById: actorId,
     };
     const row = await this.prisma.promoTile.upsert({

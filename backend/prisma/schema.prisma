@@ -1237,6 +1237,11 @@ model HomeFeature {
 /// a photograph linking to a page on Vintrax or another website. Slots are
 /// numbered 1 to 3 and saved whole; a slot without a row, or without an image,
 /// is not shown.
+enum PromoTileMediaType {
+  IMAGE
+  VIDEO
+}
+
 model PromoTile {
   id   String @id @default(uuid()) @db.Uuid
   slot Int    @unique
@@ -1252,6 +1257,14 @@ model PromoTile {
   /// Height on a full-width desktop page; the tile keeps its shape as it scales.
   heightPx  Int     @default(220)
   enabled   Boolean @default(true)
+
+  /// What fills the tile. Width, height, slot and scaling above apply to
+  /// either; switching keeps the other medium's fields, so it can be switched back.
+  mediaType      PromoTileMediaType @default(IMAGE)
+  /// The optimised, silent MP4, issued by the video upload route.
+  videoUrl       String?
+  /// A frame of that video, shown before it plays and when it cannot.
+  videoPosterUrl String?
 
   updatedById String? @db.Uuid
   updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)

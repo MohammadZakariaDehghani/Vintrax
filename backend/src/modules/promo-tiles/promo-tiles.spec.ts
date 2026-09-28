@@ -104,4 +104,78 @@ describe('the promo tile service', () => {
       expect.objectContaining({ where: { slot: 3 } }),
     );
   });
+
+  describe('as a video', () => {
+    const video = {
+      ...valid,
+      mediaType: 'VIDEO',
+      videoUrl: '/uploads/promo-tiles/v.mp4',
+      videoPosterUrl: '/uploads/promo-tiles/v.webp',
+    };
+    const row = (fields: Record<string, unknown>) => ({
+      imageAlt: null,
+      updatedAt: new Date(),
+      ...fields,
+    });
+
+    it('keeps the layout it had as an image: width, height and slot are the same fields', async () => {
+      const { tiles, prisma } = service();
+      await tiles.save(
+        2,
+        savePromoTileSchema.parse({ ...video, widthSpan: 8, heightPx: 400 }),
+        'admin',
+      );
+      const { create } = prisma.promoTile.upsert.mock.calls[0]![0];
+      expect(create).toMatchObject({
+        slot: 2,
+        widthSpan: 8,
+        heightPx: 400,
+        mediaType: 'VIDEO',
+        videoUrl: video.videoUrl,
+        videoPosterUrl: video.videoPosterUrl,
+        // The photo is kept, as the fallback and for switching back.
+        imageUrl: valid.imageUrl,
+      });
+    });
+
+    it('needs a video before it can be a video tile', () => {
+      expect(() =>
+        savePromoTileSchema.parse({ ...valid, mediaType: 'VIDEO', videoUrl: null }),
+      ).toThrow(/Upload a video/);
+    });
+
+    it('refuses a video or poster from another server', async () => {
+      const { tiles } = service();
+      await expect(
+        tiles.save(1, { ...video, videoUrl: 'https://cdn.example/a.mp4' } as never, 'admin'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        tiles.save(1, { ...video, videoPosterUrl: 'https://cdn.example/a.jpg' } as never, 'admin'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('publishes a video tile without a photo, and not a video tile without a video', async () => {
+      const { tiles } = service([
+        row({ ...video, slot: 1, imageUrl: null }),
+        row({ ...video, slot: 2, videoUrl: null }),
+        row({ ...valid, slot: 3, mediaType: 'IMAGE' }),
+      ]);
+      expect((await tiles.published()).map((tile) => tile.slot)).toEqual([1, 3]);
+    });
+
+    it('leaves the media type alone when a save does not mention it', async () => {
+      const { tiles, prisma } = service();
+      await tiles.save(1, savePromoTileSchema.parse(valid), 'admin');
+      const { update } = prisma.promoTile.upsert.mock.calls[0]![0];
+      expect(update).not.toHaveProperty('mediaType');
+      expect(update).not.toHaveProperty('videoUrl');
+    });
+
+    it('switches back to an image without losing the video', async () => {
+      const { tiles, prisma } = service();
+      await tiles.save(1, savePromoTileSchema.parse({ ...video, mediaType: 'IMAGE' }), 'admin');
+      const { update } = prisma.promoTile.upsert.mock.calls[0]![0];
+      expect(update).toMatchObject({ mediaType: 'IMAGE', videoUrl: video.videoUrl });
+    });
+  });
 });

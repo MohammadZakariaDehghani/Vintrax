@@ -20,6 +20,7 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { IMAGE_STORAGE, LocalImageStorage } from '../../common/storage/image-storage';
 import { StorageService } from '../../common/storage/storage.service';
+import { VideoProcessor } from '../../common/media/video-processor';
 import { validateEnv, type Env } from '../../config/env';
 import { UploadsController } from '../uploads/uploads.controller';
 import { VehiclesController } from '../vehicles/vehicles.controller';
@@ -274,6 +275,8 @@ describe('vehicle photo API', () => {
         { provide: VehicleImagesService, useValue: images },
         { provide: VehiclesService, useValue: vehicles },
         { provide: StorageService, useValue: {} },
+        // The promo video route shares the controller; nothing here uses it.
+        { provide: VideoProcessor, useValue: {} },
         { provide: PrismaService, useValue: db },
         { provide: IMAGE_STORAGE, useValue: new LocalImageStorage(uploadDir) },
         { provide: APP_GUARD, useClass: TestIdentityGuard },

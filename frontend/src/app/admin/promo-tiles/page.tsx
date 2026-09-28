@@ -2,13 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ImagePlus } from 'lucide-react';
+import { Film, ImageIcon, ImagePlus } from 'lucide-react';
 import {
   PROMO_TILE_HEIGHT,
   PROMO_TILE_WIDTHS,
   PROMO_TILE_WIDTH_LABELS,
+  PROMO_VIDEO,
   normalizeFooterHref,
+  promoTileHasMedia,
   type PromoTile,
+  type PromoTileMediaType,
+  type PromoTileVideoUpload,
   type PromoTileWidth,
 } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
@@ -28,6 +32,8 @@ import {
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
 import { PromoTileRow } from '@/components/promo-tiles';
+import { PromoTileVideo } from '@/components/promo-tile-video';
+import { cn } from '@/lib/utils';
 
 /** Blank fields go as null, so clearing one removes it. */
 function payloadFrom(tile: PromoTile) {
@@ -39,6 +45,9 @@ function payloadFrom(tile: PromoTile) {
     widthSpan: tile.widthSpan,
     heightPx: tile.heightPx,
     enabled: tile.enabled,
+    mediaType: tile.mediaType,
+    videoUrl: tile.videoUrl,
+    videoPosterUrl: tile.videoPosterUrl,
   };
 }
 
@@ -62,6 +71,24 @@ function SlotEditor({ tile, onChange }: { tile: PromoTile; onChange: (next: Prom
     onSuccess: (stored) => set('imageUrl', stored.url),
   });
 
+  const videoInput = useRef<HTMLInputElement | null>(null);
+  const [videoInfo, setVideoInfo] = useState<PromoTileVideoUpload | null>(null);
+  const uploadVideo = useMutation({
+    mutationFn: (file: File) =>
+      api.upload<PromoTileVideoUpload>('/uploads/promo-tiles/video', file),
+    onSuccess: (stored) => {
+      setVideoInfo(stored);
+      setSaved(false);
+      onChange({
+        ...tile,
+        mediaType: 'VIDEO',
+        videoUrl: stored.videoUrl,
+        videoPosterUrl: stored.posterUrl,
+      });
+    },
+  });
+  const isVideo = tile.mediaType === 'VIDEO';
+
   const save = useMutation({
     mutationFn: () => api.put<PromoTile>(`/admin/promo-tiles/${tile.slot}`, payloadFrom(tile)),
     onSuccess: (result) => {
@@ -82,16 +109,120 @@ function SlotEditor({ tile, onChange }: { tile: PromoTile; onChange: (next: Prom
         <CardTitle className="text-base">Box {tile.slot}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <ErrorAlert error={upload.error ?? save.error} />
+        <ErrorAlert error={upload.error ?? uploadVideo.error ?? save.error} />
 
-        <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-md border border-dashed border-border bg-muted">
-          {tile.imageUrl ? (
+        <div>
+          <p className="mb-1.5 text-sm font-medium">Media</p>
+          <div
+            className="inline-flex rounded-md border border-border p-0.5"
+            role="radiogroup"
+            aria-label={`Media for box ${tile.slot}`}
+          >
+            {(
+              [
+                ['IMAGE', ImageIcon, 'Image'],
+                ['VIDEO', Film, 'Video'],
+              ] as const
+            ).map(([value, Icon, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={tile.mediaType === value}
+                onClick={() => set('mediaType', value as PromoTileMediaType)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded px-3 py-1.5 text-sm transition-colors',
+                  tile.mediaType === value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Icon className="h-4 w-4" aria-hidden />
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The width and height below apply to either. Switching keeps the other one, so you can
+            switch back.
+          </p>
+        </div>
+
+        <div className="relative grid aspect-[4/3] place-items-center overflow-hidden rounded-md border border-dashed border-border bg-muted">
+          {isVideo && tile.videoUrl ? (
+            <PromoTileVideo
+              key={tile.videoUrl}
+              src={tile.videoUrl}
+              poster={tile.videoPosterUrl}
+              fallbackImageUrl={tile.imageUrl}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : !isVideo && tile.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={tile.imageUrl} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="text-sm text-muted-foreground">No photo — this box is not shown</span>
+            <span className="px-4 text-center text-sm text-muted-foreground">
+              {isVideo ? 'No video — this box is not shown' : 'No photo — this box is not shown'}
+            </span>
           )}
+          {uploadVideo.isPending ? (
+            <div className="absolute inset-0 grid place-items-center bg-background/80 px-4 text-center text-sm">
+              Optimising the video for the web — this can take a minute.
+            </div>
+          ) : null}
         </div>
+
+        {isVideo ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={videoInput}
+                id={`${id}-video`}
+                type="file"
+                accept={PROMO_VIDEO.acceptedTypes.join(',')}
+                className="sr-only"
+                aria-label={`Video for box ${tile.slot}`}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadVideo.mutate(file);
+                  e.target.value = '';
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                loading={uploadVideo.isPending}
+                onClick={() => videoInput.current?.click()}
+              >
+                <Film className="h-4 w-4" aria-hidden />
+                {tile.videoUrl ? 'Replace video' : 'Upload video'}
+              </Button>
+              {tile.videoUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setVideoInfo(null);
+                    onChange({ ...tile, videoUrl: null, videoPosterUrl: null });
+                    setSaved(false);
+                  }}
+                >
+                  Remove
+                </Button>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              MP4, MOV or WebM, up to {PROMO_VIDEO.maxUploadBytes / 1024 / 1024} MB. It plays
+              silently on a loop, filling the box like a photo; sound is removed and anything past{' '}
+              {PROMO_VIDEO.maxSeconds} seconds is cut.
+              {videoInfo
+                ? ` Optimised to ${videoInfo.width}×${videoInfo.height}, ${videoInfo.durationSeconds} s, ${(videoInfo.sizeBytes / 1024 / 1024).toFixed(1)} MB.`
+                : ''}
+            </p>
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -122,6 +253,12 @@ function SlotEditor({ tile, onChange }: { tile: PromoTile; onChange: (next: Prom
               Remove
             </Button>
           ) : null}
+          {isVideo ? (
+            <span className="w-full text-xs text-muted-foreground">
+              Optional for a video: shown if the video cannot play. A frame of the video is used
+              otherwise.
+            </span>
+          ) : null}
         </div>
 
         <Field label="Link" htmlFor={`${id}-link`} hint={linkHint}>
@@ -134,7 +271,7 @@ function SlotEditor({ tile, onChange }: { tile: PromoTile; onChange: (next: Prom
           />
         </Field>
 
-        <Field label="Photo description" htmlFor={`${id}-alt`} hint="Read aloud by screen readers.">
+        <Field label="Description" htmlFor={`${id}-alt`} hint="Read aloud by screen readers.">
           <Input
             id={`${id}-alt`}
             maxLength={160}
@@ -233,9 +370,10 @@ function PromoTilesAdmin() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Home page boxes</h1>
         <p className="text-sm text-muted-foreground">
-          Three photo boxes under the last-search card on the home page. Each links to a page on
-          Vintrax or another website. Choose each box&apos;s width and height; on a phone the boxes
-          stack and keep their shape.
+          Three boxes under the last-search card on the home page, each showing a photo or a silent
+          looping video. Each links to a page on Vintrax or another website. Choose each box&apos;s
+          width and height — they apply to a photo and a video alike; on a phone the boxes stack and
+          keep their shape.
         </p>
       </div>
 
@@ -243,18 +381,20 @@ function PromoTilesAdmin() {
         <CardHeader>
           <CardTitle className="text-base">Preview</CardTitle>
           <CardDescription>
-            As the home page will show them, with your unsaved changes. Hidden boxes and boxes
-            without a photo are left out.
+            As the home page will show them, with your unsaved changes. Hidden boxes, and boxes
+            without their photo or video, are left out.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {preview.some((tile) => tile.imageUrl) ? (
+          {preview.some(promoTileHasMedia) ? (
             // Not clickable here: a slip would leave the editor with unsaved changes.
             <div className="pointer-events-none" aria-hidden>
               <PromoTileRow tiles={preview} />
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Nothing to show yet — upload a photo.</p>
+            <p className="text-sm text-muted-foreground">
+              Nothing to show yet — upload a photo or a video.
+            </p>
           )}
         </CardContent>
       </Card>
