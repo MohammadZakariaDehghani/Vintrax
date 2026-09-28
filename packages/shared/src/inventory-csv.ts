@@ -798,3 +798,55 @@ export interface InventoryImportRecord {
   completedAt: string | null;
   photos: InventoryPhotoProgress;
 }
+
+// --- Writing CSV ---------------------------------------------------------------
+
+/**
+ * Quotes one value for output.
+ *
+ * The leading apostrophe is not cosmetic. A cell beginning `=`, `+`, `-`, `@`
+ * or a control character is executed as a formula when the file is opened in
+ * Excel, Sheets or LibreOffice, which turns an exported listing description
+ * into code running on the dealer's machine. Prefixing neutralises it, and the
+ * apostrophe is not displayed as content by those applications.
+ *
+ * This is applied on export only. On import the same text is data, and stripping
+ * it there would corrupt a legitimate value.
+ */
+export function escapeCsvCell(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return '';
+
+  let text = String(value);
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+
+  if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+/** Joins rows into a CSV document, CRLF-terminated as RFC 4180 specifies. */
+export function toCsv(
+  rows: ReadonlyArray<ReadonlyArray<string | number | null | undefined>>,
+): string {
+  return rows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n');
+}
+
+/**
+ * The rows of an import that need attention — errors and warnings — as a CSV
+ * the dealer can open next to their own file and work through. Escaped like
+ * every other export, since the messages quote the dealer's cell values back.
+ */
+export function importReportCsv(rows: readonly InventoryRowResult[]): string {
+  const flagged = rows.filter((row) => row.errors.length > 0 || row.warnings.length > 0);
+  return toCsv([
+    ['row', 'result', 'vin', 'stock_number', 'vehicle', 'errors', 'warnings'],
+    ...flagged.map((row) => [
+      row.row,
+      row.action === 'ERROR' ? 'SKIPPED' : row.action,
+      row.vin,
+      row.stockNumber,
+      row.vehicle,
+      row.errors.join(' | '),
+      row.warnings.join(' | '),
+    ]),
+  ]);
+}

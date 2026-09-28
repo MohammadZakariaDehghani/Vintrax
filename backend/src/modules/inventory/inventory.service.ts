@@ -94,9 +94,11 @@ export class InventoryService {
    * commercially sensitive fields are absent by construction — the column list
    * is the canonical one, and nothing outside it is emitted.
    */
-  async exportInventory(user: AuthUser): Promise<string> {
+  async exportInventory(user: AuthUser, ids?: readonly string[]): Promise<string> {
     const vehicles = await this.prisma.vehicle.findMany({
-      where: { sellerId: user.id },
+      // `ids` only narrows. The seller filter stays, so an id that belongs to
+      // someone else matches nothing rather than exporting their vehicle.
+      where: { sellerId: user.id, ...(ids ? { id: { in: [...ids] } } : {}) },
       orderBy: [{ createdAt: 'desc' }],
       select: EXPORT_SELECT,
     });
@@ -466,6 +468,7 @@ export class InventoryService {
           tx,
         ),
         sellerId: user.id,
+        source: 'CSV_IMPORT',
         // Never born published, the same rule `VehiclesService.create` follows:
         // publication is a moderation decision, and a CSV must not be a way
         // around it.

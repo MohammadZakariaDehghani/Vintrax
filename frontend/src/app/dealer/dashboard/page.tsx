@@ -28,6 +28,7 @@ import {
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
+import { DealerNav } from '@/components/dealer-nav';
 import { StatTile } from '@/components/stat-tile';
 import { VehicleCard } from '@/components/vehicle-card';
 
@@ -44,6 +45,7 @@ function DealerDashboard() {
   return (
     <div className="container py-8">
       <DashboardNav />
+      <DealerNav />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>

@@ -273,6 +273,8 @@ model User {
 
   vehicleImageAssets VehicleImageAsset[]
 
+  vehicleCostsRecorded VehicleCost[] @relation("VehicleCostRecordedBy")
+
   inventoryImports    InventoryImport[] @relation("InventoryImportSeller")
   inventoryImportsRun InventoryImport[] @relation("InventoryImportInitiator")
 
@@ -455,6 +457,10 @@ model Vehicle {
 
   status      ListingStatus @default(DRAFT)
   saleChannel SaleChannel   @default(FIXED_PRICE)
+  /// How the vehicle entered the seller's inventory. Set once, on create, and
+  /// never by the client: the form writes MANUAL and the CSV importer writes
+  /// CSV_IMPORT. The dealer inventory filters on it.
+  source      VehicleSource @default(MANUAL)
 
   features String[] @default([])
 
@@ -473,6 +479,9 @@ model Vehicle {
   conversations Conversation[]
   auctions      Auction[]
   inspections   VehicleInspection[]
+  /// What the dealer paid to acquire and prepare this vehicle. Private to the
+  /// seller: never selected by any public or buyer-facing query.
+  costs         VehicleCost[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -493,6 +502,63 @@ model Vehicle {
   @@index([sellerId, status])
   @@index([vin])
   @@index([sellerId, vin])
+  // The dealer inventory's default order, and its source filter.
+  @@index([sellerId, updatedAt])
+  @@index([sellerId, source])
+}
+
+enum VehicleSource {
+  MANUAL
+  CSV_IMPORT
+}
+
+enum VehicleCostCategory {
+  PURCHASE
+  AUCTION_FEE
+  TRANSPORTATION
+  INSPECTION
+  MECHANICAL_REPAIR
+  BODY_REPAIR
+  DETAILING
+  PARTS
+  TIRES
+  CERTIFICATION
+  LICENSING
+  OTHER
+}
+
+/// One cost a dealer incurred on a vehicle: what they paid for it, or what it
+/// took to get it ready to sell. A vehicle has any number of these.
+///
+/// Ownership is the vehicle's, and deliberately not repeated here: every read
+/// and write filters through `vehicle.sellerId`, so a cost can never belong to
+/// a different dealer than the car it is recorded against.
+model VehicleCost {
+  id        String  @id @default(uuid()) @db.Uuid
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  category    VehicleCostCategory
+  description String?
+  /// In cents, so $450.75 is exact. Vehicle prices are whole dollars; repair
+  /// invoices are not.
+  amountCents Int
+  /// The date on the invoice, not when it was typed in.
+  incurredOn  DateTime @db.Date
+  vendor      String?
+  reference   String?
+  notes       String?  @db.Text
+
+  /// Who recorded it. Kept if that account is later removed.
+  recordedById String? @db.Uuid
+  recordedBy   User?   @relation("VehicleCostRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vehicleId, incurredOn])
+  @@index([vehicleId, category])
+  @@index([createdAt])
 }
 
 /// One run of the dealer CSV importer. Written on confirm, never on preview.

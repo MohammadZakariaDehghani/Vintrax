@@ -176,9 +176,16 @@ export const api = {
    * Fetches a file the caller is only entitled to with their token, so it
    * cannot be an `<a href>` — the browser would send no Authorization header.
    * The bytes come back as a blob for the caller to save or open.
+   *
+   * With a `body` the request is a POST, for a file built from a selection
+   * too large to spell out in a query string — an export of the rows a dealer
+   * ticked, say.
    */
-  download: async (path: string): Promise<Blob> => {
-    const response = await send(path, { method: 'GET' });
+  download: async (path: string, body?: unknown): Promise<Blob> => {
+    const response = await send(
+      path,
+      body === undefined ? { method: 'GET' } : { method: 'POST', body },
+    );
     if (!response.ok) {
       throw new ApiError(
         response.status,

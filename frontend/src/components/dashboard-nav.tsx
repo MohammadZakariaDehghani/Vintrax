@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2,
+  Calculator,
   Gavel,
   Heart,
   LayoutDashboard,
@@ -28,6 +29,7 @@ const BUYER_LINKS = [
 const SELLER_LINKS = [
   { href: '/dealer/dashboard', label: 'Dealer', icon: Building2 },
   { href: '/dealer/inventory', label: 'Inventory', icon: Package },
+  { href: '/dealer/costs', label: 'Costs', icon: Calculator },
 ] as const;
 
 /**

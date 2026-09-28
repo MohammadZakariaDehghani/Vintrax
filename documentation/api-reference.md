@@ -185,6 +185,29 @@ DEALER, ADMIN and SUPER_ADMIN all hold it and no new permission was added.
 | `GET`  | `/dealer/inventory/imports`         | `vehicle:write` | Past runs, newest first                     |
 | `GET`  | `/dealer/inventory/imports/:id`     | `vehicle:write` | One past run, with per-row outcomes         |
 
+### Dealer portal: inventory table, costs and help
+
+All under `vehicle:write` and scoped to the caller the same way. Another
+dealer's vehicle or cost answers **404**, exactly as a missing one does.
+
+| Method   | Path                                 | Purpose                                                               |
+| -------- | ------------------------------------ | --------------------------------------------------------------------- |
+| `GET`    | `/dealer/inventory`                  | Own vehicles: search, status/make/model/year/price/source, sort, page |
+| `GET`    | `/dealer/inventory/stats`            | Counts by status, inventory value, inventory cost, makes              |
+| `GET`    | `/dealer/inventory/selection`        | Every id matching a filter (up to 2,000), for "select all"            |
+| `POST`   | `/dealer/inventory/export`           | CSV of the given ids; ids not owned are left out                      |
+| `POST`   | `/dealer/inventory/:id/duplicate`    | Copy into a new draft, without VIN, stock number, history or costs    |
+| `GET`    | `/dealer/costs`                      | Cost overview: summary cards and per-vehicle totals and gross margin  |
+| `GET`    | `/dealer/inventory/:vehicleId/costs` | One vehicle's cost entries and totals                                 |
+| `POST`   | `/dealer/inventory/:vehicleId/costs` | Record a cost (`amountCents`, integer cents)                          |
+| `PATCH`  | `/dealer/costs/:costId`              | Change a cost                                                         |
+| `DELETE` | `/dealer/costs/:costId`              | Delete a cost (204)                                                   |
+| `POST`   | `/dealer/help/chat`                  | Ask the help assistant (20 a minute)                                  |
+
+Create, edit, status changes and delete stay on the `/vehicles` routes, whose
+ownership, auction and sold-vehicle guards apply unchanged. Cost bodies are
+strict: a `vehicleId`, `sellerId` or any other unknown field is a 400.
+
 **Ownership is never in the request.** Every route scopes to
 `sellerId: <the authenticated user>`, taken from the JWT. No route accepts a
 seller or dealer id from the query, the body or the file, and the columns that

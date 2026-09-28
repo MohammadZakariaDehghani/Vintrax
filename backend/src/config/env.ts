@@ -122,6 +122,15 @@ const baseEnvSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
 
+  // --- Dealer help assistant ---
+  // Without a provider the assistant still answers, from the help articles
+  // themselves; a provider lets a language model phrase the answer from those
+  // same articles. The key is read here, on the server, and nowhere else.
+  AI_PROVIDER: z.enum(['none', 'anthropic']).default('none'),
+  AI_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().default('claude-opus-5-5'),
+  AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
+
   // --- Rate limiting ---
   RATE_LIMIT_TTL_MS: z.coerce.number().int().min(1000).default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
@@ -159,6 +168,10 @@ export const envSchema = baseEnvSchema
   .refine((env) => env.MAIL_DRIVER !== 'smtp' || (!!env.SMTP_HOST && !!env.SMTP_PORT), {
     message: 'MAIL_DRIVER=smtp requires SMTP_HOST and SMTP_PORT',
     path: ['SMTP_HOST'],
+  })
+  .refine((env) => env.AI_PROVIDER === 'none' || !!env.AI_API_KEY?.trim(), {
+    message: 'AI_PROVIDER requires AI_API_KEY',
+    path: ['AI_API_KEY'],
   });
 
 export type Env = z.infer<typeof envSchema>;
