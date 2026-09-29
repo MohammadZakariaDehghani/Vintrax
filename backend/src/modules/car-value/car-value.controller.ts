@@ -4,9 +4,12 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   type CarValueModelsQuery,
   type CarValueOption,
+  type SimilarCars,
+  type SimilarCarsQuery,
   type VehicleValueEstimate,
   type VehicleValueQuery,
   carValueModelsQuerySchema,
+  similarCarsQuerySchema,
   vehicleValueQuerySchema,
 } from '@vintrax/shared';
 import { Public } from '../../common/decorators';
@@ -34,6 +37,19 @@ export class CarValueController {
   @ApiOperation({ summary: "A make's models the value tool can estimate" })
   models(@Query(zodQuery(carValueModelsQuerySchema)) query: CarValueModelsQuery) {
     return this.carValue.models(query.make);
+  }
+
+  /** Throttled below the global limit, like the estimate: each call ranks every match. */
+  @Public()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Get('similar')
+  @ApiOperation({
+    summary: 'Cars for sale like the given one, closest match first',
+    description:
+      'Every public listing of that make, with a model starting with the given one, within three model years. Trim and mileageKm only change the order.',
+  })
+  similar(@Query(zodQuery(similarCarsQuerySchema)) query: SimilarCarsQuery): Promise<SimilarCars> {
+    return this.carValue.similar(query);
   }
 
   /** Throttled below the global limit: each call reads up to a few hundred listings. */

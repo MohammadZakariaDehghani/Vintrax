@@ -213,6 +213,52 @@ describe('the site settings', () => {
     expect(settings.contactEmail).toBe('hello@vintrax.ca');
   });
 
+  it('keeps the full Google Maps link a share link leads to, not the share link', async () => {
+    const place =
+      'https://www.google.com/maps/place/Vintrax/@43.64,-79.38,17z/data=!3d43.64!4d-79.38';
+    const upsert = jest.fn().mockResolvedValue({});
+    const admin = new AdminService(
+      { siteSettings: { upsert, findUnique: jest.fn().mockResolvedValue(null) } } as never,
+      { del: jest.fn() } as never,
+      {} as never,
+    );
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 302, headers: { location: place } }));
+    try {
+      await admin.updateSiteSettings(
+        siteSettingsSchema.parse({ contactMapUrl: 'https://maps.app.goo.gl/AbC123' }),
+        'admin-1',
+      );
+      expect(fetchSpy).toHaveBeenCalledWith('https://maps.app.goo.gl/AbC123', expect.anything());
+    } finally {
+      fetchSpy.mockRestore();
+    }
+    expect(upsert.mock.calls[0][0].update.contactMapUrl).toBe(place);
+  });
+
+  it('fetches nothing for a full Google Maps link', async () => {
+    const upsert = jest.fn().mockResolvedValue({});
+    const admin = new AdminService(
+      { siteSettings: { upsert, findUnique: jest.fn().mockResolvedValue(null) } } as never,
+      { del: jest.fn() } as never,
+      {} as never,
+    );
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    try {
+      await admin.updateSiteSettings(
+        siteSettingsSchema.parse({ contactMapUrl: 'https://www.google.com/maps?q=1+Main+St' }),
+        'admin-1',
+      );
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+    expect(upsert.mock.calls[0][0].update.contactMapUrl).toBe(
+      'https://www.google.com/maps?q=1+Main+St',
+    );
+  });
+
   it('stores a blank field as nothing, so the page leaves it out', () => {
     const parsed = siteSettingsSchema.parse({
       contactPhone: '',

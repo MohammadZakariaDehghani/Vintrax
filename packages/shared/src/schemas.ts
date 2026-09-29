@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isCarfaxUrl } from './domain';
+import { extractMapUrl, googleMapsEmbedUrl, isGoogleMapsShortLink } from './google-maps';
 import {
   ADDRESS_TYPES,
   ARTICLE_KINDS,
@@ -1004,6 +1005,24 @@ export const vehicleValueQuerySchema = z.object({
 });
 export type VehicleValueQuery = z.infer<typeof vehicleValueQuerySchema>;
 
+/** The most similar cars one page of the value tool's list shows. */
+export const MAX_SIMILAR_PAGE_SIZE = 50;
+
+/**
+ * "Similar cars on Vintrax": every public listing of that make and model near
+ * that year. Kilometres and trim are optional and only change the order.
+ */
+export const similarCarsQuerySchema = z.object({
+  year: z.coerce.number().int().min(MIN_MODEL_YEAR).max(maxModelYear()),
+  make: trimmed(60).min(1),
+  model: trimmed(60).min(1),
+  trim: trimmed(80).min(1).optional(),
+  mileageKm: z.coerce.number().int().min(0).max(2_000_000).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_SIMILAR_PAGE_SIZE).default(20),
+});
+export type SimilarCarsQuery = z.infer<typeof similarCarsQuerySchema>;
+
 // --- Site settings and the Contact page ---------------------------------------
 
 const optionalText = (max: number) =>
@@ -1032,6 +1051,28 @@ export const siteSettingsSchema = z
     contactHours: optionalText(300),
     /** An issued upload URL; the service checks it. */
     contactMapImageUrl: optionalText(500),
+    /**
+     * A Google Maps link to the place, or the code from Share → Embed a map
+     * (its address is kept). A short maps.app.goo.gl link is followed and
+     * replaced by the full link when saved.
+     */
+    contactMapUrl: z
+      .string()
+      .trim()
+      .max(4000)
+      .nullable()
+      .optional()
+      .transform((value) => (value ? extractMapUrl(value) : null))
+      .refine(
+        (value) =>
+          value === null ||
+          (value.length <= 2000 &&
+            (googleMapsEmbedUrl(value) !== null || isGoogleMapsShortLink(value))),
+        {
+          message:
+            'Paste a Google Maps link to a place: in Google Maps, choose Share, then Copy link or Embed a map. A directions link cannot be shown as a map.',
+        },
+      ),
     contactRecipient: z
       .union([emailSchema, z.literal('')])
       .nullable()

@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Info } from 'lucide-react';
 import {
   CREDIT_BANDS,
@@ -13,7 +14,9 @@ import {
   estimateBudget,
   type CreditBand,
   type Province,
+  type VehicleSearchResponse,
 } from '@vintrax/shared';
+import { api } from '@/lib/api-client';
 import { cn, formatPrice } from '@/lib/utils';
 import { Button, Card, CardContent, Field, Input, Select } from '@/components/ui';
 
@@ -81,8 +84,9 @@ function Line({
  * monthly payment, down payment, trade-in, credit band, loan length and
  * province, the most the car itself can cost — and a search for cars under it.
  *
- * Everything is worked out in the browser as the visitor types; nothing they
- * enter about their finances is sent anywhere.
+ * Everything is worked out in the browser as the visitor types. The only
+ * thing sent anywhere is the resulting price cap, as an ordinary search, to
+ * count the cars under it.
  */
 export function BudgetTool() {
   const [monthlyPayment, setMonthlyPayment] = useState(500);
@@ -111,11 +115,26 @@ export function BudgetTool() {
     [monthlyPayment, downPayment, tradeInValue, amountOwed, rate, termMonths, salesTaxRate, fees],
   );
 
+  // The province only sets the sales tax. Cars listed anywhere in Canada are
+  // in the budget, so the search is not limited to it.
   const shopHref = `/vehicles?${new URLSearchParams({
     maxPrice: String(result.maxVehiclePrice),
-    province,
     sort: 'PRICE_DESC',
   }).toString()}`;
+
+  // Counted once the figure stops moving, not on every step of the slider.
+  const [countedPrice, setCountedPrice] = useState(result.maxVehiclePrice);
+  useEffect(() => {
+    const timer = setTimeout(() => setCountedPrice(result.maxVehiclePrice), 400);
+    return () => clearTimeout(timer);
+  }, [result.maxVehiclePrice]);
+  const inBudget = useQuery({
+    queryKey: ['budget-count', countedPrice],
+    queryFn: () => api.get<VehicleSearchResponse>(`/vehicles?maxPrice=${countedPrice}&pageSize=1`),
+    enabled: countedPrice > 0,
+    staleTime: 60_000,
+  });
+  const carCount = countedPrice === result.maxVehiclePrice ? inBudget.data?.total : undefined;
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
@@ -273,10 +292,25 @@ export function BudgetTool() {
               <Line label="Interest over the loan" value={result.totalInterest} />
             </dl>
 
-            {result.maxVehiclePrice > 0 ? (
+            {result.maxVehiclePrice > 0 && carCount === 0 ? (
+              <div className="mt-5">
+                <p className="text-sm text-muted-foreground">
+                  No cars under {formatPrice(result.maxVehiclePrice)} are listed right now. Try a
+                  larger payment or down payment, or see the most affordable cars on Vintrax.
+                </p>
+                <Link href="/vehicles?sort=PRICE_ASC" className="mt-3 block">
+                  <Button variant="outline" className="w-full">
+                    See the most affordable cars
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </Button>
+                </Link>
+              </div>
+            ) : result.maxVehiclePrice > 0 ? (
               <Link href={shopHref} className="mt-5 block">
                 <Button className="w-full">
-                  Shop cars under {formatPrice(result.maxVehiclePrice)}
+                  {carCount === undefined
+                    ? `Shop cars under ${formatPrice(result.maxVehiclePrice)}`
+                    : `Shop ${carCount.toLocaleString('en-CA')} ${carCount === 1 ? 'car' : 'cars'} under ${formatPrice(result.maxVehiclePrice)}`}
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Button>
               </Link>

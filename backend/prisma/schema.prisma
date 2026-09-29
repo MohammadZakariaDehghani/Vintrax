@@ -544,10 +544,10 @@ model VehicleCost {
   /// invoices are not.
   amountCents Int
   /// The date on the invoice, not when it was typed in.
-  incurredOn  DateTime @db.Date
+  incurredOn  DateTime            @db.Date
   vendor      String?
   reference   String?
-  notes       String?  @db.Text
+  notes       String?             @db.Text
 
   /// Who recorded it. Kept if that account is later removed.
   recordedById String? @db.Uuid
@@ -1114,6 +1114,9 @@ model SiteSettings {
   /// An uploaded map or location image. Without one, the Contact page embeds
   /// a map of `contactAddress`.
   contactMapImageUrl String?
+  /// A Google Maps link to the place. When set, the Contact page shows it as a
+  /// live map ahead of `contactMapImageUrl`.
+  contactMapUrl      String?
   /// Where Contact-form messages are emailed. Falls back to `contactEmail`.
   contactRecipient   String?
 

@@ -785,3 +785,26 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 - Upload sessions live in the API process and its temporary directory: at most 3 per administrator and 12 in total, deleted after an hour idle, and lost on restart (the page then says to start again). The API runs as one instance; several would need the sessions in shared storage.
 - `POST /uploads/promo-tiles/video` (one request) remains for small files and scripts.
 
+
+## D-056 — Budget Search Without a Province, Every Similar Car, and a Google Maps Link on Contact
+
+**Status:** Accepted.
+
+**Decision:**
+
+- **Budget tool.** "Shop cars under $X" searches all of Canada. The province picked in the calculator sets the sales tax only; it no longer becomes a search filter. The button counts the cars under the budget (`/vehicles?maxPrice=…&pageSize=1`, once the figure stops moving) and, when there are none, says so and offers the most affordable cars instead of an empty results page.
+- **Car value tool.** A "Similar cars on Vintrax" list appears as soon as a year, make and model are entered — kilometres are not needed for it — from the new `GET /car-value/similar`. It holds every public listing of that make with a model starting with the one typed ("Civic" finds "Civic Hatchback"; "3" does not find "CX-30"), within three model years, closest year first, then the same trim, then the nearest kilometres, 20 to a page. It replaces the six closest cars shown under an estimate, and it also shows when there are too few cars to estimate a value.
+- **Contact page.** Administrators paste a Google Maps link (`contactMapUrl`): a share link, a place or search link, or the code from Share → Embed a map. The page shows it as a live map in a box with the address and an "Open in Google Maps" link, ahead of an uploaded map image and the map drawn from the address.
+
+**Rationale:**
+
+- **The province emptied the budget search.** Ontario is preselected, so every car listed in another province was hidden; with little inventory near the budget in one province, the page came up empty.
+- **"Similar" should mean all of them.** Six cars, shown only after a value was worked out, hid most of what is listed. Matching the start of the model name keeps half-typed and short names ("r", "3") from pulling in unrelated models; "Open in search" uses the vehicle search, which matches anywhere in the name and so can show a few more.
+- **Google refuses to be framed except through its embed addresses.** A place or share link in an iframe shows an error. The page reads the place out of the link (its pin coordinates, name or search) and frames an address it builds on `www.google.com/maps`, so a pasted link never decides what loads in the frame.
+- **Share links need the server.** `maps.app.goo.gl` links say nothing about the place until followed. The API follows them once, on save, by hand and only through Google's own hosts, and stores the full link.
+
+**Consequences:**
+
+- Migration `20260930000000_contact_map_url` adds one nullable column.
+- Saving a share link needs outbound HTTPS from the API to `maps.app.goo.gl`; without it the save answers 400 and asks for the full link or embed code.
+- `VehicleValueEstimate.comparables` is still returned but no longer drawn by the web page.

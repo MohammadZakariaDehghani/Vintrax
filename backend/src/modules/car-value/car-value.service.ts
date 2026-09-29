@@ -3,6 +3,8 @@ import type { Prisma } from '@prisma/client';
 import type {
   CarValueOption,
   ListingStatus,
+  SimilarCars,
+  SimilarCarsQuery,
   VehicleValueEstimate,
   VehicleValueQuery,
 } from '@vintrax/shared';
@@ -23,6 +25,11 @@ const ENOUGH_NEAR = 8;
 const MAX_COMPARABLES = 400;
 /** How many of them the page shows. */
 const SHOWN_COMPARABLES = 6;
+
+/** Listings a buyer can open: the same set the vehicle search shows. */
+const FOR_SALE_STATUSES: ListingStatus[] = ['ACTIVE', 'IN_AUCTION'];
+/** Similar cars ranked per request; far more than any make and model has listed. */
+const MAX_SIMILAR = 1_000;
 
 const OPTIONS_TTL = 600;
 
@@ -62,6 +69,67 @@ export class CarValueService {
         .map((row) => ({ value: row.model, count: row._count._all }))
         .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
     });
+  }
+
+  /**
+   * Every car for sale like the visitor's: that make, a model starting with
+   * theirs ("Civic" finds a "Civic Hatchback", "3" does not find a "CX-30"),
+   * within `WIDE_YEARS` of their year.
+   *
+   * Closest first: nearest model year, then the same trim, then the nearest
+   * kilometres. That order is not something SQL can sort by, so the few
+   * columns it needs are read for every match and one page is then loaded.
+   */
+  async similar(query: SimilarCarsQuery): Promise<SimilarCars> {
+    const from = query.year - WIDE_YEARS;
+    const to = query.year + WIDE_YEARS;
+    const rows = await this.prisma.vehicle.findMany({
+      where: {
+        status: { in: FOR_SALE_STATUSES },
+        make: { equals: query.make, mode: 'insensitive' },
+        model: { startsWith: query.model, mode: 'insensitive' },
+        year: { gte: from, lte: to },
+      },
+      select: { id: true, year: true, trim: true, mileageKm: true, priceCad: true },
+      orderBy: { id: 'asc' },
+      take: MAX_SIMILAR,
+    });
+
+    const trim = query.trim?.toLowerCase();
+    const trimRank = (value: string | null) => (trim && value?.toLowerCase() === trim ? 0 : 1);
+    const kmGap = (value: number) =>
+      query.mileageKm === undefined ? 0 : Math.abs(value - query.mileageKm);
+    rows.sort(
+      (a, b) =>
+        Math.abs(a.year - query.year) - Math.abs(b.year - query.year) ||
+        trimRank(a.trim) - trimRank(b.trim) ||
+        kmGap(a.mileageKm) - kmGap(b.mileageKm) ||
+        a.priceCad - b.priceCad,
+    );
+
+    const total = rows.length;
+    const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
+    const page = Math.min(query.page, totalPages);
+    const ids = rows.slice((page - 1) * query.pageSize, page * query.pageSize).map((row) => row.id);
+    const summaries = ids.length
+      ? await this.prisma.vehicle.findMany({
+          where: { id: { in: ids } },
+          select: vehicleSummarySelect,
+        })
+      : [];
+    const byId = new Map(summaries.map((row) => [row.id, row]));
+
+    return {
+      items: ids
+        .map((id) => byId.get(id))
+        .filter((row): row is NonNullable<typeof row> => Boolean(row))
+        .map((row) => toVehicleSummary(row, new Set())),
+      page,
+      pageSize: query.pageSize,
+      total,
+      totalPages,
+      yearsCompared: { from, to },
+    };
   }
 
   async estimate(query: VehicleValueQuery): Promise<VehicleValueEstimate> {
