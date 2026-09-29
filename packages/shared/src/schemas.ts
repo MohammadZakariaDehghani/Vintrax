@@ -2,6 +2,12 @@ import { z } from 'zod';
 import { isCarfaxUrl } from './domain';
 import { extractMapUrl, googleMapsEmbedUrl, isGoogleMapsShortLink } from './google-maps';
 import {
+  MAX_OWNER_COUNT,
+  MAX_VEHICLE_FEATURES,
+  VEHICLE_AVAILABILITIES,
+  youTubeVideoId,
+} from './vehicle-listing';
+import {
   ADDRESS_TYPES,
   ARTICLE_KINDS,
   ARTICLE_STATUSES,
@@ -232,11 +238,14 @@ export const createVehicleSchema = z.object({
     .trim()
     .toUpperCase()
     .regex(VIN_PATTERN, 'VIN must be 17 characters and exclude I, O and Q')
+    .nullable()
     .optional(),
+  /** The dealer's own stock number; unique within their inventory. */
+  stockNumber: trimmed(50).min(1).nullable().optional(),
 
   make: trimmed(60).min(1),
   model: trimmed(60).min(1),
-  trim: trimmed(60).optional(),
+  trim: trimmed(60).nullable().optional(),
   year: z.coerce.number().int().min(MIN_MODEL_YEAR).max(maxModelYear()),
 
   priceCad: money().refine((value) => value >= 1, { message: 'Price is required' }),
@@ -244,23 +253,51 @@ export const createVehicleSchema = z.object({
   reservePriceCad: money().optional(),
   mileageKm: z.coerce.number().int().min(0).max(2_000_000),
 
+  /**
+   * Reference prices the dealer keeps with the vehicle. None is shown to
+   * buyers: the public price is always `priceCad`, the asking price.
+   */
+  salePriceCad: money().nullable().optional(),
+  msrpCad: money().nullable().optional(),
+  invoicePriceCad: money().nullable().optional(),
+  retailPriceCad: money().nullable().optional(),
+  wholesalePriceCad: money().nullable().optional(),
+
   condition: z.enum(VEHICLE_CONDITIONS),
   bodyType: z.enum(BODY_TYPES),
   transmission: z.enum(TRANSMISSIONS),
   fuelType: z.enum(FUEL_TYPES),
   drivetrain: z.enum(DRIVETRAINS),
 
-  engine: trimmed(80).optional(),
-  engineSizeL: z.coerce.number().min(0).max(20).optional(),
-  cylinders: z.coerce.number().int().min(0).max(16).optional(),
-  doors: z.coerce.number().int().min(0).max(8).optional(),
-  seats: z.coerce.number().int().min(0).max(60).optional(),
-  exteriorColour: trimmed(40).optional(),
-  interiorColour: trimmed(40).optional(),
+  engine: trimmed(80).nullable().optional(),
+  engineSizeL: z.coerce.number().min(0).max(20).nullable().optional(),
+  cylinders: z.coerce.number().int().min(0).max(16).nullable().optional(),
+  doors: z.coerce.number().int().min(0).max(8).nullable().optional(),
+  seats: z.coerce.number().int().min(0).max(60).nullable().optional(),
+  horsepower: z.coerce.number().int().min(1).max(2_000).nullable().optional(),
+  exteriorColour: trimmed(40).nullable().optional(),
+  /** The maker's own name for the paint, e.g. "Satin Silver Metallic". */
+  manufacturerColour: trimmed(30).nullable().optional(),
+  interiorColour: trimmed(40).nullable().optional(),
+  curbWeightLbs: z.coerce.number().int().min(100).max(30_000).nullable().optional(),
+
+  /** Null or absent: the seller has not said. Never assumed either way. */
+  isDamaged: z.boolean().nullable().optional(),
+  ownerCount: z.coerce.number().int().min(1).max(MAX_OWNER_COUNT).nullable().optional(),
+  availability: z.enum(VEHICLE_AVAILABILITIES).nullable().optional(),
+  /** Whether the dealer offers an additional warranty, included in the price. */
+  extendedWarranty: z.boolean().nullable().optional(),
+  /** A YouTube video of the vehicle; the listing frames YouTube's player for it. */
+  videoUrl: trimmed(300)
+    .refine((value) => youTubeVideoId(value) !== null, {
+      message: 'Use a YouTube video or Shorts link, e.g. https://www.youtube.com/watch?v=…',
+    })
+    .nullable()
+    .optional(),
 
   province: z.enum(PROVINCES),
   city: trimmed(80).min(1),
-  postalCode: trimmed(10).optional(),
+  postalCode: trimmed(10).nullable().optional(),
 
   /**
    * The brand on the title.
@@ -302,7 +339,7 @@ export const createVehicleSchema = z.object({
   // Not the full LISTING_STATUSES set: a listing cannot be created published.
   status: z.enum(CREATABLE_LISTING_STATUSES).default('DRAFT'),
 
-  features: z.array(trimmed(60)).max(60).default([]),
+  features: z.array(trimmed(60)).max(MAX_VEHICLE_FEATURES).default([]),
   images: z.array(vehicleImageSchema).max(MAX_LISTING_IMAGES).default([]),
   documents: z.array(vehicleDocumentSchema).max(MAX_VEHICLE_DOCUMENTS).default([]),
 });

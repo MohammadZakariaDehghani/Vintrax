@@ -3,7 +3,13 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { AlertTriangle, ChevronRight, MapPin, ShieldCheck } from 'lucide-react';
 import type { VehicleDetail } from '@vintrax/shared';
-import { ADVERSE_TITLE_STATUSES, TITLE_STATUS_LABELS } from '@vintrax/shared';
+import {
+  ADVERSE_TITLE_STATUSES,
+  TITLE_STATUS_LABELS,
+  VEHICLE_AVAILABILITY_LABELS,
+  ownerCountLabel,
+  youTubeEmbedUrl,
+} from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { formatDate, formatEnum, formatKm, formatLocation, formatPrice } from '@/lib/utils';
 import { vehicleFacts, vehicleSubtitle } from '@/lib/vehicle-facts';
@@ -42,6 +48,8 @@ export default async function VehicleDetailPage({ params }: PageProps) {
   if (!vehicle) notFound();
 
   const facts = vehicleFacts(vehicle);
+  // Framed from the video id alone, on YouTube's no-cookie player.
+  const videoEmbed = vehicle.videoUrl ? youTubeEmbedUrl(vehicle.videoUrl) : null;
 
   const specs: Array<[string, string]> = [
     ['Year', String(vehicle.year)],
@@ -57,12 +65,48 @@ export default async function VehicleDetailPage({ params }: PageProps) {
     ...(vehicle.cylinders
       ? ([['Cylinders', String(vehicle.cylinders)]] as Array<[string, string]>)
       : []),
+    ...(vehicle.horsepower
+      ? ([['Power', `${vehicle.horsepower} hp`]] as Array<[string, string]>)
+      : []),
+    ...(vehicle.doors ? ([['Doors', String(vehicle.doors)]] as Array<[string, string]>) : []),
     ...(vehicle.seats ? ([['Seats', String(vehicle.seats)]] as Array<[string, string]>) : []),
-    ...(vehicle.exteriorColour
-      ? ([['Exterior', vehicle.exteriorColour]] as Array<[string, string]>)
+    ...(vehicle.exteriorColour || vehicle.manufacturerColour
+      ? ([
+          [
+            'Exterior',
+            [
+              vehicle.exteriorColour,
+              vehicle.manufacturerColour ? `(${vehicle.manufacturerColour})` : null,
+            ]
+              .filter(Boolean)
+              .join(' '),
+          ],
+        ] as Array<[string, string]>)
       : []),
     ...(vehicle.interiorColour
       ? ([['Interior', vehicle.interiorColour]] as Array<[string, string]>)
+      : []),
+    ...(vehicle.curbWeightLbs
+      ? ([['Curb weight', `${vehicle.curbWeightLbs.toLocaleString('en-CA')} lbs`]] as Array<
+          [string, string]
+        >)
+      : []),
+    // Stated by the seller; an unanswered question is left out, not shown as "no".
+    ...(vehicle.ownerCount
+      ? ([['Owners', ownerCountLabel(vehicle.ownerCount)]] as Array<[string, string]>)
+      : []),
+    ...(vehicle.isDamaged !== null
+      ? ([['Damaged', vehicle.isDamaged ? 'Yes, per the seller' : 'No, per the seller']] as Array<
+          [string, string]
+        >)
+      : []),
+    ...(vehicle.extendedWarranty
+      ? ([['Warranty', 'Additional warranty included']] as Array<[string, string]>)
+      : []),
+    ...(vehicle.availability
+      ? ([['Availability', VEHICLE_AVAILABILITY_LABELS[vehicle.availability]]] as Array<
+          [string, string]
+        >)
       : []),
     // The three issue #34 asked for, at the end of the table where someone
     // checking paperwork looks. "Not stated" rather than an omitted row for the
@@ -168,6 +212,25 @@ export default async function VehicleDetailPage({ params }: PageProps) {
               </div>
             ))}
           </div>
+
+          {videoEmbed ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Video</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <iframe
+                  src={videoEmbed}
+                  title={`Video of the ${vehicle.title}`}
+                  className="aspect-video w-full rounded-lg border border-border"
+                  loading="lazy"
+                  allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              </CardContent>
+            </Card>
+          ) : null}
 
           <VehicleHistory events={vehicle.historyEvents} vehicle={vehicle} />
 

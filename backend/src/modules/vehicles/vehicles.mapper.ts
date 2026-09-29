@@ -137,6 +137,19 @@ export const vehicleDetailSelect = {
   exteriorColour: true,
   interiorColour: true,
   postalCode: true,
+  horsepower: true,
+  manufacturerColour: true,
+  curbWeightLbs: true,
+  isDamaged: true,
+  ownerCount: true,
+  availability: true,
+  extendedWarranty: true,
+  videoUrl: true,
+  salePriceCad: true,
+  msrpCad: true,
+  invoicePriceCad: true,
+  retailPriceCad: true,
+  wholesalePriceCad: true,
   features: true,
   viewCount: true,
   favouriteCount: true,
@@ -271,7 +284,7 @@ export function toVehicleSummary(
 export function toVehicleDetail(
   row: VehicleDetailRow,
   favouritedIds: ReadonlySet<string>,
-  options: { includeDocuments?: boolean } = {},
+  options: { includeDocuments?: boolean; includeReferencePrices?: boolean } = {},
 ): VehicleDetail {
   const inspection = row.inspections[0];
 
@@ -289,6 +302,24 @@ export function toVehicleDetail(
     exteriorColour: row.exteriorColour,
     interiorColour: row.interiorColour,
     postalCode: row.postalCode,
+    horsepower: row.horsepower,
+    manufacturerColour: row.manufacturerColour,
+    curbWeightLbs: row.curbWeightLbs,
+    isDamaged: row.isDamaged,
+    ownerCount: row.ownerCount,
+    availability: row.availability,
+    extendedWarranty: row.extendedWarranty,
+    videoUrl: row.videoUrl,
+    // What the dealer paid or could get is theirs alone; buyers see priceCad.
+    referencePrices: options.includeReferencePrices
+      ? {
+          salePriceCad: row.salePriceCad,
+          msrpCad: row.msrpCad,
+          invoicePriceCad: row.invoicePriceCad,
+          retailPriceCad: row.retailPriceCad,
+          wholesalePriceCad: row.wholesalePriceCad,
+        }
+      : null,
     features: row.features,
     viewCount: row.viewCount,
     favouriteCount: row.favouriteCount,

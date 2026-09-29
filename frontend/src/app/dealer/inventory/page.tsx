@@ -59,6 +59,7 @@ import { DealerNav } from '@/components/dealer-nav';
 import { StatTile } from '@/components/stat-tile';
 import { InventoryImportFlow } from './import/import-flow';
 import { InventoryCard, InventoryTable, useInvalidateInventory } from './inventory-items';
+import { VehicleSidePanel } from './vehicle-side-panel';
 
 /** The filters, as they live in the address bar. Blank means "any". */
 interface Filters {
@@ -285,6 +286,12 @@ function Inventory() {
         'vintrax-inventory-selection.csv',
       ),
   });
+
+  // The side panel's vehicle lives in the address bar, so a saved listing can
+  // come back to it open, and the browser's back button closes it.
+  const openId = params.get('open');
+  const openVehicle = (id: string) => update({ open: id }, false);
+  const closeVehicle = () => update({ open: null }, false);
 
   const activeFilterCount = FILTER_KEYS.filter((key) => key !== 'q' && filters[key]).length;
   const busy = deleteMany.isPending || statusMany.isPending;
@@ -659,6 +666,7 @@ function Inventory() {
               items={items}
               selected={selected}
               onSelect={toggle}
+              onOpen={openVehicle}
               pageChecked={pageChecked}
               pageIndeterminate={pageIndeterminate}
               onTogglePage={togglePage}
@@ -685,6 +693,7 @@ function Inventory() {
                 vehicle={vehicle}
                 selected={selected}
                 onSelect={toggle}
+                onOpen={openVehicle}
               />
             ))}
           </div>
@@ -797,6 +806,12 @@ function Inventory() {
           page.
         </p>
       </Dialog>
+
+      <VehicleSidePanel
+        vehicleId={openId}
+        item={items.find((item) => item.id === openId)}
+        onClose={closeVehicle}
+      />
     </div>
   );
 }

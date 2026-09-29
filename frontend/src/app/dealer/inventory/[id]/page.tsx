@@ -1,5 +1,5 @@
 import { RequireAuth } from '@/components/require-auth';
-import { VehicleForm } from '@/components/vehicle-form';
+import { EditListing } from '@/components/listing-form/edit-listing';
 import { DealerNav } from '@/components/dealer-nav';
 import { VehicleHistoryEditor } from '@/components/vehicle-history-editor';
 import { VehicleBadgesEditor } from '@/components/vehicle-badges-editor';
@@ -15,7 +15,7 @@ export default async function EditVehiclePage({ params }: { params: Promise<{ id
         <div className="-mb-6">
           <DealerNav />
         </div>
-        <VehicleForm vehicleId={id} />
+        <EditListing vehicleId={id} />
 
         {/* One card for everything that feeds the buyer-facing "Vehicle
             history" block: the five badges and the CARFAX link, and the

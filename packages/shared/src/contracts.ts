@@ -31,6 +31,7 @@ import type {
   VehicleHistoryEventKind,
   TitleStatus,
 } from './domain';
+import type { VehicleAvailability } from './vehicle-listing';
 
 /** Shape returned by every paginated collection endpoint. */
 export interface Paginated<T> {
@@ -249,6 +250,15 @@ export interface VehicleSummary {
   createdAt: string;
 }
 
+/** Prices a dealer keeps with a vehicle for their own reference. */
+export interface VehicleReferencePrices {
+  salePriceCad: number | null;
+  msrpCad: number | null;
+  invoicePriceCad: number | null;
+  retailPriceCad: number | null;
+  wholesalePriceCad: number | null;
+}
+
 export interface VehicleDetail extends VehicleSummary {
   description: string;
   /**
@@ -271,6 +281,20 @@ export interface VehicleDetail extends VehicleSummary {
   exteriorColour: string | null;
   interiorColour: string | null;
   postalCode: string | null;
+  horsepower: number | null;
+  manufacturerColour: string | null;
+  curbWeightLbs: number | null;
+  /** Null: the seller has not said. */
+  isDamaged: boolean | null;
+  ownerCount: number | null;
+  availability: VehicleAvailability | null;
+  extendedWarranty: boolean | null;
+  videoUrl: string | null;
+  /**
+   * The dealer's reference prices. Null for everyone but the seller and
+   * administrators; buyers only ever see `priceCad`.
+   */
+  referencePrices: VehicleReferencePrices | null;
   features: string[];
   viewCount: number;
   favouriteCount: number;

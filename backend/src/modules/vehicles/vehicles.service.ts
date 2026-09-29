@@ -99,7 +99,10 @@ export class VehiclesService {
     const favouritedIds = await this.favouritedIds(viewer?.id, [row.id]);
     // The seller and an admin see the paperwork list; anyone else does not.
     const isOwnerOrAdmin = this.canViewDocuments(row.seller.id, viewer);
-    return toVehicleDetail(row, favouritedIds, { includeDocuments: isOwnerOrAdmin });
+    return toVehicleDetail(row, favouritedIds, {
+      includeDocuments: isOwnerOrAdmin,
+      includeReferencePrices: isOwnerOrAdmin,
+    });
   }
 
   /**
@@ -201,7 +204,12 @@ export class VehiclesService {
     const vehicle = await this.prisma.vehicle.create({
       data: {
         ...fields,
-        slug: await this.uniqueSlug(fields.year, fields.make, fields.model, fields.trim),
+        slug: await this.uniqueSlug(
+          fields.year,
+          fields.make,
+          fields.model,
+          fields.trim ?? undefined,
+        ),
         trim: fields.trim ?? null,
         vin: fields.vin ?? null,
         engine: fields.engine ?? null,

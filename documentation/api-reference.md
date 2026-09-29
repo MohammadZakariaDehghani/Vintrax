@@ -196,13 +196,17 @@ dealer's vehicle or cost answers **404**, exactly as a missing one does.
 | `GET`    | `/dealer/inventory/stats`            | Counts by status, inventory value, inventory cost, makes              |
 | `GET`    | `/dealer/inventory/selection`        | Every id matching a filter (up to 2,000), for "select all"            |
 | `POST`   | `/dealer/inventory/export`           | CSV of the given ids; ids not owned are left out                      |
-| `POST`   | `/dealer/inventory/:id/duplicate`    | Copy into a new draft, without VIN, stock number, history or costs    |
+| `POST`   | `/dealer/inventory/:id/duplicate`    | Copy into a new draft, without VIN, stock number, video, history or costs |
 | `GET`    | `/dealer/costs`                      | Cost overview: summary cards and per-vehicle totals and gross margin  |
 | `GET`    | `/dealer/inventory/:vehicleId/costs` | One vehicle's cost entries and totals                                 |
 | `POST`   | `/dealer/inventory/:vehicleId/costs` | Record a cost (`amountCents`, integer cents)                          |
 | `PATCH`  | `/dealer/costs/:costId`              | Change a cost                                                         |
 | `DELETE` | `/dealer/costs/:costId`              | Delete a cost (204)                                                   |
 | `POST`   | `/dealer/help/chat`                  | Ask the help assistant (20 a minute)                                  |
+
+Each inventory row carries `qualityScore`, the listing-quality score out of
+100 from `listingQuality` in `@vintrax/shared`: photos 40 (full at 10),
+description 20 (full at 300 characters) and vehicle data 40.
 
 Create, edit, status changes and delete stay on the `/vehicles` routes, whose
 ownership, auction and sold-vehicle guards apply unchanged. Cost bodies are
@@ -336,6 +340,28 @@ imports and carries a warning.
 | `GET`          | `/vehicles/:id/documents/:documentId` | seller, admin or the buyer on a live order | Download a document                             |
 | `PUT`/`DELETE` | `/vehicles/:id/favourite`             | ✅                                         | Save or unsave                                  |
 | `GET`          | `/me/favourites`                      | ✅                                         | Saved vehicles                                  |
+| `GET`          | `/vin/:vin`                           | seller (30/min)                            | Decode a VIN: make, model, year, trim, drivetrain |
+
+`GET /vin/:vin` asks NHTSA's vPIC decoder (a fixed address, 8 s timeout) and
+caches each answer for 30 days. It returns `VinDecodeResult` — make, model,
+year, trim, a one-line `style` such as `CR-V 4WD SE Auto (Gasoline, 2.0L)`,
+body type, drivetrain, transmission, fuel, engine, doors, seats and power,
+each null when vPIC did not say — plus `checkDigitValid`. 404 when the VIN
+decodes to nothing; 503 when vPIC is down. vPIC covers vehicles sold in North
+America.
+
+A listing also carries `stockNumber` (unique per seller), `horsepower`,
+`manufacturerColour`, `curbWeightLbs`, `isDamaged` (null = not stated),
+`ownerCount` (1–5, 5 meaning "5 or more"), `availability`
+(`IMMEDIATELY` / `WITHIN_A_WEEK` / `WITHIN_A_MONTH` / `ON_ORDER`),
+`extendedWarranty` and `videoUrl` (a YouTube link only; the listing frames
+YouTube's no-cookie player built from the video id). Optional fields accept
+`null`, which on `PATCH` clears them. `features` takes up to 150 entries.
+
+`salePriceCad`, `msrpCad`, `invoicePriceCad`, `retailPriceCad` and
+`wholesalePriceCad` are the dealer's reference prices. They are written like
+any field but read back only in `referencePrices`, which is null for everyone
+except the seller and administrators; buyers see `priceCad` alone.
 
 ### Photos
 

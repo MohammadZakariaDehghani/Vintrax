@@ -317,7 +317,7 @@ export function VehicleActions({
  * Changing the asking price without opening the full form. The previous price
  * is kept and shown struck through, here and on the public listing.
  */
-function PriceDialog({
+export function PriceDialog({
   vehicle,
   open,
   onClose,
@@ -440,13 +440,40 @@ function StatusCell({ vehicle }: { vehicle: DealerInventoryItem }) {
 interface SelectionProps {
   selected: ReadonlySet<string>;
   onSelect: (id: string, selected: boolean) => void;
+  /** Opens the vehicle in the side panel. */
+  onOpen: (id: string) => void;
+}
+
+/** A click on the row itself, not on a checkbox, link or button inside it. */
+function isRowClick(event: React.MouseEvent): boolean {
+  return !(event.target as HTMLElement).closest('a, button, input, label, select, [role="menu"]');
+}
+
+/** A listing-quality score as a coloured pill: green from 80, amber from 50, red below. */
+export function QualityPill({ score, className }: { score: number; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex min-w-[3.25rem] justify-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
+        className,
+        score >= 80
+          ? 'bg-success/15 text-success'
+          : score >= 50
+            ? 'bg-warning/15 text-warning'
+            : 'bg-primary/10 text-primary',
+      )}
+      title="Listing quality"
+    >
+      {score}%
+    </span>
+  );
 }
 
 function SelectBox({
   vehicle,
   selected,
   onSelect,
-}: SelectionProps & { vehicle: DealerInventoryItem }) {
+}: Omit<SelectionProps, 'onOpen'> & { vehicle: DealerInventoryItem }) {
   return (
     <input
       type="checkbox"
@@ -463,6 +490,7 @@ export function InventoryTable({
   items,
   selected,
   onSelect,
+  onOpen,
   pageChecked,
   pageIndeterminate,
   onTogglePage,
@@ -512,6 +540,9 @@ export function InventoryTable({
               <th scope="col" className="px-3 py-3 text-right">
                 Cost
               </th>
+              <th scope="col" className="px-3 py-3 text-center">
+                Quality
+              </th>
               <th scope="col" className="px-3 py-3">
                 Status
               </th>
@@ -529,8 +560,11 @@ export function InventoryTable({
               return (
                 <tr
                   key={vehicle.id}
+                  onClick={(event) => {
+                    if (isRowClick(event)) onOpen(vehicle.id);
+                  }}
                   className={cn(
-                    'align-middle',
+                    'cursor-pointer align-middle',
                     isSelected ? 'bg-primary/5' : 'hover:bg-secondary/40',
                   )}
                 >
@@ -541,12 +575,13 @@ export function InventoryTable({
                     <Thumb vehicle={vehicle} className="h-12 w-16" />
                   </td>
                   <td className="px-3 py-2">
-                    <Link
-                      href={`/dealer/inventory/${vehicle.id}`}
-                      className="font-semibold hover:text-primary"
+                    <button
+                      type="button"
+                      onClick={() => onOpen(vehicle.id)}
+                      className="text-left font-semibold hover:text-primary"
                     >
                       {vehicle.year} {vehicle.make} {vehicle.model}
-                    </Link>
+                    </button>
                     {vehicle.trim ? (
                       <p className="text-xs text-muted-foreground">{vehicle.trim}</p>
                     ) : null}
@@ -560,6 +595,9 @@ export function InventoryTable({
                   </td>
                   <td className="px-3 py-2 text-right">
                     <CostCell vehicle={vehicle} />
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <QualityPill score={vehicle.qualityScore} />
                   </td>
                   <td className="px-3 py-2">
                     <StatusCell vehicle={vehicle} />
@@ -585,6 +623,7 @@ export function InventoryCard({
   vehicle,
   selected,
   onSelect,
+  onOpen,
 }: SelectionProps & { vehicle: DealerInventoryItem }) {
   const isSelected = selected.has(vehicle.id);
   return (
@@ -596,12 +635,13 @@ export function InventoryCard({
           </div>
           <Thumb vehicle={vehicle} className="h-16 w-24 shrink-0" />
           <div className="min-w-0 flex-1">
-            <Link
-              href={`/dealer/inventory/${vehicle.id}`}
-              className="block truncate font-semibold hover:text-primary"
+            <button
+              type="button"
+              onClick={() => onOpen(vehicle.id)}
+              className="block max-w-full truncate text-left font-semibold hover:text-primary"
             >
               {vehicle.year} {vehicle.make} {vehicle.model}
-            </Link>
+            </button>
             {vehicle.trim ? (
               <p className="truncate text-xs text-muted-foreground">{vehicle.trim}</p>
             ) : null}
@@ -627,6 +667,10 @@ export function InventoryCard({
           <dd className="truncate text-right font-mono">{vehicle.vin ?? '—'}</dd>
           <dt className="text-muted-foreground">Stock #</dt>
           <dd className="text-right">{vehicle.stockNumber ?? '—'}</dd>
+          <dt className="text-muted-foreground">Quality</dt>
+          <dd className="text-right">
+            <QualityPill score={vehicle.qualityScore} />
+          </dd>
           <dt className="text-muted-foreground">Updated</dt>
           <dd className="text-right">{shortDate(vehicle.updatedAt)}</dd>
         </dl>
