@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ArticleSummary } from '@vintrax/shared';
 import { HomeMasthead } from '@/components/home-masthead';
 import { cn } from '@/lib/utils';
@@ -23,7 +22,8 @@ const SWIPE_PX = 50;
  * It advances on its own every few seconds, and stops while the pointer is
  * over it or focus is inside it, so a visitor reading a headline or reaching
  * for its button is not overtaken. With reduced motion requested it does not
- * advance on its own at all; the arrows, the dots and a swipe still work.
+ * advance on its own at all; the dots and a swipe still work. There are no
+ * arrows at the edges: the owner asked for the band to be left clear.
  * Hidden slides are `inert`, so their links are neither tabbable nor read.
  */
 export function HomeMastheadSlider({
@@ -105,24 +105,6 @@ export function HomeMastheadSlider({
 
       {count > 1 ? (
         <>
-          {/* At the viewport's edges, level with the part of the band the
-              search card does not cover. */}
-          <button
-            type="button"
-            onClick={() => go(index - 1)}
-            aria-label="Previous story"
-            className="absolute left-3 top-[calc((100%-7rem)/2)] z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
-          >
-            <ChevronLeft className="h-5 w-5" aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => go(index + 1)}
-            aria-label="Next story"
-            className="absolute right-3 top-[calc((100%-7rem)/2)] z-10 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
-          >
-            <ChevronRight className="h-5 w-5" aria-hidden />
-          </button>
           <div className="absolute inset-x-0 bottom-[6.6rem] z-10 flex justify-center gap-2">
             {articles.map((article, slide) => (
               <button
