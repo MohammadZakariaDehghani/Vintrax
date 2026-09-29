@@ -808,3 +808,30 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 - Migration `20260930000000_contact_map_url` adds one nullable column.
 - Saving a share link needs outbound HTTPS from the API to `maps.app.goo.gl`; without it the save answers 400 and asks for the full link or embed code.
 - `VehicleValueEstimate.comparables` is still returned but no longer drawn by the web page.
+
+## D-057 — Adding a Vehicle: VIN First, One Page of Sections, and a Side Panel
+
+**Status:** Accepted. Modelled on the dealer flow of the large Canadian marketplaces, at the owner's request.
+
+**Decision:**
+
+- **Step 1 is a VIN.** `/dealer/add-vehicle` opens on a card with two tabs: _VIN_ (checked as it is typed, including the check digit, then decoded through `GET /vin/:vin`, which shows the style and "You've entered a 2000 Honda CR-V") and _Make & Model_ for a vehicle without one. "Add the car manually" skips to the form.
+- **Then one page of nine sections** — VIN & model\*, Features, Condition\*, Equipment, Transmission & engine\*, Image & video, Description\*, Price\*, Listing quality — with a vertical timeline beside it. Each section shows a tick when complete, a red "!" while a required part is missing or wrong, and otherwise its number; the section on screen is marked, and a click scrolls to it. On a phone the timeline becomes a row of chips. A bar pinned to the bottom holds Cancel, Save as draft and Publish.
+- **Mandatory fields** are marked with an asterisk and checked beside the field: brand, model, year, body style, a VIN _or_ a stock number, province and city, condition and mileage, fuel, drive and transmission, a description of at least 20 characters, and the asking price. A blank headline becomes "year make model trim".
+- **New data:** stock number on the form, damage (unknown / yes / no), owners, availability, additional warranty, manufacturer colour name, curb weight, horsepower, a YouTube video, colour swatches for the existing colour fields, a grouped equipment catalogue (stored in `features`, so older listings keep theirs), and five reference prices.
+- **The same form edits a listing**, filled in from the saved vehicle; the old one-card form is gone.
+- **The inventory opens a side panel** when a row is clicked (`?open=<id>`): photo with photo, document and view counts; stock number, VIN, condition, mileage, transmission and year; tabs for the standard view (price with an edit pencil, reference prices, listing quality with tips), performance (views, saves, days in stock and live) and a competitor analysis (the same car elsewhere on Vintrax, from `/car-value/similar`, with where the price sits against the median); print a window sticker, use as template, costs, delete; an Active switch; View listing and Edit. The table gains a Quality column.
+
+**Rationale:**
+
+- **Dealers type seventeen characters, not a dozen fields.** vPIC is free, public and authoritative for North American VINs; its answers never change, so each is cached for a month.
+- **One page, not a wizard.** A dealer moves around a listing, fixing a price here and a photo there; a timeline shows at a glance what is missing without hiding the rest behind "Next".
+- **Reference prices stay private.** Invoice and wholesale figures are commercially sensitive; buyers see the asking price only, and the detail response carries the others only for the seller and administrators.
+- **Honest labels.** Publish submits the listing for review — Vintrax listings go live once approved — and the footer says so. The quality score is a transparent formula, not "AI". There is no manufacturer paint catalogue, so the maker's colour name is typed rather than picked.
+
+**Consequences:**
+
+- Migration `20261001000000_vehicle_listing_details` adds nullable columns and one enum; nothing existing changes.
+- The API needs outbound HTTPS to `vpic.nhtsa.dot.gov` for VIN decoding. Without it the decoder answers 503 and the dealer continues with the make and model.
+- "Save as draft" still needs the fields the server requires of any listing; a half-filled draft is not stored.
+- Not built: automatic photo ordering, a "Just listed" tag, and OEM colour lists, which need data Vintrax does not have.

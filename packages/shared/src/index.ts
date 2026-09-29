@@ -7,3 +7,4 @@ export * from './inventory-csv';
 export * from './car-tools';
 export * from './dealer-portal';
 export * from './google-maps';
+export * from './vehicle-listing';

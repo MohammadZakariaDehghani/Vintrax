@@ -1,6 +1,6 @@
 import { RequireAuth } from '@/components/require-auth';
-import { VehicleForm } from '@/components/vehicle-form';
 import { DealerNav } from '@/components/dealer-nav';
+import { AddVehicleFlow } from '@/components/listing-form/add-vehicle-flow';
 
 export const metadata = { title: 'Add a vehicle' };
 
@@ -9,7 +9,7 @@ export default function AddVehiclePage() {
     <RequireAuth sellersOnly>
       <div className="container py-8">
         <DealerNav />
-        <VehicleForm />
+        <AddVehicleFlow />
       </div>
     </RequireAuth>
   );

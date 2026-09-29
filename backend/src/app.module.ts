@@ -35,6 +35,7 @@ import { ContactModule } from './modules/contact/contact.module';
 import { HomeFeaturesModule } from './modules/home-features/home-features.module';
 import { PromoTilesModule } from './modules/promo-tiles/promo-tiles.module';
 import { CarValueModule } from './modules/car-value/car-value.module';
+import { VinModule } from './modules/vin/vin.module';
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { VehicleCostsModule } from './modules/vehicle-costs/vehicle-costs.module';
@@ -89,6 +90,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     HomeFeaturesModule,
     PromoTilesModule,
     CarValueModule,
+    VinModule,
     SearchIndexModule,
     AdminModule,
     HealthModule,

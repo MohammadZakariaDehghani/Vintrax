@@ -385,6 +385,14 @@ model AuthToken {
 // Vehicles
 // ---------------------------------------------------------------------------
 
+/// When a listed vehicle can be handed over.
+enum VehicleAvailability {
+  IMMEDIATELY
+  WITHIN_A_WEEK
+  WITHIN_A_MONTH
+  ON_ORDER
+}
+
 model Vehicle {
   id       String @id @default(uuid()) @db.Uuid
   /// Stable, human-readable URL segment. Unique so it can be routed on directly.
@@ -420,13 +428,36 @@ model Vehicle {
   fuelType     FuelType
   drivetrain   Drivetrain
 
-  engine         String?
-  engineSizeL    Float?
-  cylinders      Int?
-  doors          Int?
-  seats          Int?
-  exteriorColour String?
-  interiorColour String?
+  engine             String?
+  engineSizeL        Float?
+  cylinders          Int?
+  doors              Int?
+  seats              Int?
+  horsepower         Int?
+  exteriorColour     String?
+  /// The maker's own paint name, e.g. "Satin Silver Metallic".
+  manufacturerColour String?
+  interiorColour     String?
+  curbWeightLbs      Int?
+
+  /// Whether the vehicle is damaged. Null: the seller has not said, which is
+  /// not the same as "no" and is never shown as if it were.
+  isDamaged        Boolean?
+  ownerCount       Int?
+  availability     VehicleAvailability?
+  /// An additional warranty the dealer offers, included in the price.
+  extendedWarranty Boolean?
+  /// A YouTube link. The listing frames YouTube's no-cookie player built from
+  /// the video id, never this address itself.
+  videoUrl         String?
+
+  /// Reference prices the dealer keeps with the vehicle. Never returned to
+  /// anyone but the seller and administrators: the public price is `priceCad`.
+  salePriceCad      Int?
+  msrpCad           Int?
+  invoicePriceCad   Int?
+  retailPriceCad    Int?
+  wholesalePriceCad Int?
 
   province   Province
   city       String

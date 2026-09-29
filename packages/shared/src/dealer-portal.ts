@@ -142,6 +142,8 @@ export interface DealerInventoryItem {
   costCount: number;
   /** Whether the vehicle is currently in a live or scheduled auction, which blocks deletion. */
   inLiveAuction: boolean;
+  /** The listing-quality score, 0–100 (`listingQuality`). */
+  qualityScore: number;
   createdAt: string;
   updatedAt: string;
 }
