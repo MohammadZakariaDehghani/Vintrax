@@ -1,10 +1,17 @@
 import { z } from 'zod';
 
-/** Placeholder secrets shipped in .env.example — refused outside development. */
+/**
+ * Placeholder secrets shipped in the example env files — refused in production.
+ * `.env.production.example` and the Kubernetes example use CHANGE_ME…, the
+ * development `.env.example` the dev-only values.
+ */
 const PLACEHOLDER_SECRETS = [
   'dev-only-access-secret-change-me',
   'dev-only-refresh-secret-change-me',
 ];
+export function isPlaceholderSecret(value: string): boolean {
+  return PLACEHOLDER_SECRETS.includes(value) || /^change[_-]?me/i.test(value.trim());
+}
 
 const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -147,20 +154,14 @@ export const envSchema = baseEnvSchema
     message: 'JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different values',
     path: ['JWT_REFRESH_SECRET'],
   })
-  .refine(
-    (env) => env.NODE_ENV !== 'production' || !PLACEHOLDER_SECRETS.includes(env.JWT_ACCESS_SECRET),
-    {
-      message: 'Refusing to start in production with the example JWT_ACCESS_SECRET',
-      path: ['JWT_ACCESS_SECRET'],
-    },
-  )
-  .refine(
-    (env) => env.NODE_ENV !== 'production' || !PLACEHOLDER_SECRETS.includes(env.JWT_REFRESH_SECRET),
-    {
-      message: 'Refusing to start in production with the example JWT_REFRESH_SECRET',
-      path: ['JWT_REFRESH_SECRET'],
-    },
-  )
+  .refine((env) => env.NODE_ENV !== 'production' || !isPlaceholderSecret(env.JWT_ACCESS_SECRET), {
+    message: 'Refusing to start in production with the example JWT_ACCESS_SECRET',
+    path: ['JWT_ACCESS_SECRET'],
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || !isPlaceholderSecret(env.JWT_REFRESH_SECRET), {
+    message: 'Refusing to start in production with the example JWT_REFRESH_SECRET',
+    path: ['JWT_REFRESH_SECRET'],
+  })
   // A misconfigured object store silently falling back to local disk would lose
   // uploads on the next container restart, so fail fast instead.
   .refine((env) => env.STORAGE_DRIVER !== 's3' || (!!env.S3_BUCKET && !!env.S3_ACCESS_KEY_ID), {

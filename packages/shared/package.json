@@ -2,6 +2,7 @@
   "name": "@vintrax/shared",
   "version": "0.1.0",
   "private": true,
+  "sideEffects": false,
   "description": "Domain types and validation schemas shared by the Vintrax API and web app",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

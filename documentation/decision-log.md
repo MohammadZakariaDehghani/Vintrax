@@ -835,3 +835,43 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 - The API needs outbound HTTPS to `vpic.nhtsa.dot.gov` for VIN decoding. Without it the decoder answers 503 and the dealer continues with the make and model.
 - "Save as draft" still needs the fields the server requires of any listing; a half-filled draft is not stored.
 - Not built: automatic photo ordering, a "Just listed" tag, and OEM colour lists, which need data Vintrax does not have.
+
+## D-058 — Security, Performance and SEO Audit Hardening
+
+**Status:** Accepted. The findings, measurements and remaining risks are in `docs/SECURITY-PERFORMANCE-AUDIT.md`, `docs/SECURITY-REPORT.md` and `docs/PERFORMANCE-REPORT.md`.
+
+**Decision:**
+
+- **Sign-in:**
+  - Unknown emails are compared against a real cost-12 bcrypt hash. The old literal was malformed, so it answered at once and revealed which emails have accounts.
+  - Ten failures in fifteen minutes lock sign-in for that account. The counter is kept in Redis under a hash of the email, and the lock fails open if Redis is down.
+- **Tokens:**
+  - JWTs are verified as HS256 only.
+  - A suspended account's access token stops working on every route, not only those that name a permission.
+  - A reset link is claimed atomically. A new link supersedes older ones, and using one invalidates the rest.
+- **Mail:** in production the log driver records only that a message was not sent. It never logs the body, which carries reset links, or the recipient.
+- **Uploads:**
+  - Stored files must match their declared type by magic bytes.
+  - FFmpeg reads uploads only as local MP4/MOV or WebM/Matroska files.
+- **Web and mobile:**
+  - One header set (`packages/shared/next/security-headers.mjs`): a CSP, frame protection, Permissions-Policy (camera allowed only on mobile) and HSTS in production.
+  - `X-Powered-By` is off.
+  - The image optimiser fetches no remote hosts.
+- **Performance and SEO:**
+  - Dashboard charts load on demand.
+  - `@vintrax/shared` and `@vintrax/client` are marked side-effect free, so pages stop carrying every zod schema.
+  - Added robots, a sitemap, canonical links, `metadataBase` (from `SITE_URL`, else `APP_URL`) and schema.org `Car` data built only from what a listing states.
+- **Operations:**
+  - The demo seed refuses a production database unless `ALLOW_DEMO_SEED=true`.
+  - Placeholder JWT secrets are refused in production, and secrets under 32 characters are warned about.
+  - Health checks have a 3 s timeout and are not rate-limited.
+  - Dependency advisories are cleared (nodemailer 10, vitest 4, overrides for multer, js-yaml and qs).
+
+**Rationale:** each change closes a specific finding without changing an API contract or a screen. Where the fix would have changed architecture (tokens in `localStorage`, a Redis-backed rate limiter, CSP nonces), the risk is documented instead.
+
+**Consequences:**
+
+- Production must set `MAIL_DRIVER=smtp`, or password reset cannot work. With `log` the API now says so in its log.
+- An attacker who knows an email can lock that account's sign-in for fifteen minutes at a time. Password reset still works.
+- The web container reads `SITE_URL` (compose passes `APP_URL`) for absolute URLs.
+- Remote (S3/CDN) photos on mobile are drawn without the Next image optimiser.

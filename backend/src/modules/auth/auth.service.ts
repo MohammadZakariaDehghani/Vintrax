@@ -2,6 +2,8 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -20,6 +22,7 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
 import { AuditService } from '../../common/audit/audit.service';
+import { RedisService } from '../../common/redis/redis.service';
 import type {
   AccessTokenPayload,
   AuthUser,
@@ -32,8 +35,25 @@ const BCRYPT_ROUNDS = 12;
 const EMAIL_VERIFICATION_TTL_HOURS = 24;
 const PASSWORD_RESET_TTL_MINUTES = 60;
 
-/** A bcrypt hash of an impossible password, for constant-time login failure. */
-const DUMMY_HASH = '$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidin';
+/** Sign-in failures an account may have in the window before it is locked for the rest of it. */
+const LOGIN_MAX_FAILURES = 10;
+const LOGIN_LOCKOUT_MINUTES = 15;
+
+/**
+ * A real bcrypt hash of a random password, at the same cost as stored ones,
+ * compared against when the email is unknown so a bad email and a bad
+ * password take the same time to answer.
+ *
+ * It has to be well-formed: bcrypt returns at once for a malformed hash, and
+ * the literal that used to stand here was 65 characters long — so unknown
+ * emails were answered in about a millisecond and registered ones in about
+ * 350, which told anyone timing the endpoint which addresses have accounts.
+ */
+let dummyHash: Promise<string> | undefined;
+function getDummyHash(): Promise<string> {
+  dummyHash ??= bcrypt.hash(randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
+  return dummyHash;
+}
 
 export interface RequestContext {
   ipAddress?: string | null;
@@ -51,7 +71,11 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly mail: MailService,
     private readonly audit: AuditService,
-  ) {}
+    private readonly redis: RedisService,
+  ) {
+    // Computed now, so the first unknown-email sign-in is not the slow one.
+    void getDummyHash();
+  }
 
   async register(input: RegisterInput, context: RequestContext = {}): Promise<AuthResponse> {
     const existing = await this.prisma.user.findUnique({
@@ -115,6 +139,18 @@ export class AuthService {
   }
 
   async login(input: LoginInput, context: RequestContext = {}): Promise<AuthResponse> {
+    // The per-IP throttle stops one machine guessing; this stops many machines
+    // guessing one account's password. Checked before bcrypt, so a locked
+    // account also costs the server nothing.
+    const failuresKey = `auth:login-failures:${this.hashToken(input.email.toLowerCase())}`;
+    const failures = (await this.redis.get<number>(failuresKey)) ?? 0;
+    if (failures >= LOGIN_MAX_FAILURES) {
+      throw new HttpException(
+        `Too many failed sign-in attempts. Try again in ${LOGIN_LOCKOUT_MINUTES} minutes, or reset your password.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { email: input.email },
       select: {
@@ -128,11 +164,16 @@ export class AuthService {
 
     // Compare against a dummy hash when the user is missing, so a bad email and
     // a bad password take about the same time to answer.
-    const passwordMatches = await bcrypt.compare(input.password, user?.passwordHash ?? DUMMY_HASH);
+    const passwordMatches = await bcrypt.compare(
+      input.password,
+      user?.passwordHash ?? (await getDummyHash()),
+    );
 
     if (!user || !passwordMatches) {
+      await this.redis.increment(failuresKey, LOGIN_LOCKOUT_MINUTES * 60);
       throw new UnauthorizedException('Invalid email or password');
     }
+    await this.redis.del(failuresKey);
 
     if (user.status === 'SUSPENDED') {
       throw new UnauthorizedException('This account is suspended. Contact support.');
@@ -170,6 +211,7 @@ export class AuthService {
     try {
       payload = await this.jwt.verifyAsync<RefreshTokenPayload>(refreshToken, {
         secret: this.config.get('JWT_REFRESH_SECRET', { infer: true }),
+        algorithms: ['HS256'],
       });
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -267,6 +309,13 @@ export class AuthService {
     });
     if (!user) return;
 
+    // Supersede any outstanding reset link so only the newest one works, as
+    // email verification does.
+    await this.prisma.authToken.updateMany({
+      where: { userId: user.id, type: 'PASSWORD_RESET', consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+
     const { token, tokenHash } = this.generateToken();
 
     await this.prisma.authToken.create({
@@ -297,21 +346,30 @@ export class AuthService {
       throw new BadRequestException('This reset link is invalid or has expired');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: record.userId },
-        data: { passwordHash: await bcrypt.hash(input.password, BCRYPT_ROUNDS) },
-      }),
-      this.prisma.authToken.update({
-        where: { id: record.id },
-        data: { consumedAt: new Date() },
-      }),
+    const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      // Claim the token with a conditional update, so two requests racing with
+      // the same link cannot both set a password: the second finds it consumed.
+      const claimed = await tx.authToken.updateMany({
+        where: { id: record.id, consumedAt: null, expiresAt: { gt: now } },
+        data: { consumedAt: now },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('This reset link is invalid or has expired');
+      }
+      await tx.user.update({ where: { id: record.userId }, data: { passwordHash } });
+      // Any other outstanding reset link for the account stops working too.
+      await tx.authToken.updateMany({
+        where: { userId: record.userId, type: 'PASSWORD_RESET', consumedAt: null },
+        data: { consumedAt: now },
+      });
       // Anyone holding a session from before the reset loses it.
-      this.prisma.refreshToken.updateMany({
+      await tx.refreshToken.updateMany({
         where: { userId: record.userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      }),
-    ]);
+        data: { revokedAt: now },
+      });
+    });
 
     await this.audit.record({
       actorId: record.userId,

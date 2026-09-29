@@ -15,6 +15,12 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { QueueService, QUEUE_NAMES } from '../../common/queue/queue.service';
 import { isAdmin, type AuthUser } from '../../common/auth/auth-user';
 
+/** Listing statuses anyone may see; the same rule VehiclesService applies. */
+const PUBLICLY_VISIBLE: readonly string[] = ['ACTIVE', 'IN_AUCTION', 'SOLD'];
+function isPubliclyVisible(status: string | undefined): boolean {
+  return !!status && PUBLICLY_VISIBLE.includes(status);
+}
+
 const inspectionDetailSelect = {
   id: true,
   vehicleId: true,
@@ -143,30 +149,44 @@ export class InspectionsService {
     });
     if (!row) throw new NotFoundException('Inspection not found');
 
-    // An in-progress report is visible only to its inspector, the vehicle's
-    // seller, and admins — a half-finished condition report is misleading.
-    if (row.status !== 'COMPLETED') {
-      const vehicle = await this.prisma.vehicle.findUnique({
-        where: { id: row.vehicleId },
-        select: { sellerId: true },
-      });
-      const permitted =
-        viewer &&
-        (isAdmin(viewer.role) || viewer.role === 'INSPECTOR' || vehicle?.sellerId === viewer.id);
-      if (!permitted) throw new NotFoundException('Inspection not found');
+    // A report is public only once it is complete and the vehicle itself is
+    // public. Otherwise only its inspector, the vehicle's seller and admins see
+    // it: a half-finished condition report is misleading, and a report on a
+    // listing still under review or withdrawn would reveal the car.
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: row.vehicleId },
+      select: { sellerId: true, status: true },
+    });
+    const isPublic = row.status === 'COMPLETED' && isPubliclyVisible(vehicle?.status);
+    if (!isPublic && !this.isPrivileged(viewer, vehicle?.sellerId)) {
+      throw new NotFoundException('Inspection not found');
     }
 
     return this.toDetail(row);
   }
 
-  /** The completed report attached to a vehicle, if any. */
-  async findForVehicle(vehicleId: string): Promise<InspectionDetail | null> {
+  /** The completed report attached to a vehicle, if any, on the same terms as findById. */
+  async findForVehicle(vehicleId: string, viewer?: AuthUser): Promise<InspectionDetail | null> {
+    const vehicle = await this.prisma.vehicle.findUnique({
+      where: { id: vehicleId },
+      select: { sellerId: true, status: true },
+    });
+    if (!vehicle) return null;
+    if (!isPubliclyVisible(vehicle.status) && !this.isPrivileged(viewer, vehicle.sellerId)) {
+      return null;
+    }
     const row = await this.prisma.vehicleInspection.findFirst({
       where: { vehicleId, status: 'COMPLETED' },
       orderBy: { completedAt: 'desc' },
       select: inspectionDetailSelect,
     });
     return row ? this.toDetail(row) : null;
+  }
+
+  private isPrivileged(viewer: AuthUser | undefined, sellerId: string | undefined): boolean {
+    return (
+      !!viewer && (isAdmin(viewer.role) || viewer.role === 'INSPECTOR' || sellerId === viewer.id)
+    );
   }
 
   /** The calling inspector's assignments. */

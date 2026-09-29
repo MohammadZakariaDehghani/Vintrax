@@ -17,11 +17,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticle(slug);
-  if (!article) return { title: 'Not found — Vintrax' };
+  if (!article) return { title: 'Not found' };
 
   return {
-    title: `${article.title} — Vintrax`,
+    // The layout's title template adds "· Vintrax".
+    title: article.title,
     description: article.subtitle ?? undefined,
+    alternates: { canonical: `/blog/${article.slug}` },
     openGraph: {
       title: article.title,
       description: article.subtitle ?? undefined,

@@ -1,9 +1,11 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { securityHeaders } from '../packages/shared/next/security-headers.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 const API_ORIGIN = process.env.API_ORIGIN ?? 'http://127.0.0.1:3001';
+const dev = process.env.NODE_ENV !== 'production';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -19,15 +21,21 @@ const nextConfig = {
   transpilePackages: ['@vintrax/shared', '@vintrax/client'],
   eslint: { ignoreDuringBuilds: false },
   typescript: { ignoreBuildErrors: false },
+  // `X-Powered-By: Next.js` tells a scanner which exploits to try first.
+  poweredByHeader: false,
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-      { protocol: 'http', hostname: 'localhost' },
-      { protocol: 'http', hostname: '127.0.0.1' },
-    ],
+    // No remote patterns: the optimiser fetches only this app's own paths
+    // (/uploads through the rewrite below, and bundled assets). It used to
+    // allow every https host, which made /_next/image a proxy that would
+    // fetch, decode and resize any image on the internet for anyone who
+    // asked. Photos on an absolute URL (an S3 bucket or CDN) are drawn
+    // unoptimised instead; the API has already made their sized variants.
+    remotePatterns: [],
   },
   async headers() {
     return [
+      // The dealer's in-page viewfinder for vehicle photos opens the camera.
+      { source: '/:path*', headers: securityHeaders({ dev, camera: true }) },
       {
         // The service worker must not be cached, or an install keeps serving
         // the previous one and the app never updates.

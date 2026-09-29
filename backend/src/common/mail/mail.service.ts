@@ -27,15 +27,32 @@ export class MailService {
   private readonly driver: 'log' | 'smtp';
   private readonly from: string;
   private readonly appUrl: string;
+  /**
+   * Whether the log driver may print message bodies. Bodies carry one-time
+   * verification and password-reset links, so in production — where logs are
+   * shipped, retained and read by more people than the account holder — only
+   * the envelope is written.
+   */
+  private readonly logBodies: boolean;
 
   constructor(private readonly config: ConfigService<Env, true>) {
     this.driver = this.config.get('MAIL_DRIVER', { infer: true });
     this.from = this.config.get('MAIL_FROM', { infer: true });
     this.appUrl = this.config.get('APP_URL', { infer: true }).replace(/\/$/, '');
+    this.logBodies = this.config.get('NODE_ENV', { infer: true }) !== 'production';
+    if (this.driver === 'log' && !this.logBodies) {
+      this.logger.warn(
+        'MAIL_DRIVER=log in production: no email will be delivered. Set MAIL_DRIVER=smtp.',
+      );
+    }
   }
 
   async send(message: MailMessage): Promise<void> {
     if (this.driver === 'log') {
+      if (!this.logBodies) {
+        this.logger.warn(`Email not sent (MAIL_DRIVER=log): "${message.subject}"`);
+        return;
+      }
       this.logger.log(
         `\n--- email (${this.from} -> ${message.to}) ---\n` +
           (message.replyTo ? `Reply-To: ${message.replyTo}\n` : '') +
@@ -45,21 +62,36 @@ export class MailService {
     }
 
     try {
-      // nodemailer is loaded lazily so the log driver carries no SMTP dependency.
-      const { createTransport } = await import('nodemailer');
-      const transport = createTransport({
-        host: this.config.get('SMTP_HOST', { infer: true }),
-        port: this.config.get('SMTP_PORT', { infer: true }),
-        secure: this.config.get('SMTP_PORT', { infer: true }) === 465,
-        auth: {
-          user: this.config.get('SMTP_USER', { infer: true }),
-          pass: this.config.get('SMTP_PASSWORD', { infer: true }),
-        },
-      });
+      const transport = await this.transport();
       await transport.sendMail({ from: this.from, ...message });
     } catch (error) {
-      this.logger.error(`Failed to send email to ${message.to}: ${String(error)}`);
+      this.logger.error(`Failed to send email "${message.subject}": ${String(error)}`);
     }
+  }
+
+  private transporter?: Promise<import('nodemailer').Transporter>;
+
+  /** One pooled SMTP connection for the process, rather than a handshake per email. */
+  private transport(): Promise<import('nodemailer').Transporter> {
+    this.transporter ??= import('nodemailer')
+      // nodemailer is loaded lazily so the log driver carries no SMTP dependency.
+      .then(({ createTransport }) =>
+        createTransport({
+          pool: true,
+          host: this.config.get('SMTP_HOST', { infer: true }),
+          port: this.config.get('SMTP_PORT', { infer: true }),
+          secure: this.config.get('SMTP_PORT', { infer: true }) === 465,
+          auth: {
+            user: this.config.get('SMTP_USER', { infer: true }),
+            pass: this.config.get('SMTP_PASSWORD', { infer: true }),
+          },
+        }),
+      )
+      .catch((error: unknown) => {
+        this.transporter = undefined;
+        throw error;
+      });
+    return this.transporter;
   }
 
   async sendEmailVerification(to: string, token: string, firstName: string): Promise<void> {

@@ -3,15 +3,6 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Car, DollarSign, Eye, MessageSquare, Plus } from 'lucide-react';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import type { DealerAnalytics } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatCompact, formatPrice } from '@/lib/utils';
@@ -29,6 +20,7 @@ import {
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { DealerNav } from '@/components/dealer-nav';
+import { SeriesChart } from '@/components/charts';
 import { StatTile } from '@/components/stat-tile';
 import { VehicleCard } from '@/components/vehicle-card';
 
@@ -104,35 +96,13 @@ function DealerDashboard() {
           </CardHeader>
           <CardContent>
             {data && data.viewsSeries.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={data.viewsSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: 8,
-                      color: 'hsl(var(--popover-foreground))',
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary) / 0.18)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <SeriesChart
+                data={data.viewsSeries}
+                kind="area"
+                tone="primary"
+                height={220}
+                allowDecimals={false}
+              />
             ) : (
               <EmptyState
                 title="No activity yet"
@@ -148,32 +118,13 @@ function DealerDashboard() {
           </CardHeader>
           <CardContent>
             {data && data.salesSeries.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={data.salesSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip
-                    formatter={(value: number) => formatPrice(value)}
-                    contentStyle={{
-                      background: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: 8,
-                      color: 'hsl(var(--popover-foreground))',
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="hsl(var(--accent))"
-                    fill="hsl(var(--accent) / 0.18)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <SeriesChart
+                data={data.salesSeries}
+                kind="area"
+                tone="accent"
+                height={220}
+                formatValue={formatPrice}
+              />
             ) : (
               <EmptyState title="No sales yet" description="Completed sales appear here." />
             )}

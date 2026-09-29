@@ -60,16 +60,15 @@ server {
     # before the API can explain why.
     client_max_body_size 16m;
 
-    # Only add headers the application does not already set. The API sends its
-    # own CSP, HSTS, X-Frame-Options and X-Content-Type-Options through helmet,
-    # and duplicating them here produces two headers, which some browsers treat
-    # as the intersection and others as a parse error.
-    add_header X-Content-Type-Options nosniff always;
-    add_header Referrer-Policy strict-origin-when-cross-origin always;
-    # HSTS belongs on the TLS server block. Uncomment after certbot has run and
-    # you have confirmed every subdomain is on HTTPS — a wrong preload is very
-    # hard to undo.
-    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # No security headers here: both applications set their own. The API sends
+    # CSP, HSTS, X-Frame-Options, X-Content-Type-Options and Referrer-Policy
+    # through helmet; the web and mobile apps send CSP, HSTS, X-Frame-Options,
+    # X-Content-Type-Options, Referrer-Policy and Permissions-Policy from
+    # next.config.mjs (packages/shared/next/security-headers.mjs). Adding them
+    # here as well would send each one twice, which some browsers treat as the
+    # intersection and others as a parse error — and nginx drops server-level
+    # add_header lines in any location that has one of its own, such as
+    # /uploads/ and /_next/static/ below, so they were never complete anyway.
 
     # Do not advertise the exact nginx version in error pages and headers.
     server_tokens off;
@@ -177,8 +176,7 @@ server {
     server_name m.vintrax.example.com;
 
     client_max_body_size 16m;
-    add_header X-Content-Type-Options nosniff always;
-    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    # Security headers come from the apps; see the first server block.
     server_tokens off;
 
     gzip on;

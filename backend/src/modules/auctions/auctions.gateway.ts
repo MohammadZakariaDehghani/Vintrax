@@ -65,6 +65,7 @@ export class AuctionsGateway implements OnGatewayConnection, OnGatewayDisconnect
       try {
         const payload = await this.jwt.verifyAsync<AccessTokenPayload>(token, {
           secret: this.config.get('JWT_ACCESS_SECRET', { infer: true }),
+          algorithms: ['HS256'],
         });
         client.data['userId'] = payload.sub;
       } catch {

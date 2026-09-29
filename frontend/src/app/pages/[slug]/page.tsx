@@ -17,11 +17,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const page = await getPage(slug);
-  if (!page) return { title: 'Not found — Vintrax' };
+  if (!page) return { title: 'Not found' };
 
   return {
-    title: `${page.title} — Vintrax`,
+    // The layout's title template adds "· Vintrax".
+    title: page.title,
     description: page.subtitle ?? undefined,
+    alternates: { canonical: `/pages/${page.slug}` },
     openGraph: {
       title: page.title,
       description: page.subtitle ?? undefined,

@@ -25,6 +25,12 @@ import { UsersService } from '../users/users.service';
 
 /** Credential endpoints get a tighter budget than the global default. */
 const CREDENTIAL_THROTTLE = { default: { limit: 10, ttl: 60_000 } };
+/**
+ * Token endpoints: the tokens are too long to guess, but each call still costs
+ * a database round trip, so they get a budget a real client never reaches
+ * (a few tabs refreshing every 15 minutes) and a script soon does.
+ */
+const TOKEN_THROTTLE = { default: { limit: 30, ttl: 60_000 } };
 
 @ApiTags('auth')
 @Controller('auth')
@@ -66,6 +72,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(TOKEN_THROTTLE)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rotate a refresh token for a new token pair' })
@@ -126,6 +133,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(TOKEN_THROTTLE)
   @Post('email/verify')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Confirm an email address' })

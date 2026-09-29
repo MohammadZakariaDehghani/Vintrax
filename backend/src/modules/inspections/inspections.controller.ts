@@ -41,8 +41,9 @@ export class InspectionsController {
   @ApiOperation({ summary: 'Return the completed inspection report for a vehicle' })
   findForVehicle(
     @Param('vehicleId', ParseUUIDPipe) vehicleId: string,
+    @CurrentUser() viewer?: AuthUser,
   ): Promise<InspectionDetail | null> {
-    return this.inspections.findForVehicle(vehicleId);
+    return this.inspections.findForVehicle(vehicleId, viewer);
   }
 
   @Public()

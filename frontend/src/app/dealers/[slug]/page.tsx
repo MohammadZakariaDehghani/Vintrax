@@ -22,6 +22,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description:
       dealer.description?.slice(0, 160) ??
       `${dealer.name} — inventory on Vintrax, Canada's auto marketplace.`,
+    alternates: { canonical: `/dealers/${dealer.slug}` },
   };
 }
 

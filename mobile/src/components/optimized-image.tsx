@@ -19,6 +19,14 @@ import { cn } from '@/lib/format';
  * `priority` is for the first photo on a vehicle page, the largest paint:
  * eager, at high fetch priority. Everything else is lazy.
  */
+/**
+ * Whether a photo lives on another origin (an S3 bucket or CDN). Those are
+ * drawn as they are: the image optimiser only fetches this app's own paths.
+ */
+export function isRemoteImage(src: string): boolean {
+  return /^(https?:)?\/\//i.test(src);
+}
+
 export function OptimizedImage({
   image,
   src,
@@ -36,7 +44,15 @@ export function OptimizedImage({
 }) {
   if (!image) {
     return (
-      <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={className} />
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes={sizes}
+        priority={priority}
+        unoptimized={isRemoteImage(src)}
+        className={className}
+      />
     );
   }
 

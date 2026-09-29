@@ -15,6 +15,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
+      // Tokens are only ever signed with HS256 (JwtModule's default); refusing
+      // every other algorithm closes off algorithm-confusion attacks.
+      algorithms: ['HS256'],
       secretOrKey: config.get('JWT_ACCESS_SECRET', { infer: true }),
     });
   }
@@ -42,6 +45,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user) throw new UnauthorizedException('Account no longer exists');
     if (user.status === 'DEACTIVATED') {
       throw new UnauthorizedException('This account has been deactivated');
+    }
+    // Suspension revokes refresh tokens, but an access token already issued
+    // would otherwise keep working on routes that ask for no permission (the
+    // profile, favourites, …) until it expired. A 401 makes the client try to
+    // refresh, which fails, and it signs out. Public routes are unaffected:
+    // JwtAuthGuard treats them as anonymous.
+    if (user.status === 'SUSPENDED') {
+      throw new UnauthorizedException('This account is suspended');
     }
 
     return {
