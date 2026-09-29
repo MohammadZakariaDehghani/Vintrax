@@ -281,7 +281,7 @@ export function VehicleSidePanel({
                 <div
                   role="tablist"
                   aria-label="Vehicle views"
-                  className="mt-5 flex gap-6 overflow-x-auto"
+                  className="mt-5 flex gap-6 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                   {(
                     [
@@ -297,7 +297,7 @@ export function VehicleSidePanel({
                       aria-selected={tab === value}
                       onClick={() => setTab(value)}
                       className={cn(
-                        '-mb-px whitespace-nowrap border-b-2 pb-3 text-sm font-medium',
+                        'whitespace-nowrap border-b-2 pb-3 text-sm font-medium',
                         tab === value
                           ? 'border-primary text-foreground'
                           : 'border-transparent text-muted-foreground hover:text-foreground',

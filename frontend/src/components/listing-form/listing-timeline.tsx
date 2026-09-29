@@ -112,7 +112,7 @@ export function ListingTimeline({
       {/* Phone and tablet: the same sections as a scrolling row of chips. */}
       <nav
         aria-label="Listing sections"
-        className="sticky top-16 z-20 -mx-4 overflow-x-auto border-b border-border bg-background/95 px-4 py-2 backdrop-blur lg:hidden"
+        className="sticky top-16 z-20 -mx-4 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-b border-border bg-background/95 px-4 py-2 backdrop-blur lg:hidden"
       >
         <ol className="flex w-max gap-2">
           {sections.map((section, index) => {
