@@ -11,7 +11,6 @@ import { AppModule } from './app.module';
 import { parseCorsOrigins, type Env } from './config/env';
 import { PUBLIC_UPLOAD_FOLDERS } from './common/storage/public-upload-folders';
 
-
 /**
  * Folders whose files are never overwritten: every key is a fresh UUID, and a
  * replaced photo gets a new one. That is the condition under which telling
@@ -30,6 +29,17 @@ async function bootstrap(): Promise<void> {
   const nodeEnv = config.get('NODE_ENV', { infer: true });
   const storageDriver = config.get('STORAGE_DRIVER', { infer: true });
   const uploadDir = resolve(config.get('UPLOAD_DIR', { infer: true }));
+  const logger = new Logger('Bootstrap');
+
+  // Placeholders are refused outright (config/env.ts). A short secret is only
+  // warned about, so an existing deployment keeps starting while it rotates.
+  if (nodeEnv === 'production') {
+    for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+      if (config.get(key, { infer: true }).length < 32) {
+        logger.warn(`${key} is shorter than 32 characters; rotate it (openssl rand -base64 48).`);
+      }
+    }
+  }
 
   app.setGlobalPrefix('api');
 
@@ -98,7 +108,6 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
   await app.listen(port, '0.0.0.0');
 
-  const logger = new Logger('Bootstrap');
   logger.log(`Vintrax API listening on http://localhost:${port}/api`);
   logger.log(`WebSocket namespace: ws://localhost:${port}/auctions`);
   if (nodeEnv !== 'production') {

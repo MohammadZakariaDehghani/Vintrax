@@ -2,6 +2,7 @@
   "name": "@vintrax/client",
   "version": "0.1.0",
   "private": true,
+  "sideEffects": false,
   "description": "API client, session store and display formatting shared by the Vintrax web and mobile applications",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

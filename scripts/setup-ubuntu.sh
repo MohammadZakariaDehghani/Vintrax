@@ -726,8 +726,11 @@ prepare_database() {
   if [[ $RUN_SEED == true ]]; then
     step "Seeding demo data"
     # The seed is idempotent, so a re-run refreshes rather than duplicates.
-    pnpm db:seed
+    # It refuses a production database unless told otherwise; running this
+    # script without --no-seed is that instruction.
+    ALLOW_DEMO_SEED=true pnpm db:seed
     ok "demo data loaded — every account uses the password VintraxDemo123!"
+    [[ $MODE == dev ]] || warn "demo accounts (including an administrator) share a published password; remove them before real use"
   else
     skip "seeding skipped (--no-seed)"
   fi

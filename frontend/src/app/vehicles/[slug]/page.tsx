@@ -11,6 +11,8 @@ import {
   youTubeEmbedUrl,
 } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
+import { absoluteUrl } from '@/lib/site-url';
+import { jsonLdScript, vehicleStructuredData } from '@/lib/vehicle-structured-data';
 import { formatDate, formatEnum, formatKm, formatLocation, formatPrice } from '@/lib/utils';
 import { vehicleFacts, vehicleSubtitle } from '@/lib/vehicle-facts';
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
@@ -31,13 +33,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const vehicle = await serverFetch<VehicleDetail>(`/vehicles/${slug}`);
   if (!vehicle) return { title: 'Vehicle not found' };
 
+  // Search and filter links reach a car by many URLs; the slug is the one to index.
+  const canonical = `/vehicles/${vehicle.slug}`;
   return {
     title: vehicle.title,
     description: vehicle.description.slice(0, 160),
+    alternates: { canonical },
     openGraph: {
+      type: 'website',
+      url: canonical,
       title: vehicle.title,
       description: vehicle.description.slice(0, 160),
-      images: vehicle.primaryImageUrl ? [vehicle.primaryImageUrl] : [],
+      images: vehicle.primaryImageUrl ? [absoluteUrl(vehicle.primaryImageUrl)] : [],
     },
   };
 }
@@ -116,8 +123,20 @@ export default async function VehicleDetailPage({ params }: PageProps) {
     ...(vehicle.vin ? ([['VIN', vehicle.vin]] as Array<[string, string]>) : []),
   ];
 
+  const structuredData = vehicleStructuredData(
+    vehicle,
+    absoluteUrl(`/vehicles/${vehicle.slug}`),
+    absoluteUrl,
+  );
+
   return (
     <div className="container py-6">
+      <script
+        type="application/ld+json"
+        // Data, not code: the browser never runs it, and jsonLdScript escapes
+        // `<` so no text in the listing can end the element.
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(structuredData) }}
+      />
       {/* The breadcrumb reads as the path taken to get here — buy, shape,
           province, car — rather than a single "back" link, so the two steps
           above this page are one click away instead of a browser gesture. */}

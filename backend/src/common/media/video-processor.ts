@@ -41,6 +41,9 @@ export function readVideoInfo(
   };
 }
 
+/** The demuxers an upload may be read with: MP4/MOV (one demuxer) and WebM/Matroska. */
+export const INPUT_FORMATS = 'mov,mp4,m4a,3gp,3g2,mj2,matroska,webm';
+
 /**
  * The ffmpeg arguments that turn an upload into the file the site serves.
  * Exported for tests, which pin the parts that matter: no audio, no metadata,
@@ -52,6 +55,14 @@ export function transcodeArgs(input: string, output: string): string[] {
     '-hide_banner',
     '-nostdin',
     '-y',
+    // Read only local files, and only as a container a phone or camera writes.
+    // Without this, ffmpeg probes the upload for any format it knows — an HLS
+    // or concat playlist among them, which can pull in other local files or
+    // URLs and encode them into the video the site then serves.
+    '-protocol_whitelist',
+    'file',
+    '-format_whitelist',
+    INPUT_FORMATS,
     '-i',
     input,
     '-t',

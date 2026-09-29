@@ -4,6 +4,7 @@ import type { FooterSection, SiteSettings } from '@vintrax/shared';
 import { Providers } from './providers';
 import { getServerLocale } from '@/i18n/server';
 import { serverFetch } from '@/lib/api-client';
+import { siteUrl } from '@/lib/site-url';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
 import { CookieConsentBanner } from '@/components/cookie-consent-banner';
@@ -41,6 +42,8 @@ const display = Oswald({
 });
 
 export const metadata: Metadata = {
+  // Resolves relative canonical and Open Graph URLs against the public origin.
+  metadataBase: new URL(siteUrl()),
   title: {
     default: 'Vintrax — Canadian vehicle marketplace and auctions',
     template: '%s · Vintrax',
@@ -48,6 +51,7 @@ export const metadata: Metadata = {
   description:
     'Buy and sell vehicles across Canada. Dealer inventory, private listings, live auctions and independent inspection reports.',
   keywords: ['vehicle marketplace', 'car auction', 'dealer inventory', 'Canada', 'used cars'],
+  openGraph: { type: 'website', siteName: 'Vintrax', locale: 'en_CA' },
 };
 
 export const viewport: Viewport = {

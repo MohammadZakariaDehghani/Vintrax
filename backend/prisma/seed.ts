@@ -763,6 +763,17 @@ const VEHICLES: SeedVehicle[] = [
 ];
 
 async function main(): Promise<void> {
+  // Every seeded account — an administrator among them — shares one password
+  // that is printed in this repository. Loading that into a production
+  // database by accident hands out an admin login, so it takes a deliberate
+  // opt-in there.
+  if (process.env['NODE_ENV'] === 'production' && process.env['ALLOW_DEMO_SEED'] !== 'true') {
+    throw new Error(
+      'Refusing to load demo accounts with a published password into a production database. ' +
+        'Set ALLOW_DEMO_SEED=true if this really is a demo server.',
+    );
+  }
+
   mkdirSync(SEED_IMAGE_DIR, { recursive: true });
 
   console.log('Seeding users and dealers...');

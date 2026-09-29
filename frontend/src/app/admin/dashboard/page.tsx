@@ -2,17 +2,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Building2, Car, DollarSign, Gavel, ShieldAlert, Users } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import type { AdminAnalytics, AuditLogEntry, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatRelativeTime } from '@/lib/utils';
@@ -26,15 +15,9 @@ import {
   Spinner,
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
+import { SeriesChart } from '@/components/charts';
 import { StatTile } from '@/components/stat-tile';
 import { AdminNav } from '@/components/admin-nav';
-
-const TOOLTIP_STYLE = {
-  background: 'hsl(var(--popover))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  color: 'hsl(var(--popover-foreground))',
-};
 
 function AdminDashboard() {
   const { data, isPending, error } = useQuery({
@@ -116,29 +99,13 @@ function AdminDashboard() {
           </CardHeader>
           <CardContent>
             {data && data.usersSeries.length > 0 ? (
-              <ResponsiveContainer width="100%" height={230}>
-                <LineChart data={data.usersSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                    allowDecimals={false}
-                  />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <SeriesChart
+                data={data.usersSeries}
+                kind="line"
+                tone="primary"
+                height={230}
+                allowDecimals={false}
+              />
             ) : (
               <EmptyState title="No signups in this window" />
             )}
@@ -151,23 +118,13 @@ function AdminDashboard() {
           </CardHeader>
           <CardContent>
             {data && data.listingsSeries.length > 0 ? (
-              <ResponsiveContainer width="100%" height={230}>
-                <BarChart data={data.listingsSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11 }}
-                    stroke="hsl(var(--muted-foreground))"
-                    allowDecimals={false}
-                  />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <SeriesChart
+                data={data.listingsSeries}
+                kind="bar"
+                tone="accent"
+                height={230}
+                allowDecimals={false}
+              />
             ) : (
               <EmptyState title="No listings in this window" />
             )}

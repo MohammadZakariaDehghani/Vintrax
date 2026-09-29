@@ -87,6 +87,26 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Increments a counter, starting its expiry on the first increment, and
+   * returns the new value — or null when Redis is unavailable, so a counter
+   * used as a limit fails open rather than locking everyone out.
+   */
+  async increment(key: string, ttlSeconds: number): Promise<number | null> {
+    if (!this.available || !this.client) return null;
+    try {
+      const [[, count]] = (await this.client
+        .multi()
+        .incr(key)
+        .expire(key, ttlSeconds, 'NX')
+        .exec()) as [[Error | null, number], [Error | null, number]];
+      return count;
+    } catch (error) {
+      this.logger.debug(`Counter increment failed for ${key}: ${String(error)}`);
+      return null;
+    }
+  }
+
   async del(...keys: string[]): Promise<void> {
     if (!this.available || !this.client || keys.length === 0) return;
     try {

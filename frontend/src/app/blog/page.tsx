@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/ui';
 import { ArticleMeta, BlogCard } from '@/components/blog-card';
 
 export const metadata: Metadata = {
-  title: 'Editorial — Vintrax',
+  title: 'Editorial',
   description: 'Buying guides, market notes and vehicle writing from Vintrax.',
 };
 

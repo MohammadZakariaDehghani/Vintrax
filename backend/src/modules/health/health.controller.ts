@@ -1,5 +1,6 @@
 import { Controller, Get, Inject, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { SEARCH_PROVIDER, type SearchProvider } from '../../common/search/search.types';
@@ -16,6 +17,21 @@ interface HealthReport {
   };
 }
 
+/** A dependency that has not answered by now is reported as down. */
+const CHECK_TIMEOUT_MS = 3_000;
+
+function withTimeout<T>(work: Promise<T>): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timed out')), CHECK_TIMEOUT_MS);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
+// Probes come from the load balancer and the container runtime, often through
+// the same proxy address as visitors; they must neither use up nor be refused
+// by the visitors' rate limit.
+@SkipThrottle()
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
@@ -38,8 +54,9 @@ export class HealthController {
   @ApiOperation({ summary: 'Liveness and dependency readiness probe' })
   async check(): Promise<HealthReport> {
     let database: 'up' | 'down' = 'up';
+    // Bounded, so a hung connection pool fails the probe instead of hanging it.
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      await withTimeout(this.prisma.$queryRaw`SELECT 1`);
     } catch {
       database = 'down';
     }
@@ -48,7 +65,7 @@ export class HealthController {
       throw new ServiceUnavailableException('Database is unreachable');
     }
 
-    const searchHealthy = await this.search.isHealthy();
+    const searchHealthy = await withTimeout(this.search.isHealthy()).catch(() => false);
 
     return {
       status: searchHealthy && this.redis.isAvailable ? 'ok' : 'degraded',

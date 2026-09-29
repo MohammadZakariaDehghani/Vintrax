@@ -10,6 +10,7 @@ import {
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
 import type { Env } from '../../config/env';
+import { matchesSignature } from './file-signature';
 
 export interface StoredObject {
   url: string;
@@ -219,6 +220,12 @@ export class StorageService {
       throw new BadRequestException(
         `File is too large. Maximum size is ${Math.floor(maxBytes / 1024 / 1024)} MB`,
       );
+    }
+
+    // The declared type decides the stored extension and the type the file is
+    // served with, so it has to be what the bytes actually are.
+    if (!matchesSignature(options.buffer, options.contentType)) {
+      throw new BadRequestException(`This file is not a valid ${options.contentType} ${kind}`);
     }
 
     // A generated name discards the client-supplied filename entirely, which

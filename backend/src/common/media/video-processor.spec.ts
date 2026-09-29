@@ -9,6 +9,7 @@ import {
   VideoProcessingUnavailableError,
   VideoProcessor,
   readVideoInfo,
+  INPUT_FORMATS,
   transcodeArgs,
 } from './video-processor';
 
@@ -44,6 +45,14 @@ describe('transcode arguments', () => {
     expect(after('-c:v')).toBe('libx264');
     expect(after('-pix_fmt')).toBe('yuv420p');
     expect(after('-movflags')).toBe('+faststart');
+  });
+
+  it('reads the upload only as a local MP4, MOV or WebM file, never as a playlist', () => {
+    expect(after('-protocol_whitelist')).toBe('file');
+    expect(after('-format_whitelist')).toBe(INPUT_FORMATS);
+    expect(INPUT_FORMATS.split(',')).not.toEqual(expect.arrayContaining(['hls', 'concat']));
+    // Whitelists only apply to the input they come before.
+    expect(args.indexOf('-format_whitelist')).toBeLessThan(args.indexOf('-i'));
   });
 
   it('keeps the input and output as separate arguments, never through a shell', () => {
@@ -135,6 +144,17 @@ describe('without ffmpeg', () => {
   it('refuses a file that is not a video', async () => {
     const input = join(dir, 'fake.mp4');
     writeFileSync(input, Buffer.from('%PDF-1.7 not a video at all'));
+    await expect(processor().process(input)).rejects.toBeInstanceOf(UnreadableVideoError);
+  }, 30_000);
+
+  it('refuses a playlist that would pull other local files into the video', async () => {
+    // Named .m3u8 so ffmpeg's own extension check would otherwise let the HLS
+    // demuxer read it; the format whitelist is what refuses it.
+    const input = join(dir, 'upload.m3u8');
+    writeFileSync(
+      input,
+      `#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:1.0,\n${join(dir, 'wide.mp4')}\n#EXT-X-ENDLIST\n`,
+    );
     await expect(processor().process(input)).rejects.toBeInstanceOf(UnreadableVideoError);
   }, 30_000);
 });

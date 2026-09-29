@@ -22,6 +22,7 @@ import { Button, Card, Field } from '@/components/ui';
 import { AppBar } from '@/components/app-bar';
 import { RequireAuth } from '@/components/require-auth';
 import { CameraCapture } from '@/components/camera-capture';
+import { isRemoteImage } from '@/components/optimized-image';
 import { useOnline } from '@/components/connectivity';
 
 export default function AddVehiclePage() {
@@ -160,6 +161,7 @@ function AddVehicleForm() {
                       alt={`Photo ${index + 1}`}
                       fill
                       sizes="120px"
+                      unoptimized={isRemoteImage(photo.url)}
                       className="object-cover"
                     />
                     <button
