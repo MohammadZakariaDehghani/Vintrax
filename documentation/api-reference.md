@@ -444,6 +444,25 @@ and `tookMs` so a client can surface a degraded search backend.
 Only `ACTIVE` and `IN_AUCTION` vehicles are publicly searchable. Unpublished
 vehicles return **404, not 403**, so inventory cannot be mapped by probing ids.
 
+### Car tools
+
+| Method | Path                  | Auth       | Purpose                                                          |
+| ------ | --------------------- | ---------- | ---------------------------------------------------------------- |
+| `GET`  | `/car-value/makes`    | —          | Makes the value tool can estimate, most common first             |
+| `GET`  | `/car-value/models`   | —          | A make's models (`make`)                                         |
+| `GET`  | `/car-value/estimate` | — (30/min) | What a car is worth (`year`, `make`, `model`, `mileageKm`)       |
+| `GET`  | `/car-value/similar`  | — (60/min) | Every car for sale like it, closest first (`year`, `make`, `model`) |
+
+`/car-value/similar` returns every `ACTIVE` or `IN_AUCTION` listing of that
+make, with a model starting with the one given (`Civic` finds `Civic
+Hatchback`), within three model years. It is ordered by the nearest year, then the same `trim`,
+then the nearest `mileageKm` — both optional — and paged with `page` and
+`pageSize` (max 50). `yearsCompared` gives the years searched.
+
+The budget tool runs in the browser and calls only `/vehicles?maxPrice=…` to
+count the cars under the budget; the buyer's province sets the sales tax and
+does not limit the search.
+
 ## Auctions
 
 | Method  | Path                   | Auth              | Purpose                      |
@@ -513,7 +532,7 @@ routes.
 | `PUT`    | `/admin/footer`                     | `content:manage` | Replace the whole footer            |
 | `GET`    | `/admin/site-settings/public`       | —                | Footer copyright lines and Contact page content |
 | `GET`    | `/admin/site-settings`              | `content:manage` | The same, plus where Contact messages are emailed |
-| `PUT`    | `/admin/site-settings`              | `content:manage` | Replace the site settings           |
+| `PUT`    | `/admin/site-settings`              | `content:manage` | Replace the site settings (see `contactMapUrl` below) |
 | `GET`    | `/pages/:slug`                      | —                | One published page, such as About us |
 | `POST`   | `/contact`                          | — (5/min)        | Send a Contact-page message         |
 | `GET`    | `/admin/contact-messages`           | `content:manage` | Contact-page messages, newest first |
@@ -531,6 +550,14 @@ routes.
 | `GET`    | `/admin/make-logos`                 | —                | Logos set for vehicle makes         |
 | `PUT`    | `/admin/make-logos/:make`           | `content:manage` | Set one                             |
 | `DELETE` | `/admin/make-logos/:make`           | `content:manage` | Remove one, restoring the generated mark |
+
+`contactMapUrl` is a Google Maps link to the place: a share link
+(`maps.app.goo.gl/…`), a place, search or map link on a Google domain, or the
+code from Share → Embed a map (its `src` is kept). A share link is followed
+when saved, through Google's own addresses only, and the full link is stored.
+Anything else is a 400. The Contact page frames an embed address built from
+the place in the link (always `www.google.com/maps`), never the pasted
+address itself, and shows it ahead of `contactMapImageUrl`.
 
 `make-logos` overrides the generated mark the home page's "popular makes" row
 otherwise draws for that make (a real trademark from a build-time icon set

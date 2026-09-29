@@ -596,6 +596,8 @@ export interface SiteSettings {
   contactEmail: string | null;
   contactHours: string | null;
   contactMapImageUrl: string | null;
+  /** A Google Maps link to the place; the page frames `googleMapsEmbedUrl` of it. */
+  contactMapUrl: string | null;
   updatedAt: string | null;
 }
 
@@ -725,6 +727,12 @@ export interface VehicleValueEstimate {
   averageMileageKm: number | null;
   /** A few of the comparable cars currently for sale, closest first. */
   comparables: VehicleSummary[];
+}
+
+/** Every car for sale on Vintrax like the visitor's, closest match first. */
+export interface SimilarCars extends Paginated<VehicleSummary> {
+  /** The model years searched, either side of the visitor's. */
+  yearsCompared: { from: number; to: number };
 }
 
 /** A message sent through the Contact page, as an administrator reads it. */

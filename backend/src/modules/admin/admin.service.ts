@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   BODY_TYPES,
+  isGoogleMapsShortLink,
   type AdminAnalytics,
   type BodyType,
   type BodyTypeImage,
@@ -20,6 +21,7 @@ import {
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { resolveGoogleMapsShortLink } from './google-maps-link';
 
 /** Analytics are expensive and rarely need to be to-the-second fresh. */
 const ANALYTICS_CACHE_TTL_SECONDS = 120;
@@ -297,6 +299,7 @@ export class AdminService {
       contactEmail: row?.contactEmail ?? null,
       contactHours: row?.contactHours ?? null,
       contactMapImageUrl: row?.contactMapImageUrl ?? null,
+      contactMapUrl: row?.contactMapUrl ?? null,
       contactRecipient: row?.contactRecipient ?? null,
       updatedAt: row?.updatedAt.toISOString() ?? null,
     };
@@ -314,7 +317,13 @@ export class AdminService {
     if (input.contactMapImageUrl) {
       this.requireOwnImage(input.contactMapImageUrl, '/uploads/site-images');
     }
-    const data = { ...input, updatedById: actorId };
+    // A share link says nothing about the place until it is followed; the
+    // full link it leads to is what is kept.
+    const contactMapUrl =
+      input.contactMapUrl && isGoogleMapsShortLink(input.contactMapUrl)
+        ? await resolveGoogleMapsShortLink(input.contactMapUrl)
+        : input.contactMapUrl;
+    const data = { ...input, contactMapUrl, updatedById: actorId };
     await this.prisma.siteSettings.upsert({
       where: { id: 1 },
       create: { id: 1, ...data },

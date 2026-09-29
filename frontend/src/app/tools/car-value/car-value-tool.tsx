@@ -11,6 +11,7 @@ import {
   maxModelYear,
   type CarValueOption,
   type Province,
+  type SimilarCars as SimilarCarsPage,
   type VehicleValueEstimate,
 } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
@@ -23,6 +24,7 @@ import {
   ErrorAlert,
   Field,
   Input,
+  Pagination,
   Select,
   Spinner,
 } from '@/components/ui';
@@ -105,13 +107,6 @@ function RangeBar({ low, value, high }: { low: number; value: number; high: numb
 function Result({ data }: { data: VehicleValueEstimate }) {
   const { query, estimate } = data;
   const name = [query.year, query.make, query.model, query.trim].filter(Boolean).join(' ');
-  const searchHref = `/vehicles?${new URLSearchParams({
-    make: query.make,
-    model: query.model,
-    minYear: String(data.yearsCompared.from),
-    maxYear: String(data.yearsCompared.to),
-  }).toString()}`;
-
   if (!estimate) {
     return (
       <Card className="mt-8">
@@ -210,23 +205,120 @@ function Result({ data }: { data: VehicleValueEstimate }) {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
-      {data.comparables.length > 0 ? (
-        <section>
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-xl font-bold tracking-tight">Similar cars for sale</h2>
-            <Link href={searchHref} className="text-sm font-medium text-primary hover:underline">
-              See them all <ArrowRight className="inline h-3.5 w-3.5" aria-hidden />
-            </Link>
-          </div>
+/** How many similar cars a page of the list shows. */
+const SIMILAR_PAGE_SIZE = 20;
+
+/**
+ * Every car for sale on Vintrax like the visitor's, closest first. It follows
+ * the form as it is filled in — year, make and model are enough — so a buyer
+ * sees what is listed before, or without, asking for a value.
+ */
+function SimilarCars({ form }: { form: FormState }) {
+  const [page, setPage] = useState(1);
+  const ready = Boolean(form.year && form.make.trim() && form.model.trim());
+  const params = useMemo(() => {
+    if (!ready) return null;
+    const next = new URLSearchParams({
+      year: form.year,
+      make: form.make.trim(),
+      model: form.model.trim(),
+    });
+    if (form.trim.trim()) next.set('trim', form.trim.trim());
+    const km = Number(form.mileageKm);
+    if (form.mileageKm !== '' && Number.isFinite(km) && km >= 0) {
+      next.set('mileageKm', String(Math.round(km)));
+    }
+    return next.toString();
+  }, [ready, form.year, form.make, form.model, form.trim, form.mileageKm]);
+
+  // Asked for once typing pauses, not on every keystroke.
+  const [debounced, setDebounced] = useState(params);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebounced(params);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [params]);
+
+  const similar = useQuery({
+    queryKey: ['car-value', 'similar', debounced, page],
+    queryFn: () =>
+      api.get<SimilarCarsPage>(
+        `/car-value/similar?${debounced}&page=${page}&pageSize=${SIMILAR_PAGE_SIZE}`,
+      ),
+    enabled: debounced !== null,
+    placeholderData: (previous) => previous,
+    staleTime: 60_000,
+  });
+
+  if (debounced === null) return null;
+  const data = similar.data;
+  const make = form.make.trim();
+  const model = form.model.trim();
+  const searchHref = data
+    ? `/vehicles?${new URLSearchParams({
+        make,
+        model,
+        minYear: String(data.yearsCompared.from),
+        maxYear: String(data.yearsCompared.to),
+      }).toString()}`
+    : '/vehicles';
+
+  return (
+    <section className="mt-8" aria-labelledby="similar-cars-heading">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 id="similar-cars-heading" className="text-xl font-bold tracking-tight">
+            Similar cars on Vintrax
+          </h2>
+          {data ? (
+            <p className="text-sm text-muted-foreground">
+              {data.total === 0
+                ? `No ${make} ${model} from ${data.yearsCompared.from}–${data.yearsCompared.to} is listed right now.`
+                : `${data.total.toLocaleString('en-CA')} ${make} ${model} from ${data.yearsCompared.from}–${data.yearsCompared.to} for sale, closest match first.`}
+            </p>
+          ) : null}
+        </div>
+        {data && data.total > 0 ? (
+          <Link href={searchHref} className="text-sm font-medium text-primary hover:underline">
+            Open in search <ArrowRight className="inline h-3.5 w-3.5" aria-hidden />
+          </Link>
+        ) : null}
+      </div>
+
+      {similar.isPending ? (
+        <Spinner label="Finding similar cars" />
+      ) : similar.error ? (
+        <ErrorAlert error={similar.error} />
+      ) : data && data.items.length > 0 ? (
+        <>
           <div className="overflow-hidden rounded-lg border border-border bg-card">
-            {data.comparables.map((vehicle) => (
+            {data.items.map((vehicle) => (
               <VehicleRow key={vehicle.id} vehicle={vehicle} />
             ))}
           </div>
-        </section>
+          <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />
+        </>
+      ) : data ? (
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Check the spelling of the make and model, or{' '}
+            <Link
+              href={`/vehicles?${new URLSearchParams({ make }).toString()}`}
+              className="font-medium text-primary hover:underline"
+            >
+              see every {make} on Vintrax
+            </Link>
+            .
+          </CardContent>
+        </Card>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -406,6 +498,8 @@ export function CarValueTool() {
           <Result data={estimate.data} />
         ) : null}
       </div>
+
+      <SimilarCars form={form} />
     </>
   );
 }

@@ -4,7 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, ImagePlus, Save, Trash2 } from 'lucide-react';
-import type { AdminSiteSettings, ContactMessage, Paginated } from '@vintrax/shared';
+import {
+  googleMapsEmbedUrl,
+  isGoogleMapsShortLink,
+  extractMapUrl,
+  type AdminSiteSettings,
+  type ContactMessage,
+  type Paginated,
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
   Button,
@@ -28,6 +35,7 @@ type ContactFields = Pick<
   | 'contactEmail'
   | 'contactHours'
   | 'contactMapImageUrl'
+  | 'contactMapUrl'
   | 'contactRecipient'
 >;
 
@@ -38,8 +46,53 @@ const FIELDS: Array<keyof ContactFields> = [
   'contactEmail',
   'contactHours',
   'contactMapImageUrl',
+  'contactMapUrl',
   'contactRecipient',
 ];
+
+/**
+ * A Google Maps link, previewed as the Contact page will show it. A share
+ * link (maps.app.goo.gl) can only be read by the server, so it is previewed
+ * once saved.
+ */
+function MapLinkField({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  const link = value.trim() ? extractMapUrl(value) : '';
+  const embed = link ? googleMapsEmbedUrl(link) : null;
+  const shortLink = link ? isGoogleMapsShortLink(link) : false;
+  return (
+    <Field
+      label="Google Maps link"
+      htmlFor="contact-map-url"
+      hint="In Google Maps, find your address, choose Share, then Copy link — or Embed a map and paste its code. Shown as a live map beside the address."
+      className="sm:col-span-2"
+    >
+      <Input
+        id="contact-map-url"
+        maxLength={4000}
+        placeholder="https://maps.app.goo.gl/…"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {embed ? (
+        <iframe
+          title="Map preview"
+          src={embed}
+          className="mt-3 aspect-[16/9] w-full max-w-xl rounded-lg border border-border"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+      ) : shortLink ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          A share link. Save to see the map — the full link it leads to is kept.
+        </p>
+      ) : link ? (
+        <p className="mt-2 text-sm text-destructive">
+          This is not a Google Maps link to a place. A directions link cannot be shown as a map.
+        </p>
+      ) : null}
+    </Field>
+  );
+}
 
 /**
  * What the Contact page shows, and where its form sends messages. Saved as a
@@ -177,10 +230,11 @@ function ContactSettings() {
               onChange={(e) => set('contactRecipient', e.target.value)}
             />
           </Field>
+          <MapLinkField value={draft.contactMapUrl} onChange={(v) => set('contactMapUrl', v)} />
           <Field
-            label="Map"
+            label="Map image"
             htmlFor="contact-map"
-            hint="Upload a map or a photo of the location. Without one, the page shows a Google map of the address."
+            hint="Shown instead when there is no Google Maps link. With neither, the page shows a Google map of the address."
             className="sm:col-span-2"
           >
             <div className="flex flex-wrap items-center gap-3">
