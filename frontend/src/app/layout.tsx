@@ -10,6 +10,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { CookieConsentBanner } from '@/components/cookie-consent-banner';
 import { CompareBar } from '@/components/compare-bar';
 import { CompareToast } from '@/components/compare-toast';
+import { SiteChat } from '@/components/site-chat';
 import './globals.css';
 
 /**
@@ -95,9 +96,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               `fixed` elements: a visitor who has already started comparing
               vehicles before answering the cookie prompt would otherwise see
               them overlap at the same edge of the screen. */}
-          <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col">
-            <CompareBar />
-            <CookieConsentBanner />
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col">
+            {/* The chat launcher sits above the bars rather than over them.
+                The stack spans the viewport's width, so only what is drawn
+                in it takes clicks; the empty space beside the launcher
+                does not cover the page. */}
+            <SiteChat />
+            <div className="pointer-events-auto">
+              <CompareBar />
+              <CookieConsentBanner />
+            </div>
           </div>
           <CompareToast />
         </Providers>

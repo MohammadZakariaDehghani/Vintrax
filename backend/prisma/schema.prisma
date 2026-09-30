@@ -279,6 +279,9 @@ model User {
   financeApplicationsReceived FinanceApplication[]   @relation("FinanceSeller")
   financeSettings             SellerFinanceSettings?
 
+  supportChats        SupportChat[]        @relation("SupportChatAccount")
+  supportChatMessages SupportChatMessage[] @relation("SupportChatAuthor")
+
   inventoryImports    InventoryImport[] @relation("InventoryImportSeller")
   inventoryImportsRun InventoryImport[] @relation("InventoryImportInitiator")
 
@@ -1492,4 +1495,64 @@ model SellerFinanceSettings {
   notificationEmail  String?
 
   updatedAt DateTime @updatedAt
+}
+
+// --- Site chat ----------------------------------------------------------------
+// Visitors ask the Vintrax assistant from any public page; the team reads and
+// answers under Admin → Support. A chat is reachable by its visitor only
+// through a random token, of which only the hash is kept.
+
+enum SupportChatStatus {
+  OPEN
+  CLOSED
+}
+
+enum SupportMessageRole {
+  VISITOR
+  ASSISTANT
+  AGENT
+}
+
+model SupportChat {
+  id        String @id @default(uuid()) @db.Uuid
+  /// SHA-256 of the visitor's token.
+  tokenHash String @unique
+
+  /// The account the chat was started from, when the visitor was signed in.
+  userId String? @db.Uuid
+  user   User?   @relation("SupportChatAccount", fields: [userId], references: [id], onDelete: SetNull)
+
+  visitorName  String?
+  visitorEmail String?
+  pagePath     String?
+
+  status         SupportChatStatus @default(OPEN)
+  humanRequested Boolean           @default(false)
+  agentJoined    Boolean           @default(false)
+  /// Visitor messages no team member has opened yet.
+  unreadByTeam   Int               @default(0)
+
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  messages SupportChatMessage[]
+
+  @@index([status, lastMessageAt])
+  @@index([humanRequested, lastMessageAt])
+}
+
+model SupportChatMessage {
+  id     String      @id @default(uuid()) @db.Uuid
+  chatId String      @db.Uuid
+  chat   SupportChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  role     SupportMessageRole
+  body     String             @db.Text
+  authorId String?            @db.Uuid
+  author   User?              @relation("SupportChatAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([chatId, createdAt])
 }

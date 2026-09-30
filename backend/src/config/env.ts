@@ -133,9 +133,20 @@ const baseEnvSchema = z.object({
   // Without a provider the assistant still answers, from the help articles
   // themselves; a provider lets a language model phrase the answer from those
   // same articles. The key is read here, on the server, and nowhere else.
-  AI_PROVIDER: z.enum(['none', 'anthropic']).default('none'),
+  // `gemini` and `groq` have free tiers and speak the OpenAI protocol;
+  // `openai-compatible` is any other such endpoint, named in AI_BASE_URL.
+  AI_PROVIDER: z.enum(['none', 'anthropic', 'gemini', 'groq', 'openai-compatible']).default('none'),
   AI_API_KEY: z.string().optional(),
-  AI_MODEL: z.string().default('claude-opus-5-5'),
+  /** Empty means the provider's default model (common/ai/model-factory.ts). */
+  AI_MODEL: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  AI_BASE_URL: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine((value) => !value || /^https?:\/\//.test(value), 'AI_BASE_URL must be an http(s) URL'),
   AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
 
   // --- Video ---
@@ -179,7 +190,14 @@ export const envSchema = baseEnvSchema
   .refine((env) => env.AI_PROVIDER === 'none' || !!env.AI_API_KEY?.trim(), {
     message: 'AI_PROVIDER requires AI_API_KEY',
     path: ['AI_API_KEY'],
-  });
+  })
+  .refine(
+    (env) => env.AI_PROVIDER !== 'openai-compatible' || (!!env.AI_BASE_URL && !!env.AI_MODEL),
+    {
+      message: 'AI_PROVIDER=openai-compatible requires AI_BASE_URL and AI_MODEL',
+      path: ['AI_BASE_URL'],
+    },
+  );
 
 export type Env = z.infer<typeof envSchema>;
 

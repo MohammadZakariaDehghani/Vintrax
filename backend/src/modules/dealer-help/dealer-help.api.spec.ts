@@ -14,11 +14,11 @@ import request from 'supertest';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { validateEnv, type Env } from '../../config/env';
-import { AnthropicHelpModel } from './anthropic-help-model';
+import { AnthropicHelpModel } from '../../common/ai/anthropic-model';
 import { DealerHelpController } from './dealer-help.controller';
 import { helpModelFactory } from './dealer-help.module';
 import { DealerHelpService, HELP_SYSTEM_PROMPT } from './dealer-help.service';
-import type { HelpModel, HelpModelRequest } from './help-model';
+import type { HelpModel, HelpModelRequest } from '../../common/ai/language-model';
 import { HELP_ARTICLES, rankArticles } from './help-articles';
 
 /**

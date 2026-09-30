@@ -31,7 +31,7 @@ const ANALYTICS_CACHE_TTL_SECONDS = 120;
  * to never, and are read on every home page render. The writes invalidate the
  * key, so the long window costs nothing in freshness.
  */
-const BODY_TYPE_IMAGE_CACHE_KEY = 'site:body-type-images';
+export const BODY_TYPE_IMAGE_CACHE_KEY = 'site:body-type-images';
 const BODY_TYPE_IMAGE_CACHE_TTL = 600;
 
 /** Same reasoning as the body-type images: every visitor's first paint reads it, an administrator rarely writes it, and the write invalidates the key. */

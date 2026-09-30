@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { HelpModel, HelpModelRequest } from './help-model';
+import type { HelpModel, HelpModelRequest } from './language-model';
 
 /**
  * Models that accept `output_config.effort` and the server-side refusal
