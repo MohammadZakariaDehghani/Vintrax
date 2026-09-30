@@ -3,14 +3,21 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Heart, Phone } from 'lucide-react';
-import type { ConversationDetail, SellerContact, VehicleDetail } from '@vintrax/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { BadgeCheck, Heart, Landmark, Phone } from 'lucide-react';
+import type {
+  ConversationDetail,
+  SellerContact,
+  VehicleDetail,
+  VehicleFinanceOptions,
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { cn, formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { useUser } from '@/store/auth-store';
 import { Button, Card, CardContent, ErrorAlert, Textarea } from '@/components/ui';
 import { PreviousPrice } from '@/components/previous-price';
+import { FinanceApplicationDialog } from '@/components/finance/finance-application-dialog';
+import { KickstartDialog } from '@/components/finance/kickstart-dialog';
 
 /**
  * The seller's phone number, fetched only when a signed-in visitor asks for it.
@@ -65,14 +72,28 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
     `Hi, I'm interested in your ${vehicle.year} ${vehicle.make} ${vehicle.model}. Is it still available?`,
   );
 
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
+
   const isOwnListing = user?.id === vehicle.seller.id;
+
+  // Whether the seller takes finance applications, and whether this buyer
+  // already sent one. Only asked for a live listing someone else is selling.
+  const finance = useQuery({
+    queryKey: ['finance-options', vehicle.id, user?.id],
+    queryFn: () => api.get<VehicleFinanceOptions>(`/vehicles/${vehicle.id}/finance-options`),
+    enabled: !!user && !isOwnListing && vehicle.status === 'ACTIVE',
+    staleTime: 60_000,
+  });
+  const canApply = finance.data?.acceptsApplications === true && !finance.data.openApplicationId;
 
   const sendEnquiry = useMutation({
     mutationFn: (body: string) =>
       api.post<ConversationDetail>('/conversations', { vehicleId: vehicle.id, body }),
     onSuccess: (conversation) => {
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      router.push(`/dashboard/messages/${conversation.id}`);
+      setChooserOpen(false);
+      router.push(`/vehicles/${vehicle.slug}/sent?c=${encodeURIComponent(conversation.id)}`);
     },
   });
 
@@ -135,9 +156,27 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              sendEnquiry.mutate(message);
+              // Offer the finance application first, when the seller takes one.
+              if (canApply) setChooserOpen(true);
+              else sendEnquiry.mutate(message);
             }}
           >
+            {canApply ? (
+              <Button
+                type="button"
+                className="mb-4 w-full rounded-full"
+                onClick={() => setFinanceOpen(true)}
+              >
+                <Landmark className="h-4 w-4" aria-hidden />
+                See finance &amp; trade-in options
+              </Button>
+            ) : finance.data?.openApplicationId ? (
+              <p className="mb-4 flex items-center gap-2 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm">
+                <BadgeCheck className="h-4 w-4 shrink-0 text-success" aria-hidden />
+                Your finance application was sent. The seller will be in touch.
+              </p>
+            ) : null}
+
             <label htmlFor="enquiry" className="text-sm font-medium">
               Message the seller
             </label>
@@ -150,7 +189,7 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
               onChange={(event) => setMessage(event.target.value)}
             />
 
-            <ErrorAlert error={sendEnquiry.error} className="mt-3" />
+            <ErrorAlert error={chooserOpen ? null : sendEnquiry.error} className="mt-3" />
 
             <Button
               type="submit"
@@ -179,6 +218,29 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
               />
               {vehicle.isFavourited ? 'Saved' : 'Save this vehicle'}
             </Button>
+
+            {canApply ? (
+              <>
+                <KickstartDialog
+                  vehicle={vehicle}
+                  open={chooserOpen}
+                  onClose={() => setChooserOpen(false)}
+                  sending={sendEnquiry.isPending}
+                  error={sendEnquiry.error}
+                  onSendMessage={() => sendEnquiry.mutate(message)}
+                  onFinance={() => {
+                    setChooserOpen(false);
+                    setFinanceOpen(true);
+                  }}
+                />
+                <FinanceApplicationDialog
+                  vehicle={vehicle}
+                  open={financeOpen}
+                  onClose={() => setFinanceOpen(false)}
+                  initialComments={message}
+                />
+              </>
+            ) : null}
           </form>
         )}
       </CardContent>

@@ -119,6 +119,41 @@ export class MailService {
     });
   }
 
+  /**
+   * Tells a seller a finance application arrived. Only who applied and how to
+   * reach them: the date of birth, income and employment stay in the portal,
+   * behind the seller's sign-in, rather than in an inbox.
+   */
+  async sendFinanceApplicationNotice(
+    to: string,
+    details: {
+      applicantName: string;
+      applicantEmail: string;
+      applicantPhone: string;
+      preferredContact: 'PHONE' | 'EMAIL' | 'TEXT';
+      vehicleTitle: string;
+      vehiclePriceCad: number;
+      applicationPath: string;
+    },
+  ): Promise<void> {
+    const prefers = { PHONE: 'a phone call', EMAIL: 'email', TEXT: 'a text message' }[
+      details.preferredContact
+    ];
+    await this.send({
+      to,
+      subject: `New finance application: ${details.vehicleTitle}`,
+      text:
+        `${details.applicantName} has applied for financing on your ` +
+        `${details.vehicleTitle} ($${details.vehiclePriceCad.toLocaleString('en-CA')}).\n\n` +
+        `Email: ${details.applicantEmail}\n` +
+        `Phone: ${details.applicantPhone}\n` +
+        `Prefers: ${prefers}\n\n` +
+        `Open the full application in your dealer portal:\n${this.appUrl}${details.applicationPath}\n\n` +
+        `You receive this because your listing takes finance applications on Vintrax. ` +
+        `Change where they are sent under Dealer portal → Finance.`,
+    });
+  }
+
   async sendOutbidNotice(
     to: string,
     firstName: string,

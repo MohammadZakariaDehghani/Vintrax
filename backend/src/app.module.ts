@@ -39,6 +39,7 @@ import { VinModule } from './modules/vin/vin.module';
 import { UsersModule } from './modules/users/users.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { VehicleCostsModule } from './modules/vehicle-costs/vehicle-costs.module';
+import { FinanceModule } from './modules/finance/finance.module';
 import { DealerHelpModule } from './modules/dealer-help/dealer-help.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
@@ -78,6 +79,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     VehiclesModule,
     InventoryModule,
     VehicleCostsModule,
+    FinanceModule,
     DealerHelpModule,
     InspectionsModule,
     AuctionsModule,

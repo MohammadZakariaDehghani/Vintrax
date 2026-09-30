@@ -890,3 +890,47 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 **Rationale:** D-056's migration only repointed `mailto:` links it could recognise. The live footer had an administrator's own "Contact us" under "About us", still opening the email app, as well as the seeded section. This migration works from labels and titles, not seeded ids.
 
 **Consequences:** "Email us" under "Stay in touch" stays an email link. An administrator can still add sections from Admin → Footer.
+
+## D-060 — Finance Applications: Offered at "Send message", Managed in the Dealer Portal
+
+**Status:** Accepted. Modelled on the large marketplaces' contact flow, at the owner's request.
+
+**Decision:**
+
+- **Buyer flow:**
+  - Pressing **Send message** on a listing whose seller takes applications opens _Kickstart your process_, which offers **See finance & trade-in options** or **No, send my request**.
+  - The finance button also sits at the top of the listing's contact panel.
+  - After sending, the buyer lands on `/vehicles/<slug>/sent`, which confirms the message or application and lists up to six similar cars (same make and model, then make, then body type), each with **Contact Seller**.
+- **The application** is five steps:
+  1. contact and finance info: name, email, phone, date of birth (18+), postal code, estimated credit range, gross income and frequency;
+  2. employment and housing;
+  3. trade-in;
+  4. down payment, term and preferred contact;
+  5. review, with explicit consent to share with the seller.
+
+  The buyer's typed message carries over as comments. One open application per buyer per car.
+- **Dealer portal:** a new **Finance** section (`/dealer/finance`) with:
+  - a status tab bar with counts, and search by name, email, phone, vehicle, stock number or VIN;
+  - a detail page with call, text and email shortcuts, status and private notes, and delete;
+  - settings for **where new applications are emailed** (empty = the account email) and **whether listings take applications at all**.
+- **API:**
+  - `GET /vehicles/:id/finance-options`;
+  - `POST /vehicles/:id/finance-applications` (signed in, 5 per minute);
+  - `GET|PATCH|DELETE /dealer/finance-applications[/:id]`;
+  - `GET|PUT /dealer/finance-settings`.
+
+  Portal routes need `vehicle:write` and are scoped to the caller's own listings. Migration `20261004000000_finance_applications` adds two tables and six enums.
+
+**Rationale:**
+
+- **Honest about what Vintrax is.** Vintrax is not a lender and runs no credit check, so the form says it goes to the seller and does not affect the buyer's credit score. There is no "likelihood of approval" figure: Vintrax would have to invent one.
+- **Sensitive data, narrow audience.** The date of birth, income and employment are readable only by the seller the buyer chose. There is no administrator view.
+  - The notification email and the in-app notice carry only who applied and how to reach them.
+  - The audit log records that something changed, never the details.
+  - Sellers can delete an application outright.
+
+**Consequences:**
+
+- Applications need a signed-in buyer, as messages already do.
+- The mobile app keeps its existing contact flow; the finance form is web-only for now.
+- Nothing is encrypted beyond the database's own at-rest encryption. A retention rule (for example, deleting closed applications after a period) is a sensible next step.

@@ -6,6 +6,7 @@ import {
   Calculator,
   CircleHelp,
   FileUp,
+  Landmark,
   LayoutDashboard,
   Package,
   Plus,
@@ -23,7 +24,7 @@ interface NavLink {
 
 /**
  * The dealer portal's sections: the dashboard, the inventory and what hangs
- * off it, and costs. Help opens the assistant rather than a page.
+ * off it, costs, and finance applications. Help opens the assistant rather than a page.
  *
  * "Inventory" owns every /dealer/inventory path except the import screen,
  * which has its own entry, so exactly one entry is ever marked current.
@@ -59,6 +60,12 @@ const LINKS: NavLink[] = [
     label: 'Costs',
     icon: Calculator,
     match: (path) => path.startsWith('/dealer/costs'),
+  },
+  {
+    href: '/dealer/finance',
+    label: 'Finance',
+    icon: Landmark,
+    match: (path) => path.startsWith('/dealer/finance'),
   },
 ];
 
