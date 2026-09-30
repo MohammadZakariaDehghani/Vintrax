@@ -162,11 +162,7 @@ export function ContactSellerPanel({ vehicle }: { vehicle: VehicleDetail }) {
             }}
           >
             {canApply ? (
-              <Button
-                type="button"
-                className="mb-4 w-full rounded-full"
-                onClick={() => setFinanceOpen(true)}
-              >
+              <Button type="button" className="mb-4 w-full" onClick={() => setFinanceOpen(true)}>
                 <Landmark className="h-4 w-4" aria-hidden />
                 See finance &amp; trade-in options
               </Button>

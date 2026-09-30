@@ -66,7 +66,7 @@ export function KickstartDialog({
 
       <div className="-mx-5 border-t border-border px-5 pt-4">
         <ErrorAlert error={error} className="mb-3" />
-        <Button type="button" className="w-full rounded-full" onClick={onFinance}>
+        <Button type="button" className="w-full" onClick={onFinance}>
           See finance &amp; trade-in options
         </Button>
         <Button

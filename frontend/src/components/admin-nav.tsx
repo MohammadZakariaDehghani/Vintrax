@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import {
   Building2,
   FileText,
   Handshake,
+  Headset,
   ImageIcon,
   LayoutDashboard,
   LayoutGrid,
@@ -17,6 +19,7 @@ import {
   Tag,
   Users,
 } from 'lucide-react';
+import { api } from '@/lib/api-client';
 
 const LINKS = [
   { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -32,6 +35,7 @@ const LINKS = [
   { href: '/admin/pages', label: 'Pages', icon: FileText },
   { href: '/admin/contact', label: 'Contact', icon: Mail },
   { href: '/admin/footer', label: 'Footer', icon: PanelBottom },
+  { href: '/admin/support', label: 'Support', icon: Headset },
 ] as const;
 
 /**
@@ -42,6 +46,12 @@ const LINKS = [
  */
 export function AdminNav() {
   const pathname = usePathname();
+  // Open site chats with a visitor message nobody on the team has read.
+  const unread = useQuery({
+    queryKey: ['support-unread'],
+    queryFn: () => api.get<{ unread: number }>('/admin/support-chats/unread'),
+    refetchInterval: 30_000,
+  }).data?.unread;
 
   return (
     <nav className="mb-6 flex flex-wrap gap-1 border-b border-border" aria-label="Administration">
@@ -61,6 +71,14 @@ export function AdminNav() {
           >
             <link.icon className="h-4 w-4" aria-hidden />
             {link.label}
+            {link.href === '/admin/support' && unread ? (
+              <span
+                className="grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground"
+                aria-label={`${unread} unread`}
+              >
+                {unread}
+              </span>
+            ) : null}
           </Link>
         );
       })}

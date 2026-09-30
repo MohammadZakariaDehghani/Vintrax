@@ -14,7 +14,7 @@ import {
   type HelpArticle,
   type ScoredArticle,
 } from './help-articles';
-import { HELP_MODEL, type HelpModel, type HelpModelTurn } from './help-model';
+import { HELP_MODEL, type HelpModel, type HelpModelTurn } from '../../common/ai/language-model';
 
 /**
  * The rules and the whole help library, as one system prompt.

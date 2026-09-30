@@ -98,6 +98,8 @@ async function refreshSession(): Promise<boolean> {
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
+  /** Extra request headers, e.g. the site chat's token. */
+  headers?: Record<string, string>;
   /** Set for FormData uploads, where the browser must choose the boundary. */
   rawBody?: FormData;
   signal?: AbortSignal;
@@ -106,7 +108,7 @@ interface RequestOptions {
 }
 
 async function send(path: string, options: RequestOptions, retryOn401 = true): Promise<Response> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
   const token = tokenStore.access;
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';

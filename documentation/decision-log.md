@@ -934,3 +934,40 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 - Applications need a signed-in buyer, as messages already do.
 - The mobile app keeps its existing contact flow; the finance form is web-only for now.
 - Nothing is encrypted beyond the database's own at-rest encryption. A retention rule (for example, deleting closed applications after a period) is a sensible next step.
+
+## D-061 — A Site Chat for Every Visitor, on a Free AI Tier, Answered by the Team in Admin → Support
+
+**Status:** Accepted, at the owner's request.
+
+**Decision:**
+
+- **Visitors:** every public page has a chat launcher in the bottom-right corner. It is hidden in the dealer portal, which has its own assistant, and in the admin area.
+  - The **Vintrax assistant** answers questions about using the site from written site articles (`support-chat/site-articles.ts`).
+  - It answers questions about cars from **live listings** that match the makes, models and "under $X" price named in the message. It never invents a listing.
+  - **Talk to the team** asks for a person, optionally leaving a name and email.
+  - Once a team member replies, the assistant stays quiet and the person answers. The visitor's chat polls every 6 s while it is open.
+- **Team:** a new **Support** tab (`/admin/support`, `user:manage`) has:
+  - Open / Asked for a person / Closed / All tabs, and an unread badge on the tab;
+  - each chat's full history, with the page it started on and the visitor's details;
+  - a reply box, and close / reopen.
+
+  Admins get an in-app notification when a chat starts and when a visitor asks for a person.
+- **Free AI:** `AI_PROVIDER` now takes `gemini` or `groq` (both with free tiers) or `openai-compatible` (any Chat Completions endpoint, via `AI_BASE_URL`), as well as `anthropic`.
+  - The adapter is plain `fetch`, with no new dependency. `AI_MODEL` empty means the provider's default.
+  - The provider code moved to `backend/src/common/ai/` and serves both the site chat and the dealer assistant.
+  - With no provider, both still answer, from their articles and listings.
+- **Privacy and abuse:**
+  - A chat is reachable only with its random token, of which only a SHA-256 hash is stored; the token travels in the `x-chat-token` header.
+  - Messages are capped at 1,000 characters and 40 visitor messages per chat.
+  - Starting a chat is limited to 5 per minute per IP, and messages to 20 per minute.
+  - The model gets no tools, only the articles, the last 12 turns and the matched listings. Its instructions forbid asking for sensitive details.
+  - The widget tells visitors that answers can be wrong and not to share personal details.
+- **Body-type photos:** photos uploaded before automatic cut-out existed are cut out once at API start-up (`BodyTypeBackdrops`), so they no longer show a white box on the dark theme. The pass is idempotent: it skips photos already transparent and photos of a scene.
+- **Finance button:** "See finance & trade-in options" uses the same box as Send message.
+
+**Consequences:**
+
+- Migration `20261005000000_support_chat` adds two tables and two enums.
+- Free tiers may use prompts to improve their models; the operator should read the provider's terms before switching one on.
+- Free-tier model names change; `AI_MODEL` overrides the default.
+- Answers are generated inside the request, so a slow provider makes a slow reply. `AI_TIMEOUT_MS` bounds the wait, and a failure falls back to the articles.

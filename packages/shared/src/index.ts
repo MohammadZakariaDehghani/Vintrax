@@ -9,3 +9,4 @@ export * from './dealer-portal';
 export * from './google-maps';
 export * from './vehicle-listing';
 export * from './finance';
+export * from './support-chat';

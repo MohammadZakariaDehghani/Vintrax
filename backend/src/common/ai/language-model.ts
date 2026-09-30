@@ -1,12 +1,12 @@
 /**
- * The seam between the help assistant and whichever language model writes its
- * answers.
+ * The seam between Vintrax's assistants (the dealer help desk and the site
+ * chat) and whichever language model writes their answers.
  *
- * The assistant service knows nothing about any vendor: it hands over a system
+ * An assistant knows nothing about any vendor: it hands over a system
  * prompt and the conversation and gets text back. A provider owns its SDK, its
  * credentials and its error handling, and is chosen once, at start-up, from
  * `AI_PROVIDER`. Adding another vendor is another class implementing this, and
- * a case in `helpModelFactory`.
+ * a case in `languageModelFactory` (model-factory.ts).
  */
 export interface HelpModelTurn {
   role: 'user' | 'assistant';
