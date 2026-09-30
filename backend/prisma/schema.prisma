@@ -275,6 +275,10 @@ model User {
 
   vehicleCostsRecorded VehicleCost[] @relation("VehicleCostRecordedBy")
 
+  financeApplicationsSent     FinanceApplication[]   @relation("FinanceApplicant")
+  financeApplicationsReceived FinanceApplication[]   @relation("FinanceSeller")
+  financeSettings             SellerFinanceSettings?
+
   inventoryImports    InventoryImport[] @relation("InventoryImportSeller")
   inventoryImportsRun InventoryImport[] @relation("InventoryImportInitiator")
 
@@ -503,16 +507,17 @@ model Vehicle {
   moderatedAt    DateTime?
   moderationNote String?   @db.Text
 
-  images        VehicleImage[]
-  documents     VehicleDocument[]
-  historyEvents VehicleHistoryEvent[]
-  favourites    Favourite[]
-  conversations Conversation[]
-  auctions      Auction[]
-  inspections   VehicleInspection[]
+  images              VehicleImage[]
+  documents           VehicleDocument[]
+  historyEvents       VehicleHistoryEvent[]
+  favourites          Favourite[]
+  conversations       Conversation[]
+  auctions            Auction[]
+  inspections         VehicleInspection[]
   /// What the dealer paid to acquire and prepare this vehicle. Private to the
   /// seller: never selected by any public or buyer-facing query.
-  costs         VehicleCost[]
+  costs               VehicleCost[]
+  financeApplications FinanceApplication[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1368,4 +1373,123 @@ model VehicleImageAsset {
   images VehicleImage[]
 
   @@index([uploadedById])
+}
+
+// --- Finance applications -----------------------------------------------------
+// A buyer's request that a seller arrange financing for one vehicle. Vintrax is
+// not a lender and runs no credit check: the seller takes it to their own
+// lenders. The applicant's personal and financial details are readable only by
+// the seller (see backend/src/modules/finance).
+
+enum FinanceApplicationStatus {
+  NEW
+  CONTACTED
+  IN_REVIEW
+  APPROVED
+  DECLINED
+  CLOSED
+}
+
+enum CreditRange {
+  REBUILDING
+  FAIR
+  GOOD
+  EXCELLENT
+}
+
+enum IncomeFrequency {
+  ANNUALLY
+  MONTHLY
+  BIWEEKLY
+  WEEKLY
+}
+
+enum EmploymentStatus {
+  EMPLOYED
+  SELF_EMPLOYED
+  RETIRED
+  STUDENT
+  NOT_EMPLOYED
+  OTHER
+}
+
+enum HousingStatus {
+  OWN
+  RENT
+  WITH_FAMILY
+  OTHER
+}
+
+enum PreferredContact {
+  PHONE
+  EMAIL
+  TEXT
+}
+
+model FinanceApplication {
+  id String @id @default(uuid()) @db.Uuid
+
+  vehicleId   String  @db.Uuid
+  vehicle     Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  /// The vehicle's seller when the application was sent; every read is scoped to it.
+  sellerId    String  @db.Uuid
+  seller      User    @relation("FinanceSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  applicantId String  @db.Uuid
+  applicant   User    @relation("FinanceApplicant", fields: [applicantId], references: [id], onDelete: Cascade)
+
+  status FinanceApplicationStatus @default(NEW)
+
+  firstName       String
+  lastName        String
+  email           String
+  phone           String
+  /// `YYYY-MM-DD`, as entered.
+  dateOfBirth     String
+  postalCode      String
+  creditRange     CreditRange
+  grossIncomeCad  Int
+  incomeFrequency IncomeFrequency
+
+  employmentStatus  EmploymentStatus
+  employerName      String?
+  jobTitle          String?
+  employmentMonths  Int?
+  housingStatus     HousingStatus
+  monthlyHousingCad Int?
+  addressMonths     Int?
+
+  hasTradeIn       Boolean @default(false)
+  tradeInYear      Int?
+  tradeInMake      String?
+  tradeInModel     String?
+  tradeInMileageKm Int?
+  tradeInOwedCad   Int?
+
+  downPaymentCad     Int
+  termMonths         Int
+  preferredContact   PreferredContact
+  preferredVisitDate String?
+  comments           String?          @db.Text
+
+  /// The seller's private notes.
+  dealerNotes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sellerId, status, createdAt])
+  @@index([sellerId, createdAt])
+  @@index([applicantId, vehicleId])
+}
+
+/// A seller's finance preferences. No row means the defaults: applications
+/// accepted, announced to the account's own email.
+model SellerFinanceSettings {
+  sellerId String @id @db.Uuid
+  seller   User   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  acceptApplications Boolean @default(true)
+  notificationEmail  String?
+
+  updatedAt DateTime @updatedAt
 }
