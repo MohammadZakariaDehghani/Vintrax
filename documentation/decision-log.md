@@ -875,3 +875,18 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 - An attacker who knows an email can lock that account's sign-in for fifteen minutes at a time. Password reset still works.
 - The web container reads `SITE_URL` (compose passes `APP_URL`) for absolute URLs.
 - Remote (S3/CDN) photos on mobile are drawn without the Next image optimiser.
+
+## D-059 — "Contact us" Lives Under "About us"; No "Customer Support" Section
+
+**Status:** Accepted, at the owner's request.
+
+**Decision:** Migration `20261003000000_footer_remove_customer_support`:
+
+- points every footer link labelled "Contact us" at `/contact`, whatever it pointed at before, email address included;
+- moves anything else in "Customer Support" to the end of "About us", dropping a second "Contact us";
+- adds "Contact us" to "About us" if there is none;
+- deletes the "Customer Support" section.
+
+**Rationale:** D-056's migration only repointed `mailto:` links it could recognise. The live footer had an administrator's own "Contact us" under "About us", still opening the email app, as well as the seeded section. This migration works from labels and titles, not seeded ids.
+
+**Consequences:** "Email us" under "Stay in touch" stays an email link. An administrator can still add sections from Admin → Footer.
