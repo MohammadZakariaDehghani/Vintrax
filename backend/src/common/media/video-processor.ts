@@ -22,6 +22,11 @@ export interface ProcessedVideo {
   video: Buffer;
   /** A WebP frame from the start of the clip. */
   poster: Buffer;
+  /**
+   * A narrower, lighter rendition for phones, when one was asked for and the
+   * video is wider than it. Null otherwise: the video itself is small enough.
+   */
+  small: Buffer | null;
   width: number;
   height: number;
   durationSeconds: number;
@@ -93,6 +98,40 @@ export function transcodeArgs(input: string, output: string): string[] {
 }
 
 /**
+ * The phone rendition, made from the already-optimised video rather than the
+ * upload: it is a known-good H.264 file by then, so the input is not probed
+ * for other formats. A higher CRF than the desktop file — a 6-inch screen
+ * forgives more compression — and the same `+faststart`. Exported for tests.
+ */
+export function smallRenditionArgs(input: string, output: string, width: number): string[] {
+  return [
+    '-hide_banner',
+    '-nostdin',
+    '-y',
+    '-protocol_whitelist',
+    'file',
+    '-i',
+    input,
+    '-an',
+    '-map_metadata',
+    '-1',
+    '-vf',
+    `scale='trunc(min(${width},iw)/2)*2':-2:flags=lanczos`,
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '28',
+    '-pix_fmt',
+    'yuv420p',
+    '-movflags',
+    '+faststart',
+    output,
+  ];
+}
+
+/**
  * Optimises an uploaded video for a promo tile and takes its poster frame.
  *
  * The upload is re-encoded before anything is stored, and only the result is
@@ -110,9 +149,10 @@ export class VideoProcessor {
     this.ffmpeg = config.get('FFMPEG_PATH', { infer: true });
   }
 
-  async process(inputPath: string): Promise<ProcessedVideo> {
+  async process(inputPath: string, options: { smallWidth?: number } = {}): Promise<ProcessedVideo> {
     const workDir = await mkdtemp(join(tmpdir(), 'vintrax-video-'));
     const output = join(workDir, 'video.mp4');
+    const smallOutput = join(workDir, 'small.mp4');
     const posterJpeg = join(workDir, 'poster.jpg');
 
     try {
@@ -162,11 +202,20 @@ export class VideoProcessor {
         .webp({ quality: 80 })
         .toBuffer();
 
+      let small: Buffer | null = null;
+      if (options.smallWidth && info.width > options.smallWidth) {
+        await run(this.ffmpeg, smallRenditionArgs(output, smallOutput, options.smallWidth), {
+          timeout: TRANSCODE_TIMEOUT_MS,
+          maxBuffer: 16 * 1024 * 1024,
+        });
+        small = await readFile(smallOutput);
+      }
+
       const video = await readFile(output);
       this.logger.log(
         `Optimised a promo video: ${(await stat(inputPath)).size} → ${video.byteLength} bytes, ${info.width}×${info.height}, ${info.durationSeconds.toFixed(1)} s`,
       );
-      return { video, poster, ...info };
+      return { video, poster, small, ...info };
     } finally {
       await rm(workDir, { recursive: true, force: true });
     }

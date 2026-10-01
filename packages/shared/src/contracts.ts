@@ -10,6 +10,9 @@ import type {
   Drivetrain,
   FooterLinkIcon,
   HomeFeatureButtonPlacement,
+  HomeFeatureLayout,
+  HomeHeroAlign,
+  HomeHeroHeight,
   PromoTileMediaType,
   PromoTileWidth,
   FuelType,
@@ -31,6 +34,7 @@ import type {
   VehicleHistoryEventKind,
   TitleStatus,
 } from './domain';
+import type { MediaPresentation } from './media';
 import type { VehicleAvailability } from './vehicle-listing';
 
 /** Shape returned by every paginated collection endpoint. */
@@ -564,6 +568,15 @@ export interface Article {
   heroAlt: string | null;
   ctaLabel: string | null;
   ctaHref: string | null;
+  /**
+   * The picture or video the post shows, with how it is cropped and animated.
+   * Null for a post written before the media library: `heroImageUrl` is then
+   * its picture (see `articleMedia`). When set, `heroImageUrl` is still filled
+   * — with the photo or the video's poster — for cards, previews and sharing.
+   */
+  media: MediaPresentation | null;
+  /** Pinned posts lead the blog and the home page in this order; null is by date. */
+  homeOrder: number | null;
   status: ArticleStatus;
   publishedAt: string | null;
   authorName: string | null;
@@ -637,9 +650,16 @@ export interface AdminSiteSettings extends SiteSettings {
 export interface HomeFeature {
   id: string;
   title: string;
+  /** A line above the text, under the title. */
+  subtitle: string | null;
   body: string | null;
+  /** The photo a block was saved with before the media library; `media` wins when set. */
   imageUrl: string | null;
   imageAlt: string | null;
+  /** The picture or video, with crop and animation; see `homeFeatureMedia`. */
+  media: MediaPresentation | null;
+  /** Beside the text, or a full-width cinematic band with the text over it. */
+  layout: HomeFeatureLayout;
   buttonLabel: string | null;
   /** A site path or an `https://` address. */
   buttonUrl: string | null;
@@ -650,12 +670,21 @@ export interface HomeFeature {
 }
 
 /**
- * One of the home page's promo tiles: a photograph that links to a page on
- * Vintrax or another website. There are always `PROMO_TILE_SLOTS` of them,
- * numbered from 1; an empty slot has no image and is not shown.
+ * One of the home page's boxes ("promo tiles"): a photograph or a video that
+ * links to a page on Vintrax or another website, with optional words over it.
+ * The admin always sees at least `PROMO_TILE_SLOTS` of them and can add more,
+ * up to `PROMO_TILE_MAX_SLOTS`; `slot` is the box's place in the row, from 1.
+ * A box without media is not shown.
  */
 export interface PromoTile {
   slot: number;
+  /** Words drawn over the media as real text, never baked into the picture. */
+  title: string | null;
+  body: string | null;
+  /** A button label over the media; the whole box links to `linkUrl` either way. */
+  ctaLabel: string | null;
+  /** The picture or video with crop and animation; legacy fields below when null. */
+  media: MediaPresentation | null;
   imageUrl: string | null;
   imageAlt: string | null;
   /** A site path or an `https://` address. */
@@ -677,9 +706,42 @@ export interface PromoTile {
 
 /** Whether a tile has what its media type needs to be drawn. */
 export function promoTileHasMedia(
-  tile: Pick<PromoTile, 'mediaType' | 'imageUrl' | 'videoUrl'>,
+  tile: Pick<PromoTile, 'mediaType' | 'imageUrl' | 'videoUrl'> & {
+    media?: MediaPresentation | null;
+  },
 ): boolean {
+  if (tile.media) return true;
   return tile.mediaType === 'VIDEO' ? Boolean(tile.videoUrl) : Boolean(tile.imageUrl);
+}
+
+/**
+ * The home page hero: a full-width picture or silent looping video with a
+ * headline and buttons over it. While it is switched on it takes the top of
+ * the home page; while it is off (the default) the newest blog posts do, as
+ * before.
+ */
+export interface HomeHero {
+  title: string;
+  subtitle: string | null;
+  primaryCtaLabel: string | null;
+  /** A site path or an `https://` address. */
+  primaryCtaUrl: string | null;
+  secondaryCtaLabel: string | null;
+  secondaryCtaUrl: string | null;
+  /** How dark the shade over the media is, in percent, so the words stay readable. */
+  overlayOpacity: number;
+  align: HomeHeroAlign;
+  height: HomeHeroHeight;
+  media: MediaPresentation | null;
+  /** Off is a draft: saved, previewable in the admin, not on the site. */
+  enabled: boolean;
+  updatedAt: string | null;
+}
+
+/** What a media library video upload produces, once optimised. */
+export interface MediaVideoUploadStatus extends Omit<PromoVideoUploadStatus, 'result'> {
+  /** Set when READY: the new library asset's id. */
+  assetId: string | null;
 }
 
 /** A video upload in progress: sent in pieces, then optimised in the background. */

@@ -5,10 +5,12 @@ import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   Building2,
+  Clapperboard,
   FileText,
   Handshake,
   Headset,
   ImageIcon,
+  Images,
   LayoutDashboard,
   LayoutGrid,
   LayoutList,
@@ -27,6 +29,8 @@ const LINKS = [
   { href: '/admin/dealers', label: 'Dealerships', icon: Building2 },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper },
+  { href: '/admin/hero', label: 'Home hero', icon: Clapperboard },
+  { href: '/admin/media', label: 'Media library', icon: Images },
   { href: '/admin/promo-tiles', label: 'Home boxes', icon: LayoutGrid },
   { href: '/admin/home-features', label: 'Home features', icon: LayoutList },
   { href: '/admin/body-types', label: 'Body type icons', icon: ImageIcon },

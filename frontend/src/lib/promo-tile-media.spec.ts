@@ -15,6 +15,10 @@ import { PromoTileRow, PromoTiles } from '@/components/promo-tiles';
 function tile(overrides: Partial<PromoTile>): PromoTile {
   return {
     slot: 1,
+    title: null,
+    body: null,
+    ctaLabel: null,
+    media: null,
     imageUrl: '/uploads/promo-tiles/photo.webp',
     imageAlt: 'Winter tires',
     linkUrl: '/vehicles',
@@ -88,7 +92,11 @@ describe('a video in a promo tile', () => {
     expect(video).toMatch(/\bloop\b/);
     expect(video).toMatch(/\bplaysinline\b/i);
     expect(video).toContain('preload="none"');
-    expect(video).toContain('poster="/uploads/promo-tiles/clip.webp"');
+    // The poster is drawn as a picture under the video, so it shows while the
+    // video loads, if it fails, and for reduced motion.
+    expect(html).toMatch(/<img[^>]*src="\/uploads\/promo-tiles\/clip.webp"/);
+    expect(video).toContain('controlsList="nodownload');
+    expect(video).toMatch(/disablepictureinpicture/i);
     expect(video).not.toMatch(/\bcontrols(?!=\{?false)\b(?!List)/);
     expect(video).not.toMatch(/\bautoplay\b/i);
     expect(video).toContain('object-cover');
@@ -115,20 +123,42 @@ describe('a video in a promo tile', () => {
 });
 
 describe('video playback rules', () => {
-  const source = readFileSync('src/components/promo-tile-video.tsx', 'utf8');
+  const source = readFileSync('src/components/media/video-background.tsx', 'utf8');
 
-  it('plays only while on screen, and respects reduced motion', () => {
+  it('plays only while on screen, and respects reduced motion and Data Saver', () => {
     expect(source).toContain('IntersectionObserver');
     expect(source).toContain('video.pause()');
     expect(source).toContain('prefers-reduced-motion: reduce');
+    expect(source).toContain('saveData');
   });
 
   it('falls back to the poster, then the photo, when the video fails', () => {
     expect(source).toContain('onError={() => setFailed(true)}');
-    expect(source).toContain('const still = poster ?? fallbackImageUrl');
+    // An old video box without a poster uses its photo as the poster.
+    const html = render([
+      { ...asVideo(tile({})), videoPosterUrl: null, imageUrl: '/uploads/promo-tiles/photo.webp' },
+    ]);
+    expect(html).toMatch(/<img[^>]*src="\/uploads\/promo-tiles\/photo.webp"/);
   });
 
   it('adds no size of its own; the tile decides', () => {
-    expect(source).not.toMatch(/aspect-|width=|height=|style=/);
+    const html = render([asVideo(tile({}))]);
+    const video = /<video[^>]*>/.exec(html)?.[0] ?? '';
+    expect(video).not.toMatch(/aspect-|width=|height=|style=/);
+  });
+});
+
+describe('words over a box', () => {
+  it('draws them as real text, and lets them name the link', () => {
+    const html = render([tile({ title: 'Winter tires', body: 'Save 20%', ctaLabel: 'Shop now' })]);
+    expect(html).toContain('Winter tires');
+    expect(html).toContain('Save 20%');
+    expect(html).toContain('Shop now');
+    // The visible words are the link's name; no label hides them.
+    expect(html).not.toMatch(/<a [^>]*aria-label=/);
+  });
+
+  it('keeps the description as the name of a box without words', () => {
+    expect(render([tile({})])).toContain('aria-label="Winter tires"');
   });
 });

@@ -971,3 +971,62 @@ No page errors and no failed upload requests occurred during the run. Backend (3
 - Free tiers may use prompts to improve their models; the operator should read the provider's terms before switching one on.
 - Free-tier model names change; `AI_MODEL` overrides the default.
 - Answers are generated inside the request, so a slow provider makes a slow reply. `AI_TIMEOUT_MS` bounds the wait, and a failure falls back to the articles.
+
+## D-062 — A Media Library, a Home Hero, and Subtle Motion on the Home Page
+
+**Status:** Accepted, at the owner's request.
+
+**Decision:**
+
+- **One media model for home content.** Pictures and videos are uploaded once
+  to a media library. Pictures go through the vehicle photo pipeline (WebP
+  renditions). Videos go through the promo-tile video pipeline, now with a
+  phone rendition.
+- **Presentations.** The hero, blog posts, home features and home boxes each
+  store a validated `media` presentation:
+  - the desktop file and an optional phone file;
+  - the description, crop and focus;
+  - autoplay and loop;
+  - the entrance animation.
+
+  Content picks assets by id and the API fills in the URLs.
+
+- **A home hero, off by default.** While a draft, the home page is unchanged.
+  While active, it replaces the blog slideshow at the top.
+- **Home boxes:** any number up to 12, reorderable, with real text over the
+  media.
+- **Home features:** a full-width layout.
+- **Blog:** pinned order.
+- **Motion:** CSS transitions triggered by one `IntersectionObserver`, a CSS
+  load animation for the hero, a 3 px scroll-progress bar, and native smooth
+  scrolling. No animation library, no WebGL, no scroll-jacking. Reduced
+  motion turns all of it off.
+- **Video protection** is limited to casual-saving deterrents: no controls,
+  `nodownload`, no picture-in-picture or casting, and no context menu. It is
+  documented as not preventing capture. There is no DRM and no signed URLs.
+- **Live preview:** admin editors show the real components in a same-origin
+  frame, so the CSP `frame-src` now includes `'self'`.
+
+**Rationale:** Most of the pieces already existed: the image pipeline, video
+sessions, storage, permissions and caching. Reusing them kept the security
+properties (byte-checked, re-encoded, generated names) for every new upload.
+
+JSON presentations keep the four content types identical without adding
+fifteen columns to each, and they let a new media kind be added in one place.
+
+Defaulting the hero to a draft, and falling back from `media` to the old
+columns, means no existing content changes until an administrator chooses.
+
+**Consequences:**
+
+- **Migration** `20261006000000_media_system` adds `MediaAsset` and
+  `HomeHero`, nullable `media` columns, `Article.homeOrder`, and
+  `HomeFeature.subtitle`/`layout`. It also adds `PromoTile`
+  `title`/`body`/`ctaLabel`.
+- **Rollback:** the previous image reads the old columns and ignores the new
+  ones. Content whose only media is new (a hero, or a library-only feature or
+  box) would not show on a rolled-back site.
+- **Hero heading:** words sit at the bottom of the band, and the buttons stack
+  on phones. On a slow connection the late web font then moves only the
+  headline (measured CLS 0.025 for the hero).
+- **Picture width:** pictures stay capped at `IMAGE_MAX_WIDTH` (1920).

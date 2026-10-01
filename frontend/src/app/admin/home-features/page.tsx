@@ -1,14 +1,19 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Eye, EyeOff, ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   HOME_FEATURE_BUTTON_PLACEMENTS,
   HOME_FEATURE_BUTTON_PLACEMENT_LABELS,
+  HOME_FEATURE_LAYOUTS,
+  HOME_FEATURE_LAYOUT_LABELS,
+  homeFeatureMedia,
   normalizeFooterHref,
   type HomeFeature,
   type HomeFeatureButtonPlacement,
+  type HomeFeatureLayout,
+  type MediaPresentation,
 } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
@@ -26,13 +31,18 @@ import {
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { AdminNav } from '@/components/admin-nav';
-import { HomeFeatureBlock } from '@/components/home-features';
+import { MediaEditor } from '@/components/media/admin/media-editor';
+import { MediaThumb } from '@/components/media/admin/media-thumb';
+import { LivePreview } from '@/components/media/admin/live-preview';
+import { toMediaInput } from '@/lib/media-input';
 
 interface Draft {
   title: string;
+  subtitle: string;
   body: string;
-  imageUrl: string;
-  imageAlt: string;
+  /** The picture or video — a block saved before the library shows its photo here. */
+  media: MediaPresentation | null;
+  layout: HomeFeatureLayout;
   buttonLabel: string;
   buttonUrl: string;
   buttonPlacement: HomeFeatureButtonPlacement;
@@ -41,9 +51,10 @@ interface Draft {
 
 const EMPTY: Draft = {
   title: '',
+  subtitle: '',
   body: '',
-  imageUrl: '',
-  imageAlt: '',
+  media: null,
+  layout: 'SPLIT',
   buttonLabel: '',
   buttonUrl: '',
   buttonPlacement: 'TEXT_LEFT',
@@ -53,9 +64,10 @@ const EMPTY: Draft = {
 function draftFrom(feature: HomeFeature): Draft {
   return {
     title: feature.title,
+    subtitle: feature.subtitle ?? '',
     body: feature.body ?? '',
-    imageUrl: feature.imageUrl ?? '',
-    imageAlt: feature.imageAlt ?? '',
+    media: homeFeatureMedia(feature),
+    layout: feature.layout,
     buttonLabel: feature.buttonLabel ?? '',
     buttonUrl: feature.buttonUrl ?? '',
     buttonPlacement: feature.buttonPlacement,
@@ -68,9 +80,13 @@ function payloadFrom(draft: Draft) {
   const orNull = (value: string) => (value.trim() ? value.trim() : null);
   return {
     title: draft.title.trim(),
+    subtitle: orNull(draft.subtitle),
     body: orNull(draft.body),
-    imageUrl: orNull(draft.imageUrl),
-    imageAlt: orNull(draft.imageAlt),
+    media: toMediaInput(draft.media),
+    layout: draft.layout,
+    // Removing the media removes the photo a block was saved with before
+    // the library too; otherwise that photo would quietly come back.
+    ...(draft.media ? {} : { imageUrl: null, imageAlt: null }),
     buttonLabel: orNull(draft.buttonLabel),
     buttonUrl: orNull(draft.buttonUrl),
     buttonPlacement: draft.buttonPlacement,
@@ -96,36 +112,45 @@ function FeatureEditor({
   error: unknown;
 }) {
   const [draft, setDraft] = useState<Draft>(initial);
-  const fileInput = useRef<HTMLInputElement | null>(null);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
 
-  const upload = useMutation({
-    mutationFn: (file: File) => api.upload<{ url: string }>('/uploads/home-features', file),
-    onSuccess: (stored) => set('imageUrl', stored.url),
-  });
-
   const buttonHalf = Boolean(draft.buttonLabel.trim()) !== Boolean(draft.buttonUrl.trim());
   const canSave = draft.title.trim().length > 0 && !buttonHalf;
+
+  // What the preview frames draw: the real home page block, unsaved.
+  const preview = useMemo(
+    () => ({
+      kind: 'feature' as const,
+      feature: {
+        id: 'preview',
+        title: draft.title.trim() || 'Your title',
+        subtitle: draft.subtitle.trim() || null,
+        body: draft.body.trim() || null,
+        imageUrl: null,
+        imageAlt: null,
+        media: draft.media,
+        layout: draft.layout,
+        buttonLabel: draft.buttonLabel.trim() || null,
+        buttonUrl: draft.buttonUrl.trim() ? normalizeFooterHref(draft.buttonUrl) : null,
+        buttonPlacement: draft.buttonPlacement,
+        position: 0,
+        enabled: draft.enabled,
+        updatedAt: new Date().toISOString(),
+      },
+    }),
+    [draft],
+  );
 
   return (
     <Card>
       <CardContent className="space-y-5 p-5">
         <div>
           <p className="mb-2 text-sm font-semibold">Preview</p>
-          <HomeFeatureBlock
-            feature={{
-              id: 'preview',
-              ...payloadFrom(draft),
-              title: draft.title.trim() || 'Your title',
-              buttonUrl: draft.buttonUrl.trim() ? normalizeFooterHref(draft.buttonUrl) : null,
-              position: 0,
-              updatedAt: new Date().toISOString(),
-            }}
-          />
+          <LivePreview payload={preview} />
         </div>
 
-        <ErrorAlert error={upload.error ?? error} />
+        <ErrorAlert error={error} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Title" htmlFor="feature-title" className="sm:col-span-2">
@@ -134,6 +159,19 @@ function FeatureEditor({
               maxLength={140}
               value={draft.title}
               onChange={(e) => set('title', e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Line above the text"
+            htmlFor="feature-subtitle"
+            hint="Optional. A short heading over the text, e.g. “New this month”."
+            className="sm:col-span-2"
+          >
+            <Input
+              id="feature-subtitle"
+              maxLength={180}
+              value={draft.subtitle}
+              onChange={(e) => set('subtitle', e.target.value)}
             />
           </Field>
           <Field
@@ -150,52 +188,30 @@ function FeatureEditor({
               onChange={(e) => set('body', e.target.value)}
             />
           </Field>
-          <Field
-            label="Photo"
-            htmlFor="feature-image"
-            hint="Optional. A landscape photo works best."
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                ref={fileInput}
-                id="feature-image"
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/avif"
-                className="sr-only"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) upload.mutate(file);
-                  e.target.value = '';
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                loading={upload.isPending}
-                onClick={() => fileInput.current?.click()}
-              >
-                <ImagePlus className="h-4 w-4" aria-hidden />
-                {draft.imageUrl ? 'Replace photo' : 'Upload photo'}
-              </Button>
-              {draft.imageUrl ? (
-                <Button type="button" variant="ghost" size="sm" onClick={() => set('imageUrl', '')}>
-                  Remove
-                </Button>
-              ) : null}
-            </div>
-          </Field>
-          <Field
-            label="Photo description"
-            htmlFor="feature-alt"
-            hint="Optional. Read aloud by screen readers."
-          >
-            <Input
-              id="feature-alt"
-              maxLength={160}
-              value={draft.imageAlt}
-              onChange={(e) => set('imageAlt', e.target.value)}
+          <div className="sm:col-span-2">
+            <p className="mb-2 text-sm font-medium">Picture or video</p>
+            <MediaEditor
+              idPrefix="feature"
+              value={draft.media}
+              onChange={(media) => set('media', media)}
             />
+          </div>
+          <Field
+            label="Layout"
+            htmlFor="feature-layout"
+            hint="Full width suits a wide picture or video: the words sit over it."
+          >
+            <Select
+              id="feature-layout"
+              value={draft.layout}
+              onChange={(e) => set('layout', e.target.value as HomeFeatureLayout)}
+            >
+              {HOME_FEATURE_LAYOUTS.map((layout) => (
+                <option key={layout} value={layout}>
+                  {HOME_FEATURE_LAYOUT_LABELS[layout]}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Button text" htmlFor="feature-button-label" hint="Optional.">
             <Input
@@ -237,15 +253,20 @@ function FeatureEditor({
               ))}
             </Select>
           </Field>
-          <label className="flex items-center gap-2 self-end pb-2 text-sm">
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-primary"
-              checked={draft.enabled}
-              onChange={(e) => set('enabled', e.target.checked)}
-            />
-            Show on the home page
-          </label>
+          <Field
+            label="Status"
+            htmlFor="feature-status"
+            hint="A draft is saved and previewed here, not shown on the site."
+          >
+            <Select
+              id="feature-status"
+              value={draft.enabled ? 'ACTIVE' : 'DRAFT'}
+              onChange={(e) => set('enabled', e.target.value === 'ACTIVE')}
+            >
+              <option value="ACTIVE">Active — on the home page</option>
+              <option value="DRAFT">Draft — hidden</option>
+            </Select>
+          </Field>
         </div>
 
         {buttonHalf ? (
@@ -327,8 +348,9 @@ function HomeFeaturesAdmin() {
           <h1 className="text-2xl font-bold tracking-tight">Home features</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Blocks on the home page under <strong>Recently listed</strong>, one under another in the
-            order below. Each can have a photo, some text and a button to a website or a page here.
-            They are separate from the blog and appear nowhere else.
+            order below. Each can have a picture or a silent video, some text and a button to a
+            website or a page here — beside the media, or over it at full width. Use the arrows to
+            reorder. They are separate from the blog and appear nowhere else.
           </p>
         </div>
         {editing !== 'new' ? (
@@ -383,17 +405,22 @@ function HomeFeaturesAdmin() {
               <li key={feature.id}>
                 <Card>
                   <CardContent className="flex flex-wrap items-center gap-4 p-4">
-                    <div className="h-16 w-28 shrink-0 overflow-hidden rounded bg-muted">
-                      {feature.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={feature.imageUrl} alt="" className="h-full w-full object-cover" />
-                      ) : null}
-                    </div>
+                    <MediaThumb
+                      kind={homeFeatureMedia(feature)?.kind ?? 'IMAGE'}
+                      source={homeFeatureMedia(feature)?.desktop ?? null}
+                      className="h-16 w-28 shrink-0"
+                    />
                     <div className="min-w-[200px] flex-1">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
                         <Badge variant={feature.enabled ? 'success' : 'outline'}>
-                          {feature.enabled ? 'Shown' : 'Hidden'}
+                          {feature.enabled ? 'Active' : 'Draft'}
                         </Badge>
+                        {feature.layout === 'FULL_BLEED' ? (
+                          <Badge variant="outline">Full width</Badge>
+                        ) : null}
+                        {homeFeatureMedia(feature)?.kind === 'VIDEO' ? (
+                          <Badge variant="outline">Video</Badge>
+                        ) : null}
                         {feature.buttonLabel ? (
                           <Badge variant="outline">
                             Button: {HOME_FEATURE_BUTTON_PLACEMENT_LABELS[feature.buttonPlacement]}

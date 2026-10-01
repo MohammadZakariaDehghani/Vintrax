@@ -14,7 +14,14 @@ configureVintraxClient({
   socketUrl: process.env['NEXT_PUBLIC_WS_URL'] ?? '',
 });
 
-export { ApiError, api, apiRequest, setSessionExpiredHandler, tokenStore } from '@vintrax/client';
+export {
+  ApiError,
+  api,
+  apiRequest,
+  setSessionExpiredHandler,
+  tokenStore,
+  vintraxClientConfig,
+} from '@vintrax/client';
 
 /**
  * Server-side fetch for React Server Components, which cannot read

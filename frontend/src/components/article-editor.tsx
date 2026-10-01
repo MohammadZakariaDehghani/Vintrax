@@ -1,11 +1,17 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, ImagePlus, Trash2 } from 'lucide-react';
-import type { Article, ArticleKind, ArticleStatus } from '@vintrax/shared';
+import {
+  articleMedia,
+  type Article,
+  type ArticleKind,
+  type ArticleStatus,
+  type MediaPresentation,
+} from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
   Button,
@@ -17,7 +23,9 @@ import {
   Select,
   Textarea,
 } from '@/components/ui';
-import { HomeMasthead } from '@/components/home-masthead';
+import { MediaEditor } from '@/components/media/admin/media-editor';
+import { LivePreview } from '@/components/media/admin/live-preview';
+import { stillUrl, toMediaInput } from '@/lib/media-input';
 
 const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -53,8 +61,16 @@ export function ArticleEditor({
   const [title, setTitle] = useState(article?.title ?? '');
   const [subtitle, setSubtitle] = useState(article?.subtitle ?? '');
   const [body, setBody] = useState(article?.body ?? '');
-  const [heroImageUrl, setHeroImageUrl] = useState(article?.heroImageUrl ?? '');
-  const [heroAlt, setHeroAlt] = useState(article?.heroAlt ?? '');
+  // A page keeps a plain photograph; a post shows media from the library —
+  // or, written before the library, the photograph it has always had.
+  const [pagePhoto, setPagePhoto] = useState(article?.heroImageUrl ?? '');
+  const [pageAlt, setPageAlt] = useState(article?.heroAlt ?? '');
+  const [media, setMedia] = useState<MediaPresentation | null>(
+    article && article.kind === 'POST' ? articleMedia(article) : null,
+  );
+  // A post's plain picture — for cards and sharing — is its photo, or its video's poster.
+  const heroImageUrl = isPage ? pagePhoto : (stillUrl(media) ?? '');
+  const heroAlt = isPage ? pageAlt : (media?.alt ?? '');
   const [ctaLabel, setCtaLabel] = useState(article?.ctaLabel ?? '');
   const [ctaHref, setCtaHref] = useState(article?.ctaHref ?? '');
   const [status, setStatus] = useState<ArticleStatus>(article?.status ?? 'DRAFT');
@@ -62,7 +78,7 @@ export function ArticleEditor({
 
   const upload = useMutation({
     mutationFn: (file: File) => api.upload<Uploaded>('/uploads/article-images', file),
-    onSuccess: (stored) => setHeroImageUrl(stored.url),
+    onSuccess: (stored) => setPagePhoto(stored.url),
   });
 
   const save = useMutation({
@@ -75,6 +91,7 @@ export function ArticleEditor({
         // page sends null, which removes it.
         heroImageUrl: heroImageUrl || (article ? null : undefined),
         heroAlt: heroAlt.trim() || (article ? null : undefined),
+        ...(isPage ? {} : { media: toMediaInput(media) }),
         ctaLabel: ctaLabel.trim() || (article ? null : undefined),
         ctaHref: ctaHref.trim() || (article ? null : undefined),
         status,
@@ -131,6 +148,31 @@ export function ArticleEditor({
     !ctaIncomplete &&
     !ctaExternal;
 
+  const preview = useMemo(
+    () => ({
+      kind: 'article' as const,
+      article: {
+        id: article?.id ?? 'preview',
+        slug: article?.slug ?? 'preview',
+        kind,
+        title: title || 'Your headline',
+        subtitle: subtitle || null,
+        heroImageUrl: heroImageUrl || null,
+        heroAlt: heroAlt || null,
+        ctaLabel: ctaLabel || null,
+        ctaHref: ctaHref || null,
+        media,
+        homeOrder: article?.homeOrder ?? null,
+        status,
+        publishedAt: article?.publishedAt ?? new Date().toISOString(),
+        authorName: article?.authorName ?? null,
+        createdAt: article?.createdAt ?? new Date().toISOString(),
+        updatedAt: article?.updatedAt ?? new Date().toISOString(),
+      },
+    }),
+    [article, kind, title, subtitle, heroImageUrl, heroAlt, ctaLabel, ctaHref, media, status],
+  );
+
   return (
     <div className="space-y-6">
       {/* The preview goes above the form, full width, because the thing being
@@ -152,30 +194,11 @@ export function ArticleEditor({
       ) : (
         <section>
           <h2 className="mb-2 text-sm font-semibold">Home page preview</h2>
-          {heroImageUrl ? (
-            <div className="overflow-hidden rounded-lg border border-border">
-              <HomeMasthead
-                article={{
-                  id: article?.id ?? 'preview',
-                  slug: article?.slug ?? 'preview',
-                  kind,
-                  title: title || 'Your headline',
-                  subtitle: subtitle || null,
-                  heroImageUrl,
-                  heroAlt: heroAlt || null,
-                  ctaLabel: ctaLabel || null,
-                  ctaHref: ctaHref || null,
-                  status,
-                  publishedAt: article?.publishedAt ?? new Date().toISOString(),
-                  authorName: article?.authorName ?? null,
-                  createdAt: article?.createdAt ?? new Date().toISOString(),
-                  updatedAt: article?.updatedAt ?? new Date().toISOString(),
-                }}
-              />
-            </div>
+          {media ? (
+            <LivePreview payload={preview} />
           ) : (
             <div className="grid w-full aspect-[1920/330] min-h-[10rem] place-items-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
-              Upload a photograph to see the masthead
+              Choose a picture or a video to see the masthead
             </div>
           )}
           <p className="mt-2 text-xs text-muted-foreground">
@@ -222,69 +245,78 @@ export function ArticleEditor({
               />
             </Field>
 
-            <Field
-              label="Photograph"
-              htmlFor="hero"
-              hint={
-                isPage
-                  ? 'Optional. A wide, landscape shot across the top of the page.'
-                  : 'A wide, landscape shot. It is cropped to about 1920×330 on the home page, so keep the subject away from the edges.'
-              }
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  ref={fileInput}
-                  id="hero"
-                  type="file"
-                  accept={ACCEPTED.join(',')}
-                  className="sr-only"
-                  onChange={(event) => {
-                    choose(event.target.files?.[0]);
-                    event.target.value = '';
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  loading={upload.isPending}
-                  onClick={() => fileInput.current?.click()}
+            {isPage ? (
+              <>
+                <Field
+                  label="Photograph"
+                  htmlFor="hero"
+                  hint="Optional. A wide, landscape shot across the top of the page."
                 >
-                  <ImagePlus className="mr-1.5 h-4 w-4" aria-hidden />
-                  {heroImageUrl ? 'Replace photograph' : 'Upload photograph'}
-                </Button>
-                {heroImageUrl ? (
-                  isPage ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      ref={fileInput}
+                      id="hero"
+                      type="file"
+                      accept={ACCEPTED.join(',')}
+                      className="sr-only"
+                      onChange={(event) => {
+                        choose(event.target.files?.[0]);
+                        event.target.value = '';
+                      }}
+                    />
                     <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      onClick={() => setHeroImageUrl('')}
+                      loading={upload.isPending}
+                      onClick={() => fileInput.current?.click()}
                     >
-                      Remove photograph
+                      <ImagePlus className="mr-1.5 h-4 w-4" aria-hidden />
+                      {pagePhoto ? 'Replace photograph' : 'Upload photograph'}
                     </Button>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Uploaded</span>
-                  )
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    {isPage ? 'Optional' : 'Required'}
-                  </span>
-                )}
-              </div>
-            </Field>
+                    {pagePhoto ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setPagePhoto('')}
+                      >
+                        Remove photograph
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Optional</span>
+                    )}
+                  </div>
+                </Field>
 
-            <Field
-              label="Photograph description"
-              htmlFor="heroAlt"
-              hint="Optional. Read aloud by screen readers; leave blank if the photo is purely decorative."
-            >
-              <Input
-                id="heroAlt"
-                value={heroAlt}
-                onChange={(event) => setHeroAlt(event.target.value)}
-                maxLength={160}
-              />
-            </Field>
+                <Field
+                  label="Photograph description"
+                  htmlFor="heroAlt"
+                  hint="Optional. Read aloud by screen readers; leave blank if the photo is purely decorative."
+                >
+                  <Input
+                    id="heroAlt"
+                    value={pageAlt}
+                    onChange={(event) => setPageAlt(event.target.value)}
+                    maxLength={160}
+                  />
+                </Field>
+              </>
+            ) : (
+              <div>
+                <p className="mb-1 text-sm font-medium">Picture or video</p>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Required. Wide works best — it is cropped to about 1920×330 on the home page, so
+                  keep the subject away from the edges. A video plays silently on the home page and
+                  the post; cards show its poster.
+                </p>
+                <MediaEditor
+                  idPrefix="post"
+                  value={media}
+                  onChange={setMedia}
+                  required={Boolean(article)}
+                />
+              </div>
+            )}
 
             <Field
               label={isPage ? 'Page text' : 'Article'}

@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import type { ArticleSummary } from '@vintrax/shared';
+import { articleMedia, type ArticleSummary } from '@vintrax/shared';
 import { cn } from '@/lib/utils';
+import { ResponsiveMedia } from '@/components/media/responsive-media';
 
 /**
  * The band across the top of the home page.
@@ -24,6 +25,7 @@ export function HomeMasthead({
   className,
   headingId = 'masthead-title',
   eager = true,
+  active = true,
 }: {
   article: ArticleSummary;
   className?: string;
@@ -31,7 +33,10 @@ export function HomeMasthead({
   headingId?: string;
   /** False for a slideshow's later slides, which are not the first thing painted. */
   eager?: boolean;
+  /** False for a slideshow's hidden slides, whose video must not play. */
+  active?: boolean;
 }) {
+  const media = articleMedia(article);
   return (
     <section
       aria-labelledby={headingId}
@@ -49,25 +54,30 @@ export function HomeMasthead({
         className,
       )}
     >
-      {/* Operator uploads served from the API origin; next/image would add a
-          hop without improving anything. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={article.heroImageUrl ?? undefined}
-        alt={article.heroAlt ?? ''}
-        className="absolute inset-0 -z-10 h-full w-full object-cover"
-        // The first masthead is the first thing painted, so it is never lazy;
-        // a slideshow's later slides wait their turn.
-        fetchPriority={eager ? 'high' : 'low'}
-        loading={eager ? 'eager' : 'lazy'}
-        decoding="async"
-      />
-      {/* Two scrims: one across the whole frame so the photograph never fights
-          the header above it, one heavier from the left where the words are. */}
-      <div className="absolute inset-0 -z-10 bg-[hsl(0_12%_9%)]/45" />
-      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[hsl(0_12%_9%)]/90 via-[hsl(0_12%_9%)]/60 to-transparent" />
-
-      <div className="container flex h-full flex-col justify-center py-10">
+      {/* The post's picture or video — its own media when it has some, the
+          photograph every post had before the media library otherwise. */}
+      <div className="absolute inset-0 -z-10">
+        {media ? (
+          <ResponsiveMedia
+            media={media}
+            sizes="100vw"
+            // The first masthead is the first thing painted, so it is never
+            // lazy; a slideshow's later slides wait their turn.
+            priority={eager}
+            controls
+            controlsClassName="right-4 top-4"
+            suspended={!active}
+            className="absolute inset-0 h-full w-full"
+          />
+        ) : null}
+        {/* Two scrims: one across the whole frame so the photograph never
+            fights the header above it, one heavier from the left where the
+            words are. In the media's layer, under the video's pause button. */}
+        <div className="pointer-events-none absolute inset-0 bg-[hsl(0_12%_9%)]/45" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[hsl(0_12%_9%)]/90 via-[hsl(0_12%_9%)]/60 to-transparent" />
+      </div>
+      {/* Clicks pass through to the video's pause button except on the links. */}
+      <div className="container pointer-events-none flex h-full flex-col justify-center py-10 [&_a]:pointer-events-auto">
         {/* No kicker and no date. A masthead is an invitation, not a filing
             card — the byline and the date belong on the post itself, where
             they answer a question the reader is actually asking. */}
