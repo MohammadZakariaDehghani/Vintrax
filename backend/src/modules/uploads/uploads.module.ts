@@ -10,5 +10,6 @@ import { PromoVideoUploadsService } from './promo-video-uploads.service';
   imports: [UploadLimitsModule, VehicleImagesModule],
   controllers: [UploadsController, PromoVideoUploadsController],
   providers: [VideoProcessor, PromoVideoUploadsService],
+  exports: [PromoVideoUploadsService],
 })
 export class UploadsModule {}

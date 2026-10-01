@@ -1,6 +1,8 @@
 import Link from 'next/link';
-import type { ArticleSummary } from '@vintrax/shared';
+import { PlayCircle } from 'lucide-react';
+import { articleMedia, type ArticleSummary } from '@vintrax/shared';
 import { Card, CardContent } from '@/components/ui';
+import { MediaImage } from '@/components/media/media-image';
 
 /**
  * One blog post, as a card — shared by the `/blog` grid and the home page's
@@ -23,15 +25,7 @@ export function BlogCard({
       <Card className="h-full overflow-hidden transition-colors group-hover:border-primary/40">
         {showImage ? (
           <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
-            {/* Same-origin uploads, often already sized for this card; next/image
-                optimisation adds a hop without a benefit. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={article.heroImageUrl ?? undefined}
-              alt={article.heroAlt ?? ''}
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-            />
+            <CardPicture article={article} />
           </div>
         ) : null}
         <CardContent className="p-4">
@@ -59,5 +53,47 @@ export function ArticleMeta({ article }: { article: ArticleSummary }) {
       </time>
       {article.authorName ? ` · ${article.authorName}` : ''}
     </p>
+  );
+}
+
+/**
+ * The card's picture: the post's photo, with its responsive renditions when it
+ * came from the media library. A video post shows its poster with a play mark
+ * — a grid of cards never downloads a video, the post's own page plays it.
+ */
+function CardPicture({ article }: { article: ArticleSummary }) {
+  const media = articleMedia(article);
+  if (!media) return null;
+  const className =
+    'h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]';
+  if (media.kind === 'VIDEO') {
+    const poster = media.desktop.posterUrl ?? article.heroImageUrl;
+    return (
+      <>
+        {poster ? (
+          // eslint-disable-next-line @next/next/no-img-element -- an operator upload
+          <img
+            src={poster}
+            alt={media.alt ?? ''}
+            loading="lazy"
+            decoding="async"
+            className={className}
+          />
+        ) : null}
+        <PlayCircle
+          className="absolute bottom-3 right-3 h-8 w-8 text-white drop-shadow"
+          aria-label="Video"
+        />
+      </>
+    );
+  }
+  return (
+    <MediaImage
+      desktop={media.desktop}
+      mobile={null}
+      alt={media.alt ?? ''}
+      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+      className={className}
+    />
   );
 }

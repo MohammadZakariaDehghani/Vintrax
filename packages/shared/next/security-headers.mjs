@@ -47,8 +47,10 @@ function contentSecurityPolicy({ dev }) {
     'media-src': ["'self'", 'blob:', 'https:', ...(dev ? ['http:'] : [])],
     'font-src': ["'self'", 'data:'],
     'connect-src': connect,
-    // Google Maps on the Contact page, YouTube's no-cookie player on listings.
-    'frame-src': ['https://www.google.com', 'https://www.youtube-nocookie.com'],
+    // Google Maps on the Contact page, YouTube's no-cookie player on listings,
+    // and the site's own pages: the admin's live media preview frames
+    // /admin/preview. Other sites still cannot frame Vintrax (frame-ancestors).
+    'frame-src': ["'self'", 'https://www.google.com', 'https://www.youtube-nocookie.com'],
     'worker-src': ["'self'", 'blob:'],
     'manifest-src': ["'self'"],
     'object-src': ["'none'"],

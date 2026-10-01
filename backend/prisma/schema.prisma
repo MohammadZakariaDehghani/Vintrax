@@ -268,6 +268,8 @@ model User {
   siteSettings   SiteSettings[]
   homeFeatures   HomeFeature[]
   promoTiles     PromoTile[]
+  mediaAssets    MediaAsset[]
+  homeHeroes     HomeHero[]
   makeLogos      MakeLogo[]
   partners       Partner[]
 
@@ -1061,6 +1063,13 @@ model Article {
   ctaLabel String?
   ctaHref  String?
 
+  /// The picture or video and how it is shown (`MediaPresentation` in
+  /// @vintrax/shared), validated on write and re-checked on read. Null for a
+  /// post written before the media library: `heroImageUrl` is its picture.
+  media     Json?
+  /// Pinned posts lead the blog and the home page in this order; null sorts by date.
+  homeOrder Int?
+
   kind        ArticleKind   @default(POST)
   status      ArticleStatus @default(DRAFT)
   publishedAt DateTime?
@@ -1249,14 +1258,24 @@ enum HomeFeatureButtonPlacement {
 /// or another website. Any number of them, stacked one under another in
 /// `position` order — not a slideshow, and separate from the blog, so none
 /// appears on the blog, the banner or the Research & advice menu.
-model HomeFeature {
-  id    String  @id @default(uuid()) @db.Uuid
-  title String
-  body  String? @db.Text
+enum HomeFeatureLayout {
+  SPLIT
+  FULL_BLEED
+}
 
-  /// An issued upload URL, checked by the service.
+model HomeFeature {
+  id       String  @id @default(uuid()) @db.Uuid
+  title    String
+  subtitle String?
+  body     String? @db.Text
+
+  /// An issued upload URL, checked by the service. A block saved before the
+  /// media library has only this; `media` wins when set.
   imageUrl String?
   imageAlt String?
+  /// Picture or video with crop and animation (`MediaPresentation`).
+  media    Json?
+  layout   HomeFeatureLayout @default(SPLIT)
 
   buttonLabel     String?
   /// A site path or an `https://` address, validated by the shared schema.
@@ -1286,7 +1305,16 @@ enum PromoTileMediaType {
 
 model PromoTile {
   id   String @id @default(uuid()) @db.Uuid
+  /// The box's place in the row, from 1. Up to PROMO_TILE_MAX_SLOTS.
   slot Int    @unique
+
+  /// Words over the media, drawn as real text.
+  title    String?
+  body     String?
+  ctaLabel String?
+  /// Picture or video with crop and animation (`MediaPresentation`); the
+  /// image and video fields below are what a box saved before it has.
+  media    Json?
 
   /// An issued upload URL, checked by the service.
   imageUrl String?
@@ -1307,6 +1335,82 @@ model PromoTile {
   videoUrl       String?
   /// A frame of that video, shown before it plays and when it cannot.
   videoPosterUrl String?
+
+  updatedById String? @db.Uuid
+  updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+}
+
+/// A file in the media library: a photo already cut into responsive WebP
+/// renditions, or a video already re-encoded for the web with a poster frame
+/// and a phone-sized rendition. Content (the hero, posts, home features and
+/// home boxes) stores a snapshot of these URLs in its `media` column; an
+/// asset still in use there cannot be deleted.
+model MediaAsset {
+  id    String    @id @default(uuid()) @db.Uuid
+  kind  MediaKind
+  label String
+  alt   String?
+
+  /// An image's plain rendition, or a video's MP4.
+  url             String   @unique
+  posterUrl       String?
+  smallUrl        String?
+  /// An image's renditions: `<baseUrl>/<width>.<format>`.
+  baseUrl         String?
+  widths          Int[]
+  formats         String[]
+  width           Int?
+  height          Int?
+  durationSeconds Float?
+  sizeBytes       Int
+  contentType     String
+  /// Every stored file, for deletion. Never sent to a client.
+  storageKeys     String[]
+
+  createdById String? @db.Uuid
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kind, createdAt])
+}
+
+enum HomeHeroHeight {
+  MEDIUM
+  LARGE
+  FULL
+}
+
+enum HomeHeroAlign {
+  LEFT
+  CENTER
+}
+
+/// The home page hero, a single row (id 1). Off by default: until an
+/// administrator switches it on, the newest blog posts head the page as before.
+model HomeHero {
+  id Int @id @default(1)
+
+  title             String
+  subtitle          String?
+  primaryCtaLabel   String?
+  primaryCtaUrl     String?
+  secondaryCtaLabel String?
+  secondaryCtaUrl   String?
+  overlayOpacity    Int            @default(40)
+  align             HomeHeroAlign  @default(LEFT)
+  height            HomeHeroHeight @default(LARGE)
+  media             Json?
+  enabled           Boolean        @default(false)
 
   updatedById String? @db.Uuid
   updatedBy   User?   @relation(fields: [updatedById], references: [id], onDelete: SetNull)

@@ -1,6 +1,22 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Put,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { type PromoTile, type SavePromoTileInput, savePromoTileSchema } from '@vintrax/shared';
+import {
+  type PromoTile,
+  type ReorderPromoTilesInput,
+  type SavePromoTileInput,
+  reorderPromoTilesSchema,
+  savePromoTileSchema,
+} from '@vintrax/shared';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators';
 import { zodBody } from '../../common/pipes/zod-validation.pipe';
 import { AuditService } from '../../common/audit/audit.service';
@@ -24,9 +40,36 @@ export class PromoTilesController {
 
   @Get('admin/promo-tiles')
   @RequirePermissions('content:manage')
-  @ApiOperation({ summary: 'All three promo tile slots, empty and hidden ones included' })
+  @ApiOperation({
+    summary: 'Every home box, empty and hidden ones included — at least three',
+  })
   all(): Promise<PromoTile[]> {
     return this.tiles.all();
+  }
+
+  // Declared before `:slot` so `order` is not read as a slot number.
+  @Put('admin/promo-tiles/order')
+  @RequirePermissions('content:manage')
+  @ApiOperation({ summary: 'Put the saved home boxes in a new order, by their current slots' })
+  async reorder(
+    @Body(zodBody(reorderPromoTilesSchema)) input: ReorderPromoTilesInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<PromoTile[]> {
+    const tiles = await this.tiles.reorder(input);
+    await this.record(user, 'content.promo-tile.reordered', { slots: input.slots });
+    return tiles;
+  }
+
+  @Delete('admin/promo-tiles/:slot')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @RequirePermissions('content:manage')
+  @ApiOperation({ summary: 'Delete a home box; the boxes after it move up a place' })
+  async remove(
+    @Param('slot', ParseIntPipe) slot: number,
+    @CurrentUser() user: AuthUser,
+  ): Promise<void> {
+    await this.tiles.remove(slot);
+    await this.record(user, 'content.promo-tile.deleted', { slot });
   }
 
   @Put('admin/promo-tiles/:slot')
@@ -41,15 +84,19 @@ export class PromoTilesController {
     @CurrentUser() user: AuthUser,
   ): Promise<PromoTile> {
     const tile = await this.tiles.save(slot, input, user.id);
-    await this.audit.record({
+    await this.record(user, 'content.promo-tile.saved', { slot });
+    return tile;
+  }
+
+  private record(user: AuthUser, action: string, metadata: Record<string, unknown>) {
+    return this.audit.record({
       actorId: user.id,
       actorEmail: user.email,
-      action: 'content.promo-tile.saved',
+      action,
       entityType: 'PromoTile',
       // Audit ids are UUIDs; a tile is known by its slot.
       entityId: null,
-      metadata: { slot },
+      metadata,
     });
-    return tile;
   }
 }

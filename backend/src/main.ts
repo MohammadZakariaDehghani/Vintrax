@@ -16,7 +16,7 @@ import { PUBLIC_UPLOAD_FOLDERS } from './common/storage/public-upload-folders';
  * replaced photo gets a new one. That is the condition under which telling
  * browsers and proxies to cache for a year without revalidating is safe.
  */
-const IMMUTABLE_UPLOAD_FOLDERS: ReadonlySet<string> = new Set(['vehicles']);
+const IMMUTABLE_UPLOAD_FOLDERS: ReadonlySet<string> = new Set(['vehicles', 'media']);
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {

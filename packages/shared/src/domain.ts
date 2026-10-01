@@ -225,13 +225,46 @@ export const HOME_FEATURE_BUTTON_PLACEMENT_LABELS: Record<HomeFeatureButtonPlace
   ON_IMAGE: 'On the photo',
 };
 
+/**
+ * A home feature's shape: the media beside the text (the original block), or
+ * a full-width cinematic band with the words over the picture.
+ */
+export const HOME_FEATURE_LAYOUTS = ['SPLIT', 'FULL_BLEED'] as const;
+export type HomeFeatureLayout = (typeof HOME_FEATURE_LAYOUTS)[number];
+
+export const HOME_FEATURE_LAYOUT_LABELS: Record<HomeFeatureLayout, string> = {
+  SPLIT: 'Media beside the text',
+  FULL_BLEED: 'Full-width media, text over it',
+};
+
+// --- Home page hero ------------------------------------------------------------
+
+export const HOME_HERO_HEIGHTS = ['MEDIUM', 'LARGE', 'FULL'] as const;
+export type HomeHeroHeight = (typeof HOME_HERO_HEIGHTS)[number];
+
+export const HOME_HERO_HEIGHT_LABELS: Record<HomeHeroHeight, string> = {
+  MEDIUM: 'Medium (about half the screen)',
+  LARGE: 'Large (about three quarters)',
+  FULL: 'Full screen',
+};
+
+export const HOME_HERO_ALIGNS = ['LEFT', 'CENTER'] as const;
+export type HomeHeroAlign = (typeof HOME_HERO_ALIGNS)[number];
+
+/** The shade over the hero media, in percent. Never so dark the picture disappears. */
+export const HOME_HERO_OVERLAY = { min: 0, max: 80, default: 40 } as const;
+
 /** How many columns the footer has. A section says which one it sits in. */
 export const FOOTER_COLUMNS = 4;
 
 // --- Home page promo tiles ---------------------------------------------------
 
-/** The home page has exactly this many promo tiles, under the last-search card. */
+/**
+ * Boxes the admin always sees, under the last-search card. More can be added,
+ * up to `PROMO_TILE_MAX_SLOTS`; they wrap onto further rows.
+ */
 export const PROMO_TILE_SLOTS = 3;
+export const PROMO_TILE_MAX_SLOTS = 12;
 
 /**
  * How wide a promo tile is, in twelfths of the row: a quarter, a third, a

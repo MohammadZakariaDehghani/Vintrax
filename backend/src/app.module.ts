@@ -34,6 +34,8 @@ import { ArticlesModule } from './modules/articles/articles.module';
 import { ContactModule } from './modules/contact/contact.module';
 import { HomeFeaturesModule } from './modules/home-features/home-features.module';
 import { PromoTilesModule } from './modules/promo-tiles/promo-tiles.module';
+import { MediaModule } from './modules/media/media.module';
+import { HomeHeroModule } from './modules/home-hero/home-hero.module';
 import { CarValueModule } from './modules/car-value/car-value.module';
 import { VinModule } from './modules/vin/vin.module';
 import { UsersModule } from './modules/users/users.module';
@@ -93,6 +95,8 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     ContactModule,
     HomeFeaturesModule,
     PromoTilesModule,
+    MediaModule,
+    HomeHeroModule,
     CarValueModule,
     VinModule,
     SearchIndexModule,

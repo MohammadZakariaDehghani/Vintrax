@@ -191,3 +191,103 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --- Motion ----------------------------------------------------------------
+   Subtle and few: content rises or fades in once as it scrolls into view, the
+   hero settles in as the page loads, and in-page links scroll smoothly. All
+   of it is transform, opacity and clip-path, which the compositor animates
+   without re-laying out the page. Visitors who ask their system for reduced
+   motion get none of it — the rules below only apply without that request,
+   on top of the global reduced-motion rule above. */
+
+:root {
+  /* A quick start and a long, soft landing: settles rather than bounces. */
+  --reveal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Native, not scripted: browser scrolling is never taken over. Next turns it
+     off for its own route changes, so a new page still starts at the top. */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Waiting content is hidden only when scripting is on — so a visitor without
+   JavaScript sees everything — and shows on its own after a few seconds
+   unless ScrollRevealObserver has taken charge of it, so a script that fails
+   to load cannot leave the page blank. */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  [data-reveal] {
+    transition:
+      opacity var(--reveal-duration, 700ms) var(--reveal-ease) var(--reveal-delay, 0ms),
+      transform var(--reveal-duration, 700ms) var(--reveal-ease) var(--reveal-delay, 0ms),
+      clip-path var(--reveal-duration, 700ms) var(--reveal-ease) var(--reveal-delay, 0ms),
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  [data-reveal]:not([data-revealed]) {
+    opacity: 0;
+    animation: reveal-failsafe 1ms linear 2.5s forwards;
+  }
+
+  [data-reveal='slide-up']:not([data-revealed]) {
+    transform: translate3d(0, 40px, 0);
+  }
+
+  [data-reveal='scale']:not([data-revealed]) {
+    transform: scale(0.95);
+  }
+
+  /* The picture is unveiled upwards from its bottom edge, settling as it does. */
+  [data-reveal='reveal']:not([data-revealed]) {
+    opacity: 1;
+    clip-path: inset(100% 0 0 0);
+    transform: scale(1.03);
+  }
+
+  [data-reveal-armed]:not([data-revealed]) {
+    animation: none;
+  }
+
+  /* The hero is above the fold, so it animates as the page loads rather than
+     on scroll — in CSS, so it starts before any script has run. */
+  .hero-enter {
+    animation: hero-enter 900ms var(--reveal-ease) both;
+    animation-delay: var(--hero-delay, 0ms);
+  }
+
+  .hero-media-enter {
+    animation: hero-media-enter 1800ms var(--reveal-ease) both;
+  }
+}
+
+@keyframes reveal-failsafe {
+  to {
+    opacity: 1;
+    transform: none;
+    clip-path: none;
+  }
+}
+
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+}
+
+@keyframes hero-media-enter {
+  from {
+    opacity: 0.6;
+    transform: scale(1.06);
+  }
+}
+
+/* The admin's live preview frames show the content being edited, not the
+   footer, the chat launcher or the cookie prompt around it. */
+.media-preview [data-site-chrome] {
+  display: none;
+}

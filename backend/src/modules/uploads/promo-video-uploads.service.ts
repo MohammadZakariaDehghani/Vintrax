@@ -27,6 +27,29 @@ import {
 } from '../../common/media/video-processor';
 import { StorageService } from '../../common/storage/storage.service';
 
+/** What a finished upload stored, for a target that records it somewhere. */
+export interface StoredVideoUpload {
+  result: PromoTileVideoUpload;
+  /** The phone rendition, when the target asked for one and the video is wider. */
+  smallUrl: string | null;
+  /** Every file written, so whoever records them can delete them later. */
+  keys: string[];
+}
+
+/**
+ * Where an upload's files go and what happens once they are stored. Promo
+ * tiles take the files' URLs straight into a form; the media library also
+ * makes a phone rendition and records an asset, whose id the status reports.
+ */
+export interface VideoUploadTarget {
+  folder: string;
+  smallWidth?: number;
+  /** Records the stored files and returns the new record's id. */
+  register?: (stored: StoredVideoUpload) => Promise<string>;
+}
+
+const PROMO_TILE_TARGET: VideoUploadTarget = { folder: 'promo-tiles' };
+
 /** An abandoned upload is deleted after this long without a new piece or a status check. */
 export const UPLOAD_IDLE_MS = 60 * 60_000;
 const SWEEP_EVERY_MS = 10 * 60_000;
@@ -48,6 +71,9 @@ interface Session {
   dir: string;
   file: string;
   touchedAt: number;
+  target: VideoUploadTarget;
+  /** Set once a target with `register` has recorded the upload. */
+  assetId: string | null;
 }
 
 /**
@@ -86,7 +112,11 @@ export class PromoVideoUploadsService implements OnModuleInit, OnModuleDestroy {
     await Promise.all([...this.sessions.values()].map((session) => this.discard(session)));
   }
 
-  async start(user: AuthUser, input: StartPromoVideoUploadInput): Promise<PromoVideoUploadSession> {
+  async start(
+    user: AuthUser,
+    input: Pick<StartPromoVideoUploadInput, 'sizeBytes' | 'contentType'>,
+    target: VideoUploadTarget = PROMO_TILE_TARGET,
+  ): Promise<PromoVideoUploadSession> {
     const open = [...this.sessions.values()].filter(
       (session) => session.status === 'UPLOADING' || session.status === 'PROCESSING',
     );
@@ -117,6 +147,8 @@ export class PromoVideoUploadsService implements OnModuleInit, OnModuleDestroy {
       dir,
       file,
       touchedAt: Date.now(),
+      target,
+      assetId: null,
     };
     this.sessions.set(session.id, session);
 
@@ -184,27 +216,33 @@ export class PromoVideoUploadsService implements OnModuleInit, OnModuleDestroy {
     return this.statusOf(session);
   }
 
+  /** The record a registering target made, once READY; null before, or for promo tiles. */
+  assetIdOf(user: AuthUser, id: string): string | null {
+    return this.owned(user, id).assetId;
+  }
+
   private async process(session: Session): Promise<void> {
+    const { folder, smallWidth, register } = session.target;
+    const written: string[] = [];
     try {
-      const processed = await this.videos.process(session.file);
-      const [video, poster] = await Promise.all([
+      const processed = await this.videos.process(session.file, { smallWidth });
+      const storeVideo = (buffer: Buffer) =>
         this.storage.uploadVideo(
-          {
-            folder: 'promo-tiles',
-            buffer: processed.video,
-            contentType: 'video/mp4',
-            originalName: 'video.mp4',
-          },
+          { folder, buffer, contentType: 'video/mp4', originalName: 'video.mp4' },
           PROMO_VIDEO.maxUploadBytes,
-        ),
+        );
+      const [video, poster, small] = await Promise.all([
+        storeVideo(processed.video),
         this.storage.uploadImage({
-          folder: 'promo-tiles',
+          folder,
           buffer: processed.poster,
           contentType: 'image/webp',
           originalName: 'poster.webp',
         }),
+        processed.small ? storeVideo(processed.small) : Promise.resolve(null),
       ]);
-      session.result = {
+      written.push(video.key, poster.key, ...(small ? [small.key] : []));
+      const result: PromoTileVideoUpload = {
         videoUrl: video.url,
         posterUrl: poster.url,
         width: processed.width,
@@ -212,8 +250,14 @@ export class PromoVideoUploadsService implements OnModuleInit, OnModuleDestroy {
         durationSeconds: Math.round(processed.durationSeconds * 10) / 10,
         sizeBytes: video.sizeBytes,
       };
+      if (register) {
+        session.assetId = await register({ result, smallUrl: small?.url ?? null, keys: written });
+      }
+      session.result = result;
       session.status = 'READY';
     } catch (error) {
+      // Nothing half-recorded is kept: files without a record are unreachable.
+      if (register) await Promise.all(written.map((key) => this.storage.delete(key)));
       session.status = 'FAILED';
       session.error =
         error instanceof UnreadableVideoError || error instanceof VideoProcessingUnavailableError

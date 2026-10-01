@@ -1,8 +1,15 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { promoTileHasMedia, type PromoTile, type PromoTileWidth } from '@vintrax/shared';
+import { ArrowRight } from 'lucide-react';
+import {
+  promoTileHasMedia,
+  promoTileMedia,
+  type PromoTile,
+  type PromoTileWidth,
+} from '@vintrax/shared';
 import { cn } from '@/lib/utils';
-import { PromoTileVideo } from '@/components/promo-tile-video';
+import { ResponsiveMedia } from '@/components/media/responsive-media';
+import { revealProps, type MediaVariant } from '@/components/media/media-style';
 
 /**
  * The width, in pixels, of the page's content column at its widest (the
@@ -44,23 +51,27 @@ function TileLink({
   className,
   style,
   children,
+  ...attributes
 }: {
   href: string | null;
-  label: string;
+  /** For a box with no words of its own; otherwise its words are its name. */
+  label: string | undefined;
   className: string;
-  style: CSSProperties;
+  style?: CSSProperties;
   children: React.ReactNode;
+  'data-reveal'?: string;
+  'data-reveal-load'?: string;
 }) {
   if (!href) {
     return (
-      <div className={className} style={style}>
+      <div className={className} style={style} {...attributes}>
         {children}
       </div>
     );
   }
   if (href.startsWith('/')) {
     return (
-      <Link href={href} aria-label={label} className={className} style={style}>
+      <Link href={href} aria-label={label} className={className} style={style} {...attributes}>
         {children}
       </Link>
     );
@@ -73,6 +84,7 @@ function TileLink({
       aria-label={label}
       className={className}
       style={style}
+      {...attributes}
     >
       {children}
     </a>
@@ -81,47 +93,74 @@ function TileLink({
 
 /** Every medium fills the tile the same way: edge to edge, cropped to the tile's shape. */
 const MEDIA_CLASS =
-  'absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]';
+  'absolute inset-0 h-full w-full transition-transform duration-300 group-hover:scale-[1.03]';
 
 /**
  * What goes inside a tile. The tile itself — size, span, order, corners and
- * scaling — is `PromoTileRow`'s and is the same for both, so only this changes
- * when a tile switches between a photo and a video.
+ * scaling — is `PromoTileRow`'s and is the same for a photo and a video, so
+ * only this changes when a tile switches between them. A box saved before the
+ * media library draws the photo or video it was saved with.
  */
-function TileMedia({ tile }: { tile: PromoTile }) {
-  if (tile.mediaType === 'VIDEO' && tile.videoUrl) {
-    return (
-      <PromoTileVideo
-        src={tile.videoUrl}
-        poster={tile.videoPosterUrl}
-        fallbackImageUrl={tile.imageUrl}
-        className={MEDIA_CLASS}
-      />
-    );
-  }
+function TileMedia({ tile, variant }: { tile: PromoTile; variant: MediaVariant }) {
+  const media = promoTileMedia(tile);
+  if (!media) return null;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={tile.imageUrl ?? ''}
-      alt={tile.imageAlt ?? ''}
-      loading="lazy"
+    <ResponsiveMedia
+      media={media}
+      sizes={`(min-width: 640px) ${Math.round((tile.widthSpan / 12) * 100)}vw, 100vw`}
+      variant={variant}
       className={MEDIA_CLASS}
     />
   );
 }
 
+/** Words over the media — real text, never baked into the picture. */
+function TileText({ tile }: { tile: PromoTile }) {
+  if (!tile.title && !tile.body && !tile.ctaLabel) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/70 via-black/20 to-transparent p-5 text-white">
+      {tile.title ? (
+        <p className="text-lg font-bold leading-tight tracking-tight md:text-xl">{tile.title}</p>
+      ) : null}
+      {tile.body ? <p className="mt-1 line-clamp-3 text-sm text-white/85">{tile.body}</p> : null}
+      {tile.ctaLabel ? (
+        // Not a link of its own: the whole box is the link.
+        <span className="mt-3 inline-flex items-center gap-1.5 self-start rounded-md bg-white/95 px-3.5 py-2 text-sm font-semibold text-[hsl(0_12%_9%)] transition-colors group-hover:bg-white">
+          {tile.ctaLabel}
+          <ArrowRight className="h-4 w-4" aria-hidden />
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /** The tiles themselves, without the page's container; also the admin preview. */
-export function PromoTileRow({ tiles }: { tiles: PromoTile[] }) {
+export function PromoTileRow({
+  tiles,
+  variant = 'auto',
+}: {
+  tiles: PromoTile[];
+  /** Forces the desktop or phone media, for the admin preview frames. */
+  variant?: MediaVariant;
+}) {
   const shown = tiles.filter(promoTileHasMedia);
   if (shown.length === 0) return null;
   return (
     <div className="grid gap-4 [container-type:inline-size] sm:grid-cols-12">
-      {shown.map((tile) => (
+      {shown.map((tile, index) => (
         <TileLink
           key={tile.slot}
           href={tile.linkUrl}
-          label={tile.imageAlt || 'Promotion'}
-          style={promoTileSizing(tile)}
+          label={
+            tile.title || tile.body || tile.ctaLabel
+              ? undefined
+              : tile.media?.alt || tile.imageAlt || 'Promotion'
+          }
+          // Boxes rise in one after another, each as its media asks.
+          {...revealProps(promoTileMedia(tile)?.animation ?? { type: 'SLIDE_UP' }, {
+            index,
+            style: promoTileSizing(tile),
+          })}
           className={cn(
             'group relative block overflow-hidden rounded-lg border border-border bg-muted',
             'aspect-[var(--promo-ratio)] sm:aspect-auto sm:h-[var(--promo-height)]',
@@ -129,7 +168,8 @@ export function PromoTileRow({ tiles }: { tiles: PromoTile[] }) {
             SPAN_CLASS[tile.widthSpan] ?? SPAN_CLASS[4],
           )}
         >
-          <TileMedia tile={tile} />
+          <TileMedia tile={tile} variant={variant} />
+          <TileText tile={tile} />
         </TileLink>
       ))}
     </div>

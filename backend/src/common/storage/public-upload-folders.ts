@@ -9,7 +9,8 @@
  *
  * The operator uploads the site draws — body-type icons, post photographs,
  * make and partner logos, footer icons, and site images such as the Contact
- * page map — have to be here too. `make-logos` and `partners` were once
+ * page map — have to be here too, and so does the media library (`media/`),
+ * whose photos and videos the home page shows. `make-logos` and `partners` were once
  * missing, and every uploaded logo 404ed in every deployment;
  * `public-upload-folders.spec.ts` now fails when an upload route writes to a
  * folder that is neither listed here nor deliberately private.
@@ -26,6 +27,7 @@ export const PUBLIC_UPLOAD_FOLDERS = [
   'site',
   'home-features',
   'promo-tiles',
+  'media',
 ] as const;
 
 /** Folders an upload route writes to that must never be served to anyone who asks. */

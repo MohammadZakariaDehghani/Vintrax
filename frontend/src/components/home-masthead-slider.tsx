@@ -102,6 +102,7 @@ export function HomeMastheadSlider({
             className={className}
             headingId={`masthead-title-${slide}`}
             eager={slide === 0}
+            active={slide === index}
           />
         </div>
       ))}

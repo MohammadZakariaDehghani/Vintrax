@@ -5,6 +5,7 @@ import type {
   AuctionSummary,
   BodyTypeImage,
   HomeFeature,
+  HomeHero as HomeHeroContent,
   MakeLogo,
   Paginated,
   Partner,
@@ -18,6 +19,8 @@ import { VehicleRow } from '@/components/vehicle-row';
 import { BrandLogo } from '@/components/brand-logo';
 import { HomeSearch } from '@/components/home-search';
 import { HomeMastheadSlider } from '@/components/home-masthead-slider';
+import { HomeHero } from '@/components/home-hero';
+import { SECTION_REVEAL, revealProps } from '@/components/media/media-style';
 import { HomeBlogCarousel } from '@/components/home-blog-carousel';
 import { HomePartnersCarousel } from '@/components/home-partners-carousel';
 import { HomeFeatures } from '@/components/home-features';
@@ -61,6 +64,7 @@ export default async function HomePage() {
     partners,
     homeFeatures,
     promoTiles,
+    hero,
   ] = await Promise.all([
     serverFetch<VehicleSearchResponse>('/vehicles?sort=NEWEST&pageSize=60'),
     serverFetch<Paginated<AuctionSummary>>('/auctions?status=LIVE&sort=ENDING_SOON&pageSize=3'),
@@ -70,6 +74,7 @@ export default async function HomePage() {
     serverFetch<Partner[]>('/admin/partners'),
     serverFetch<HomeFeature[]>('/home-features'),
     serverFetch<PromoTile[]>('/promo-tiles'),
+    serverFetch<HomeHeroContent | null>('/home-hero'),
   ]);
 
   const recent = featured?.items.slice(0, 10) ?? [];
@@ -98,7 +103,11 @@ export default async function HomePage() {
           front page goes blank because nobody wrote this week is worse than
           one that never had a masthead. */}
       <section className="relative">
-        {mastheadPosts.length > 0 ? (
+        {hero ? (
+          // An administrator's hero, while it is switched on, takes the top of
+          // the page; the newest posts still lead the carousel just below.
+          <HomeHero hero={hero} className="pb-28" />
+        ) : mastheadPosts.length > 0 ? (
           // The padding lives inside each slide so the photograph runs
           // behind the search card that overlaps it, as the gradient does.
           <HomeMastheadSlider articles={mastheadPosts} className="pb-28" />
@@ -158,7 +167,7 @@ export default async function HomePage() {
           full set (`buildPopularMakes`'s cap, currently 15) is always in the
           DOM, reachable by scrolling rather than cut down to what fits. */}
       {popularMakes.length > 0 ? (
-        <section className="container pt-10">
+        <section className="container pt-10" {...revealProps(SECTION_REVEAL)}>
           <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.popularMakes}</h2>
           <ItemCarousel
             items={popularMakes.map((entry) => ({
@@ -193,7 +202,9 @@ export default async function HomePage() {
       {/* The two calculators, after CarGurus' pair: what a visitor's car is
           worth, and how much car they can afford. */}
       <section className="container pt-10">
-        <h2 className="mb-3 text-xl font-bold tracking-tight">{t.home.toolsTitle}</h2>
+        <h2 className="mb-3 text-xl font-bold tracking-tight" {...revealProps(SECTION_REVEAL)}>
+          {t.home.toolsTitle}
+        </h2>
         <div className="grid gap-4 md:grid-cols-2">
           {[
             {
@@ -210,10 +221,11 @@ export default async function HomePage() {
               body: t.home.budgetBody,
               cta: t.home.budgetCta,
             },
-          ].map((tool) => (
+          ].map((tool, index) => (
             <Link
               key={tool.href}
               href={tool.href}
+              {...revealProps(SECTION_REVEAL, { index })}
               className="group flex gap-4 rounded-lg border border-border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-secondary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
@@ -232,7 +244,7 @@ export default async function HomePage() {
       </section>
 
       {auctions && auctions.items.length > 0 ? (
-        <section className="container py-12">
+        <section className="container py-12" {...revealProps(SECTION_REVEAL)}>
           <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
             <div>
               <h2 className="text-2xl font-bold tracking-tight">{t.home.closingSoon}</h2>
@@ -251,7 +263,7 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      <section className="container py-12">
+      <section className="container py-12" {...revealProps(SECTION_REVEAL)}>
         <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">{t.home.recentlyListed}</h2>
@@ -284,8 +296,8 @@ export default async function HomePage() {
 
       <section className="border-t border-border bg-card py-14">
         <div className="container grid gap-8 md:grid-cols-3">
-          {VALUE_PROPS.map((prop) => (
-            <div key={prop.title}>
+          {VALUE_PROPS.map((prop, index) => (
+            <div key={prop.title} {...revealProps(SECTION_REVEAL, { index })}>
               <div className="mb-3 grid h-11 w-11 place-items-center rounded-lg bg-primary/10 text-primary">
                 <prop.icon className="h-5 w-5" aria-hidden />
               </div>
@@ -298,7 +310,7 @@ export default async function HomePage() {
 
       <HomePartnersCarousel partners={partners ?? []} />
 
-      <section className="container py-14">
+      <section className="container py-14" {...revealProps({ type: 'SCALE' })}>
         <Card className="overflow-hidden">
           <CardContent className="flex flex-col items-center gap-4 p-10 text-center">
             <h2 className="text-2xl font-bold tracking-tight">{t.home.sellingTitle}</h2>

@@ -11,6 +11,8 @@ import { CookieConsentBanner } from '@/components/cookie-consent-banner';
 import { CompareBar } from '@/components/compare-bar';
 import { CompareToast } from '@/components/compare-toast';
 import { SiteChat } from '@/components/site-chat';
+import { ScrollProgress } from '@/components/media/scroll-progress';
+import { ScrollRevealObserver } from '@/components/media/scroll-reveal-observer';
 import './globals.css';
 
 /**
@@ -76,7 +78,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   ]);
 
   return (
-    <html lang={locale} suppressHydrationWarning className={`${sans.variable} ${display.variable}`}>
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      // Tells Next to suspend the smooth scrolling in globals.css during its
+      // own route changes, so a new page opens at the top instantly.
+      data-scroll-behavior="smooth"
+      className={`${sans.variable} ${display.variable}`}
+    >
       {/* `overflow-x-clip` is a backstop, not the fix: each page is sized to
           fit the viewport, but a long unbroken word in a listing or a post
           must never scroll the whole site sideways. `clip`, unlike `hidden`,
@@ -90,17 +99,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             Skip to content
           </a>
           <div className="flex min-h-screen flex-col">
+            <ScrollProgress />
+            <ScrollRevealObserver />
             <SiteHeader />
             <main id="main" className="flex-1">
               {children}
             </main>
-            <SiteFooter sections={footer} settings={siteSettings} />
+            {/* `data-site-chrome`: left out of the admin's live preview frames. */}
+            <div data-site-chrome>
+              <SiteFooter sections={footer} settings={siteSettings} />
+            </div>
           </div>
           {/* One fixed-to-the-viewport stack rather than two independently
               `fixed` elements: a visitor who has already started comparing
               vehicles before answering the cookie prompt would otherwise see
               them overlap at the same edge of the screen. */}
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col">
+          <div
+            data-site-chrome
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col"
+          >
             {/* The chat launcher sits above the bars rather than over them.
                 The stack spans the viewport's width, so only what is drawn
                 in it takes clicks; the empty space beside the launcher
@@ -111,7 +128,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <CookieConsentBanner />
             </div>
           </div>
-          <CompareToast />
+          <div data-site-chrome>
+            <CompareToast />
+          </div>
         </Providers>
       </body>
     </html>

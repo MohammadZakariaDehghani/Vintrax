@@ -1,14 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type {
-  CreateHomeFeatureInput,
-  HomeFeature,
-  ReorderHomeFeaturesInput,
-  UpdateHomeFeatureInput,
+import {
+  parseMediaPresentation,
+  type CreateHomeFeatureInput,
+  type HomeFeature,
+  type ReorderHomeFeaturesInput,
+  type UpdateHomeFeatureInput,
 } from '@vintrax/shared';
 import type { HomeFeature as HomeFeatureRow } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RedisService } from '../../common/redis/redis.service';
 import { StorageService } from '../../common/storage/storage.service';
+import { MediaLibraryService, presentationJson } from '../media/media-library.service';
 
 /** Read on every home page render, written rarely; every write drops the key. */
 const CACHE_KEY = 'site:home-features';
@@ -18,9 +20,12 @@ function toHomeFeature(row: HomeFeatureRow): HomeFeature {
   return {
     id: row.id,
     title: row.title,
+    subtitle: row.subtitle,
     body: row.body,
     imageUrl: row.imageUrl,
     imageAlt: row.imageAlt,
+    media: parseMediaPresentation(row.media),
+    layout: row.layout,
     buttonLabel: row.buttonLabel,
     buttonUrl: row.buttonUrl,
     buttonPlacement: row.buttonPlacement,
@@ -41,6 +46,7 @@ export class HomeFeaturesService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly storage: StorageService,
+    private readonly media: MediaLibraryService,
   ) {}
 
   /** Every block, hidden ones included, top to bottom. */
@@ -60,13 +66,17 @@ export class HomeFeaturesService {
 
   async create(input: CreateHomeFeatureInput, actorId: string): Promise<HomeFeature> {
     if (input.imageUrl) this.requireOwnImage(input.imageUrl);
+    const media = (await this.media.resolve(input.media)) ?? null;
     // New blocks go to the bottom, where an administrator adding one expects it.
     const last = await this.prisma.homeFeature.aggregate({ _max: { position: true } });
 
     const row = await this.prisma.homeFeature.create({
       data: {
         title: input.title,
+        subtitle: input.subtitle ?? null,
         body: input.body ?? null,
+        media: presentationJson(media),
+        ...(input.layout ? { layout: input.layout } : {}),
         imageUrl: input.imageUrl ?? null,
         imageAlt: input.imageAlt ?? null,
         buttonLabel: input.buttonLabel ?? null,
@@ -94,9 +104,15 @@ export class HomeFeaturesService {
       throw new BadRequestException('Give the button both a label and a link, or neither');
     }
 
+    const { media: mediaInput, ...fields } = input;
+    const media = await this.media.resolve(mediaInput);
     const row = await this.prisma.homeFeature.update({
       where: { id },
-      data: { ...input, updatedById: actorId },
+      data: {
+        ...fields,
+        ...(media !== undefined ? { media: presentationJson(media) } : {}),
+        updatedById: actorId,
+      },
     });
     await this.redis.del(CACHE_KEY);
     return toHomeFeature(row);

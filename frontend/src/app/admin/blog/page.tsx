@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PenLine, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, PenLine, Pin, PinOff, Plus, Trash2 } from 'lucide-react';
 import type { ArticleStatus, ArticleSummary, Paginated } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import {
@@ -14,6 +14,7 @@ import {
   EmptyState,
   ErrorAlert,
   Pagination,
+  Select,
   Spinner,
 } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
@@ -57,6 +58,122 @@ const BULK_VERB: Record<BulkAction, string> = {
  * Ordered by when each post was last edited rather than by publication date,
  * because the thing an author is looking for is what they were working on.
  */
+/**
+ * Posts pinned to the top of the blog and the home page's banner and
+ * carousel, in the order set here. Everything else follows, newest first.
+ */
+function PinnedPosts() {
+  const queryClient = useQueryClient();
+  const [adding, setAdding] = useState('');
+  const pinned = useQuery({
+    queryKey: ['admin-articles', 'pinned'],
+    queryFn: () => api.get<ArticleSummary[]>('/admin/articles/pinned'),
+  });
+  const published = useQuery({
+    queryKey: ['admin-articles', 'published-for-pinning'],
+    queryFn: () =>
+      api.get<Paginated<ArticleSummary>>('/admin/articles?status=PUBLISHED&pageSize=100'),
+  });
+  const reorder = useMutation({
+    mutationFn: (ids: string[]) => api.put<ArticleSummary[]>('/admin/articles/order', { ids }),
+    onSuccess: (result) => {
+      queryClient.setQueryData(['admin-articles', 'pinned'], result);
+      setAdding('');
+    },
+  });
+
+  const ids = (pinned.data ?? []).map((post) => post.id);
+  const move = (index: number, by: -1 | 1) => {
+    const next = [...ids];
+    const target = index + by;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    reorder.mutate(next);
+  };
+  const candidates = (published.data?.items ?? []).filter((post) => !ids.includes(post.id));
+
+  return (
+    <Card className="mb-6">
+      <CardContent className="p-5">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Pin className="h-4 w-4" aria-hidden />
+          Pinned to the top
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pinned posts lead the home page banner, the story carousel and the blog, in this order.
+          The rest follow, newest first.
+        </p>
+        <ErrorAlert error={pinned.error ?? reorder.error} className="mt-3" />
+        {ids.length > 0 ? (
+          <ol className="mt-3 divide-y divide-border rounded-md border border-border">
+            {pinned.data!.map((post, index) => (
+              <li key={post.id} className="flex items-center gap-2 px-3 py-2">
+                <span className="tabular w-5 text-sm text-muted-foreground">{index + 1}</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{post.title}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Move ${post.title} up`}
+                  disabled={index === 0 || reorder.isPending}
+                  onClick={() => move(index, -1)}
+                >
+                  <ArrowUp className="h-4 w-4" aria-hidden />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Move ${post.title} down`}
+                  disabled={index === ids.length - 1 || reorder.isPending}
+                  onClick={() => move(index, 1)}
+                >
+                  <ArrowDown className="h-4 w-4" aria-hidden />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Unpin ${post.title}`}
+                  disabled={reorder.isPending}
+                  onClick={() => reorder.mutate(ids.filter((id) => id !== post.id))}
+                >
+                  <PinOff className="h-4 w-4" aria-hidden />
+                </Button>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">Nothing is pinned: newest first.</p>
+        )}
+        {candidates.length > 0 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Select
+              aria-label="A published post to pin"
+              value={adding}
+              onChange={(event) => setAdding(event.target.value)}
+              className="max-w-sm"
+            >
+              <option value="">Choose a published post…</option>
+              {candidates.map((post) => (
+                <option key={post.id} value={post.id}>
+                  {post.title}
+                </option>
+              ))}
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!adding || reorder.isPending}
+              onClick={() => reorder.mutate([...ids, adding])}
+            >
+              <Pin className="h-4 w-4" aria-hidden />
+              Pin it
+            </Button>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ArticleList() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
@@ -187,6 +304,8 @@ function ArticleList() {
           </Button>
         </Link>
       </header>
+
+      <PinnedPosts />
 
       <ErrorAlert error={articles.error ?? bulk.error} className="mb-4" />
 

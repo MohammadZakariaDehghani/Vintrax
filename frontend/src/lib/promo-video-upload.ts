@@ -29,31 +29,41 @@ export function videoContentType(file: Pick<File, 'type' | 'name'>): string {
 const POLL_EVERY_MS = 2000;
 const GIVE_UP_AFTER_MS = 15 * 60_000;
 
+/** What every upload session's status shares, whatever it produces. */
+interface SessionStatus {
+  status: PromoVideoUploadStatus['status'];
+  error: string | null;
+}
+
 /**
- * Uploads a promo tile video in pieces, then waits while the server optimises
- * it. No request carries more than one piece — so a proxy's body limit never
- * sees the whole file — and none waits on the encoder.
+ * Sends a video in pieces to an upload-session endpoint, then waits while the
+ * server optimises it, and returns the final status. No request carries more
+ * than one piece — so a proxy's body limit never sees the whole file — and
+ * none waits on the encoder. Shared by promo tiles and the media library.
  */
-export async function uploadPromoVideo(
+export async function sendVideoInPieces<T extends SessionStatus>(
+  sessionsPath: string,
   file: File,
   onProgress: (progress: PromoVideoProgress) => void,
-  wait: (ms: number) => Promise<void> = (ms) => new Promise((done) => setTimeout(done, ms)),
-): Promise<PromoTileVideoUpload> {
+  wait: (ms: number) => Promise<void>,
+  extra: Record<string, unknown> = {},
+): Promise<T> {
   if (file.size > PROMO_VIDEO.maxUploadBytes) {
     throw new Error(`Videos can be up to ${PROMO_VIDEO.maxUploadBytes / 1024 / 1024} MB.`);
   }
 
-  const session = await api.post<PromoVideoUploadSession>('/uploads/promo-tiles/video/sessions', {
+  const session = await api.post<PromoVideoUploadSession>(sessionsPath, {
     sizeBytes: file.size,
     contentType: videoContentType(file),
+    ...extra,
   });
-  const base = `/uploads/promo-tiles/video/sessions/${session.uploadId}`;
+  const base = `${sessionsPath}/${session.uploadId}`;
 
   onProgress({ phase: 'uploading', percent: 0 });
   for (let index = 0; index < session.chunkCount; index += 1) {
     const start = index * session.chunkBytes;
     const piece = file.slice(start, Math.min(start + session.chunkBytes, file.size));
-    await api.upload<PromoVideoUploadStatus>(
+    await api.upload<T>(
       `${base}/chunks/${index}`,
       new File([piece], 'piece', { type: 'application/octet-stream' }),
     );
@@ -63,7 +73,7 @@ export async function uploadPromoVideo(
     });
   }
 
-  let status = await api.post<PromoVideoUploadStatus>(`${base}/complete`);
+  let status = await api.post<T>(`${base}/complete`);
   onProgress({ phase: 'processing' });
 
   const deadline = Date.now() + GIVE_UP_AFTER_MS;
@@ -72,11 +82,27 @@ export async function uploadPromoVideo(
       throw new Error('Optimising the video is taking too long. Try a shorter clip.');
     }
     await wait(POLL_EVERY_MS);
-    status = await api.get<PromoVideoUploadStatus>(base);
+    status = await api.get<T>(base);
   }
 
-  if (status.status === 'FAILED' || !status.result) {
+  if (status.status === 'FAILED') {
     throw new Error(status.error ?? 'The video could not be processed.');
   }
+  return status;
+}
+
+/** Uploads a promo tile video in pieces and returns where it was stored. */
+export async function uploadPromoVideo(
+  file: File,
+  onProgress: (progress: PromoVideoProgress) => void,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((done) => setTimeout(done, ms)),
+): Promise<PromoTileVideoUpload> {
+  const status = await sendVideoInPieces<PromoVideoUploadStatus>(
+    '/uploads/promo-tiles/video/sessions',
+    file,
+    onProgress,
+    wait,
+  );
+  if (!status.result) throw new Error(status.error ?? 'The video could not be processed.');
   return status.result;
 }

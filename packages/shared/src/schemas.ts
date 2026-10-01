@@ -20,6 +20,10 @@ import {
   FOOTER_LINK_ICONS,
   FUEL_TYPES,
   HOME_FEATURE_BUTTON_PLACEMENTS,
+  HOME_FEATURE_LAYOUTS,
+  HOME_HERO_ALIGNS,
+  HOME_HERO_HEIGHTS,
+  HOME_HERO_OVERLAY,
   INSPECTION_SECTIONS,
   LISTING_SORTS,
   MAX_INSPECTION_IMAGES,
@@ -44,6 +48,7 @@ import {
   VIN_PATTERN,
   maxModelYear,
 } from './domain';
+import { mediaPresentationInputSchema } from './media';
 
 /**
  * Query strings deliver a repeated key as an array or a single value, and the
@@ -857,6 +862,12 @@ export const articleSchema = z
     heroAlt: trimmed(160).optional(),
     ctaLabel: trimmed(40).optional(),
     ctaHref: internalPath.optional(),
+    /**
+     * The picture or video, from the media library. `heroImageUrl` stays
+     * required for a post: the editor fills it with the photo, or the video's
+     * poster, for cards and sharing.
+     */
+    media: mediaPresentationInputSchema.nullable().optional(),
     status: z.enum(ARTICLE_STATUSES).default('DRAFT'),
   })
   .strict()
@@ -890,6 +901,8 @@ export const updateArticleSchema = z
     heroAlt: trimmed(160).nullable(),
     ctaLabel: trimmed(40).nullable(),
     ctaHref: internalPath.nullable(),
+    /** Null goes back to the plain photograph in `heroImageUrl`. */
+    media: mediaPresentationInputSchema.nullable(),
     status: z.enum(ARTICLE_STATUSES),
   })
   .partial()
@@ -898,6 +911,18 @@ export const updateArticleSchema = z
     message: 'Provide at least one field to update',
   });
 export type UpdateArticleInput = z.infer<typeof updateArticleSchema>;
+
+/**
+ * Pins posts to the top of the blog and the home page, in this order. Posts
+ * left out go back to date order. Only published posts can be pinned.
+ */
+export const reorderArticlesSchema = z
+  .object({ ids: z.array(z.string().uuid()).max(20) })
+  .strict()
+  .refine((data) => new Set(data.ids).size === data.ids.length, {
+    message: 'Each post may appear once',
+  });
+export type ReorderArticlesInput = z.infer<typeof reorderArticlesSchema>;
 
 export const articleQuerySchema = z.object({
   /** Posts unless asked otherwise, so the blog never lists a page. */
@@ -929,7 +954,11 @@ const featureButtonUrl = trimmed(500)
 
 const homeFeatureFields = {
   title: trimmed(140).min(1),
+  subtitle: trimmed(180).nullable().optional(),
   body: trimmed(2_000).nullable().optional(),
+  /** Picture or video from the media library; wins over `imageUrl` when set. */
+  media: mediaPresentationInputSchema.nullable().optional(),
+  layout: z.enum(HOME_FEATURE_LAYOUTS).optional(),
   /** An issued upload URL; the service checks it. */
   imageUrl: trimmed(500).min(1).nullable().optional(),
   imageAlt: trimmed(160).nullable().optional(),
@@ -1001,13 +1030,67 @@ export const savePromoTileSchema = z
     /** Both issued by the video upload route; the service checks them. */
     videoUrl: trimmed(500).min(1).nullable().optional(),
     videoPosterUrl: trimmed(500).min(1).nullable().optional(),
+    /** Words over the media, as real text. Optional; a save without them leaves them alone. */
+    title: trimmed(80).nullable().optional(),
+    body: trimmed(240).nullable().optional(),
+    ctaLabel: trimmed(40).nullable().optional(),
+    /** Picture or video from the media library; wins over the fields above when set. */
+    media: mediaPresentationInputSchema.nullable().optional(),
   })
   .strict()
-  .refine((tile) => tile.mediaType !== 'VIDEO' || Boolean(tile.videoUrl), {
+  .refine((tile) => tile.mediaType !== 'VIDEO' || Boolean(tile.videoUrl) || Boolean(tile.media), {
     message: 'Upload a video before choosing Video, or switch the box back to Image.',
     path: ['videoUrl'],
   });
 export type SavePromoTileInput = z.infer<typeof savePromoTileSchema>;
+
+/** The boxes' new order, by their current slot numbers: every saved box exactly once. */
+export const reorderPromoTilesSchema = z
+  .object({ slots: z.array(z.number().int().min(1)).max(50) })
+  .strict();
+export type ReorderPromoTilesInput = z.infer<typeof reorderPromoTilesSchema>;
+
+// --- Home page hero ----------------------------------------------------------
+
+/** A hero button: a label and where it goes, both or neither. */
+const heroButton = (data: { label?: string | null; url?: string | null }) =>
+  !data.label === !data.url;
+
+export const saveHomeHeroSchema = z
+  .object({
+    title: trimmed(120).min(1),
+    subtitle: trimmed(240).nullable().optional(),
+    primaryCtaLabel: trimmed(40).min(1).nullable().optional(),
+    primaryCtaUrl: featureButtonUrl.nullable().optional(),
+    secondaryCtaLabel: trimmed(40).min(1).nullable().optional(),
+    secondaryCtaUrl: featureButtonUrl.nullable().optional(),
+    overlayOpacity: z
+      .number()
+      .int()
+      .min(HOME_HERO_OVERLAY.min)
+      .max(HOME_HERO_OVERLAY.max)
+      .default(HOME_HERO_OVERLAY.default),
+    align: z.enum(HOME_HERO_ALIGNS).default('LEFT'),
+    height: z.enum(HOME_HERO_HEIGHTS).default('LARGE'),
+    media: mediaPresentationInputSchema.nullable().optional(),
+    enabled: z.boolean().default(false),
+  })
+  .strict()
+  .refine((hero) => heroButton({ label: hero.primaryCtaLabel, url: hero.primaryCtaUrl }), {
+    message: 'Give the first button both a label and a link, or neither',
+    path: ['primaryCtaUrl'],
+  })
+  .refine((hero) => heroButton({ label: hero.secondaryCtaLabel, url: hero.secondaryCtaUrl }), {
+    message: 'Give the second button both a label and a link, or neither',
+    path: ['secondaryCtaUrl'],
+  })
+  // A switched-on hero replaces the top of the home page; one without a
+  // picture would be an empty band.
+  .refine((hero) => !hero.enabled || Boolean(hero.media), {
+    message: 'Add a picture or a video before switching the hero on',
+    path: ['media'],
+  });
+export type SaveHomeHeroInput = z.infer<typeof saveHomeHeroSchema>;
 
 /** Starting a video upload: what is about to be sent, so each piece can be checked against it. */
 export const startPromoVideoUploadSchema = z
@@ -1026,6 +1109,12 @@ export const startPromoVideoUploadSchema = z
   })
   .strict();
 export type StartPromoVideoUploadInput = z.infer<typeof startPromoVideoUploadSchema>;
+
+/** A media library video: the same upload, plus the name it is filed under. */
+export const startMediaVideoUploadSchema = startPromoVideoUploadSchema.extend({
+  label: z.string().trim().min(1).max(120).optional(),
+});
+export type StartMediaVideoUploadInput = z.infer<typeof startMediaVideoUploadSchema>;
 
 // --- Car tools --------------------------------------------------------------
 

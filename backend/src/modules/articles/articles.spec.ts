@@ -1,11 +1,15 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   ROLE_PERMISSIONS,
+  articleMedia,
   articleQuerySchema,
   articleSchema,
   updateArticleSchema,
 } from '@vintrax/shared';
 import { ArticlesService } from './articles.service';
+
+/** Content saved without media: the library has nothing to resolve. */
+const noMedia = { resolve: async () => undefined };
 
 /**
  * Editorial posts are operator content on the busiest page of the site.
@@ -145,7 +149,7 @@ describe('where a page and a post can be read', () => {
       },
     };
     return {
-      articles: new ArticlesService(prisma as never, {} as never, {} as never),
+      articles: new ArticlesService(prisma as never, {} as never, {} as never, noMedia as never),
       findMany,
     };
   }
@@ -171,5 +175,69 @@ describe('where a page and a post can be read', () => {
     const { articles, findMany } = service('POST');
     await articles.list(articleQuerySchema.parse({}));
     expect(findMany.mock.calls[0][0].where).toEqual({ kind: 'POST', status: 'PUBLISHED' });
+  });
+});
+
+describe('pinning posts and their media', () => {
+  it('lists pinned posts first, then newest — the old order when nothing is pinned', async () => {
+    const findMany = jest.fn().mockResolvedValue([]);
+    const articles = new ArticlesService(
+      { article: { findMany, count: jest.fn().mockResolvedValue(0) } } as never,
+      {} as never,
+      {} as never,
+      noMedia as never,
+    );
+    await articles.list(articleQuerySchema.parse({}));
+    expect(findMany.mock.calls[0][0].orderBy).toEqual([
+      { homeOrder: { sort: 'asc', nulls: 'last' } },
+      { publishedAt: 'desc' },
+      { createdAt: 'desc' },
+    ]);
+  });
+
+  it('pins only published posts', async () => {
+    const articles = new ArticlesService(
+      { article: { findMany: jest.fn().mockResolvedValue([]) } } as never,
+      { del: jest.fn() } as never,
+      {} as never,
+      noMedia as never,
+    );
+    await expect(
+      articles.reorder({ ids: ['3f8a4f2e-6c1b-4a8e-9b0d-1c2d3e4f5a6b'] }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('reads a post saved before the media library as having no media, not as an error', async () => {
+    const legacy = {
+      id: 'p1',
+      slug: 'ev-guide',
+      kind: 'POST' as const,
+      title: 'Buying a used EV',
+      subtitle: null,
+      body: 'Words.',
+      heroImageUrl: '/uploads/articles/old.jpg',
+      heroAlt: null,
+      ctaLabel: null,
+      ctaHref: null,
+      media: null,
+      homeOrder: null,
+      status: 'PUBLISHED' as const,
+      publishedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      author: null,
+    };
+    const articles = new ArticlesService(
+      { article: { findUnique: jest.fn().mockResolvedValue(legacy) } } as never,
+      {} as never,
+      {} as never,
+      noMedia as never,
+    );
+    const post = await articles.findBySlug('ev-guide');
+    expect(post.media).toBeNull();
+    expect(articleMedia(post)).toMatchObject({
+      kind: 'IMAGE',
+      desktop: { url: '/uploads/articles/old.jpg' },
+    });
   });
 });

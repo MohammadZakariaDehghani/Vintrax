@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -17,9 +18,11 @@ import {
   type ArticleQuery,
   type ArticleSummary,
   type Paginated,
+  type ReorderArticlesInput,
   type UpdateArticleInput,
   articleQuerySchema,
   articleSchema,
+  reorderArticlesSchema,
   updateArticleSchema,
 } from '@vintrax/shared';
 import { CurrentUser, Public, RequirePermissions } from '../../common/decorators';
@@ -105,6 +108,36 @@ export class AdminArticlesController {
     @Query(zodQuery(articleQuerySchema)) query: ArticleQuery,
   ): Promise<Paginated<ArticleSummary>> {
     return this.articles.list(query, { includeUnpublished: true });
+  }
+
+  // Both declared before `:slug`, so neither word is read as a post's slug.
+  @Get('pinned')
+  @RequirePermissions('content:manage')
+  @ApiOperation({ summary: 'The posts pinned to the top of the blog and the home page, in order' })
+  pinned(): Promise<ArticleSummary[]> {
+    return this.articles.pinned();
+  }
+
+  @Put('order')
+  @RequirePermissions('content:manage')
+  @ApiOperation({
+    summary: 'Pin published posts to the top, in this order',
+    description: 'Posts left out go back to date order; an empty list unpins every post.',
+  })
+  async reorder(
+    @Body(zodBody(reorderArticlesSchema)) input: ReorderArticlesInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<ArticleSummary[]> {
+    const pinned = await this.articles.reorder(input);
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: user.email,
+      action: 'content.article.reordered',
+      entityType: 'Article',
+      entityId: null,
+      metadata: { pinned: input.ids.length },
+    });
+    return pinned;
   }
 
   @Get(':slug')

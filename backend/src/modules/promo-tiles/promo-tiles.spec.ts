@@ -1,6 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { savePromoTileSchema } from '@vintrax/shared';
+import { PROMO_TILE_MAX_SLOTS, savePromoTileSchema } from '@vintrax/shared';
 import { PromoTilesService } from './promo-tiles.service';
+
+/** Content saved without media: the library has nothing to resolve. */
+const noMedia = { resolve: async () => undefined };
 
 /**
  * Promo tiles are operator content on the home page. Pinned: exactly three
@@ -61,6 +64,7 @@ describe('the promo tile service', () => {
         prisma as never,
         redis as never,
         { isOwnUrl: (url: string) => url.startsWith('/uploads/') } as never,
+        noMedia as never,
       ),
     };
   }
@@ -83,9 +87,11 @@ describe('the promo tile service', () => {
     expect((await tiles.published()).map((tile) => tile.slot)).toEqual([1]);
   });
 
-  it('refuses a slot outside 1 to 3', async () => {
+  it('refuses a slot outside 1 to the most boxes allowed', async () => {
     const { tiles } = service();
-    await expect(tiles.save(4, valid as never, 'admin')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      tiles.save(PROMO_TILE_MAX_SLOTS + 1, valid as never, 'admin'),
+    ).rejects.toBeInstanceOf(NotFoundException);
     await expect(tiles.save(0, valid as never, 'admin')).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -176,6 +182,68 @@ describe('the promo tile service', () => {
       await tiles.save(1, savePromoTileSchema.parse({ ...video, mediaType: 'IMAGE' }), 'admin');
       const { update } = prisma.promoTile.upsert.mock.calls[0]![0];
       expect(update).toMatchObject({ mediaType: 'IMAGE', videoUrl: video.videoUrl });
+    });
+  });
+
+  describe('more than three boxes', () => {
+    function withTransaction(slots: Array<{ id: string; slot: number }>) {
+      const rows = slots.map((r) => ({ ...valid, ...r, imageAlt: null, updatedAt: new Date() }));
+      const updates: Array<{ id: string; slot: number }> = [];
+      const prisma = {
+        promoTile: {
+          findMany: jest.fn(({ where }: { where?: { slot?: { gt?: number } } } = {}) =>
+            Promise.resolve(
+              rows
+                .filter((r) => where?.slot?.gt === undefined || r.slot > where.slot.gt)
+                .sort((a, b) => a.slot - b.slot),
+            ),
+          ),
+          deleteMany: jest.fn(({ where }: { where: { slot: number } }) =>
+            Promise.resolve({ count: rows.some((r) => r.slot === where.slot) ? 1 : 0 }),
+          ),
+          update: jest.fn(({ where, data }: { where: { id: string }; data: { slot: number } }) => {
+            updates.push({ id: where.id, slot: data.slot });
+            return { id: where.id };
+          }),
+        },
+        $transaction: jest.fn((ops: unknown[]) => Promise.resolve(ops)),
+      };
+      const tiles = new PromoTilesService(
+        prisma as never,
+        { del: jest.fn(), remember: jest.fn() } as never,
+        { isOwnUrl: () => true } as never,
+        noMedia as never,
+      );
+      // The final slot each row ends up in, after both passes.
+      const finalSlots = () => Object.fromEntries(updates.map((u) => [u.id, u.slot]));
+      return { tiles, finalSlots };
+    }
+
+    it('lists a fourth box after the first three', async () => {
+      const { tiles } = service([{ ...valid, slot: 4, imageAlt: null, updatedAt: new Date() }]);
+      expect((await tiles.all()).map((tile) => tile.slot)).toEqual([1, 2, 3, 4]);
+    });
+
+    it('closes the gap a deleted box leaves', async () => {
+      const { tiles, finalSlots } = withTransaction([
+        { id: 'a', slot: 1 },
+        { id: 'b', slot: 2 },
+        { id: 'c', slot: 3 },
+      ]);
+      await tiles.remove(1);
+      expect(finalSlots()).toEqual({ b: 1, c: 2 });
+    });
+
+    it('reorders every saved box, and refuses a partial order', async () => {
+      const { tiles, finalSlots } = withTransaction([
+        { id: 'a', slot: 1 },
+        { id: 'b', slot: 2 },
+        { id: 'c', slot: 3 },
+      ]);
+      await tiles.reorder({ slots: [3, 1, 2] });
+      expect(finalSlots()).toEqual({ c: 1, a: 2, b: 3 });
+      await expect(tiles.reorder({ slots: [3, 1] })).rejects.toBeInstanceOf(BadRequestException);
+      await expect(tiles.reorder({ slots: [1, 1, 2] })).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

@@ -688,6 +688,47 @@ including a dealer who holds the permission but is the buyer here — is refused
 The message recipient is derived from the vehicle, never supplied by the client
 — otherwise the marketplace becomes a spam relay.
 
+## Media library, hero and home content
+
+See [media-system.md](./media-system.md). Everything under `/admin` and
+`/uploads` here needs `content:manage`.
+
+| Method   | Path                                           | Auth             | Purpose                                                    |
+| -------- | ---------------------------------------------- | ---------------- | ---------------------------------------------------------- |
+| `GET`    | `/admin/media?kind=&q=&page=&pageSize=`        | `content:manage` | The library, newest first                                  |
+| `GET`    | `/admin/media/:id`                             | `content:manage` | One asset (never its storage keys)                         |
+| `GET`    | `/admin/media/:id/usage`                       | `content:manage` | Where the asset is shown                                   |
+| `PATCH`  | `/admin/media/:id`                             | `content:manage` | Rename, or change the default description                  |
+| `DELETE` | `/admin/media/:id`                             | `content:manage` | Delete it and its files; 409 naming the content if in use  |
+| `POST`   | `/uploads/media/images`                        | `content:manage` | Add a picture (multipart `file`, optional `label`)         |
+| `POST`   | `/uploads/media/videos/sessions`               | `content:manage` | Start a video upload: `{ sizeBytes, contentType, label? }` |
+| `POST`   | `/uploads/media/videos/sessions/:id/chunks/:n` | `content:manage` | Send piece _n_                                             |
+| `POST`   | `/uploads/media/videos/sessions/:id/complete`  | `content:manage` | Start optimising (202)                                     |
+| `GET`    | `/uploads/media/videos/sessions/:id`           | `content:manage` | Progress; `assetId` once `READY`                           |
+| `GET`    | `/home-hero`                                   | —                | The hero while it is active; `null` while it is a draft    |
+| `GET`    | `/admin/home-hero`                             | `content:manage` | The saved hero, draft or not                               |
+| `PUT`    | `/admin/home-hero`                             | `content:manage` | Save it; `enabled: false` is a draft                       |
+| `GET`    | `/admin/articles/pinned`                       | `content:manage` | Posts pinned to the top, in order                          |
+| `PUT`    | `/admin/articles/order`                        | `content:manage` | Pin published posts in this order: `{ ids }`               |
+| `PUT`    | `/admin/promo-tiles/order`                     | `content:manage` | Reorder saved home boxes by current slot: `{ slots }`      |
+| `DELETE` | `/admin/promo-tiles/:slot`                     | `content:manage` | Delete a box; later boxes move up                          |
+
+Posts (`POST`/`PATCH /admin/articles`), home features (`POST`/`PATCH
+/admin/home-features`), home boxes (`PUT /admin/promo-tiles/:slot`) and the
+hero take an optional `media` presentation, as follows.
+
+- **Sources:** each of `desktop` and (optional) `mobile` is a library asset
+  by id: `{ "assetId": "…" }`. The API fills in its URLs.
+- **Other fields:** `kind`, `alt`, `fit`, `position`, `autoplay`, `loop`, and
+  `animation` (`type`, `durationMs` 150–2000, `delayMs` 0–1500, `onScroll`).
+- **Old content:** may pass back the URLs it already has, `{ "url": "…" }`.
+  Those must be Vintrax's own.
+- **Clearing:** `null` removes the media.
+- **Omitting it:** a request without `media` leaves it unchanged.
+
+Home features also take `subtitle` and `layout` (`SPLIT` or `FULL_BLEED`).
+Home boxes take `title`, `body` and `ctaLabel`. Slots run from 1 to 12.
+
 ## Uploads, admin, health
 
 | Method | Path                         | Auth             | Purpose                          |

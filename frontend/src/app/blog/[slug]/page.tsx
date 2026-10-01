@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import type { Article } from '@vintrax/shared';
+import { articleMedia, type Article } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { ArticleBody } from '@/components/article-body';
+import { ResponsiveMedia } from '@/components/media/responsive-media';
 
 async function getArticle(slug: string): Promise<Article | null> {
   return serverFetch<Article>(`/articles/${encodeURIComponent(slug)}`);
@@ -40,6 +41,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   // A draft answers 404 from the API, so an unpublished post is not readable
   // by guessing its address.
   if (!article) notFound();
+  const media = articleMedia(article);
 
   return (
     <article>
@@ -50,16 +52,23 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           from that taller floor instead, pushing the band past the
           viewport's edge. */}
       <div className="relative isolate w-full min-h-[16rem] overflow-hidden sm:aspect-[1920/460]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={article.heroImageUrl ?? undefined}
-          alt={article.heroAlt ?? ''}
-          className="absolute inset-0 -z-10 h-full w-full object-cover"
-          fetchPriority="high"
-        />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[hsl(0_12%_9%)]/95 via-[hsl(0_12%_9%)]/60 to-[hsl(0_12%_9%)]/35" />
+        {/* The post's picture or video, under its shade; the video's pause
+            button sits in this layer, above the shade. */}
+        <div className="absolute inset-0 -z-10">
+          {media ? (
+            <ResponsiveMedia
+              media={media}
+              sizes="100vw"
+              priority
+              controls
+              controlsClassName="right-4 top-4"
+              className="absolute inset-0 h-full w-full"
+            />
+          ) : null}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[hsl(0_12%_9%)]/95 via-[hsl(0_12%_9%)]/60 to-[hsl(0_12%_9%)]/35" />
+        </div>
 
-        <div className="container flex h-full flex-col justify-end py-10">
+        <div className="container pointer-events-none flex h-full flex-col justify-end py-10 [&_a]:pointer-events-auto">
           <Link
             href="/blog"
             className="mb-4 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-white/80 hover:text-white"

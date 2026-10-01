@@ -6,6 +6,9 @@ import {
 } from '@vintrax/shared';
 import { HomeFeaturesService } from './home-features.service';
 
+/** Content saved without media: the library has nothing to resolve. */
+const noMedia = { resolve: async () => undefined };
+
 /**
  * Feature blocks are operator content on the home page. Pinned: only an
  * operator writes them, a button goes only to a page here or a website over
@@ -77,6 +80,7 @@ describe('the feature block service', () => {
       prisma as never,
       { del: jest.fn(), remember: jest.fn() } as never,
       { isOwnUrl: (url: string) => url.startsWith('/uploads/') } as never,
+      noMedia as never,
     );
   }
 
