@@ -49,6 +49,8 @@ export class UsersService {
         province: true,
         city: true,
         avatarUrl: true,
+        username: true,
+        postalCode: true,
         createdAt: true,
         dealer: {
           select: {
@@ -79,6 +81,8 @@ export class UsersService {
       province: user.province,
       city: user.city,
       avatarUrl: user.avatarUrl,
+      username: user.username,
+      postalCode: user.postalCode,
       dealer: user.dealer,
       permissions: permissionsFor(user.role),
       createdAt: user.createdAt.toISOString(),
@@ -86,9 +90,20 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<PublicUser> {
+    if (input.username !== undefined) {
+      const holder = await this.prisma.user.findUnique({
+        where: { username: input.username },
+        select: { id: true },
+      });
+      if (holder && holder.id !== userId) {
+        throw new ConflictException('That username is taken. Try another.');
+      }
+    }
     await this.prisma.user.update({
       where: { id: userId },
       data: {
+        ...(input.username !== undefined ? { username: input.username } : {}),
+        ...(input.postalCode !== undefined ? { postalCode: input.postalCode } : {}),
         ...(input.firstName !== undefined ? { firstName: input.firstName } : {}),
         ...(input.lastName !== undefined ? { lastName: input.lastName } : {}),
         ...(input.phone !== undefined ? { phone: input.phone } : {}),

@@ -13,11 +13,13 @@ import { JwtService } from '@nestjs/jwt';
 import type {
   AuthResponse,
   AuthTokens,
+  ChangeEmailInput,
   ChangePasswordInput,
   LoginInput,
   RegisterInput,
   ResetPasswordInput,
 } from '@vintrax/shared';
+import { defaultUsername } from '@vintrax/shared';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
@@ -88,8 +90,14 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
 
+    // The id is chosen here so the account's handle can be derived from it in
+    // the same write; 8 hex characters of a fresh UUID make a clash unlikely,
+    // and the unique index refuses one if it ever happens.
+    const id = randomUUID();
     const user = await this.prisma.user.create({
       data: {
+        id,
+        username: defaultUsername(input.firstName, id),
         email: input.email,
         passwordHash,
         firstName: input.firstName,
@@ -406,6 +414,50 @@ export class AuthService {
         data: { consumedAt: new Date() },
       }),
     ]);
+  }
+
+  /**
+   * Moves the account to a new sign-in email. The current password proves the
+   * owner is at the keyboard (a stolen session alone cannot take the account),
+   * the new address must be verified again, and the old one is told — so a
+   * change the owner did not make does not go unnoticed.
+   */
+  async changeEmail(user: AuthUser, input: ChangeEmailInput): Promise<void> {
+    const record = await this.prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: { passwordHash: true, email: true, firstName: true },
+    });
+    const matches = await bcrypt.compare(input.currentPassword, record.passwordHash);
+    if (!matches) throw new BadRequestException('Current password is incorrect');
+    if (input.email === record.email) {
+      throw new BadRequestException('That is already your email address');
+    }
+
+    const taken = await this.prisma.user.findUnique({
+      where: { email: input.email },
+      select: { id: true },
+    });
+    if (taken) throw new ConflictException('An account with this email already exists');
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { email: input.email, emailVerified: false, emailVerifiedAt: null },
+    });
+    await this.issueEmailVerification(user.id, input.email, record.firstName);
+    await this.mail.send({
+      to: record.email,
+      subject: 'Your Vintrax email address was changed',
+      text: `Hi ${record.firstName},\n\nThe email address on your Vintrax account was just changed to ${input.email}. If you did not do this, reset your password and contact us straight away.`,
+    });
+
+    await this.audit.record({
+      actorId: user.id,
+      actorEmail: record.email,
+      action: 'auth.email_changed',
+      entityType: 'User',
+      entityId: user.id,
+      metadata: { to: input.email },
+    });
   }
 
   async resendVerification(user: AuthUser): Promise<void> {

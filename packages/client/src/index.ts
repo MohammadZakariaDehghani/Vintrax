@@ -28,6 +28,7 @@ export {
 } from './auth-store';
 
 export { useAuctionSocket } from './use-auction-socket';
+export { useMessagingSocket } from './use-messaging-socket';
 
 export {
   cn,

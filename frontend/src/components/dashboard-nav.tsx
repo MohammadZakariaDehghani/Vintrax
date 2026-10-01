@@ -13,6 +13,7 @@ import {
   Package,
   Bell,
   ShieldCheck,
+  UserCog,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
@@ -23,6 +24,7 @@ const BUYER_LINKS = [
   { href: '/dashboard/my-bids', label: 'My bids', icon: Gavel },
   { href: '/dashboard/messages', label: 'Messages', icon: MessagesSquare, badge: 'messages' },
   { href: '/dashboard/notifications', label: 'Notifications', icon: Bell, badge: 'notifications' },
+  { href: '/dashboard/account', label: 'Account', icon: UserCog },
 ] as const;
 
 /** Appended for sellers and dealers, who have a second surface to reach. */

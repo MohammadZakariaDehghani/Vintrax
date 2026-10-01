@@ -55,6 +55,12 @@ export class NotificationsController {
     return this.notifications.markAllRead(user.id);
   }
 
+  @Get('preferences')
+  @ApiOperation({ summary: 'Return the channels notifications reach the caller on' })
+  preferences(@CurrentUser() user: AuthUser): Promise<{ channels: string[] }> {
+    return this.notifications.channels(user.id);
+  }
+
   @Patch('preferences')
   @ApiOperation({ summary: 'Update notification channel preferences' })
   updatePreferences(

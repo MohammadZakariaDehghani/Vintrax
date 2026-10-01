@@ -39,10 +39,19 @@ The **Auth** column uses:
 | `POST`  | `/auth/password/reset`  | —    | Complete a reset                        |
 | `POST`  | `/auth/email/verify`    | —    | Confirm an email address                |
 | `POST`  | `/auth/email/resend`    | ✅   | Send a fresh verification email         |
+| `PATCH` | `/auth/email`           | ✅   | Change the sign-in email (see below)    |
 
 **Register** requires `email`, `password` (10–128 chars), `firstName`,
 `lastName`. `role` is `BUYER`, `SELLER` or `DEALER` — admin roles are never
 self-assignable. `dealershipName` is required when `role` is `DEALER`.
+Every new account gets a username made from its first name (`sam01d582fb`),
+which the person can change in Account settings.
+
+**Change email** takes `{ email, currentPassword }` and answers 204. The
+password must be right and the address new (400 otherwise), and it must not
+belong to another account (409). The account becomes unverified, a verification link
+goes to the new address, and a notice goes to the old one. The same
+credential rate limit as login applies.
 
 ## Users
 
@@ -58,6 +67,12 @@ self-assignable. `dealershipName` is required when `role` is `DEALER`.
 | `PATCH`  | `/admin/users/:id/role`     | `user:manage` | Change an account's role         |
 | `PATCH`  | `/admin/users/:id/password` | `user:manage` | Set an account's password        |
 | `PATCH`  | `/admin/users/:id/status`   | `user:manage` | Suspend, reactivate, deactivate  |
+
+**Profile** (`PATCH /me`) takes any of `firstName`, `lastName`, `phone`,
+`province`, `city`, `avatarUrl`, `username` and `postalCode`. A username is
+3–30 characters (`a-z`, `0-9`, `.`, `_`), lowercased, unique (409 when taken).
+A postal code is a full Canadian code or its first three characters,
+normalised to `V5L 1A1` or `V5L`; `null` clears it.
 
 Suspending an account also revokes its live sessions.
 
@@ -678,15 +693,51 @@ including a dealer who holds the permission but is the buyer here — is refused
 | `GET`        | `/dealers/:slug/inventory`             | —           | Published inventory               |
 | `PATCH`      | `/dealers/:id/verification`            | admin       | Approve or reject verification    |
 | `GET`/`POST` | `/conversations`                       | ✅          | Inbox; start or continue a thread |
+| `GET`        | `/conversations/unread-count`          | ✅          | Unread messages, for the badge    |
 | `GET`        | `/conversations/:id`                   | participant | Thread, marks incoming read       |
 | `POST`       | `/conversations/:id/messages`          | participant | Reply                             |
+| `PATCH`      | `/conversations/:id/archive`           | participant | Archive or unarchive, own side    |
 | `GET`        | `/notifications`                       | ✅          | Notifications                     |
 | `GET`        | `/notifications/unread-count`          | ✅          | Badge count                       |
 | `PATCH`      | `/notifications/:id/read`, `/read-all` | ✅          | Mark read                         |
-| `PATCH`      | `/notifications/preferences`           | ✅          | Channel preferences               |
+| `GET`        | `/notifications/preferences`           | ✅          | Channel preferences               |
+| `PATCH`      | `/notifications/preferences`           | ✅          | Change channels (at least one)    |
 
 The message recipient is derived from the vehicle, never supplied by the client
 — otherwise the marketplace becomes a spam relay.
+
+**Inbox query** (`GET /conversations`): `box` is `ALL` (default), `BUYING`,
+`SELLING` or `ARCHIVED`; `q` searches the car's title and the other person's
+name and username; `page`, `pageSize` (max 50). Each summary carries
+`viewerRole` (`BUYER` or `SELLER`) and `archived`.
+
+**Archive** (`{ archived: boolean }`) hides the chat from the caller's inbox
+only; the other person still sees it. A new message from either side brings
+it back for both.
+
+**Notifications:** the recipient gets one in-app and email notification
+(subject to their channels) for the first unread message of a burst, not for
+every message, linking to `/dashboard/messages/<id>`.
+
+Starting a conversation is limited to 10 a minute and sending to 30 a minute.
+
+### Messages WebSocket
+
+Namespace `/messages`. Unlike the auction socket, an access token is
+**required**: a connection without a valid one is dropped. Each socket joins
+only its own user's room, and the server decides who receives each event.
+
+```js
+const socket = io('http://localhost:3001/messages', { auth: { token } });
+socket.on('messaging:event', (event) => {
+  /* MessagingEvent */
+});
+```
+
+Events: `message:new` (`conversationId`, `message`), sent to both
+participants; `conversation:read` (`conversationId`, `readerId`, `readAt`),
+sent to the sender when the other person opens the thread. The socket is
+read-only; messages go over HTTP, and clients keep a slow poll as a backstop.
 
 ## Media library, hero and home content
 
@@ -794,6 +845,9 @@ search cluster being down reports `degraded` but keeps serving.
 | Global                              | 300 requests / 60s |
 | Registration, login, password reset | 10 / 60s           |
 | Bidding                             | 30 / 60s           |
+| Starting a conversation             | 10 / 60s           |
+| Sending a message                   | 30 / 60s           |
+| Changing the sign-in email          | 10 / 60s           |
 
 Limits are per-instance and in-memory; a shared store is needed for meaningful
 limits across replicas.

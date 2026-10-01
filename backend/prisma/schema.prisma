@@ -245,6 +245,14 @@ model User {
   city      String?
   avatarUrl String?
 
+  /// A public handle, lowercase, unique. Every account gets one at sign-up
+  /// (and existing accounts were given one by the migration that added it);
+  /// its owner can change it under Account settings.
+  username   String? @unique
+  /// Where the account is: a postal code or just its first three characters.
+  /// Never shown to other users.
+  postalCode String?
+
   /// Channels this user accepts notifications on.
   notificationChannels NotificationChannel[] @default([IN_APP, EMAIL])
 
@@ -928,6 +936,11 @@ model Conversation {
 
   /// Denormalised so inbox listings can sort without aggregating messages.
   lastMessageAt DateTime @default(now())
+
+  /// Each side can archive a chat for themselves only; a new message brings
+  /// it back to that side's inbox, the way Marketplace chats behave.
+  buyerArchivedAt  DateTime?
+  sellerArchivedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

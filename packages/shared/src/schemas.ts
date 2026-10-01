@@ -47,6 +47,9 @@ import {
   VEHICLE_HISTORY_EVENT_KINDS,
   VIN_PATTERN,
   maxModelYear,
+  USERNAME_PATTERN,
+  CONVERSATION_BOXES,
+  MAX_MESSAGE_LENGTH,
 } from './domain';
 import { mediaPresentationInputSchema } from './media';
 
@@ -149,6 +152,21 @@ export const changePasswordSchema = z.object({
 });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 
+/**
+ * A postal code, or just its first three characters (the area a seller is in,
+ * without their street): "V5L" or "V5L 1A1". Saved in capitals, with the
+ * conventional space.
+ */
+const postalCodeOrArea = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]\d[A-Z](\s?\d[A-Z]\d)?$/, 'Enter a postal code such as V5L 1A1, or just V5L')
+  .transform((value) => {
+    const compact = value.replace(/\s/g, '');
+    return compact.length === 6 ? `${compact.slice(0, 3)} ${compact.slice(3)}` : compact;
+  });
+
 export const updateProfileSchema = z
   .object({
     firstName: trimmed(60).min(1).optional(),
@@ -156,11 +174,35 @@ export const updateProfileSchema = z
     phone: trimmed(30).optional(),
     province: z.enum(PROVINCES).optional(),
     city: trimmed(80).optional(),
+    /** Saved in lowercase; unique across accounts (409 when taken). */
+    username: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(
+        USERNAME_PATTERN,
+        'Use 3 to 30 letters, numbers, dots or underscores, starting with a letter or number',
+      )
+      .optional(),
+    /** Null clears it. */
+    postalCode: postalCodeOrArea.nullable().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'Provide at least one field to update',
   });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+/**
+ * Changing the sign-in email. The current password proves it is the owner at
+ * the keyboard; the new address must then be verified again.
+ */
+export const changeEmailSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
+    currentPassword: z.string().min(1, 'Enter your current password'),
+  })
+  .strict();
+export type ChangeEmailInput = z.infer<typeof changeEmailSchema>;
 
 // --- Addresses ---------------------------------------------------------------
 
@@ -591,7 +633,7 @@ export type SubmitInspectionInput = z.infer<typeof submitInspectionSchema>;
 
 // --- Messaging and notifications ---------------------------------------------
 
-export const messageBodySchema = trimmed(4000).min(1, 'Message cannot be empty');
+export const messageBodySchema = trimmed(MAX_MESSAGE_LENGTH).min(1, 'Message cannot be empty');
 
 export const startConversationSchema = z.object({
   vehicleId: uuid(),
@@ -601,6 +643,19 @@ export type StartConversationInput = z.infer<typeof startConversationSchema>;
 
 export const sendMessageSchema = z.object({ body: messageBodySchema });
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+
+/** The inbox: which chats, an optional search over names and car titles, and a page. */
+export const conversationQuerySchema = z.object({
+  box: z.enum(CONVERSATION_BOXES).default('ALL'),
+  q: z.string().trim().max(100).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(20),
+});
+export type ConversationQuery = z.infer<typeof conversationQuerySchema>;
+
+/** Archive or bring back a chat, for the caller only. */
+export const archiveConversationSchema = z.object({ archived: z.boolean() }).strict();
+export type ArchiveConversationInput = z.infer<typeof archiveConversationSchema>;
 
 export const notificationPreferencesSchema = z.object({
   channels: z.array(z.enum(NOTIFICATION_CHANNELS)).min(1),

@@ -563,6 +563,12 @@ export function SiteHeader() {
                 >
                   {t.nav.saved}
                 </Link>
+                <Link
+                  href="/dashboard/account"
+                  className="rounded-md px-2 py-2 text-sm font-medium hover:bg-secondary"
+                >
+                  {t.nav.account}
+                </Link>
                 <button
                   type="button"
                   onClick={() => void handleLogout()}

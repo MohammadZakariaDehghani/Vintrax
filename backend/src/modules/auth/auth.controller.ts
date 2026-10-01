@@ -3,11 +3,13 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import {
   type AuthResponse,
+  type ChangeEmailInput,
   type ChangePasswordInput,
   type LoginInput,
   type PublicUser,
   type RegisterInput,
   type ResetPasswordInput,
+  changeEmailSchema,
   changePasswordSchema,
   loginSchema,
   refreshSchema,
@@ -105,6 +107,21 @@ export class AuthController {
     @CurrentUser() user: AuthUser,
   ): Promise<void> {
     await this.auth.changePassword(user, body);
+  }
+
+  @Patch('email')
+  @Throttle(CREDENTIAL_THROTTLE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Change the sign-in email',
+    description:
+      'Needs the current password. The new address must be verified again; the old one is told of the change. 409 if another account uses it.',
+  })
+  async changeEmail(
+    @Body(zodBody(changeEmailSchema)) body: ChangeEmailInput,
+    @CurrentUser() user: AuthUser,
+  ): Promise<void> {
+    await this.auth.changeEmail(user, body);
   }
 
   @Public()
