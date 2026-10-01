@@ -344,9 +344,9 @@ imports and carries a warning.
 | `GET`          | `/vehicles/mine`                      | seller                                     | Own inventory, including drafts                 |
 | `GET`          | `/vehicles/pending-review`            | admin                                      | Moderation queue                                |
 | `GET`          | `/vehicles/:idOrSlug`                 | optional                                   | One vehicle                                     |
-| `POST`         | `/vehicles`                           | seller + verified                          | Create a listing                                |
+| `POST`         | `/vehicles`                           | seller                                     | Create a listing                                |
 | `PATCH`        | `/vehicles/:id`                       | owner                                      | Update a listing — everything except its status |
-| `PATCH`        | `/vehicles/:id/status`                | owner + verified                           | Submit for review, withdraw, archive, re-draft  |
+| `PATCH`        | `/vehicles/:id/status`                | owner                                      | Submit for review, withdraw, archive, re-draft  |
 | `DELETE`       | `/vehicles/:id`                       | owner                                      | Delete a listing                                |
 | `POST`         | `/vehicles/:id/images`                | owner                                      | Add one photo (multipart), processed            |
 | `PUT`          | `/vehicles/:id/images/:imageId`       | owner                                      | Replace one photo's file, keeping its place     |

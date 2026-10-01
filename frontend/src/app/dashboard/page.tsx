@@ -42,8 +42,9 @@ function BuyerDashboard() {
 
   if (!user) return <Spinner />;
 
-  const winningBids =
-    (bids?.items ?? []).filter((bid) => bid.status === 'WINNING' || bid.status === 'WON').length;
+  const winningBids = (bids?.items ?? []).filter(
+    (bid) => bid.status === 'WINNING' || bid.status === 'WON',
+  ).length;
 
   return (
     <div className="container py-8">
@@ -53,18 +54,6 @@ function BuyerDashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user.firstName}</h1>
         <p className="mt-1 text-muted-foreground">Your saved vehicles, bids and messages.</p>
       </div>
-
-      {!user.emailVerified ? (
-        <Card className="mb-6 border-warning/40 bg-warning/10">
-          <CardContent className="pt-5 text-sm">
-            <p className="font-semibold text-warning">Verify your email address</p>
-            <p className="mt-1 text-muted-foreground">
-              Bidding requires a verified email. Check your inbox for the link — in development it
-              is printed to the API log.
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
 
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <StatTile

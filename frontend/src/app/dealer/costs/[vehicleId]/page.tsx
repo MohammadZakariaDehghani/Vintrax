@@ -10,7 +10,7 @@ export default async function VehicleCostsPage({
 }) {
   const { vehicleId } = await params;
   return (
-    <RequireAuth sellersOnly>
+    <RequireAuth sellersOnly dealersOnly>
       <VehicleCosts vehicleId={vehicleId} />
     </RequireAuth>
   );

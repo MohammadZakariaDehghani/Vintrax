@@ -56,7 +56,6 @@ import {
   CurrentUser,
   Public,
   RequirePermissions,
-  RequireVerifiedEmail,
 } from '../../common/decorators';
 import { zodBody, zodQuery } from '../../common/pipes/zod-validation.pipe';
 import type { AuthUser } from '../../common/auth/auth-user';
@@ -180,7 +179,6 @@ export class VehiclesController {
 
   @Post()
   @RequirePermissions('vehicle:write')
-  @RequireVerifiedEmail()
   @Audit('vehicle.created', 'Vehicle')
   @ApiOperation({ summary: 'Create a vehicle listing' })
   create(
@@ -200,7 +198,6 @@ export class VehiclesController {
 
   @Patch('bulk-status')
   @RequirePermissions('vehicle:write')
-  @RequireVerifiedEmail()
   @ApiOperation({
     summary: 'Move many listings the caller owns between seller-controlled statuses',
     description:
@@ -265,7 +262,6 @@ export class VehiclesController {
 
   @Patch(':id/status')
   @RequirePermissions('vehicle:write')
-  @RequireVerifiedEmail()
   @Audit('vehicle.status_changed', 'Vehicle')
   @ApiOperation({
     summary: 'Move a listing between the statuses its seller controls',

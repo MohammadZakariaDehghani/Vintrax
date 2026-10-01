@@ -259,6 +259,12 @@ function IconLink({
   );
 }
 
+/** "ted" → "Ted": names are shown as typed except for the first letter. */
+function displayFirstName(name: string): string {
+  const trimmed = name.trim();
+  return trimmed.charAt(0).toLocaleUpperCase('en-CA') + trimmed.slice(1);
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -454,11 +460,13 @@ export function SiteHeader() {
 
             {user ? (
               <>
+                {/* Greets the person by name; it still leads to their dashboard. */}
                 <Link
                   href={dashboardHref}
-                  className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground transition-colors hover:bg-white/10 md:inline-block"
+                  title={t.nav.dashboard}
+                  className="hidden max-w-[220px] truncate whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground transition-colors hover:bg-white/10 md:inline-block"
                 >
-                  {t.nav.dashboard}
+                  {t.nav.welcome}, {displayFirstName(user.firstName)}
                 </Link>
                 <button
                   type="button"

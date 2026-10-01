@@ -38,7 +38,7 @@ function ImportInventory() {
 
 export default function ImportInventoryPage() {
   return (
-    <RequireAuth sellersOnly>
+    <RequireAuth sellersOnly dealersOnly>
       <ImportInventory />
     </RequireAuth>
   );

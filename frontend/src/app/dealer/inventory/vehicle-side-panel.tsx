@@ -26,6 +26,7 @@ import {
   type VehicleDetail,
 } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
+import { useIsPrivateSeller } from '@/store/auth-store';
 import { cn, formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { Badge, Button, Dialog, ErrorAlert, Spinner } from '@/components/ui';
 import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
@@ -82,6 +83,7 @@ export function VehicleSidePanel({
 }) {
   const router = useRouter();
   const invalidate = useInvalidateInventory();
+  const simple = useIsPrivateSeller();
   const dialog = useRef<HTMLDialogElement>(null);
   const [tab, setTab] = useState<Tab>('standard');
   const [editingPrice, setEditingPrice] = useState(false);
@@ -409,30 +411,34 @@ export function VehicleSidePanel({
                     ) : null}
 
                     <section className="grid grid-cols-1 gap-1 px-3 py-4 sm:grid-cols-2 sm:px-5">
-                      <Link
-                        href={`/dealer/inventory/${vehicle.id}/sticker`}
-                        target="_blank"
-                        className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold hover:bg-secondary"
-                      >
-                        <Printer className="h-4 w-4" aria-hidden />
-                        Print window sticker
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => duplicate.mutate()}
-                        disabled={duplicate.isPending}
-                        className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold hover:bg-secondary disabled:opacity-50"
-                      >
-                        <Copy className="h-4 w-4" aria-hidden />
-                        {duplicate.isPending ? 'Copying…' : 'Use as template'}
-                      </button>
-                      <Link
-                        href={`/dealer/costs/${vehicle.id}`}
-                        className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold hover:bg-secondary"
-                      >
-                        <Calculator className="h-4 w-4" aria-hidden />
-                        Costs and margin
-                      </Link>
+                      {simple ? null : (
+                        <>
+                          <Link
+                            href={`/dealer/inventory/${vehicle.id}/sticker`}
+                            target="_blank"
+                            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold hover:bg-secondary"
+                          >
+                            <Printer className="h-4 w-4" aria-hidden />
+                            Print window sticker
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => duplicate.mutate()}
+                            disabled={duplicate.isPending}
+                            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold hover:bg-secondary disabled:opacity-50"
+                          >
+                            <Copy className="h-4 w-4" aria-hidden />
+                            {duplicate.isPending ? 'Copying…' : 'Use as template'}
+                          </button>
+                          <Link
+                            href={`/dealer/costs/${vehicle.id}`}
+                            className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold hover:bg-secondary"
+                          >
+                            <Calculator className="h-4 w-4" aria-hidden />
+                            Costs and margin
+                          </Link>
+                        </>
+                      )}
                       <button
                         type="button"
                         onClick={() => setConfirmingDelete(true)}

@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { openDealerHelp } from '@/components/dealer-help-assistant';
+import { useIsPrivateSeller } from '@/store/auth-store';
 
 interface NavLink {
   href: string;
@@ -20,6 +21,8 @@ interface NavLink {
   icon: LucideIcon;
   /** Whether a path belongs to this entry. */
   match: (path: string) => boolean;
+  /** Shown to private sellers too, not only dealerships, under this label. */
+  privateSeller?: string;
 }
 
 /**
@@ -40,6 +43,7 @@ const LINKS: NavLink[] = [
     href: '/dealer/inventory',
     label: 'All vehicles',
     icon: Package,
+    privateSeller: 'My listings',
     match: (path) =>
       path.startsWith('/dealer/inventory') && !path.startsWith('/dealer/inventory/import'),
   },
@@ -47,6 +51,7 @@ const LINKS: NavLink[] = [
     href: '/dealer/add-vehicle',
     label: 'Add vehicle',
     icon: Plus,
+    privateSeller: 'Add vehicle',
     match: (path) => path === '/dealer/add-vehicle',
   },
   {
@@ -71,11 +76,13 @@ const LINKS: NavLink[] = [
 
 export function DealerNav() {
   const pathname = usePathname() ?? '';
+  const privateSeller = useIsPrivateSeller();
+  const links = privateSeller ? LINKS.filter((link) => link.privateSeller) : LINKS;
 
   return (
     <nav aria-label="Dealer portal" className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
       <ul className="flex w-max min-w-full gap-1 rounded-lg border border-border bg-card p-1 sm:w-auto">
-        {LINKS.map((link) => {
+        {links.map((link) => {
           const active = link.match(pathname);
           return (
             <li key={link.href}>
@@ -89,21 +96,23 @@ export function DealerNav() {
                 }`}
               >
                 <link.icon className="h-4 w-4" aria-hidden />
-                {link.label}
+                {privateSeller ? link.privateSeller : link.label}
               </Link>
             </li>
           );
         })}
-        <li className="ml-auto">
-          <button
-            type="button"
-            onClick={() => openDealerHelp()}
-            className="flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <CircleHelp className="h-4 w-4" aria-hidden />
-            Help
-          </button>
-        </li>
+        {privateSeller ? null : (
+          <li className="ml-auto">
+            <button
+              type="button"
+              onClick={() => openDealerHelp()}
+              className="flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <CircleHelp className="h-4 w-4" aria-hidden />
+              Help
+            </button>
+          </li>
+        )}
       </ul>
     </nav>
   );

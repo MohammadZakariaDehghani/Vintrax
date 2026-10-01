@@ -16,7 +16,7 @@ import {
   UserCog,
 } from 'lucide-react';
 import { api } from '@/lib/api-client';
-import { useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
+import { useIsAdmin, useIsPrivateSeller, useIsSeller, useUser } from '@/store/auth-store';
 
 const BUYER_LINKS = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -32,6 +32,11 @@ const SELLER_LINKS = [
   { href: '/dealer/dashboard', label: 'Dealer', icon: Building2 },
   { href: '/dealer/inventory', label: 'Inventory', icon: Package },
   { href: '/dealer/costs', label: 'Costs', icon: Calculator },
+] as const;
+
+/** A private seller's own cars: one simple list, none of the dealer tools. */
+const PRIVATE_SELLER_LINKS = [
+  { href: '/dealer/inventory', label: 'My listings', icon: Package },
 ] as const;
 
 /**
@@ -54,6 +59,7 @@ export function DashboardNav() {
   const user = useUser();
   const isSeller = useIsSeller();
   const isAdmin = useIsAdmin();
+  const privateSeller = useIsPrivateSeller();
 
   const messages = useQuery({
     queryKey: ['conversations', 'unread-count'],
@@ -74,9 +80,11 @@ export function DashboardNav() {
 
   const links = isAdmin
     ? [...BUYER_LINKS, ...ADMIN_LINKS]
-    : isSeller
-      ? [...BUYER_LINKS, ...SELLER_LINKS]
-      : BUYER_LINKS;
+    : privateSeller
+      ? [...BUYER_LINKS, ...PRIVATE_SELLER_LINKS]
+      : isSeller
+        ? [...BUYER_LINKS, ...SELLER_LINKS]
+        : BUYER_LINKS;
 
   return (
     <nav className="mb-6 flex flex-wrap gap-1 border-b border-border" aria-label="Dashboard">
