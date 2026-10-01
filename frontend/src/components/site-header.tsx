@@ -356,17 +356,15 @@ export function SiteHeader() {
             <Logo className="h-[54px]" />
           </Link>
 
-          {/* `lg:`, not `md:` (issue #67): at exactly 768px the three nav
-              buttons here and the full right-hand cluster (saved/notifications/
-              messages, the divider, dashboard/sign-out, the Sell pill) were
-              both turning on at once — the hamburger disappearing at the same
-              breakpoint the full desktop content appears — and together they
-              were wider than the viewport, overflowing the page horizontally.
-              1024px is where the measured content actually fits; the
-              hamburger and its mobile drawer move with this same breakpoint
-              below. */}
+          {/* `xl:`, not `md:` or `lg:` (issue #67): the three nav buttons
+              and the full right-hand cluster (saved/notifications/messages,
+              the divider, dashboard/sign-out, the theme and language toggles,
+              the Sell pill) are wider together than a 1024px viewport once
+              someone is signed in, which scrolled every page sideways.
+              1280px is where the measured content fits; the hamburger and its
+              mobile drawer move with this same breakpoint below. */}
           <nav
-            className="relative ml-3 hidden items-stretch self-stretch lg:flex"
+            className="relative ml-3 hidden items-stretch self-stretch xl:flex"
             aria-label="Main"
           >
             {MENUS.map((menu) => {
@@ -429,7 +427,7 @@ export function SiteHeader() {
             <IconLink
               href="/dashboard/favorites"
               label={t.nav.saved}
-              className="hidden sm:inline-flex"
+              className="hidden md:inline-flex"
             >
               <Heart className="h-[18px] w-[18px]" aria-hidden />
             </IconLink>
@@ -437,7 +435,7 @@ export function SiteHeader() {
               href="/dashboard/notifications"
               label={t.nav.notifications}
               count={notifications.data?.unread}
-              className="hidden sm:inline-flex"
+              className="hidden md:inline-flex"
             >
               <Bell className="h-[18px] w-[18px]" aria-hidden />
             </IconLink>
@@ -446,26 +444,26 @@ export function SiteHeader() {
                 href="/dashboard/messages"
                 label={t.nav.messages}
                 count={conversations.data?.unread}
-                className="hidden sm:inline-flex"
+                className="hidden md:inline-flex"
               >
                 <MessagesSquare className="h-[18px] w-[18px]" aria-hidden />
               </IconLink>
             ) : null}
 
-            <span className="mx-2 hidden h-6 w-px bg-header-border sm:block" aria-hidden />
+            <span className="mx-2 hidden h-6 w-px bg-header-border md:block" aria-hidden />
 
             {user ? (
               <>
                 <Link
                   href={dashboardHref}
-                  className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground transition-colors hover:bg-white/10 sm:inline-block"
+                  className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground transition-colors hover:bg-white/10 md:inline-block"
                 >
                   {t.nav.dashboard}
                 </Link>
                 <button
                   type="button"
                   onClick={() => void handleLogout()}
-                  className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground/90 transition-colors hover:bg-white/10 hover:text-header-foreground sm:inline-block"
+                  className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground/90 transition-colors hover:bg-white/10 hover:text-header-foreground md:inline-block"
                 >
                   {t.auth.signOut}
                 </button>
@@ -473,7 +471,7 @@ export function SiteHeader() {
             ) : (
               <Link
                 href="/login"
-                className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground transition-colors hover:bg-white/10 sm:inline-block"
+                className="hidden whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium text-header-foreground transition-colors hover:bg-white/10 md:inline-block"
               >
                 {t.menu.logInSignUp}
               </Link>
@@ -484,14 +482,14 @@ export function SiteHeader() {
 
             <Link
               href={sellHref}
-              className="ml-2 hidden whitespace-nowrap rounded-full border border-header-foreground/70 px-5 py-2 text-sm font-semibold text-header-foreground transition-colors hover:bg-header-foreground hover:text-header sm:inline-block"
+              className="ml-2 hidden whitespace-nowrap rounded-full border border-header-foreground/70 px-5 py-2 text-sm font-semibold text-header-foreground transition-colors hover:bg-header-foreground hover:text-header md:inline-block"
             >
               {t.menu.sellMyCar}
             </Link>
 
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-header-foreground hover:bg-white/10 lg:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md text-header-foreground hover:bg-white/10 xl:hidden"
               aria-label={mobileOpen ? `${t.nav.close} ${t.nav.menu}` : t.nav.menu}
               aria-expanded={mobileOpen}
               onClick={() => setMobileOpen((open) => !open)}
@@ -508,7 +506,7 @@ export function SiteHeader() {
 
       {mobileOpen ? (
         <nav
-          className="max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-card px-5 py-4 lg:hidden"
+          className="max-h-[calc(100vh-4rem)] overflow-y-auto border-b border-border bg-card px-5 py-4 xl:hidden"
           aria-label="Mobile"
         >
           {MENUS.map((menu) => (
@@ -545,7 +543,7 @@ export function SiteHeader() {
                 >
                   {t.nav.dashboard}
                 </Link>
-                {/* The icon shortcuts are hidden below `sm`, so without these
+                {/* The icon shortcuts are hidden below `md`, so without these
                     the pages are unreachable on a narrow screen. */}
                 <Link
                   href="/dashboard/messages"

@@ -64,7 +64,10 @@ export function HomeMastheadSlider({
     <section
       aria-roledescription="carousel"
       aria-label="Latest from the blog"
-      className="relative grid"
+      // `grid-cols-1` is `minmax(0, 1fr)`: an implicit `auto` track sizes
+      // from the slides' min-content width, which a masthead's aspect ratio
+      // and min-height put at ~1862px, so the band ran past the viewport.
+      className="relative grid w-full grid-cols-1 overflow-hidden"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
@@ -90,7 +93,7 @@ export function HomeMastheadSlider({
           aria-hidden={slide !== index}
           inert={slide !== index}
           className={cn(
-            'transition-opacity duration-700 ease-in-out [grid-area:1/1]',
+            'min-w-0 transition-opacity duration-700 ease-in-out [grid-area:1/1]',
             slide === index ? 'opacity-100' : 'pointer-events-none opacity-0',
           )}
         >

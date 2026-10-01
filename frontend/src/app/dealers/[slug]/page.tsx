@@ -91,7 +91,7 @@ export default async function DealerPage({ params }: PageProps) {
             ) : null}
           </div>
 
-          <dl className="flex gap-8">
+          <dl className="flex flex-wrap gap-x-8 gap-y-4">
             <div>
               <dt className="text-sm text-muted-foreground">Listings</dt>
               <dd className="tabular text-2xl font-bold">{dealer.activeListingCount}</dd>
