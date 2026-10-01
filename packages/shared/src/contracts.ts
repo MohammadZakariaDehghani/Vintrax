@@ -61,6 +61,10 @@ export interface PublicUser {
   province: Province | null;
   city: string | null;
   avatarUrl: string | null;
+  /** A public handle, lowercase; see `USERNAME_PATTERN`. */
+  username: string | null;
+  /** A postal code, or just its first three characters. Never shown to others. */
+  postalCode: string | null;
   dealer: DealerSummary | null;
   permissions: Permission[];
   createdAt: string;
@@ -445,11 +449,18 @@ export interface MessageDto {
 
 export interface ConversationSummary {
   id: string;
-  vehicle: Pick<VehicleSummary, 'id' | 'title' | 'priceCad' | 'primaryImageUrl' | 'status'>;
+  vehicle: Pick<
+    VehicleSummary,
+    'id' | 'slug' | 'title' | 'priceCad' | 'primaryImageUrl' | 'status'
+  >;
   buyer: ConversationParticipant;
   seller: ConversationParticipant;
   /** The other party relative to the authenticated caller. */
   counterparty: ConversationParticipant;
+  /** Which side of the sale the caller is on: asking about it, or selling it. */
+  viewerRole: 'BUYER' | 'SELLER';
+  /** Archived by the caller (only for them); a new message un-archives it. */
+  archived: boolean;
   lastMessage: MessageDto | null;
   unreadCount: number;
   createdAt: string;
@@ -459,6 +470,12 @@ export interface ConversationSummary {
 export interface ConversationDetail extends ConversationSummary {
   messages: MessageDto[];
 }
+
+/** What the messages socket (`/messages` namespace) sends to each participant. */
+export type MessagingEvent =
+  | { type: 'message:new'; conversationId: string; message: MessageDto }
+  /** The other side opened the thread: every message up to `readAt` is now seen. */
+  | { type: 'conversation:read'; conversationId: string; readerId: string; readAt: string };
 
 export interface NotificationDto {
   id: string;

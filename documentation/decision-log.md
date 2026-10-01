@@ -1030,3 +1030,73 @@ columns, means no existing content changes until an administrator chooses.
   on phones. On a slow connection the late web font then moves only the
   headline (measured CLS 0.025 for the hero).
 - **Picture width:** pictures stay capped at `IMAGE_MAX_WIDTH` (1920).
+
+## D-063 — Account Settings and a Marketplace-Style Messenger Between Buyers and Sellers
+
+**Status:** Accepted, at the owner's request (a CarGurus "Account settings"
+screen and Facebook Marketplace's messenger as the references, in Vintrax's
+own buttons and styles).
+
+**Decision:**
+
+- **Account area** at `/dashboard/account`, with a sidebar of "My activity"
+  (saved cars, messages, bids, notifications, and My listings for sellers)
+  and "My account" (Account settings, Email notifications). On a phone the
+  sidebar becomes a row of pills.
+- **Settings are rows with an Edit button** that opens the form in place:
+  name, username, email, password, phone and postal code.
+  - **Username** is new: unique, lowercase, generated at sign-up and
+    backfilled for existing accounts.
+  - **Postal code** is new, stored normalised (`V5L 1A1`).
+  - **Email change** (`PATCH /auth/email`) needs the current password. It
+    makes the account unverified, sends a link to the new address and a
+    notice to the old one.
+  - **Password change** reuses `PATCH /auth/password`, which ends every
+    session, so the page signs the person straight back in.
+- **Email notifications** page: switches for email and in-app, over the
+  existing channel preferences. The last channel left on cannot be turned off.
+- **Messenger** at `/dashboard/messages`:
+  - Two panes on a computer (inbox and chat), one at a time on a phone.
+  - The inbox has All / Buying / Selling / Archived pills and a search over
+    the car and the other person.
+  - Each chat shows the car's photo with the person's avatar.
+  - Threads use grouped bubbles with day separators and Sent / Seen.
+  - Quick replies for the side of the sale the viewer is on.
+  - Enter to send, and messages appear before the server answers, with a
+    retry if sending fails.
+  - Sellers can mark the car sold from the chat, through the existing
+    listing-status endpoint.
+  - Either side can archive a chat for themselves only; a new message brings
+    it back.
+- **Live delivery** over a new `/messages` Socket.IO namespace that requires
+  an access token, with one room per user. The socket carries only "a
+  message arrived" and "seen"; HTTP remains the only way to send, and the
+  pages keep a slow poll.
+- **Notifications:** one in-app and email notification for the first unread
+  message of a burst, not for each message.
+
+**Rationale:** A private seller's whole job on the site is answering buyers,
+so replies need to feel immediate. Reusing the conversation model,
+notification channels, listing statuses and password flow kept one source of
+truth for each, and kept every rule on the server.
+
+The socket follows the auction socket's design (read-only, the server picks
+recipients) but refuses anonymous connections, because chats are private.
+Notifying once per burst keeps a chatty buyer from filling a seller's inbox.
+
+**Consequences:**
+
+- **Migration** `20261007000000_account_settings_messenger` adds
+  `User.username` (unique, backfilled), `User.postalCode`, and
+  `Conversation.buyerArchivedAt`/`sellerArchivedAt`.
+- **`PublicUser` gains `username` and `postalCode`; `ConversationSummary`
+  gains `viewerRole`, `archived` and `vehicle.slug`.** Clients that build
+  these types by hand (test fixtures) need the new fields.
+- **Rate limits:** 10 new conversations and 30 messages per minute per
+  client.
+- **One API instance:** live events reach only sockets on the instance that
+  handled the request, the same as the auction socket. Running several
+  instances needs the Socket.IO Redis adapter for both. Until then the poll
+  covers the gap.
+- **The site's help-chat bubble is hidden on the messenger**, where it would
+  sit on the Send button.

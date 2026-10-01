@@ -119,6 +119,15 @@ export class NotificationsService {
     return { updated: result.count };
   }
 
+  async channels(userId: string): Promise<{ channels: string[] }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { notificationChannels: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return { channels: user.notificationChannels };
+  }
+
   async updateChannels(
     userId: string,
     channels: Array<'IN_APP' | 'EMAIL' | 'SMS'>,

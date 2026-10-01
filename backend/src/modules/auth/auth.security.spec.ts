@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -69,6 +75,11 @@ class FakeDatabase {
       [...this.users.values()].find((u) =>
         where.id ? u.id === where.id : u.email === where.email,
       ) ?? null,
+    findUniqueOrThrow: async ({ where }: { where: { id: string } }) => {
+      const row = this.users.get(where.id);
+      if (!row) throw new Error('not found');
+      return row;
+    },
     update: async ({ where, data }: { where: { id: string }; data: Partial<UserRow> }) => {
       const row = { ...this.users.get(where.id)!, ...data };
       this.users.set(where.id, row);
@@ -136,7 +147,11 @@ const config = new ConfigService({
 async function setup() {
   const db = new FakeDatabase();
   const redis = new FakeRedis();
-  const mail = { sendPasswordReset: jest.fn(), sendEmailVerification: jest.fn() };
+  const mail = {
+    sendPasswordReset: jest.fn(),
+    sendEmailVerification: jest.fn(),
+    send: jest.fn(),
+  };
   const auth = new AuthService(
     db as never,
     new JwtService({}),
@@ -284,5 +299,37 @@ describe('an access token for an account that has since changed', () => {
 
   it('stops working once the account is deactivated', async () => {
     await expect(validate('DEACTIVATED')).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+});
+
+describe('changing the sign-in email', () => {
+  const user = { id: 'u1', email: 'dealer@example.test', firstName: 'Dana' } as never;
+
+  it('needs the current password, so a stolen session alone cannot take the account', async () => {
+    const { auth, db } = await setup();
+    await expect(
+      auth.changeEmail(user, { email: 'new@example.test', currentPassword: 'guess' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.users.get('u1')!.email).toBe('dealer@example.test');
+  });
+
+  it('refuses an address another account already uses', async () => {
+    const { auth, db } = await setup();
+    db.users.set('u2', { ...db.users.get('u1')!, id: 'u2', email: 'taken@example.test' });
+    await expect(
+      auth.changeEmail(user, { email: 'taken@example.test', currentPassword: PASSWORD }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('moves the account, asks for the new address to be verified, and tells the old one', async () => {
+    const { auth, db, mail } = await setup();
+    await auth.changeEmail(user, { email: 'new@example.test', currentPassword: PASSWORD });
+    expect(db.users.get('u1')).toMatchObject({ email: 'new@example.test', emailVerified: false });
+    expect(mail.sendEmailVerification).toHaveBeenCalledWith(
+      'new@example.test',
+      expect.any(String),
+      'Dana',
+    );
+    expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'dealer@example.test' }));
   });
 });

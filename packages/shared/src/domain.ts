@@ -841,3 +841,29 @@ export const VEHICLE_BADGE_LABELS: Record<VehicleBadgeKey, string> = {
 export function activeVehicleBadges(badges: VehicleBadges): VehicleBadgeKey[] {
   return VEHICLE_BADGE_KEYS.filter((key) => badges[key]);
 }
+
+// --- Accounts and messaging --------------------------------------------------
+
+/** A username: 3–30 lowercase letters, digits, dots and underscores, starting with a letter or digit. */
+export const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._]{2,29}$/;
+
+/**
+ * The handle an account gets at sign-up: its first name's letters and digits
+ * (at most 12) then 8 hex characters of its id — the same shape the migration
+ * gave existing accounts.
+ */
+export function defaultUsername(firstName: string, id: string): string {
+  const name = firstName
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 12);
+  return `${name}${id.replace(/-/g, '').slice(0, 8)}`;
+}
+
+/** Which chats the inbox shows: everything, the ones about cars you asked about, the ones about yours. */
+export const CONVERSATION_BOXES = ['ALL', 'BUYING', 'SELLING', 'ARCHIVED'] as const;
+export type ConversationBox = (typeof CONVERSATION_BOXES)[number];
+
+/** The longest message one chat bubble may carry. */
+export const MAX_MESSAGE_LENGTH = 4000;

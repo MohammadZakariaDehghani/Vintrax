@@ -91,7 +91,11 @@ export function SiteChat() {
   const [handoff, setHandoff] = useState<{ name: string; email: string } | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
-  const hidden = pathname.startsWith('/admin') || pathname.startsWith('/dealer/');
+  // The messenger is a chat of its own, and the bubble would sit on its Send button.
+  const hidden =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/dealer/') ||
+    pathname.startsWith('/dashboard/messages');
 
   useEffect(() => setSession(loadSession()), []);
 
