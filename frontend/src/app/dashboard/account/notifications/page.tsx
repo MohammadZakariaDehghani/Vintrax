@@ -21,7 +21,7 @@ const OPTIONS: ChannelOption[] = [
     channel: 'EMAIL',
     label: 'Email',
     description:
-      'A new message from a buyer or seller, an outbid alert, a saved search match — sent to the address in Account settings.',
+      'A new message from a buyer or seller, an outbid alert or a saved search match, sent to the address in Account settings.',
     icon: Mail,
   },
   {

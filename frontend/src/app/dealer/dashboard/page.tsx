@@ -166,7 +166,7 @@ function DealerDashboard() {
 
 export default function DealerDashboardPage() {
   return (
-    <RequireAuth sellersOnly>
+    <RequireAuth sellersOnly dealersOnly>
       <DealerDashboard />
     </RequireAuth>
   );

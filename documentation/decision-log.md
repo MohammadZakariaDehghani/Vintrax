@@ -1100,3 +1100,43 @@ Notifying once per burst keeps a chatty buyer from filling a seller's inbox.
   covers the gap.
 - **The site's help-chat bubble is hidden on the messenger**, where it would
   sit on the Send button.
+
+## D-064 — Private Sellers Get a Simple "My Listings", and Listing Needs No Verified Email
+
+**Status:** Accepted, at the owner's request.
+
+**Decision:**
+
+- **A private seller (`SELLER` role) sees only what they need:**
+  - "My listings" and "Add vehicle" in the seller bar;
+  - no dealer dashboard, costs, finance, CSV import or export, filters,
+    stock numbers, window sticker, duplicate, or help assistant;
+  - the dealer-only pages send them to My listings;
+  - their home is the overview (`/dashboard`), with a My listings tab.
+
+  Dealers and administrators keep the full portal.
+
+- **Listing a car no longer requires a verified email.** `POST /vehicles`,
+  `PATCH /vehicles/:id/status` and `PATCH /vehicles/bulk-status` drop
+  `@RequireVerifiedEmail()`, so "Save as draft" and "Publish" work right after
+  sign-up. Publishing still means "send for review": a listing goes live only
+  when an administrator approves it. Auctions and bidding still require a
+  verified email.
+- **The overview no longer shows the "Verify your email" banner.** Account
+  settings still shows whether the address is verified, with a link to send it
+  again.
+- **The header greets the person** ("Welcome, Ted") in place of "Dashboard",
+  linking to the same page.
+- **Buttons use the site's standard shape** on the new account and messenger
+  pages and the add-vehicle form, not a pill.
+
+**Rationale:** A new private seller was blocked at "Save as draft" by the
+verification check (403) without a clear way forward. Moderation already
+stops unreviewed listings from reaching buyers, so the email check added
+friction but no protection for buyers. Hiding dealer tools keeps the selling
+flow short for someone with one car.
+
+**Consequences:** An account with an unconfirmed address can create listings.
+Spam is still contained by moderation and the API's rate limits, and the
+account's email can be verified later.
+

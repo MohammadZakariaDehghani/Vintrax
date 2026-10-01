@@ -17,3 +17,15 @@ export {
   useIsSeller,
   useUser,
 } from '@vintrax/client';
+
+import { useAuthStore } from '@vintrax/client';
+
+/**
+ * A private seller: someone selling their own car, not a dealership. They get
+ * a simple "My listings" — add a car, save a draft, publish, mark it sold —
+ * without the dealer tools (costs, CSV import and export, finance, the dealer
+ * dashboard and its help assistant).
+ */
+export function useIsPrivateSeller(): boolean {
+  return useAuthStore((state) => state.user?.role === 'SELLER');
+}

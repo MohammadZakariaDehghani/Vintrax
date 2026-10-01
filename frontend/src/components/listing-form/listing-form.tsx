@@ -598,7 +598,7 @@ export function ListingForm({ initial, vehicleId, status }: ListingFormProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  className="shrink-0 rounded-full px-5"
+                  className="shrink-0"
                   disabled={!vinComplete}
                   loading={decode.isPending}
                   onClick={() => decode.mutate(vin)}
@@ -1187,7 +1187,7 @@ export function ListingForm({ initial, vehicleId, status }: ListingFormProps) {
               <Button
                 type="button"
                 variant="secondary"
-                className="shrink-0 rounded-full px-5"
+                className="shrink-0"
                 disabled={!videoText.trim() || videoTextInvalid}
                 onClick={() => set('videoUrl', videoText.trim())}
               >
@@ -1440,7 +1440,6 @@ export function ListingForm({ initial, vehicleId, status }: ListingFormProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-full px-5"
                     loading={save.isPending && save.variables === 'save'}
                     onClick={() => submit('save')}
                   >
@@ -1449,7 +1448,6 @@ export function ListingForm({ initial, vehicleId, status }: ListingFormProps) {
                   {status === 'DRAFT' || status === 'ARCHIVED' ? (
                     <Button
                       type="button"
-                      className="rounded-full px-6"
                       loading={save.isPending && save.variables === 'publish'}
                       onClick={() => submit('publish')}
                     >
@@ -1462,17 +1460,12 @@ export function ListingForm({ initial, vehicleId, status }: ListingFormProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    className="rounded-full px-5"
                     loading={save.isPending && save.variables === 'draft'}
                     onClick={() => submit('draft')}
                   >
                     Save as draft
                   </Button>
-                  <Button
-                    type="submit"
-                    className="rounded-full px-6"
-                    loading={save.isPending && save.variables === 'publish'}
-                  >
+                  <Button type="submit" loading={save.isPending && save.variables === 'publish'}>
                     Publish
                   </Button>
                 </>

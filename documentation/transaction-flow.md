@@ -117,9 +117,11 @@ There is no online checkout. A fixed-price sale or a won auction is arranged
 directly between buyer and seller — payment and delivery happen off-platform,
 and nothing here records either.
 
-**The verified-email gate is real.** `POST /vehicles`, `POST /auctions` and
-`POST /auctions/:id/bids` all carry `@RequireVerifiedEmail()`. Browsing does
-not.
+**The verified-email gate is real.** `POST /auctions` and
+`POST /auctions/:id/bids` carry `@RequireVerifiedEmail()`. Browsing does not.
+Listing a car does not either (D-064): a seller can save a draft and submit it
+before confirming their email, because nothing goes live until an administrator
+approves it in moderation.
 
 ## Seller
 

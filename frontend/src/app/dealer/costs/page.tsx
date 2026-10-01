@@ -343,7 +343,7 @@ function money(row: CostOverviewRow, cents: number) {
 
 export default function CostOverviewPage() {
   return (
-    <RequireAuth sellersOnly>
+    <RequireAuth sellersOnly dealersOnly>
       <CostOverview />
     </RequireAuth>
   );

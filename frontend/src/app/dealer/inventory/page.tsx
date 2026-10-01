@@ -57,6 +57,7 @@ import { PAGE_SIZE_OPTIONS } from '@/components/list-controls';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { DealerNav } from '@/components/dealer-nav';
 import { StatTile } from '@/components/stat-tile';
+import { useIsPrivateSeller } from '@/store/auth-store';
 import { InventoryImportFlow } from './import/import-flow';
 import { InventoryCard, InventoryTable, useInvalidateInventory } from './inventory-items';
 import { VehicleSidePanel } from './vehicle-side-panel';
@@ -142,6 +143,8 @@ function Inventory() {
   const pathname = usePathname();
   const params = useSearchParams();
   const invalidate = useInvalidateInventory();
+  // A private seller gets the simple list: no CSV, costs, filters or value.
+  const simple = useIsPrivateSeller();
 
   const filters = useMemo(() => readFilters(new URLSearchParams(params.toString())), [params]);
   const sort = (DEALER_INVENTORY_SORTS as readonly string[]).includes(params.get('sort') ?? '')
@@ -303,16 +306,22 @@ function Inventory() {
 
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {simple ? 'My listings' : 'Inventory'}
+          </h1>
           <p className="mt-1 text-muted-foreground">
-            Manage your vehicles, pricing, costs, and listings.
+            {simple
+              ? 'Add your car, save it as a draft, publish it, and mark it sold.'
+              : 'Manage your vehicles, pricing, costs, and listings.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setUploadOpen(true)}>
-            <Upload className="h-4 w-4" aria-hidden />
-            Upload CSV
-          </Button>
+          {simple ? null : (
+            <Button variant="outline" onClick={() => setUploadOpen(true)}>
+              <Upload className="h-4 w-4" aria-hidden />
+              Upload CSV
+            </Button>
+          )}
           <Link href="/dealer/add-vehicle">
             <Button>
               <Plus className="h-4 w-4" aria-hidden />
@@ -322,12 +331,18 @@ function Inventory() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatTile label="Total inventory" value={stats.data?.total ?? '—'} icon={Car} />
+      <div
+        className={`mb-6 grid gap-3 sm:grid-cols-2 ${simple ? 'lg:grid-cols-4' : 'lg:grid-cols-5'}`}
+      >
+        <StatTile
+          label={simple ? 'All cars' : 'Total inventory'}
+          value={stats.data?.total ?? '—'}
+          icon={Car}
+        />
         <StatTile
           label="Active"
           value={stats.data?.active ?? '—'}
-          hint={stats.data ? `${stats.data.inAuction} in auction` : undefined}
+          hint={stats.data && !simple ? `${stats.data.inAuction} in auction` : undefined}
           icon={Tag}
         />
         <StatTile label="Sold" value={stats.data?.sold ?? '—'} icon={CircleDollarSign} />
@@ -337,12 +352,14 @@ function Inventory() {
           hint={stats.data ? `${stats.data.inReview} awaiting review` : undefined}
           icon={FilePen}
         />
-        <StatTile
-          label="Total inventory value"
-          value={stats.data ? formatPrice(stats.data.inventoryValueCad) : '—'}
-          hint="Asking prices, excluding sold and archived"
-          icon={CircleDollarSign}
-        />
+        {simple ? null : (
+          <StatTile
+            label="Total inventory value"
+            value={stats.data ? formatPrice(stats.data.inventoryValueCad) : '—'}
+            hint="Asking prices, excluding sold and archived"
+            icon={CircleDollarSign}
+          />
+        )}
       </div>
       <ErrorAlert error={stats.error} className="mb-4" />
 
@@ -357,7 +374,9 @@ function Inventory() {
               <Input
                 type="search"
                 className="pl-9"
-                placeholder="Search by VIN, stock #, make or model"
+                placeholder={
+                  simple ? 'Search by make, model or VIN' : 'Search by VIN, stock #, make or model'
+                }
                 aria-label="Search your inventory"
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
@@ -376,15 +395,17 @@ function Inventory() {
                 </option>
               ))}
             </Select>
-            <Button
-              variant={showFilters || activeFilterCount > 0 ? 'secondary' : 'outline'}
-              onClick={() => setShowFilters((current) => !current)}
-              aria-expanded={showFilters}
-              aria-controls="inventory-filters"
-            >
-              <SlidersHorizontal className="h-4 w-4" aria-hidden />
-              Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-            </Button>
+            {simple ? null : (
+              <Button
+                variant={showFilters || activeFilterCount > 0 ? 'secondary' : 'outline'}
+                onClick={() => setShowFilters((current) => !current)}
+                aria-expanded={showFilters}
+                aria-controls="inventory-filters"
+              >
+                <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              </Button>
+            )}
             <Select
               aria-label="Sort by"
               className="w-auto"
@@ -570,15 +591,17 @@ function Inventory() {
                   <EyeOff className="h-4 w-4" aria-hidden />
                   Unpublish
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  loading={exportSelected.isPending}
-                  onClick={() => exportSelected.mutate(selectedIds)}
-                >
-                  <Download className="h-4 w-4" aria-hidden />
-                  Export CSV
-                </Button>
+                {simple ? null : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    loading={exportSelected.isPending}
+                    onClick={() => exportSelected.mutate(selectedIds)}
+                  >
+                    <Download className="h-4 w-4" aria-hidden />
+                    Export CSV
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="destructive"
@@ -748,12 +771,18 @@ function Inventory() {
           ) : (
             <EmptyState
               title="No vehicles yet"
-              description="Add a vehicle by hand, or upload your inventory as a CSV."
+              description={
+                simple
+                  ? 'Add your car with its details and photos. Save it as a draft until it is ready.'
+                  : 'Add a vehicle by hand, or upload your inventory as a CSV.'
+              }
               action={
                 <div className="flex flex-wrap justify-center gap-2">
-                  <Button variant="outline" onClick={() => setUploadOpen(true)}>
-                    Upload CSV
-                  </Button>
+                  {simple ? null : (
+                    <Button variant="outline" onClick={() => setUploadOpen(true)}>
+                      Upload CSV
+                    </Button>
+                  )}
                   <Link href="/dealer/add-vehicle">
                     <Button>Add Vehicle</Button>
                   </Link>

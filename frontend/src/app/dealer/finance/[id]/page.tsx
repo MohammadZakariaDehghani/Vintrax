@@ -362,7 +362,7 @@ function ApplicationDetail() {
 
 export default function FinanceApplicationPage() {
   return (
-    <RequireAuth sellersOnly>
+    <RequireAuth sellersOnly dealersOnly>
       <ApplicationDetail />
     </RequireAuth>
   );

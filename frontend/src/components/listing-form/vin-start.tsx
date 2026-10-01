@@ -317,12 +317,7 @@ export function VinStart({ onNext }: { onNext: (draft: ListingDraft) => void }) 
           </div>
         )}
 
-        <Button
-          type="submit"
-          size="lg"
-          className="h-12 w-full rounded-full text-base"
-          disabled={!canContinue}
-        >
+        <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={!canContinue}>
           Next
         </Button>
       </form>

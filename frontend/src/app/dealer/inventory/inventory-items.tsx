@@ -16,6 +16,7 @@ import { cn, formatEnum, formatKm, formatPrice } from '@/lib/utils';
 import { Badge, Button, Card, CardContent, Dialog, ErrorAlert, Input } from '@/components/ui';
 import { PreviousPrice } from '@/components/previous-price';
 import { IMAGE_SIZES, OptimizedImage } from '@/components/optimized-image';
+import { useIsPrivateSeller } from '@/store/auth-store';
 
 /** "Sep 28, 2026": short enough for a table column. */
 export function shortDate(iso: string): string {
@@ -174,6 +175,7 @@ export function VehicleActions({
 }) {
   const router = useRouter();
   const invalidate = useInvalidateInventory();
+  const simple = useIsPrivateSeller();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editingPrice, setEditingPrice] = useState(false);
 
@@ -218,24 +220,28 @@ export function VehicleActions({
       >
         <Pencil className="h-4 w-4" aria-hidden />
       </Link>
-      <Link
-        href={`/dealer/costs/${vehicle.id}`}
-        title="Costs"
-        aria-label={`Costs for ${vehicle.title}`}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-      >
-        <Calculator className="h-4 w-4" aria-hidden />
-      </Link>
-      <button
-        type="button"
-        title="Duplicate"
-        aria-label={`Duplicate ${vehicle.title}`}
-        disabled={duplicate.isPending}
-        onClick={() => duplicate.mutate()}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
-      >
-        <Copy className="h-4 w-4" aria-hidden />
-      </button>
+      {simple ? null : (
+        <>
+          <Link
+            href={`/dealer/costs/${vehicle.id}`}
+            title="Costs"
+            aria-label={`Costs for ${vehicle.title}`}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+          >
+            <Calculator className="h-4 w-4" aria-hidden />
+          </Link>
+          <button
+            type="button"
+            title="Duplicate"
+            aria-label={`Duplicate ${vehicle.title}`}
+            disabled={duplicate.isPending}
+            onClick={() => duplicate.mutate()}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-50"
+          >
+            <Copy className="h-4 w-4" aria-hidden />
+          </button>
+        </>
+      )}
       <button
         type="button"
         title={deletable ? 'Delete' : 'A vehicle in an auction or marked sold cannot be deleted'}
@@ -500,6 +506,7 @@ export function InventoryTable({
   pageIndeterminate: boolean;
   onTogglePage: (next: boolean) => void;
 }) {
+  const simple = useIsPrivateSeller();
   return (
     <Card className="overflow-hidden">
       <div className="overflow-x-auto">
@@ -528,18 +535,22 @@ export function InventoryTable({
               <th scope="col" className="px-3 py-3">
                 VIN
               </th>
-              <th scope="col" className="px-3 py-3">
-                Stock #
-              </th>
+              {simple ? null : (
+                <th scope="col" className="px-3 py-3">
+                  Stock #
+                </th>
+              )}
               <th scope="col" className="px-3 py-3 text-right">
                 Mileage
               </th>
               <th scope="col" className="px-3 py-3 text-right">
                 Price
               </th>
-              <th scope="col" className="px-3 py-3 text-right">
-                Cost
-              </th>
+              {simple ? null : (
+                <th scope="col" className="px-3 py-3 text-right">
+                  Cost
+                </th>
+              )}
               <th scope="col" className="px-3 py-3 text-center">
                 Quality
               </th>
@@ -587,15 +598,17 @@ export function InventoryTable({
                     ) : null}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">{vehicle.vin ?? '—'}</td>
-                  <td className="px-3 py-2">{vehicle.stockNumber ?? '—'}</td>
+                  {simple ? null : <td className="px-3 py-2">{vehicle.stockNumber ?? '—'}</td>}
                   <td className="tabular px-3 py-2 text-right">{formatKm(vehicle.mileageKm)}</td>
                   <td className="px-3 py-2 text-right">
                     <PreviousPrice previous={vehicle.previousPriceCad} current={vehicle.priceCad} />
                     <span className="tabular font-semibold">{formatPrice(vehicle.priceCad)}</span>
                   </td>
-                  <td className="px-3 py-2 text-right">
-                    <CostCell vehicle={vehicle} />
-                  </td>
+                  {simple ? null : (
+                    <td className="px-3 py-2 text-right">
+                      <CostCell vehicle={vehicle} />
+                    </td>
+                  )}
                   <td className="px-3 py-2 text-center">
                     <QualityPill score={vehicle.qualityScore} />
                   </td>
@@ -626,6 +639,7 @@ export function InventoryCard({
   onOpen,
 }: SelectionProps & { vehicle: DealerInventoryItem }) {
   const isSelected = selected.has(vehicle.id);
+  const simple = useIsPrivateSeller();
   return (
     <Card className={cn('flex min-w-0 flex-col', isSelected && 'border-primary')}>
       <CardContent className="flex flex-1 flex-col gap-3 pt-4">
@@ -657,16 +671,24 @@ export function InventoryCard({
             <PreviousPrice previous={vehicle.previousPriceCad} current={vehicle.priceCad} />
             <span className="tabular font-semibold">{formatPrice(vehicle.priceCad)}</span>
           </dd>
-          <dt className="text-muted-foreground">Cost</dt>
-          <dd className="text-right">
-            <CostCell vehicle={vehicle} />
-          </dd>
+          {simple ? null : (
+            <>
+              <dt className="text-muted-foreground">Cost</dt>
+              <dd className="text-right">
+                <CostCell vehicle={vehicle} />
+              </dd>
+            </>
+          )}
           <dt className="text-muted-foreground">Mileage</dt>
           <dd className="tabular text-right">{formatKm(vehicle.mileageKm)}</dd>
           <dt className="text-muted-foreground">VIN</dt>
           <dd className="truncate text-right font-mono">{vehicle.vin ?? '—'}</dd>
-          <dt className="text-muted-foreground">Stock #</dt>
-          <dd className="text-right">{vehicle.stockNumber ?? '—'}</dd>
+          {simple ? null : (
+            <>
+              <dt className="text-muted-foreground">Stock #</dt>
+              <dd className="text-right">{vehicle.stockNumber ?? '—'}</dd>
+            </>
+          )}
           <dt className="text-muted-foreground">Quality</dt>
           <dd className="text-right">
             <QualityPill score={vehicle.qualityScore} />

@@ -72,7 +72,7 @@ describe('switching accounts', () => {
     expect(homeForRole(user('ADMIN'))).toBe('/admin/dashboard');
     expect(homeForRole(user('SUPER_ADMIN'))).toBe('/admin/dashboard');
     expect(homeForRole(user('DEALER'))).toBe('/dealer/dashboard');
-    expect(homeForRole(user('SELLER'))).toBe('/dealer/dashboard');
+    expect(homeForRole(user('SELLER'))).toBe('/dashboard');
     expect(homeForRole(user('BUYER'))).toBe('/dashboard');
   });
 

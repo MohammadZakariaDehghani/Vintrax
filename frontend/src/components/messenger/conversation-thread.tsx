@@ -103,7 +103,7 @@ function ThreadHeader({
       <Button
         variant="ghost"
         size="icon"
-        className="h-9 w-9 shrink-0 rounded-full text-primary"
+        className="h-9 w-9 shrink-0 text-primary"
         onClick={onArchive}
         disabled={archiving}
         aria-label={thread.archived ? 'Move back to inbox' : 'Archive chat'}
@@ -132,14 +132,14 @@ function CarStrip({ thread, onMarkSold }: { thread: ConversationSummary; onMarkS
         </p>
       </div>
       {canMarkSold ? (
-        <Button size="sm" className="shrink-0 rounded-full px-3.5" onClick={onMarkSold}>
+        <Button size="sm" className="shrink-0" onClick={onMarkSold}>
           <CheckCircle2 className="h-4 w-4" aria-hidden />
           <span className="hidden sm:inline">Mark as sold</span>
           <span className="sm:hidden">Sold</span>
         </Button>
       ) : null}
       <Link href={`/vehicles/${vehicle.slug}`} className="shrink-0">
-        <Button variant="outline" size="sm" className="rounded-full px-3.5">
+        <Button variant="outline" size="sm">
           <ExternalLink className="h-4 w-4" aria-hidden />
           <span className="hidden sm:inline">View listing</span>
         </Button>
@@ -241,7 +241,7 @@ function Composer({
                 setBody(reply);
                 inputRef.current?.focus();
               }}
-              className="h-8 shrink-0 rounded-full border border-primary/40 px-3 text-sm font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-8 shrink-0 rounded-md border border-input bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {reply}
             </button>

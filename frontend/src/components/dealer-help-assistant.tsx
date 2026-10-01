@@ -12,7 +12,7 @@ import {
   type HelpChatReply,
 } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
-import { useIsSeller, useUser } from '@/store/auth-store';
+import { useIsPrivateSeller, useIsSeller, useUser } from '@/store/auth-store';
 import { Button, ErrorAlert } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
@@ -50,6 +50,7 @@ interface Turn {
 export function DealerHelpAssistant() {
   const user = useUser();
   const isSeller = useIsSeller();
+  const privateSeller = useIsPrivateSeller();
   const pathname = usePathname() ?? '';
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -77,7 +78,7 @@ export function DealerHelpAssistant() {
       setTurns((current) => [...current, { role: 'assistant', content: reply.answer, reply }]),
   });
 
-  if (!user || !isSeller) return null;
+  if (!user || !isSeller || privateSeller) return null;
 
   function send(question: string) {
     const message = question.trim().slice(0, MAX_HELP_MESSAGE_LENGTH);

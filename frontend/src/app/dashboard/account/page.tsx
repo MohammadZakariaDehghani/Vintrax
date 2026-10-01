@@ -52,12 +52,7 @@ function SettingRow({
           )}
         </div>
         {editing ? null : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0 rounded-full px-4"
-            onClick={onEdit}
-          >
+          <Button variant="outline" size="sm" className="shrink-0" onClick={onEdit}>
             <Icon className="h-4 w-4" aria-hidden />
             {editLabel}
           </Button>

@@ -22,7 +22,8 @@ function isSeller(user: PublicUser): boolean {
  */
 export function homeForRole(user: Pick<PublicUser, 'role'>): string {
   if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') return '/admin/dashboard';
-  if (user.role === 'SELLER' || user.role === 'DEALER') return '/dealer/dashboard';
+  // A private seller has no dealer dashboard: their overview links My listings.
+  if (user.role === 'DEALER') return '/dealer/dashboard';
   return '/dashboard';
 }
 

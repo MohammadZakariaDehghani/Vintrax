@@ -162,7 +162,7 @@ export function ConversationList({ selectedId }: { selectedId: string | undefine
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by car or name"
             maxLength={100}
-            className="h-10 w-full rounded-full border-0 bg-secondary pl-9 pr-9 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
+            className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-9 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
           />
           {search ? (
             <button
@@ -187,7 +187,7 @@ export function ConversationList({ selectedId }: { selectedId: string | undefine
                 aria-selected={active}
                 onClick={() => setBox(option.box)}
                 className={cn(
-                  'h-8 shrink-0 rounded-full px-3.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'h-8 shrink-0 rounded-md px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   active
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-secondary text-foreground/80 hover:bg-secondary/70 hover:text-foreground',
@@ -215,9 +215,7 @@ export function ConversationList({ selectedId }: { selectedId: string | undefine
             </p>
             {!q && box !== 'ARCHIVED' ? (
               <Link href="/vehicles" className="mt-4">
-                <Button size="sm" className="rounded-full px-4">
-                  Browse cars
-                </Button>
+                <Button size="sm">Browse cars</Button>
               </Link>
             ) : null}
           </div>
@@ -239,7 +237,6 @@ export function ConversationList({ selectedId }: { selectedId: string | undefine
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-full px-4"
                   loading={list.isFetchingNextPage}
                   onClick={() => void list.fetchNextPage()}
                 >

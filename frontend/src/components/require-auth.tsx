@@ -3,7 +3,13 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
-import { useAuthLoading, useIsAdmin, useIsSeller, useUser } from '@/store/auth-store';
+import {
+  useAuthLoading,
+  useIsAdmin,
+  useIsPrivateSeller,
+  useIsSeller,
+  useUser,
+} from '@/store/auth-store';
 import { Button, Card, CardContent, Spinner } from '@/components/ui';
 
 /**
@@ -16,16 +22,20 @@ import { Button, Card, CardContent, Spinner } from '@/components/ui';
 export function RequireAuth({
   children,
   sellersOnly = false,
+  dealersOnly = false,
   adminOnly = false,
 }: {
   children: ReactNode;
   sellersOnly?: boolean;
+  /** Dealer tools a private seller does not use: they are sent to My listings. */
+  dealersOnly?: boolean;
   adminOnly?: boolean;
 }) {
   const user = useUser();
   const isLoading = useAuthLoading();
   const isSeller = useIsSeller();
   const isAdmin = useIsAdmin();
+  const privateSeller = useIsPrivateSeller();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -37,8 +47,14 @@ export function RequireAuth({
     }
   }, [isLoading, user, router, pathname]);
 
+  const sendToListings = dealersOnly && privateSeller;
+  useEffect(() => {
+    if (sendToListings) router.replace('/dealer/inventory');
+  }, [sendToListings, router]);
+
   if (isLoading) return <Spinner label="Checking your session" />;
   if (!user) return <Spinner label="Redirecting to sign in" />;
+  if (sendToListings) return <Spinner label="Opening My listings" />;
 
   if (adminOnly && !isAdmin) {
     return <AccessDenied title="Administrator access required" />;
