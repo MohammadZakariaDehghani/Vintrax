@@ -137,7 +137,7 @@ export function BudgetTool() {
   const carCount = countedPrice === result.maxVehiclePrice ? inBudget.data?.total : undefined;
 
   return (
-    <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem]">
+    <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <Card>
         <CardContent className="grid gap-5 p-6 sm:grid-cols-2">
           <Field
@@ -267,7 +267,7 @@ export function BudgetTool() {
         </CardContent>
       </Card>
 
-      <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+      <div className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
         <Card>
           <CardContent className="p-6" aria-live="polite">
             <p className="text-sm text-muted-foreground">Your car budget</p>
@@ -307,7 +307,7 @@ export function BudgetTool() {
               </div>
             ) : result.maxVehiclePrice > 0 ? (
               <Link href={shopHref} className="mt-5 block">
-                <Button className="w-full">
+                <Button className="h-auto min-h-10 w-full whitespace-normal py-2 text-center">
                   {carCount === undefined
                     ? `Shop cars under ${formatPrice(result.maxVehiclePrice)}`
                     : `Shop ${carCount.toLocaleString('en-CA')} ${carCount === 1 ? 'car' : 'cars'} under ${formatPrice(result.maxVehiclePrice)}`}

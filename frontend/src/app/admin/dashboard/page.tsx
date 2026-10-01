@@ -138,37 +138,41 @@ function AdminDashboard() {
         </CardHeader>
         <CardContent className="p-0">
           {audit && audit.items.length > 0 ? (
-            <table className="w-full text-sm">
-              <caption className="sr-only">Recent audited actions</caption>
-              <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th scope="col" className="px-4 py-3">
-                    Action
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Entity
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Actor
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    When
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {audit.items.map((entry) => (
-                  <tr key={entry.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2.5 font-medium">{entry.action}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{entry.entityType}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{entry.actorEmail ?? '—'}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {formatRelativeTime(entry.createdAt)}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <caption className="sr-only">Recent audited actions</caption>
+                <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">
+                      Action
+                    </th>
+                    <th scope="col" className="px-4 py-3">
+                      Entity
+                    </th>
+                    <th scope="col" className="px-4 py-3">
+                      Actor
+                    </th>
+                    <th scope="col" className="px-4 py-3">
+                      When
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {audit.items.map((entry) => (
+                    <tr key={entry.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-2.5 font-medium">{entry.action}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{entry.entityType}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {entry.actorEmail ?? '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {formatRelativeTime(entry.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <EmptyState
               title="No audited actions yet"

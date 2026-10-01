@@ -51,48 +51,52 @@ function MyBids() {
         <>
           <Card>
             <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <caption className="sr-only">Your bid history</caption>
-                <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th scope="col" className="px-4 py-3">
-                      Auction
-                    </th>
-                    <th scope="col" className="px-4 py-3">
-                      Amount
-                    </th>
-                    <th scope="col" className="px-4 py-3">
-                      Status
-                    </th>
-                    <th scope="col" className="px-4 py-3">
-                      Placed
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((bid) => (
-                    <tr key={bid.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/auctions/${bid.auctionId}`}
-                          className="text-primary hover:underline"
-                        >
-                          {bid.auctionId.slice(0, 8)}
-                        </Link>
-                      </td>
-                      <td className="tabular px-4 py-3 font-semibold">
-                        {formatPrice(bid.amountCad)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={STATUS_VARIANT[bid.status]}>{formatEnum(bid.status)}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatRelativeTime(bid.placedAt)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">Your bid history</caption>
+                  <thead className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th scope="col" className="px-4 py-3">
+                        Auction
+                      </th>
+                      <th scope="col" className="px-4 py-3">
+                        Amount
+                      </th>
+                      <th scope="col" className="px-4 py-3">
+                        Status
+                      </th>
+                      <th scope="col" className="px-4 py-3">
+                        Placed
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.items.map((bid) => (
+                      <tr key={bid.id} className="border-b border-border last:border-0">
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/auctions/${bid.auctionId}`}
+                            className="text-primary hover:underline"
+                          >
+                            {bid.auctionId.slice(0, 8)}
+                          </Link>
+                        </td>
+                        <td className="tabular px-4 py-3 font-semibold">
+                          {formatPrice(bid.amountCad)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={STATUS_VARIANT[bid.status]}>
+                            {formatEnum(bid.status)}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatRelativeTime(bid.placedAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
           <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />

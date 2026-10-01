@@ -77,7 +77,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang={locale} suppressHydrationWarning className={`${sans.variable} ${display.variable}`}>
-      <body className="min-h-screen font-sans">
+      {/* `overflow-x-clip` is a backstop, not the fix: each page is sized to
+          fit the viewport, but a long unbroken word in a listing or a post
+          must never scroll the whole site sideways. `clip`, unlike `hidden`,
+          makes no scroll container, so the sticky header still sticks. */}
+      <body className="min-h-screen overflow-x-clip font-sans">
         <Providers initialLocale={locale}>
           <a
             href="#main"
