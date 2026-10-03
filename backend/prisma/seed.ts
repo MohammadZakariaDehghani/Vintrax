@@ -28,6 +28,7 @@ import {
   VehicleCondition,
 } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { ACCOUNTING_DEMO_STAFF, seedAccounting } from './seed-accounting';
 
 const prisma = new PrismaClient();
 
@@ -1177,6 +1178,9 @@ async function main(): Promise<void> {
     ],
   });
 
+  console.log('Seeding demo dealer accounting...');
+  console.log(`  ${await seedAccounting(prisma, passwordHash)}`);
+
   const counts = {
     users: await prisma.user.count(),
     dealers: await prisma.dealer.count(),
@@ -1200,6 +1204,9 @@ async function main(): Promise<void> {
   console.log('  moderator@vintrax.test             admin');
   console.log('  inspector@vintrax.test             inspector');
   console.log('  sales@northshoremotors.test      dealer (verified)');
+  for (const staff of ACCOUNTING_DEMO_STAFF) {
+    console.log(`  ${staff.email.padEnd(32)} North Shore Motors ${staff.role.toLowerCase().replace('_', ' ')}`);
+  }
   console.log('  contact@maplecityauto.test       dealer (pending verification)');
   console.log('  marc.tremblay@example.test       private seller');
   console.log('  jordan.lee@example.test          buyer');
