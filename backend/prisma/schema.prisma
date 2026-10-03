@@ -304,6 +304,10 @@ model User {
 
   wonAuctions Auction[] @relation("AuctionWinner")
 
+  dealerMemberships DealerMember[] @relation("DealerMemberships")
+  customerRecords   Customer[]     @relation("CustomerAccount")
+  vehicleSalesMade  VehicleSale[]  @relation("VehicleSalesperson")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -335,6 +339,35 @@ model Dealer {
 
   verifiedAt       DateTime?
   verificationNote String?   @db.Text
+
+  accountingSettings    AccountingSettings?
+  staff                 DealerMember[]
+  acctAccounts          AcctAccount[]
+  fiscalYears           FiscalYear[]
+  accountingPeriods     AccountingPeriod[]
+  journalEntries        JournalEntry[]
+  journalLines          JournalLine[]
+  taxRules              TaxRule[]
+  taxLines              TaxLine[]
+  taxFilingPeriods      TaxFilingPeriod[]
+  customers             Customer[]
+  vendors               Vendor[]
+  vehicleAcquisitions   VehicleAcquisition[]
+  tradeIns              TradeIn[]
+  vehicleSales          VehicleSale[]
+  customerDeposits      CustomerDeposit[]
+  customerInvoices      CustomerInvoice[]
+  vendorBills           VendorBill[]
+  payments              Payment[]
+  expenses              Expense[]
+  recurringExpenses     RecurringExpense[]
+  bankAccounts          BankAccount[]
+  bankTransactions      BankTransaction[]
+  bankReconciliations   BankReconciliation[]
+  floorPlanNotes        FloorPlanNote[]
+  accountingAttachments AccountingAttachment[]
+  savedReportFilters    SavedReportFilter[]
+  accountingAuditLogs   AccountingAuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -532,6 +565,15 @@ model Vehicle {
   costs               VehicleCost[]
   financeApplications FinanceApplication[]
 
+  // Accounting (D-065): the ledger lines and documents about this vehicle.
+  journalLines     JournalLine[]        @relation("JournalLineVehicle")
+  acquisitions     VehicleAcquisition[] @relation("VehicleAcquisitions")
+  tradeIns         TradeIn[]            @relation("TradeInVehicle")
+  sales            VehicleSale[]        @relation("VehicleSales")
+  customerDeposits CustomerDeposit[]    @relation("VehicleDeposits")
+  expenses         Expense[]            @relation("VehicleExpenses")
+  floorPlanNotes   FloorPlanNote[]      @relation("VehicleFloorPlans")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -601,6 +643,10 @@ model VehicleCost {
   /// Who recorded it. Kept if that account is later removed.
   recordedById String? @db.Uuid
   recordedBy   User?   @relation("VehicleCostRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  /// The journal entry that put this cost on the books, when it was recorded
+  /// through Accounting. Null for costs kept only as a management record.
+  journalEntryId String? @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1672,4 +1718,1124 @@ model SupportChatMessage {
   createdAt DateTime @default(now())
 
   @@index([chatId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Accounting (D-065)
+//
+// A dealer's books: double-entry, tenant-scoped by `dealerId` on every row.
+// Money here is NUMERIC(15,2) — exact decimal dollars and cents — and the
+// API converts it to integer cents before doing arithmetic. Rates are
+// NUMERIC(8,5) percentages (9.975 means 9.975 %).
+//
+// Posted financial rows are never deleted: corrections are reversing or
+// adjusting entries. Database triggers (see the migration) enforce the parts
+// of that the application could get wrong: a posted entry balances, its lines
+// cannot change, and the accounting audit log is append-only.
+// ---------------------------------------------------------------------------
+
+enum AcctAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  COGS
+  EXPENSE
+}
+
+enum AcctAccountSubtype {
+  CASH
+  BANK
+  RECEIVABLE
+  INVENTORY
+  OTHER_CURRENT_ASSET
+  TAX_RECOVERABLE
+  FIXED_ASSET
+  ACCUMULATED_DEPRECIATION
+  PAYABLE
+  TAX_PAYABLE
+  CUSTOMER_DEPOSIT
+  FLOOR_PLAN
+  CREDIT_CARD
+  CURRENT_LIABILITY
+  LONG_TERM_LIABILITY
+  EQUITY
+  RETAINED_EARNINGS
+  CURRENT_YEAR_EARNINGS
+  OPERATING_REVENUE
+  OTHER_INCOME
+  COST_OF_SALES
+  OPERATING_EXPENSE
+  OTHER_EXPENSE
+}
+
+enum DealerStaffRole {
+  OWNER
+  MANAGER
+  ACCOUNTANT
+  SALES_MANAGER
+  SALES_USER
+}
+
+enum JournalSource {
+  MANUAL
+  OPENING_BALANCE
+  VEHICLE_ACQUISITION
+  VEHICLE_COST
+  VEHICLE_SALE
+  CUSTOMER_DEPOSIT
+  DEPOSIT_REFUND
+  CUSTOMER_INVOICE
+  CUSTOMER_PAYMENT
+  CUSTOMER_REFUND
+  VENDOR_BILL
+  VENDOR_CREDIT
+  VENDOR_PAYMENT
+  EXPENSE
+  BANK_TRANSACTION
+  RECONCILIATION_ADJUSTMENT
+  FLOOR_PLAN
+  YEAR_END_CLOSE
+  REVERSAL
+}
+
+enum JournalKind {
+  STANDARD
+  ADJUSTING
+  OPENING
+  CLOSING
+  REVERSAL
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum TaxType {
+  GST
+  HST
+  PST
+  QST
+}
+
+enum TaxFilingFrequency {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum TaxReturnKind {
+  GST_HST
+  PST
+  QST
+}
+
+enum TaxFilingStatus {
+  OPEN
+  IN_REVIEW
+  FILED
+  CLOSED
+}
+
+enum TaxDirection {
+  COLLECTED
+  PAID
+}
+
+enum VendorKind {
+  AUCTION
+  DEALER
+  PRIVATE_SELLER
+  SUPPLIER
+  LENDER
+  SERVICE
+  GOVERNMENT
+  OTHER
+}
+
+enum AcquisitionMethod {
+  AUCTION
+  PRIVATE
+  TRADE_IN
+  DEALER
+  WHOLESALE
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  DEBIT
+  CREDIT_CARD
+  E_TRANSFER
+  BANK_TRANSFER
+  FINANCING
+  OTHER
+}
+
+enum SettlementMethod {
+  PAID
+  ON_ACCOUNT
+  FLOOR_PLAN
+  NONE
+}
+
+enum DocumentStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+enum SettlementStatus {
+  OPEN
+  PARTIAL
+  PAID
+  VOID
+}
+
+enum PaymentDirection {
+  RECEIVED
+  SENT
+}
+
+enum PaymentKind {
+  PAYMENT
+  REFUND
+}
+
+enum ExpenseTreatment {
+  OPERATING
+  VEHICLE_COST
+  COGS
+  CAPITAL
+}
+
+enum RecurrenceFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum BankAccountType {
+  CHEQUING
+  SAVINGS
+  CASH
+  CREDIT_CARD
+  LINE_OF_CREDIT
+}
+
+enum BankTransactionKind {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  FEE
+  ADJUSTMENT
+}
+
+enum ReconciliationStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum DepositStatus {
+  OPEN
+  PARTIALLY_APPLIED
+  APPLIED
+  REFUNDED
+}
+
+enum FloorPlanStatus {
+  ACTIVE
+  PAID_OFF
+}
+
+enum FloorPlanTransactionKind {
+  PRINCIPAL_PAYMENT
+  INTEREST_PAYMENT
+  PAYOFF
+}
+
+/// A dealership's staff, beyond its owner (who is always OWNER and is not
+/// stored here). The role decides what of the books a person may see or do.
+model DealerMember {
+  id        String          @id @default(uuid()) @db.Uuid
+  dealerId  String          @db.Uuid
+  dealer    Dealer          @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  userId    String          @db.Uuid
+  user      User            @relation("DealerMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  role      DealerStaffRole
+  addedById String?         @db.Uuid
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([dealerId, userId])
+  @@index([userId])
+}
+
+/// One per dealer. Created by the setup wizard; nothing posts before it.
+model AccountingSettings {
+  dealerId String @id @db.Uuid
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+
+  legalName              String
+  businessNumber         String?
+  gstHstNumber           String?
+  pstNumber              String?
+  qstNumber              String?
+  province               Province
+  fiscalYearStartMonth   Int                @default(1)
+  fiscalYearStartDay     Int                @default(1)
+  currency               String             @default("CAD")
+  taxFilingFrequency     TaxFilingFrequency @default(QUARTERLY)
+  defaultBankAccountId   String?            @db.Uuid
+  invoicePrefix          String             @default("INV-")
+  nextInvoiceNumber      Int                @default(1001)
+  journalPrefix          String             @default("JE-")
+  nextJournalNumber      Int                @default(1)
+  nextSaleNumber         Int                @default(1)
+  nextBillNumber         Int                @default(1)
+  nextPaymentNumber      Int                @default(1)
+  nextExpenseNumber      Int                @default(1)
+  nextDepositNumber      Int                @default(1)
+  allowNegativeInventory Boolean            @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AcctAccount {
+  id          String             @id @default(uuid()) @db.Uuid
+  dealerId    String             @db.Uuid
+  dealer      Dealer             @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  code        String
+  name        String
+  type        AcctAccountType
+  subtype     AcctAccountSubtype
+  /// Stable handle the posting rules use (VEHICLE_INVENTORY, AR, …). Null for
+  /// accounts a dealer adds; at most one account per key per dealer.
+  systemKey   String?
+  isSystem    Boolean            @default(false)
+  isActive    Boolean            @default(true)
+  parentId    String?            @db.Uuid
+  parent      AcctAccount?       @relation("AcctAccountTree", fields: [parentId], references: [id])
+  children    AcctAccount[]      @relation("AcctAccountTree")
+  description String?
+
+  lines JournalLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bankAccount       BankAccount?       @relation("BankGlAccount")
+  expenses          Expense[]          @relation("ExpenseAccount")
+  recurringExpenses RecurringExpense[] @relation("RecurringExpenseAccount")
+
+  @@unique([dealerId, code])
+  @@unique([dealerId, systemKey])
+  @@index([dealerId, type])
+}
+
+model FiscalYear {
+  id             String       @id @default(uuid()) @db.Uuid
+  dealerId       String       @db.Uuid
+  dealer         Dealer       @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  name           String
+  startDate      DateTime     @db.Date
+  endDate        DateTime     @db.Date
+  status         PeriodStatus @default(OPEN)
+  closedAt       DateTime?
+  closedById     String?      @db.Uuid
+  closingEntryId String?      @db.Uuid
+
+  periods AccountingPeriod[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dealerId, startDate])
+  @@index([dealerId, endDate])
+}
+
+model AccountingPeriod {
+  id           String       @id @default(uuid()) @db.Uuid
+  dealerId     String       @db.Uuid
+  dealer       Dealer       @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  fiscalYearId String       @db.Uuid
+  fiscalYear   FiscalYear   @relation(fields: [fiscalYearId], references: [id])
+  /// 1-based month number within the fiscal year.
+  number       Int
+  name         String
+  startDate    DateTime     @db.Date
+  endDate      DateTime     @db.Date
+  status       PeriodStatus @default(OPEN)
+  closedAt     DateTime?
+  closedById   String?      @db.Uuid
+  reopenedAt   DateTime?
+  reopenedById String?      @db.Uuid
+  reopenReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dealerId, startDate])
+  @@index([dealerId, endDate])
+}
+
+model JournalEntry {
+  id          String        @id @default(uuid()) @db.Uuid
+  dealerId    String        @db.Uuid
+  dealer      Dealer        @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  /// Per-dealer sequence; `reference` is its display form (JE-000123).
+  number      Int
+  reference   String
+  date        DateTime      @db.Date
+  description String
+  memo        String?       @db.Text
+  source      JournalSource
+  kind        JournalKind   @default(STANDARD)
+  status      JournalStatus @default(DRAFT)
+  /// The record that caused this entry, for drill-down (e.g. VehicleSale + id).
+  sourceType  String?
+  sourceId    String?       @db.Uuid
+  /// Debit total (equal to the credit total once posted).
+  total       Decimal       @default(0) @db.Decimal(15, 2)
+
+  reversalOfId   String?       @unique @db.Uuid
+  reversalOf     JournalEntry? @relation("JournalReversal", fields: [reversalOfId], references: [id])
+  reversedBy     JournalEntry? @relation("JournalReversal")
+  reversedAt     DateTime?
+  reversalReason String?
+
+  createdById String?   @db.Uuid
+  postedById  String?   @db.Uuid
+  postedAt    DateTime?
+
+  lines JournalLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dealerId, number])
+  @@index([dealerId, date])
+  @@index([dealerId, status, date])
+  @@index([dealerId, sourceType, sourceId])
+  @@index([dealerId, reference])
+}
+
+model JournalLine {
+  id          String       @id @default(uuid()) @db.Uuid
+  entryId     String       @db.Uuid
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  /// Copied from the entry so every ledger query is tenant-filtered by index.
+  dealerId    String       @db.Uuid
+  dealer      Dealer       @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  lineNo      Int
+  accountId   String       @db.Uuid
+  account     AcctAccount  @relation(fields: [accountId], references: [id])
+  debit       Decimal      @default(0) @db.Decimal(15, 2)
+  credit      Decimal      @default(0) @db.Decimal(15, 2)
+  description String?
+
+  // Dimensions, for drill-down and per-vehicle profitability.
+  vehicleId    String?              @db.Uuid
+  vehicle      Vehicle?             @relation("JournalLineVehicle", fields: [vehicleId], references: [id], onDelete: Restrict)
+  customerId   String?              @db.Uuid
+  customer     Customer?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  vendorId     String?              @db.Uuid
+  vendor       Vendor?              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  costCategory VehicleCostCategory?
+  taxType      TaxType?
+
+  /// Set when the line has cleared the bank in a reconciliation.
+  reconciliationId String?             @db.Uuid
+  reconciliation   BankReconciliation? @relation(fields: [reconciliationId], references: [id], onDelete: Restrict)
+
+  @@index([dealerId, accountId])
+  @@index([dealerId, vehicleId])
+  @@index([dealerId, customerId])
+  @@index([dealerId, vendorId])
+  @@index([entryId])
+  @@index([reconciliationId])
+}
+
+/// A tax rule: one rate of one tax type in one province for a date range.
+/// `dealerId` null is the platform default; a dealer's own rule for the same
+/// province and type replaces the default from its effective date. A rule
+/// that has been used is never edited in place — it is ended and a new
+/// version takes over, so old transactions keep their rate.
+model TaxRule {
+  id                 String    @id @default(uuid()) @db.Uuid
+  dealerId           String?   @db.Uuid
+  dealer             Dealer?   @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  province           Province
+  taxType            TaxType
+  name               String
+  /// Percent, e.g. 13.00000 or 9.97500.
+  rate               Decimal   @db.Decimal(8, 5)
+  effectiveFrom      DateTime  @db.Date
+  effectiveTo        DateTime? @db.Date
+  taxIncluded        Boolean   @default(false)
+  /// Categories this rule taxes; empty means every category not exempted.
+  taxableCategories  String[]  @default([])
+  exemptCategories   String[]  @default([])
+  /// Applies only when the vehicle price (before trade-in) is in this range,
+  /// for graduated rates such as BC PST on passenger vehicles. Cents.
+  minPriceCents      BigInt?
+  maxPriceCents      BigInt?
+  tradeInReducesBase Boolean   @default(true)
+  /// Input tax credit / refund available when the dealer pays this tax.
+  recoverable        Boolean   @default(true)
+  metadata           Json?
+  source             String?
+  isActive           Boolean   @default(true)
+  version            Int       @default(1)
+  previousVersionId  String?   @db.Uuid
+
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  taxLines TaxLine[]
+
+  @@index([province, taxType, effectiveFrom])
+  @@index([dealerId, province])
+}
+
+/// The tax actually applied to one transaction — a snapshot of the rule and
+/// rate at posting time, so a later rate change never rewrites history.
+model TaxLine {
+  id              String       @id @default(uuid()) @db.Uuid
+  dealerId        String       @db.Uuid
+  dealer          Dealer       @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  journalEntryId  String?      @db.Uuid
+  sourceType      String
+  sourceId        String       @db.Uuid
+  taxRuleId       String?      @db.Uuid
+  taxRule         TaxRule?     @relation(fields: [taxRuleId], references: [id], onDelete: Restrict)
+  taxType         TaxType
+  province        Province
+  rate            Decimal      @db.Decimal(8, 5)
+  taxableAmount   Decimal      @db.Decimal(15, 2)
+  exemptAmount    Decimal      @default(0) @db.Decimal(15, 2)
+  amount          Decimal      @db.Decimal(15, 2)
+  direction       TaxDirection
+  recoverable     Boolean      @default(false)
+  transactionDate DateTime     @db.Date
+  /// A reversal writes negative lines, so a reversed sale nets to zero.
+  isReversal      Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+
+  @@index([dealerId, transactionDate])
+  @@index([dealerId, sourceType, sourceId])
+}
+
+model TaxFilingPeriod {
+  id                 String          @id @default(uuid()) @db.Uuid
+  dealerId           String          @db.Uuid
+  dealer             Dealer          @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  kind               TaxReturnKind
+  frequency          String
+  startDate          DateTime        @db.Date
+  endDate            DateTime        @db.Date
+  status             TaxFilingStatus @default(OPEN)
+  adjustments        Decimal         @default(0) @db.Decimal(15, 2)
+  filedAt            DateTime?
+  filedById          String?         @db.Uuid
+  confirmationNumber String?
+  notes              String?         @db.Text
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@unique([dealerId, kind, startDate])
+  @@index([dealerId, endDate])
+}
+
+model Customer {
+  id         String    @id @default(uuid()) @db.Uuid
+  dealerId   String    @db.Uuid
+  dealer     Dealer    @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  name       String
+  email      String?
+  phone      String?
+  address    String?
+  city       String?
+  province   Province?
+  postalCode String?
+  /// The Vintrax account, when the customer has one.
+  userId     String?   @db.Uuid
+  user       User?     @relation("CustomerAccount", fields: [userId], references: [id], onDelete: SetNull)
+  notes      String?   @db.Text
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  lines        JournalLine[]
+  acquisitions VehicleAcquisition[]
+  tradeIns     TradeIn[]
+  sales        VehicleSale[]
+  deposits     CustomerDeposit[]
+  invoices     CustomerInvoice[]
+  payments     Payment[]
+
+  @@index([dealerId, name])
+  @@index([dealerId, email])
+}
+
+model Vendor {
+  id               String     @id @default(uuid()) @db.Uuid
+  dealerId         String     @db.Uuid
+  dealer           Dealer     @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  name             String
+  kind             VendorKind @default(SUPPLIER)
+  email            String?
+  phone            String?
+  address          String?
+  province         Province?
+  gstNumber        String?
+  paymentTermsDays Int        @default(30)
+  notes            String?    @db.Text
+  isActive         Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  lines          JournalLine[]
+  acquisitions   VehicleAcquisition[]
+  liens          TradeIn[]            @relation("TradeInLienHolder")
+  financedSales  VehicleSale[]        @relation("SaleFinanceLender")
+  bills          VendorBill[]
+  payments       Payment[]
+  expenses       Expense[]
+  floorPlanNotes FloorPlanNote[]
+
+  @@index([dealerId, name])
+}
+
+/// How a vehicle entered inventory, and what it cost to get it.
+model VehicleAcquisition {
+  id              String            @id @default(uuid()) @db.Uuid
+  dealerId        String            @db.Uuid
+  dealer          Dealer            @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  vehicleId       String            @db.Uuid
+  vehicle         Vehicle           @relation("VehicleAcquisitions", fields: [vehicleId], references: [id], onDelete: Restrict)
+  method          AcquisitionMethod
+  vendorId        String?           @db.Uuid
+  vendor          Vendor?           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  customerId      String?           @db.Uuid
+  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  date            DateTime          @db.Date
+  purchasePrice   Decimal           @db.Decimal(15, 2)
+  auctionFee      Decimal           @default(0) @db.Decimal(15, 2)
+  transportation  Decimal           @default(0) @db.Decimal(15, 2)
+  inspection      Decimal           @default(0) @db.Decimal(15, 2)
+  reconditioning  Decimal           @default(0) @db.Decimal(15, 2)
+  otherCosts      Decimal           @default(0) @db.Decimal(15, 2)
+  taxTotal        Decimal           @default(0) @db.Decimal(15, 2)
+  total           Decimal           @db.Decimal(15, 2)
+  settlement      SettlementMethod
+  paymentMethod   PaymentMethod?
+  bankAccountId   String?           @db.Uuid
+  bankAccount     BankAccount?      @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  billId          String?           @db.Uuid
+  floorPlanNoteId String?           @db.Uuid
+  reference       String?
+  notes           String?           @db.Text
+  status          DocumentStatus    @default(POSTED)
+  journalEntryId  String?           @db.Uuid
+  createdById     String?           @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([dealerId, date])
+  @@index([dealerId, vehicleId])
+}
+
+model TradeIn {
+  id                 String         @id @default(uuid()) @db.Uuid
+  dealerId           String         @db.Uuid
+  dealer             Dealer         @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  customerId         String         @db.Uuid
+  customer           Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  /// The vehicle the trade-in became in inventory.
+  vehicleId          String         @db.Uuid
+  vehicle            Vehicle        @relation("TradeInVehicle", fields: [vehicleId], references: [id], onDelete: Restrict)
+  saleId             String?        @db.Uuid
+  vin                String?
+  year               Int
+  make               String
+  model              String
+  mileageKm          Int?
+  appraisedValue     Decimal        @db.Decimal(15, 2)
+  tradeAllowance     Decimal        @db.Decimal(15, 2)
+  lienPayoff         Decimal        @default(0) @db.Decimal(15, 2)
+  lienHolderVendorId String?        @db.Uuid
+  lienHolder         Vendor?        @relation("TradeInLienHolder", fields: [lienHolderVendorId], references: [id], onDelete: Restrict)
+  /// Allowance minus payoff; negative is negative equity.
+  netTradeValue      Decimal        @db.Decimal(15, 2)
+  acquisitionId      String?        @db.Uuid
+  status             DocumentStatus @default(DRAFT)
+  notes              String?        @db.Text
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  sale VehicleSale?
+
+  @@index([dealerId, customerId])
+  @@index([dealerId, vehicleId])
+}
+
+model VehicleSale {
+  id            String         @id @default(uuid()) @db.Uuid
+  dealerId      String         @db.Uuid
+  dealer        Dealer         @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  number        Int
+  vehicleId     String         @db.Uuid
+  vehicle       Vehicle        @relation("VehicleSales", fields: [vehicleId], references: [id], onDelete: Restrict)
+  customerId    String         @db.Uuid
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  salespersonId String?        @db.Uuid
+  salesperson   User?          @relation("VehicleSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
+  saleDate      DateTime       @db.Date
+  status        DocumentStatus @default(DRAFT)
+
+  salePrice             Decimal        @db.Decimal(15, 2)
+  discount              Decimal        @default(0) @db.Decimal(15, 2)
+  documentationFee      Decimal        @default(0) @db.Decimal(15, 2)
+  dealerFees            Decimal        @default(0) @db.Decimal(15, 2)
+  accessories           Decimal        @default(0) @db.Decimal(15, 2)
+  warranty              Decimal        @default(0) @db.Decimal(15, 2)
+  otherCharges          Decimal        @default(0) @db.Decimal(15, 2)
+  /// Paid by the lender, not the customer (finance reserve). Not taxed.
+  financeRevenue        Decimal        @default(0) @db.Decimal(15, 2)
+  financeLenderVendorId String?        @db.Uuid
+  financeLender         Vendor?        @relation("SaleFinanceLender", fields: [financeLenderVendorId], references: [id], onDelete: Restrict)
+  tradeInId             String?        @unique @db.Uuid
+  tradeIn               TradeIn?       @relation(fields: [tradeInId], references: [id], onDelete: Restrict)
+  depositApplied        Decimal        @default(0) @db.Decimal(15, 2)
+  downPayment           Decimal        @default(0) @db.Decimal(15, 2)
+  downPaymentMethod     PaymentMethod?
+  bankAccountId         String?        @db.Uuid
+  bankAccount           BankAccount?   @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  /// Amount a lender pays the dealer on the customer's behalf.
+  financedAmount        Decimal        @default(0) @db.Decimal(15, 2)
+  taxProvince           Province?
+
+  // Computed and frozen at posting.
+  taxableAmount         Decimal        @default(0) @db.Decimal(15, 2)
+  taxTotal              Decimal        @default(0) @db.Decimal(15, 2)
+  totalAmount           Decimal        @default(0) @db.Decimal(15, 2)
+  balanceDue            Decimal        @default(0) @db.Decimal(15, 2)
+  costOfSale            Decimal        @default(0) @db.Decimal(15, 2)
+  previousVehicleStatus ListingStatus?
+
+  invoiceId       String?   @db.Uuid
+  journalEntryId  String?   @db.Uuid
+  reversalEntryId String?   @db.Uuid
+  /// The deal as entered, kept while the sale is a draft.
+  draft           Json?
+  notes           String?   @db.Text
+  createdById     String?   @db.Uuid
+  postedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([dealerId, number])
+  @@index([dealerId, saleDate])
+  @@index([dealerId, vehicleId])
+  @@index([dealerId, customerId])
+  @@index([dealerId, salespersonId])
+}
+
+model CustomerDeposit {
+  id             String        @id @default(uuid()) @db.Uuid
+  dealerId       String        @db.Uuid
+  dealer         Dealer        @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  number         Int
+  customerId     String        @db.Uuid
+  customer       Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  vehicleId      String?       @db.Uuid
+  vehicle        Vehicle?      @relation("VehicleDeposits", fields: [vehicleId], references: [id], onDelete: Restrict)
+  date           DateTime      @db.Date
+  amount         Decimal       @db.Decimal(15, 2)
+  applied        Decimal       @default(0) @db.Decimal(15, 2)
+  refunded       Decimal       @default(0) @db.Decimal(15, 2)
+  method         PaymentMethod
+  bankAccountId  String        @db.Uuid
+  bankAccount    BankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  reference      String?
+  status         DepositStatus @default(OPEN)
+  journalEntryId String?       @db.Uuid
+  notes          String?       @db.Text
+  createdById    String?       @db.Uuid
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  events CustomerDepositEvent[]
+
+  @@unique([dealerId, number])
+  @@index([dealerId, customerId])
+}
+
+model CustomerDepositEvent {
+  id             String          @id @default(uuid()) @db.Uuid
+  depositId      String          @db.Uuid
+  deposit        CustomerDeposit @relation(fields: [depositId], references: [id])
+  kind           String
+  amount         Decimal         @db.Decimal(15, 2)
+  date           DateTime        @db.Date
+  saleId         String?         @db.Uuid
+  journalEntryId String?         @db.Uuid
+  reason         String?
+  createdAt      DateTime        @default(now())
+
+  @@index([depositId])
+}
+
+model CustomerInvoice {
+  id             String           @id @default(uuid()) @db.Uuid
+  dealerId       String           @db.Uuid
+  dealer         Dealer           @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  number         String
+  customerId     String           @db.Uuid
+  customer       Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  saleId         String?          @db.Uuid
+  date           DateTime         @db.Date
+  dueDate        DateTime         @db.Date
+  description    String?
+  /// [{ accountId, description, amount, taxCategory }] — the revenue lines.
+  lines          Json
+  subtotal       Decimal          @db.Decimal(15, 2)
+  taxTotal       Decimal          @default(0) @db.Decimal(15, 2)
+  total          Decimal          @db.Decimal(15, 2)
+  amountPaid     Decimal          @default(0) @db.Decimal(15, 2)
+  status         SettlementStatus @default(OPEN)
+  journalEntryId String?          @db.Uuid
+  voidEntryId    String?          @db.Uuid
+  createdById    String?          @db.Uuid
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  allocations PaymentAllocation[]
+
+  @@unique([dealerId, number])
+  @@index([dealerId, customerId, status])
+  @@index([dealerId, dueDate])
+}
+
+/// A vendor's bill, or (kind CREDIT_NOTE) a credit the vendor issued.
+model VendorBill {
+  id              String           @id @default(uuid()) @db.Uuid
+  dealerId        String           @db.Uuid
+  dealer          Dealer           @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  number          Int
+  kind            String           @default("BILL")
+  vendorId        String           @db.Uuid
+  vendor          Vendor           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  vendorReference String?
+  date            DateTime         @db.Date
+  dueDate         DateTime         @db.Date
+  /// [{ accountId, description, amount, vehicleId, costCategory, taxCategory }]
+  lines           Json
+  subtotal        Decimal          @db.Decimal(15, 2)
+  taxTotal        Decimal          @default(0) @db.Decimal(15, 2)
+  total           Decimal          @db.Decimal(15, 2)
+  amountPaid      Decimal          @default(0) @db.Decimal(15, 2)
+  status          SettlementStatus @default(OPEN)
+  journalEntryId  String?          @db.Uuid
+  voidEntryId     String?          @db.Uuid
+  notes           String?          @db.Text
+  createdById     String?          @db.Uuid
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  allocations PaymentAllocation[]
+
+  @@unique([dealerId, number])
+  @@index([dealerId, vendorId, status])
+  @@index([dealerId, dueDate])
+}
+
+model Payment {
+  id              String           @id @default(uuid()) @db.Uuid
+  dealerId        String           @db.Uuid
+  dealer          Dealer           @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  number          Int
+  direction       PaymentDirection
+  kind            PaymentKind      @default(PAYMENT)
+  customerId      String?          @db.Uuid
+  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  vendorId        String?          @db.Uuid
+  vendor          Vendor?          @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  date            DateTime         @db.Date
+  amount          Decimal          @db.Decimal(15, 2)
+  method          PaymentMethod
+  /// A cheque number, e-transfer reference or the last four digits of a card.
+  /// Never a full card number — the input schema refuses one.
+  reference       String?
+  bankAccountId   String           @db.Uuid
+  bankAccount     BankAccount      @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  journalEntryId  String?          @db.Uuid
+  status          DocumentStatus   @default(POSTED)
+  reversalEntryId String?          @db.Uuid
+  notes           String?          @db.Text
+  createdById     String?          @db.Uuid
+  createdAt       DateTime         @default(now())
+
+  allocations PaymentAllocation[]
+
+  @@unique([dealerId, number])
+  @@index([dealerId, date])
+  @@index([dealerId, customerId])
+  @@index([dealerId, vendorId])
+}
+
+model PaymentAllocation {
+  id        String           @id @default(uuid()) @db.Uuid
+  paymentId String           @db.Uuid
+  payment   Payment          @relation(fields: [paymentId], references: [id])
+  invoiceId String?          @db.Uuid
+  invoice   CustomerInvoice? @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  billId    String?          @db.Uuid
+  bill      VendorBill?      @relation(fields: [billId], references: [id], onDelete: Restrict)
+  amount    Decimal          @db.Decimal(15, 2)
+
+  @@index([invoiceId])
+  @@index([billId])
+}
+
+model Expense {
+  id                 String               @id @default(uuid()) @db.Uuid
+  dealerId           String               @db.Uuid
+  dealer             Dealer               @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  number             Int
+  date               DateTime             @db.Date
+  vendorId           String?              @db.Uuid
+  vendor             Vendor?              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  accountId          String               @db.Uuid
+  account            AcctAccount          @relation("ExpenseAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  treatment          ExpenseTreatment     @default(OPERATING)
+  vehicleId          String?              @db.Uuid
+  vehicle            Vehicle?             @relation("VehicleExpenses", fields: [vehicleId], references: [id], onDelete: Restrict)
+  costCategory       VehicleCostCategory?
+  description        String
+  amount             Decimal              @db.Decimal(15, 2)
+  taxTotal           Decimal              @default(0) @db.Decimal(15, 2)
+  total              Decimal              @db.Decimal(15, 2)
+  taxProvince        Province?
+  method             PaymentMethod
+  bankAccountId      String               @db.Uuid
+  bankAccount        BankAccount          @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  reference          String?
+  notes              String?              @db.Text
+  recurringExpenseId String?              @db.Uuid
+  status             DocumentStatus       @default(POSTED)
+  journalEntryId     String?              @db.Uuid
+  reversalEntryId    String?              @db.Uuid
+  vehicleCostId      String?              @db.Uuid
+  createdById        String?              @db.Uuid
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@unique([dealerId, number])
+  @@index([dealerId, date])
+  @@index([dealerId, vehicleId])
+}
+
+model RecurringExpense {
+  id            String              @id @default(uuid()) @db.Uuid
+  dealerId      String              @db.Uuid
+  dealer        Dealer              @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  description   String
+  vendorId      String?             @db.Uuid
+  accountId     String              @db.Uuid
+  account       AcctAccount         @relation("RecurringExpenseAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  amount        Decimal             @db.Decimal(15, 2)
+  applyTax      Boolean             @default(true)
+  method        PaymentMethod
+  bankAccountId String              @db.Uuid
+  bankAccount   BankAccount         @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  frequency     RecurrenceFrequency
+  nextDate      DateTime            @db.Date
+  endDate       DateTime?           @db.Date
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([dealerId, nextDate])
+}
+
+model BankAccount {
+  id                 String          @id @default(uuid()) @db.Uuid
+  dealerId           String          @db.Uuid
+  dealer             Dealer          @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  name               String
+  bankName           String?
+  type               BankAccountType
+  currency           String          @default("CAD")
+  /// Last four digits only. Never a full account or card number.
+  accountNumberLast4 String?
+  glAccountId        String          @unique @db.Uuid
+  glAccount          AcctAccount     @relation("BankGlAccount", fields: [glAccountId], references: [id], onDelete: Restrict)
+  openingBalance     Decimal         @default(0) @db.Decimal(15, 2)
+  openingDate        DateTime        @db.Date
+  isActive           Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  acquisitions      VehicleAcquisition[]
+  sales             VehicleSale[]
+  deposits          CustomerDeposit[]
+  payments          Payment[]
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+  transactions      BankTransaction[]
+  reconciliations   BankReconciliation[]
+
+  @@index([dealerId])
+}
+
+model BankTransaction {
+  id               String              @id @default(uuid()) @db.Uuid
+  dealerId         String              @db.Uuid
+  dealer           Dealer              @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  bankAccountId    String              @db.Uuid
+  bankAccount      BankAccount         @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  kind             BankTransactionKind
+  date             DateTime            @db.Date
+  amount           Decimal             @db.Decimal(15, 2)
+  /// The other side: an account, or the other bank account of a transfer.
+  counterAccountId String?             @db.Uuid
+  toBankAccountId  String?             @db.Uuid
+  description      String
+  reference        String?
+  journalEntryId   String?             @db.Uuid
+  status           DocumentStatus      @default(POSTED)
+  createdById      String?             @db.Uuid
+  createdAt        DateTime            @default(now())
+
+  @@index([dealerId, bankAccountId, date])
+}
+
+model BankReconciliation {
+  id                String               @id @default(uuid()) @db.Uuid
+  dealerId          String               @db.Uuid
+  dealer            Dealer               @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  bankAccountId     String               @db.Uuid
+  bankAccount       BankAccount          @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  statementDate     DateTime             @db.Date
+  beginningBalance  Decimal              @db.Decimal(15, 2)
+  endingBalance     Decimal              @db.Decimal(15, 2)
+  status            ReconciliationStatus @default(IN_PROGRESS)
+  clearedBalance    Decimal              @default(0) @db.Decimal(15, 2)
+  difference        Decimal              @default(0) @db.Decimal(15, 2)
+  adjustmentEntryId String?              @db.Uuid
+  adjustmentReason  String?
+  completedAt       DateTime?
+  completedById     String?              @db.Uuid
+  createdById       String?              @db.Uuid
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  clearedLines JournalLine[]
+
+  @@index([dealerId, bankAccountId, statementDate])
+}
+
+model FloorPlanNote {
+  id              String          @id @default(uuid()) @db.Uuid
+  dealerId        String          @db.Uuid
+  dealer          Dealer          @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  lenderVendorId  String          @db.Uuid
+  lender          Vendor          @relation(fields: [lenderVendorId], references: [id], onDelete: Restrict)
+  vehicleId       String          @db.Uuid
+  vehicle         Vehicle         @relation("VehicleFloorPlans", fields: [vehicleId], references: [id], onDelete: Restrict)
+  principal       Decimal         @db.Decimal(15, 2)
+  principalPaid   Decimal         @default(0) @db.Decimal(15, 2)
+  interestPaid    Decimal         @default(0) @db.Decimal(15, 2)
+  /// Annual rate, percent.
+  interestRate    Decimal         @db.Decimal(8, 5)
+  originationDate DateTime        @db.Date
+  maturityDate    DateTime?       @db.Date
+  status          FloorPlanStatus @default(ACTIVE)
+  journalEntryId  String?         @db.Uuid
+  reference       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  transactions FloorPlanTransaction[]
+
+  @@index([dealerId, vehicleId])
+  @@index([dealerId, status])
+}
+
+model FloorPlanTransaction {
+  id             String                   @id @default(uuid()) @db.Uuid
+  noteId         String                   @db.Uuid
+  note           FloorPlanNote            @relation(fields: [noteId], references: [id])
+  kind           FloorPlanTransactionKind
+  date           DateTime                 @db.Date
+  principal      Decimal                  @default(0) @db.Decimal(15, 2)
+  interest       Decimal                  @default(0) @db.Decimal(15, 2)
+  bankAccountId  String                   @db.Uuid
+  journalEntryId String?                  @db.Uuid
+  createdAt      DateTime                 @default(now())
+
+  @@index([noteId])
+}
+
+/// A file kept with an accounting record (receipt, auction invoice, bank
+/// statement…). Stored with the private document storage and only ever
+/// streamed back through the accounting API, to the same dealer.
+model AccountingAttachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  dealerId     String   @db.Uuid
+  dealer       Dealer   @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  entityType   String
+  entityId     String   @db.Uuid
+  fileName     String
+  contentType  String
+  sizeBytes    Int
+  url          String
+  uploadedById String?  @db.Uuid
+  createdAt    DateTime @default(now())
+
+  @@index([dealerId, entityType, entityId])
+}
+
+model SavedReportFilter {
+  id        String   @id @default(uuid()) @db.Uuid
+  dealerId  String   @db.Uuid
+  dealer    Dealer   @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  userId    String   @db.Uuid
+  name      String
+  report    String
+  filters   Json
+  createdAt DateTime @default(now())
+
+  @@index([dealerId, userId])
+}
+
+/// Append-only (a trigger refuses UPDATE and DELETE).
+model AccountingAuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  dealerId   String   @db.Uuid
+  dealer     Dealer   @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  actorId    String?  @db.Uuid
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?  @db.Uuid
+  before     Json?
+  after      Json?
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([dealerId, createdAt])
+  @@index([dealerId, entityType, entityId])
 }

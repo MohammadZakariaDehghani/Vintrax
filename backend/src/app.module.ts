@@ -45,6 +45,7 @@ import { FinanceModule } from './modules/finance/finance.module';
 import { SupportChatModule } from './modules/support-chat/support-chat.module';
 import { DealerHelpModule } from './modules/dealer-help/dealer-help.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     VehiclesModule,
     InventoryModule,
     VehicleCostsModule,
+    AccountingModule,
     FinanceModule,
     SupportChatModule,
     DealerHelpModule,

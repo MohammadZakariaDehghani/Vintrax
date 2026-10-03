@@ -215,10 +215,14 @@ export const api = {
    * too large to spell out in a query string — an export of the rows a dealer
    * ticked, say.
    */
-  download: async (path: string, body?: unknown): Promise<Blob> => {
+  download: async (
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): Promise<Blob> => {
     const response = await send(
       path,
-      body === undefined ? { method: 'GET' } : { method: 'POST', body },
+      body === undefined ? { method: 'GET', headers } : { method: 'POST', body, headers },
     );
     if (!response.ok) {
       throw new ApiError(
@@ -237,10 +241,15 @@ export const api = {
    * importer sends the hash of the file the dealer previewed alongside it, so
    * the server can refuse to apply a different one.
    */
-  upload: <T>(path: string, file: File, fields: Record<string, string> = {}) => {
+  upload: <T>(
+    path: string,
+    file: File,
+    fields: Record<string, string> = {},
+    headers?: Record<string, string>,
+  ) => {
     const form = new FormData();
     form.append('file', file);
     for (const [key, value] of Object.entries(fields)) form.append(key, value);
-    return apiRequest<T>(path, { method: 'POST', rawBody: form });
+    return apiRequest<T>(path, { method: 'POST', rawBody: form, headers });
   },
 };
