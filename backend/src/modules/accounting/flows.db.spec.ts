@@ -169,6 +169,40 @@ describeDb('accounting flows', () => {
     await assertTrialBalance();
   });
 
+  it('sells a vehicle only once when two deals are posted at the same moment', async () => {
+    const vehicle = await createVehicle(prisma, dealer.ownerId);
+    await buy(vehicle, '10000');
+    const results = await Promise.allSettled([
+      s.sales.post(dealer.ctx, sale(vehicle)),
+      s.sales.post(dealer.ctx, sale(vehicle)),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect(
+      await prisma.vehicleSale.count({ where: { vehicleId: vehicle, status: 'POSTED' } }),
+    ).toBe(1);
+    // Its cost left inventory exactly once.
+    expect(await balance('VEHICLE_INVENTORY', vehicle)).toBe(0);
+    await assertTrialBalance();
+  });
+
+  it('numbers concurrent postings without gaps or duplicates', async () => {
+    const before = await prisma.journalEntry.count({ where: { dealerId: dealer.dealerId } });
+    const vehicles = await Promise.all(
+      [1, 2, 3, 4, 5].map(() => createVehicle(prisma, dealer.ownerId)),
+    );
+    await Promise.all(vehicles.map((vehicle) => buy(vehicle, '1000')));
+    const entries = await prisma.journalEntry.findMany({
+      where: { dealerId: dealer.dealerId },
+      select: { number: true },
+      orderBy: { number: 'asc' },
+    });
+    expect(entries).toHaveLength(before + 5);
+    const numbers = entries.map((entry) => entry.number);
+    expect(new Set(numbers).size).toBe(numbers.length);
+    expect(numbers[numbers.length - 1]! - numbers[0]! + 1).toBe(numbers.length);
+  });
+
   it('refuses to sell a vehicle with no cost on the books', async () => {
     const vehicle = await createVehicle(prisma, dealer.ownerId);
     await expect(s.sales.post(dealer.ctx, sale(vehicle))).rejects.toThrow(/no cost on the books/);

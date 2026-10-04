@@ -144,7 +144,11 @@ export class AccountingHealthService {
     // sold twice, and inventory reports would disagree with the listing.
     const relisted = await this.prisma.vehicleSale.findMany({
       where: { dealerId: ctx.dealerId, status: 'POSTED', vehicle: { status: { not: 'SOLD' } } },
-      select: { id: true, number: true, vehicle: { select: { year: true, make: true, model: true } } },
+      select: {
+        id: true,
+        number: true,
+        vehicle: { select: { year: true, make: true, model: true } },
+      },
       take: 50,
     });
     add({

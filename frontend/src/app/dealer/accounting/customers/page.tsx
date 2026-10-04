@@ -91,7 +91,11 @@ export default function CustomersPage() {
             render: (row) =>
               showVendors ? (
                 <Link
-                  href={`/dealer/accounting/${tab}/${row.id}`}
+                  href={
+                    tab === 'customers'
+                      ? `/dealer/accounting/customers/${row.id}`
+                      : `/dealer/accounting/vendors/${row.id}`
+                  }
                   className="font-medium text-primary hover:underline"
                 >
                   {row.name}

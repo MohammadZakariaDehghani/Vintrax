@@ -1218,7 +1218,9 @@ async function main(): Promise<void> {
   console.log('  inspector@vintrax.test             inspector');
   console.log('  sales@northshoremotors.test      dealer (verified)');
   for (const staff of ACCOUNTING_DEMO_STAFF) {
-    console.log(`  ${staff.email.padEnd(32)} North Shore Motors ${staff.role.toLowerCase().replace('_', ' ')}`);
+    console.log(
+      `  ${staff.email.padEnd(32)} North Shore Motors ${staff.role.toLowerCase().replace('_', ' ')}`,
+    );
   }
   console.log('  contact@maplecityauto.test       dealer (pending verification)');
   console.log('  marc.tremblay@example.test       private seller');
