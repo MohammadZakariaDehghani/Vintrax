@@ -8,7 +8,16 @@ import { Button, Card, CardContent, ErrorAlert, Spinner } from '@/components/ui'
 import { Attachments } from '@/components/accounting/attachments';
 import { useAccounting } from '@/components/accounting/context';
 import { JournalEntryDialog, type JournalDraft } from '@/components/accounting/journal-form';
-import { Amount, EntryStatus, Facts, PageHeader, ReasonDialog, useAcctMutation, useAcctQuery, vehicleLabel } from '@/components/accounting/ui';
+import {
+  Amount,
+  EntryStatus,
+  Facts,
+  PageHeader,
+  ReasonDialog,
+  useAcctMutation,
+  useAcctQuery,
+  vehicleLabel,
+} from '@/components/accounting/ui';
 import { acct, isoDate, sourceHref } from '@/lib/accounting';
 
 interface EntryDetail {
@@ -39,7 +48,14 @@ interface EntryDetail {
     debitCents: number;
     creditCents: number;
     description: string | null;
-    vehicle: { id: string; vin: string | null; year: number; make: string; model: string; stockNumber: string | null } | null;
+    vehicle: {
+      id: string;
+      vin: string | null;
+      year: number;
+      make: string;
+      model: string;
+      stockNumber: string | null;
+    } | null;
     customer: { id: string; name: string } | null;
     vendor: { id: string; name: string } | null;
     costCategory: string | null;
@@ -52,11 +68,17 @@ export default function JournalEntryPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { can } = useAccounting();
-  const { data, error, isPending } = useAcctQuery<EntryDetail>(['journal-entry', id], `/journal/${id}`);
+  const { data, error, isPending } = useAcctQuery<EntryDetail>(
+    ['journal-entry', id],
+    `/journal/${id}`,
+  );
   const [reversing, setReversing] = useState(false);
   const [editing, setEditing] = useState<JournalDraft | null>(null);
   const post = useAcctMutation(() => acct.post(`/journal/${id}/post`));
-  const remove = useAcctMutation(() => acct.delete(`/journal/${id}`), () => router.push('/dealer/accounting/journal'));
+  const remove = useAcctMutation(
+    () => acct.delete(`/journal/${id}`),
+    () => router.push('/dealer/accounting/journal'),
+  );
 
   if (isPending && !data) return <Spinner />;
   if (error || !data) return <ErrorAlert error={error} />;
@@ -83,7 +105,9 @@ export default function JournalEntryPage() {
                       date: data.date,
                       description: data.description,
                       memo: data.memo ?? '',
-                      kind: (['STANDARD', 'ADJUSTING', 'OPENING'].includes(data.kind) ? data.kind : 'STANDARD') as JournalDraft['kind'],
+                      kind: (['STANDARD', 'ADJUSTING', 'OPENING'].includes(data.kind)
+                        ? data.kind
+                        : 'STANDARD') as JournalDraft['kind'],
                       lines: data.lines.map((line) => ({
                         accountId: line.account.id,
                         debit: line.debitCents ? centsToDecimalString(line.debitCents) : '',
@@ -95,7 +119,11 @@ export default function JournalEntryPage() {
                 >
                   Edit draft
                 </Button>
-                <Button variant="outline" loading={remove.isPending} onClick={() => remove.mutate(undefined)}>
+                <Button
+                  variant="outline"
+                  loading={remove.isPending}
+                  onClick={() => remove.mutate(undefined)}
+                >
                   Delete draft
                 </Button>
               </>
@@ -120,22 +148,70 @@ export default function JournalEntryPage() {
           <CardContent className="pt-5">
             <Facts
               items={[
-                ['Status', <EntryStatus key="s" status={data.status} reversed={Boolean(data.reversedAt)} />],
+                [
+                  'Status',
+                  <EntryStatus key="s" status={data.status} reversed={Boolean(data.reversedAt)} />,
+                ],
                 ['Date', isoDate(data.date)],
                 ['Source', JOURNAL_SOURCE_LABELS[data.source]],
                 ['Type', data.kind.charAt(0) + data.kind.slice(1).toLowerCase()],
                 ['Created', `${data.createdBy ?? '—'} · ${isoDate(data.createdAt)}`],
-                ['Posted', data.postedAt ? `${data.postedBy ?? '—'} · ${isoDate(data.postedAt)}` : 'Not posted'],
-                ...(source ? ([['Source document', <Link key="d" href={source} className="text-primary hover:underline">Open</Link>]] as Array<[string, React.ReactNode]>) : []),
-                ...(data.reversalOf ? ([['Reverses', <Link key="r" href={`/dealer/accounting/journal/${data.reversalOf.id}`} className="text-primary hover:underline">{data.reversalOf.reference}</Link>]] as Array<[string, React.ReactNode]>) : []),
-                ...(data.reversedBy ? ([['Reversed by', <Link key="rb" href={`/dealer/accounting/journal/${data.reversedBy.id}`} className="text-primary hover:underline">{data.reversedBy.reference}</Link>]] as Array<[string, React.ReactNode]>) : []),
-                ...(data.reversalReason ? ([['Reversal reason', data.reversalReason]] as Array<[string, React.ReactNode]>) : []),
+                [
+                  'Posted',
+                  data.postedAt
+                    ? `${data.postedBy ?? '—'} · ${isoDate(data.postedAt)}`
+                    : 'Not posted',
+                ],
+                ...(source
+                  ? ([
+                      [
+                        'Source document',
+                        <Link key="d" href={source} className="text-primary hover:underline">
+                          Open
+                        </Link>,
+                      ],
+                    ] as Array<[string, React.ReactNode]>)
+                  : []),
+                ...(data.reversalOf
+                  ? ([
+                      [
+                        'Reverses',
+                        <Link
+                          key="r"
+                          href={`/dealer/accounting/journal/${data.reversalOf.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {data.reversalOf.reference}
+                        </Link>,
+                      ],
+                    ] as Array<[string, React.ReactNode]>)
+                  : []),
+                ...(data.reversedBy
+                  ? ([
+                      [
+                        'Reversed by',
+                        <Link
+                          key="rb"
+                          href={`/dealer/accounting/journal/${data.reversedBy.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {data.reversedBy.reference}
+                        </Link>,
+                      ],
+                    ] as Array<[string, React.ReactNode]>)
+                  : []),
+                ...(data.reversalReason
+                  ? ([['Reversal reason', data.reversalReason]] as Array<[string, React.ReactNode]>)
+                  : []),
               ]}
             />
-            {data.memo ? <p className="mt-4 whitespace-pre-line text-sm text-muted-foreground">{data.memo}</p> : null}
+            {data.memo ? (
+              <p className="mt-4 whitespace-pre-line text-sm text-muted-foreground">{data.memo}</p>
+            ) : null}
             {!manual && data.status === 'POSTED' && !data.reversedAt ? (
               <p className="mt-4 text-xs text-muted-foreground">
-                This entry was posted by its source document. To correct it, void or reverse the document itself.
+                This entry was posted by its source document. To correct it, void or reverse the
+                document itself.
               </p>
             ) : null}
           </CardContent>
@@ -162,7 +238,10 @@ export default function JournalEntryPage() {
               {data.lines.map((line) => (
                 <tr key={line.id}>
                   <td className="px-3 py-2">
-                    <Link href={`/dealer/accounting/ledger?accountId=${line.account.id}`} className="hover:text-primary">
+                    <Link
+                      href={`/dealer/accounting/ledger?accountId=${line.account.id}`}
+                      className="hover:text-primary"
+                    >
                       {line.account.code} · {line.account.name}
                     </Link>
                   </td>
@@ -178,8 +257,12 @@ export default function JournalEntryPage() {
                       .filter(Boolean)
                       .join(' · ')}
                   </td>
-                  <td className="px-3 py-2 text-right">{line.debitCents ? <Amount cents={line.debitCents} /> : null}</td>
-                  <td className="px-3 py-2 text-right">{line.creditCents ? <Amount cents={line.creditCents} /> : null}</td>
+                  <td className="px-3 py-2 text-right">
+                    {line.debitCents ? <Amount cents={line.debitCents} /> : null}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {line.creditCents ? <Amount cents={line.creditCents} /> : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -188,8 +271,12 @@ export default function JournalEntryPage() {
                 <td className="px-3 py-2" colSpan={2}>
                   {debits === credits ? 'Balanced' : 'Out of balance'}
                 </td>
-                <td className="px-3 py-2 text-right"><Amount cents={debits} /></td>
-                <td className="px-3 py-2 text-right"><Amount cents={credits} /></td>
+                <td className="px-3 py-2 text-right">
+                  <Amount cents={debits} />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <Amount cents={credits} />
+                </td>
               </tr>
             </tfoot>
           </table>
@@ -204,7 +291,9 @@ export default function JournalEntryPage() {
         onClose={() => setReversing(false)}
         onConfirm={(reason) => acct.post(`/journal/${data.id}/reverse`, { reason })}
       />
-      {editing ? <JournalEntryDialog open initial={editing} onClose={() => setEditing(null)} /> : null}
+      {editing ? (
+        <JournalEntryDialog open initial={editing} onClose={() => setEditing(null)} />
+      ) : null}
     </>
   );
 }

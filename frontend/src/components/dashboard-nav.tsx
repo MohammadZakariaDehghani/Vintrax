@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
+  BookOpen,
   Building2,
   Calculator,
   Gavel,
@@ -32,7 +33,11 @@ const SELLER_LINKS = [
   { href: '/dealer/dashboard', label: 'Dealer', icon: Building2 },
   { href: '/dealer/inventory', label: 'Inventory', icon: Package },
   { href: '/dealer/costs', label: 'Costs', icon: Calculator },
+  { href: '/dealer/accounting', label: 'Accounting', icon: BookOpen },
 ] as const;
+
+/** For dealership staff (accountants, salespeople) who sign in with their own buyer account. */
+const STAFF_LINKS = [{ href: '/dealer/accounting', label: 'Accounting', icon: BookOpen }] as const;
 
 /** A private seller's own cars: one simple list, none of the dealer tools. */
 const PRIVATE_SELLER_LINKS = [
@@ -73,6 +78,15 @@ export function DashboardNav() {
     enabled: Boolean(user),
   });
 
+  // Someone on a dealership's staff reaches its books from here; the API
+  // answers with their memberships (none for an ordinary buyer).
+  const staff = useQuery({
+    queryKey: ['acct-dealerships'],
+    queryFn: () => api.get<Array<{ dealerId: string }>>('/dealer/accounting/dealerships'),
+    enabled: Boolean(user) && !isSeller && !isAdmin,
+    staleTime: 5 * 60_000,
+  });
+
   const counts: Record<string, number | undefined> = {
     messages: messages.data?.unread,
     notifications: notifications.data?.unread,
@@ -84,14 +98,19 @@ export function DashboardNav() {
       ? [...BUYER_LINKS, ...PRIVATE_SELLER_LINKS]
       : isSeller
         ? [...BUYER_LINKS, ...SELLER_LINKS]
-        : BUYER_LINKS;
+        : staff.data?.length
+          ? [...BUYER_LINKS, ...STAFF_LINKS]
+          : BUYER_LINKS;
 
   return (
     <nav className="mb-6 flex flex-wrap gap-1 border-b border-border" aria-label="Dashboard">
       {links.map((link) => {
         // Exact match only: /dashboard is a prefix of every other entry, so a
         // prefix test would light up Overview on all of them.
-        const active = pathname === link.href;
+        const active =
+          pathname === link.href ||
+          (link.href === '/dealer/accounting' &&
+            Boolean(pathname?.startsWith('/dealer/accounting/')));
         const count = 'badge' in link ? counts[link.badge] : undefined;
 
         return (

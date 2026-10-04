@@ -59,7 +59,13 @@ export interface DefaultAccount {
 
 export const DEFAULT_CHART: readonly DefaultAccount[] = [
   // Assets
-  { code: '1000', name: 'Cash', subtype: 'CASH', systemKey: 'CASH', description: 'Cash on hand and the cash drawer.' },
+  {
+    code: '1000',
+    name: 'Cash',
+    subtype: 'CASH',
+    systemKey: 'CASH',
+    description: 'Cash on hand and the cash drawer.',
+  },
   { code: '1100', name: 'Accounts Receivable', subtype: 'RECEIVABLE', systemKey: 'AR' },
   {
     code: '1150',
@@ -69,7 +75,12 @@ export const DEFAULT_CHART: readonly DefaultAccount[] = [
   },
   { code: '1200', name: 'Vehicle Inventory', subtype: 'INVENTORY', systemKey: 'VEHICLE_INVENTORY' },
   { code: '1210', name: 'Parts Inventory', subtype: 'INVENTORY', systemKey: 'PARTS_INVENTORY' },
-  { code: '1220', name: 'Accessories Inventory', subtype: 'INVENTORY', systemKey: 'ACCESSORIES_INVENTORY' },
+  {
+    code: '1220',
+    name: 'Accessories Inventory',
+    subtype: 'INVENTORY',
+    systemKey: 'ACCESSORIES_INVENTORY',
+  },
   { code: '1300', name: 'Prepaid Expenses', subtype: 'OTHER_CURRENT_ASSET' },
   {
     code: '1400',
@@ -78,7 +89,12 @@ export const DEFAULT_CHART: readonly DefaultAccount[] = [
     systemKey: 'GST_HST_RECOVERABLE',
     description: 'Input tax credits on GST/HST paid.',
   },
-  { code: '1410', name: 'PST Recoverable', subtype: 'TAX_RECOVERABLE', systemKey: 'PST_RECOVERABLE' },
+  {
+    code: '1410',
+    name: 'PST Recoverable',
+    subtype: 'TAX_RECOVERABLE',
+    systemKey: 'PST_RECOVERABLE',
+  },
   {
     code: '1420',
     name: 'QST Recoverable',
@@ -117,7 +133,12 @@ export const DEFAULT_CHART: readonly DefaultAccount[] = [
     description: 'Owner contributions and the offset for opening balances.',
   },
   { code: '3100', name: 'Share Capital', subtype: 'EQUITY' },
-  { code: '3200', name: 'Retained Earnings', subtype: 'RETAINED_EARNINGS', systemKey: 'RETAINED_EARNINGS' },
+  {
+    code: '3200',
+    name: 'Retained Earnings',
+    subtype: 'RETAINED_EARNINGS',
+    systemKey: 'RETAINED_EARNINGS',
+  },
   {
     code: '3300',
     name: 'Current Year Earnings',
@@ -128,8 +149,18 @@ export const DEFAULT_CHART: readonly DefaultAccount[] = [
 
   // Revenue
   { code: '4000', name: 'Vehicle Sales', subtype: 'OPERATING_REVENUE', systemKey: 'VEHICLE_SALES' },
-  { code: '4010', name: 'Used Vehicle Sales', subtype: 'OPERATING_REVENUE', systemKey: 'USED_VEHICLE_SALES' },
-  { code: '4020', name: 'New Vehicle Sales', subtype: 'OPERATING_REVENUE', systemKey: 'NEW_VEHICLE_SALES' },
+  {
+    code: '4010',
+    name: 'Used Vehicle Sales',
+    subtype: 'OPERATING_REVENUE',
+    systemKey: 'USED_VEHICLE_SALES',
+  },
+  {
+    code: '4020',
+    name: 'New Vehicle Sales',
+    subtype: 'OPERATING_REVENUE',
+    systemKey: 'NEW_VEHICLE_SALES',
+  },
   {
     code: '4030',
     name: 'Wholesale Vehicle Sales',
@@ -137,10 +168,25 @@ export const DEFAULT_CHART: readonly DefaultAccount[] = [
     systemKey: 'WHOLESALE_VEHICLE_SALES',
   },
   { code: '4100', name: 'Parts Sales', subtype: 'OPERATING_REVENUE' },
-  { code: '4110', name: 'Accessories Sales', subtype: 'OPERATING_REVENUE', systemKey: 'ACCESSORIES_SALES' },
+  {
+    code: '4110',
+    name: 'Accessories Sales',
+    subtype: 'OPERATING_REVENUE',
+    systemKey: 'ACCESSORIES_SALES',
+  },
   { code: '4200', name: 'Service Revenue', subtype: 'OPERATING_REVENUE' },
-  { code: '4300', name: 'Warranty Revenue', subtype: 'OPERATING_REVENUE', systemKey: 'WARRANTY_REVENUE' },
-  { code: '4400', name: 'Finance Revenue', subtype: 'OPERATING_REVENUE', systemKey: 'FINANCE_REVENUE' },
+  {
+    code: '4300',
+    name: 'Warranty Revenue',
+    subtype: 'OPERATING_REVENUE',
+    systemKey: 'WARRANTY_REVENUE',
+  },
+  {
+    code: '4400',
+    name: 'Finance Revenue',
+    subtype: 'OPERATING_REVENUE',
+    systemKey: 'FINANCE_REVENUE',
+  },
   {
     code: '4410',
     name: 'Extended Warranty Revenue',
@@ -157,13 +203,33 @@ export const DEFAULT_CHART: readonly DefaultAccount[] = [
   { code: '4950', name: 'Interest & Other Income', subtype: 'OTHER_INCOME' },
 
   // Cost of sales
-  { code: '5000', name: 'Vehicle Cost of Sales', subtype: 'COST_OF_SALES', systemKey: 'VEHICLE_COGS' },
-  { code: '5010', name: 'Wholesale Vehicle Cost', subtype: 'COST_OF_SALES', systemKey: 'WHOLESALE_COGS' },
+  {
+    code: '5000',
+    name: 'Vehicle Cost of Sales',
+    subtype: 'COST_OF_SALES',
+    systemKey: 'VEHICLE_COGS',
+  },
+  {
+    code: '5010',
+    name: 'Wholesale Vehicle Cost',
+    subtype: 'COST_OF_SALES',
+    systemKey: 'WHOLESALE_COGS',
+  },
   { code: '5100', name: 'Parts Cost', subtype: 'COST_OF_SALES' },
   { code: '5110', name: 'Accessories Cost', subtype: 'COST_OF_SALES' },
-  { code: '5200', name: 'Reconditioning Cost', subtype: 'COST_OF_SALES', systemKey: 'RECONDITIONING_COST' },
+  {
+    code: '5200',
+    name: 'Reconditioning Cost',
+    subtype: 'COST_OF_SALES',
+    systemKey: 'RECONDITIONING_COST',
+  },
   { code: '5210', name: 'Auction Fees', subtype: 'COST_OF_SALES', systemKey: 'AUCTION_FEES' },
-  { code: '5220', name: 'Transportation Cost', subtype: 'COST_OF_SALES', systemKey: 'TRANSPORTATION_COST' },
+  {
+    code: '5220',
+    name: 'Transportation Cost',
+    subtype: 'COST_OF_SALES',
+    systemKey: 'TRANSPORTATION_COST',
+  },
   {
     code: '5290',
     name: 'Other Direct Vehicle Costs',

@@ -32,8 +32,10 @@ export class AccountingGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const targets = [context.getHandler(), context.getClass()];
     const required =
-      this.reflector.getAllAndOverride<AccountingPermission[]>(ACCOUNTING_PERMISSIONS_KEY, targets) ??
-      [];
+      this.reflector.getAllAndOverride<AccountingPermission[]>(
+        ACCOUNTING_PERMISSIONS_KEY,
+        targets,
+      ) ?? [];
     const setupRoute =
       this.reflector.getAllAndOverride<boolean>(ACCOUNTING_SETUP_ROUTE_KEY, targets) ?? false;
 

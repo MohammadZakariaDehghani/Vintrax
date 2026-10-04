@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   accountCreateSchema,
@@ -43,13 +56,19 @@ export class LedgerController {
   @Get('accounts')
   @RequireAccounting('accounting.view')
   @ApiOperation({ summary: 'Chart of accounts with balances' })
-  listAccounts(@Acct() ctx: AccountingContext, @Query(zodQuery(asOfQuerySchema)) query: { asOf?: string }) {
+  listAccounts(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(asOfQuerySchema)) query: { asOf?: string },
+  ) {
     return this.accounts.list(ctx, query.asOf);
   }
 
   @Post('accounts')
   @RequireAccounting('accounting.manage_accounts')
-  createAccount(@Acct() ctx: AccountingContext, @Body(zodBody(accountCreateSchema)) input: AccountCreateInput) {
+  createAccount(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(accountCreateSchema)) input: AccountCreateInput,
+  ) {
     return this.accounts.create(ctx, input);
   }
 
@@ -68,7 +87,10 @@ export class LedgerController {
   @Get('journal')
   @RequireAccounting('accounting.view')
   @ApiOperation({ summary: 'Journal entries, filtered and paged' })
-  listJournal(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  listJournal(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.journal.list(ctx, query);
   }
 
@@ -81,8 +103,13 @@ export class LedgerController {
 
   @Post('journal')
   @RequireAccounting('accounting.create')
-  @ApiOperation({ summary: 'Create a manual journal entry (as a draft, or posted with `post: true`)' })
-  async createJournal(@Acct() ctx: AccountingContext, @Body(zodBody(journalCreateSchema)) input: JournalCreateInput) {
+  @ApiOperation({
+    summary: 'Create a manual journal entry (as a draft, or posted with `post: true`)',
+  })
+  async createJournal(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(journalCreateSchema)) input: JournalCreateInput,
+  ) {
     // Posting straight away needs the posting permission too.
     if (input.post) assertPermission(ctx, 'accounting.post');
     return this.journal.create(ctx, input);
@@ -109,7 +136,10 @@ export class LedgerController {
   @RequireAccounting('accounting.edit')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a draft entry (posted entries are reversed, never deleted)' })
-  async deleteJournal(@Acct() ctx: AccountingContext, @Param('entryId', ParseUUIDPipe) entryId: string) {
+  async deleteJournal(
+    @Acct() ctx: AccountingContext,
+    @Param('entryId', ParseUUIDPipe) entryId: string,
+  ) {
     await this.journal.deleteDraft(ctx, entryId);
   }
 

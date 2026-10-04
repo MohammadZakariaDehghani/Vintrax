@@ -35,9 +35,12 @@ export class AccountingHealthService {
   async check(ctx: AccountingContext) {
     const findings: HealthFinding[] = [];
     const add = (finding: HealthFinding) => {
-      if (finding.count > 0) findings.push({ ...finding, links: finding.links.slice(0, MAX_LINKS) });
+      if (finding.count > 0)
+        findings.push({ ...finding, links: finding.links.slice(0, MAX_LINKS) });
     };
-    const settings = await this.prisma.accountingSettings.findUniqueOrThrow({ where: { dealerId: ctx.dealerId } });
+    const settings = await this.prisma.accountingSettings.findUniqueOrThrow({
+      where: { dealerId: ctx.dealerId },
+    });
 
     // 1. Unbalanced posted entries (the database refuses these; this proves it).
     const unbalanced = await this.prisma.$queryRaw<Array<{ id: string; reference: string }>>`
@@ -52,7 +55,10 @@ export class AccountingHealthService {
       title: 'Unbalanced journal entries',
       detail: 'Posted entries whose debits do not equal their credits.',
       count: unbalanced.length,
-      links: unbalanced.map((row) => ({ label: row.reference, href: `/dealer/accounting/journal/${row.id}` })),
+      links: unbalanced.map((row) => ({
+        label: row.reference,
+        href: `/dealer/accounting/journal/${row.id}`,
+      })),
     });
 
     // 2. Missing or inactive system accounts.
@@ -60,7 +66,9 @@ export class AccountingHealthService {
       where: { dealerId: ctx.dealerId, systemKey: { not: null } },
       select: { systemKey: true, isActive: true, name: true },
     });
-    const missing = SYSTEM_KEYS.filter((key) => !system.some((account) => account.systemKey === key && account.isActive));
+    const missing = SYSTEM_KEYS.filter(
+      (key) => !system.some((account) => account.systemKey === key && account.isActive),
+    );
     add({
       code: 'MISSING_ACCOUNTS',
       severity: 'ERROR',
@@ -92,9 +100,13 @@ export class AccountingHealthService {
       code: 'TAX_INCONSISTENCY',
       severity: 'ERROR',
       title: 'Tax inconsistencies',
-      detail: 'Entries where the tax recorded for the tax return differs from the tax posted to the ledger.',
+      detail:
+        'Entries where the tax recorded for the tax return differs from the tax posted to the ledger.',
       count: taxMismatch.length,
-      links: taxMismatch.map((row) => ({ label: row.reference, href: `/dealer/accounting/journal/${row.id}` })),
+      links: taxMismatch.map((row) => ({
+        label: row.reference,
+        href: `/dealer/accounting/journal/${row.id}`,
+      })),
     });
 
     // 4. Inventory: vehicle-tagged book values against the inventory account,
@@ -106,16 +118,26 @@ export class AccountingHealthService {
       title: 'Inventory does not match the ledger',
       detail: `The vehicles’ book values add up to ${centsToDecimalString(valuation.totalCents)} but Vehicle Inventory holds ${centsToDecimalString(valuation.ledgerBalanceCents)}: an entry to inventory has no vehicle.`,
       count: valuation.differenceCents !== 0 ? 1 : 0,
-      links: [{ label: 'General ledger — Vehicle Inventory', href: '/dealer/accounting/ledger?account=VEHICLE_INVENTORY' }],
+      links: [
+        {
+          label: 'General ledger — Vehicle Inventory',
+          href: '/dealer/accounting/ledger?account=VEHICLE_INVENTORY',
+        },
+      ],
     });
-    const negative = valuation.rows.filter((row) => row.bookValueCents < 0 && !settings.allowNegativeInventory);
+    const negative = valuation.rows.filter(
+      (row) => row.bookValueCents < 0 && !settings.allowNegativeInventory,
+    );
     add({
       code: 'NEGATIVE_INVENTORY',
       severity: 'ERROR',
       title: 'Negative inventory',
       detail: 'Vehicles with a negative book value.',
       count: negative.length,
-      links: negative.map((row) => ({ label: `${row.year} ${row.make} ${row.model}`, href: `/dealer/accounting/vehicles/${row.vehicleId}` })),
+      links: negative.map((row) => ({
+        label: `${row.year} ${row.make} ${row.model}`,
+        href: `/dealer/accounting/vehicles/${row.vehicleId}`,
+      })),
     });
 
     // 5. Missing accounting: vehicles marked sold, since accounting began,
@@ -135,21 +157,33 @@ export class AccountingHealthService {
       code: 'MISSING_SALE_ENTRIES',
       severity: 'WARNING',
       title: 'Sold vehicles without a sale in accounting',
-      detail: 'These vehicles were marked sold but no sale was posted, so their revenue, tax and cost of sales are not on the books.',
+      detail:
+        'These vehicles were marked sold but no sale was posted, so their revenue, tax and cost of sales are not on the books.',
       count: soldOutside.length,
-      links: soldOutside.map((row) => ({ label: `${row.year} ${row.make} ${row.model}`, href: `/dealer/accounting/sales/new?vehicleId=${row.id}` })),
+      links: soldOutside.map((row) => ({
+        label: `${row.year} ${row.make} ${row.model}`,
+        href: `/dealer/accounting/sales/new?vehicleId=${row.id}`,
+      })),
     });
     const offBookCosts = await this.prisma.vehicleCost.findMany({
-      where: { journalEntryId: null, createdAt: { gte: since }, vehicle: { sellerId: ctx.ownerUserId } },
+      where: {
+        journalEntryId: null,
+        createdAt: { gte: since },
+        vehicle: { sellerId: ctx.ownerUserId },
+      },
       select: { vehicleId: true },
     });
     add({
       code: 'COSTS_NOT_POSTED',
       severity: 'INFO',
       title: 'Vehicle costs not in the ledger',
-      detail: 'Costs entered on the Costs page are a management record only. Record them as expenses or purchases to include them in inventory and cost of sales.',
+      detail:
+        'Costs entered on the Costs page are a management record only. Record them as expenses or purchases to include them in inventory and cost of sales.',
       count: offBookCosts.length,
-      links: [...new Set(offBookCosts.map((row) => row.vehicleId))].map((id) => ({ label: 'Vehicle costs', href: `/dealer/costs/${id}` })),
+      links: [...new Set(offBookCosts.map((row) => row.vehicleId))].map((id) => ({
+        label: 'Vehicle costs',
+        href: `/dealer/costs/${id}`,
+      })),
     });
 
     // 6. Receivables and payables against their control accounts.
@@ -157,9 +191,15 @@ export class AccountingHealthService {
       where: { dealerId: ctx.dealerId, subtype: { in: ['RECEIVABLE', 'PAYABLE'] } },
       select: { id: true, subtype: true },
     });
-    const totals = await accountTotals(this.prisma, ctx.dealerId, { accountIds: accounts.map((account) => account.id) });
-    const ledgerAr = sumCents(accounts.filter((a) => a.subtype === 'RECEIVABLE').map((a) => debitBalance(totals.get(a.id))));
-    const ledgerAp = -sumCents(accounts.filter((a) => a.subtype === 'PAYABLE').map((a) => debitBalance(totals.get(a.id))));
+    const totals = await accountTotals(this.prisma, ctx.dealerId, {
+      accountIds: accounts.map((account) => account.id),
+    });
+    const ledgerAr = sumCents(
+      accounts.filter((a) => a.subtype === 'RECEIVABLE').map((a) => debitBalance(totals.get(a.id))),
+    );
+    const ledgerAp = -sumCents(
+      accounts.filter((a) => a.subtype === 'PAYABLE').map((a) => debitBalance(totals.get(a.id))),
+    );
     const [invoices, bills, payments] = await Promise.all([
       this.prisma.customerInvoice.findMany({
         where: { dealerId: ctx.dealerId, status: { not: 'VOID' } },
@@ -171,23 +211,44 @@ export class AccountingHealthService {
       }),
       this.prisma.payment.findMany({
         where: { dealerId: ctx.dealerId, status: 'POSTED' },
-        select: { amount: true, kind: true, customerId: true, vendorId: true, allocations: { select: { amount: true } } },
+        select: {
+          amount: true,
+          kind: true,
+          customerId: true,
+          vendorId: true,
+          allocations: { select: { amount: true } },
+        },
       }),
     ]);
     const unappliedCustomer = sumCents(
       payments
         .filter((p) => p.customerId)
-        .map((p) => (p.kind === 'REFUND' ? -1 : 1) * (toCents(p.amount) - sumCents(p.allocations.map((a) => toCents(a.amount))))),
+        .map(
+          (p) =>
+            (p.kind === 'REFUND' ? -1 : 1) *
+            (toCents(p.amount) - sumCents(p.allocations.map((a) => toCents(a.amount)))),
+        ),
     );
     const unappliedVendor = sumCents(
       payments
         .filter((p) => p.vendorId)
-        .map((p) => (p.kind === 'REFUND' ? -1 : 1) * (toCents(p.amount) - sumCents(p.allocations.map((a) => toCents(a.amount))))),
+        .map(
+          (p) =>
+            (p.kind === 'REFUND' ? -1 : 1) *
+            (toCents(p.amount) - sumCents(p.allocations.map((a) => toCents(a.amount)))),
+        ),
     );
-    const expectedAr = sumCents(invoices.map((i) => toCents(i.total) - toCents(i.amountPaid))) - unappliedCustomer;
+    const expectedAr =
+      sumCents(invoices.map((i) => toCents(i.total) - toCents(i.amountPaid))) - unappliedCustomer;
     const expectedAp =
-      sumCents(bills.filter((b) => b.kind === 'BILL').map((b) => toCents(b.total) - toCents(b.amountPaid))) -
-      sumCents(bills.filter((b) => b.kind === 'CREDIT_NOTE').map((b) => toCents(b.total) - toCents(b.amountPaid))) -
+      sumCents(
+        bills.filter((b) => b.kind === 'BILL').map((b) => toCents(b.total) - toCents(b.amountPaid)),
+      ) -
+      sumCents(
+        bills
+          .filter((b) => b.kind === 'CREDIT_NOTE')
+          .map((b) => toCents(b.total) - toCents(b.amountPaid)),
+      ) -
       unappliedVendor;
     add({
       code: 'AR_MISMATCH',
@@ -209,7 +270,12 @@ export class AccountingHealthService {
     // 7. Bank reconciliation.
     const openRecs = await this.prisma.bankReconciliation.findMany({
       where: { dealerId: ctx.dealerId, status: 'IN_PROGRESS', difference: { not: 0 } },
-      select: { id: true, statementDate: true, difference: true, bankAccount: { select: { name: true } } },
+      select: {
+        id: true,
+        statementDate: true,
+        difference: true,
+        bankAccount: { select: { name: true } },
+      },
     });
     add({
       code: 'RECONCILIATION_DIFFERENCE',
@@ -251,11 +317,16 @@ export class AccountingHealthService {
       title: 'Postings in closed periods',
       detail: 'Entries posted into a period after it was closed.',
       count: lateInClosed.length,
-      links: lateInClosed.map((row) => ({ label: row.reference, href: `/dealer/accounting/journal/${row.id}` })),
+      links: lateInClosed.map((row) => ({
+        label: row.reference,
+        href: `/dealer/accounting/journal/${row.id}`,
+      })),
     });
 
     // 9. Duplicate references: the same vendor invoice entered twice.
-    const duplicateBills = await this.prisma.$queryRaw<Array<{ vendorReference: string; n: number }>>`
+    const duplicateBills = await this.prisma.$queryRaw<
+      Array<{ vendorReference: string; n: number }>
+    >`
       SELECT "vendorReference", COUNT(*)::int AS n FROM "VendorBill"
        WHERE "dealerId" = ${ctx.dealerId}::uuid AND "status" <> 'VOID' AND "vendorReference" IS NOT NULL
        GROUP BY "vendorId", "vendorReference" HAVING COUNT(*) > 1`;
@@ -265,7 +336,10 @@ export class AccountingHealthService {
       title: 'Duplicate vendor invoice numbers',
       detail: 'The same vendor invoice number is entered more than once.',
       count: duplicateBills.length,
-      links: duplicateBills.map((row) => ({ label: row.vendorReference, href: `/dealer/accounting/payables?q=${encodeURIComponent(row.vendorReference)}` })),
+      links: duplicateBills.map((row) => ({
+        label: row.vendorReference,
+        href: `/dealer/accounting/payables?q=${encodeURIComponent(row.vendorReference)}`,
+      })),
     });
     const duplicatePayments = await this.prisma.$queryRaw<Array<{ reference: string }>>`
       SELECT "reference" FROM "Payment"
@@ -277,7 +351,10 @@ export class AccountingHealthService {
       title: 'Possible duplicate payments',
       detail: 'Payments with the same reference, amount and date.',
       count: duplicatePayments.length,
-      links: duplicatePayments.map((row) => ({ label: row.reference, href: `/dealer/accounting/payments?reference=${encodeURIComponent(row.reference)}` })),
+      links: duplicatePayments.map((row) => ({
+        label: row.reference,
+        href: `/dealer/accounting/payments?reference=${encodeURIComponent(row.reference)}`,
+      })),
     });
 
     // 10. Orphans: entries pointing at a document that does not exist.
@@ -298,7 +375,10 @@ export class AccountingHealthService {
       title: 'Orphaned transactions',
       detail: 'Journal entries whose source document no longer exists.',
       count: orphans.length,
-      links: orphans.map((row) => ({ label: row.reference, href: `/dealer/accounting/journal/${row.id}` })),
+      links: orphans.map((row) => ({
+        label: row.reference,
+        href: `/dealer/accounting/journal/${row.id}`,
+      })),
     });
 
     // 11. Floor plans on sold vehicles; old drafts.
@@ -312,16 +392,24 @@ export class AccountingHealthService {
       title: 'Floor plans on sold vehicles',
       detail: 'These vehicles have sold but their floor plan is still outstanding.',
       count: outOfTrust.length,
-      links: outOfTrust.map((note) => ({ label: `${note.vehicle.year} ${note.vehicle.make} ${note.vehicle.model}`, href: `/dealer/accounting/floor-plan` })),
+      links: outOfTrust.map((note) => ({
+        label: `${note.vehicle.year} ${note.vehicle.make} ${note.vehicle.model}`,
+        href: `/dealer/accounting/floor-plan`,
+      })),
     });
     const oldDrafts = await this.prisma.journalEntry.count({
-      where: { dealerId: ctx.dealerId, status: 'DRAFT', createdAt: { lt: new Date(Date.now() - 30 * 86_400_000) } },
+      where: {
+        dealerId: ctx.dealerId,
+        status: 'DRAFT',
+        createdAt: { lt: new Date(Date.now() - 30 * 86_400_000) },
+      },
     });
     add({
       code: 'OLD_DRAFTS',
       severity: 'INFO',
       title: 'Old draft entries',
-      detail: 'Draft journal entries more than 30 days old. They are not on the books until posted.',
+      detail:
+        'Draft journal entries more than 30 days old. They are not on the books until posted.',
       count: oldDrafts,
       links: [{ label: 'Journal entries', href: '/dealer/accounting/journal?status=DRAFT' }],
     });

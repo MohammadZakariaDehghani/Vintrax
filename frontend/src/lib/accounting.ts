@@ -155,7 +155,7 @@ export interface RangeState {
 export const DEFAULT_RANGE: RangeState = { preset: 'THIS_MONTH', from: '', to: '' };
 
 /** The query parameters a range filter sends. */
-export function rangeParams(range: RangeState) {
+export function rangeParams(range: RangeState): Record<string, string> {
   return range.preset === 'CUSTOM'
     ? { preset: 'CUSTOM', from: range.from, to: range.to }
     : { preset: range.preset };

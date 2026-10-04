@@ -98,7 +98,13 @@ export class TaxService {
   async calculate(
     tx: Tx | PrismaService,
     dealerId: string,
-    input: { province: Province; date: IsoDate; lines: TaxableLine[]; tradeInCents?: number; vehiclePriceCents?: number },
+    input: {
+      province: Province;
+      date: IsoDate;
+      lines: TaxableLine[];
+      tradeInCents?: number;
+      vehiclePriceCents?: number;
+    },
   ): Promise<TaxCalculation & { province: Province; date: IsoDate }> {
     const rules = await this.rulesFor(tx, dealerId, input.province, input.date);
     const calculation = calculateTax({
@@ -155,7 +161,10 @@ export class TaxService {
       const taxed = sumCents(group.map((c) => c.taxableCents + c.tradeInDeductedCents));
       const exempt = input.calculation.grossCents - taxed;
       // A credit note carries negative amounts; its exempt part is negative too.
-      exemptByKind.set(kind, input.calculation.grossCents >= 0 ? Math.max(0, exempt) : Math.min(0, exempt));
+      exemptByKind.set(
+        kind,
+        input.calculation.grossCents >= 0 ? Math.max(0, exempt) : Math.min(0, exempt),
+      );
     }
     const seen = new Set<TaxReturnKind>();
     await tx.taxLine.createMany({
@@ -165,19 +174,19 @@ export class TaxService {
         seen.add(kind);
         return {
           dealerId: ctx.dealerId,
-        journalEntryId: input.journalEntryId,
-        sourceType: input.sourceType,
-        sourceId: input.sourceId,
-        taxRuleId: component.ruleId,
-        taxType: component.taxType,
-        province: input.province,
-        rate: component.rate,
-        taxableAmount: fromCents(component.taxableCents),
-        exemptAmount: fromCents(exempt),
-        amount: fromCents(component.taxCents),
-        direction: input.direction,
-        recoverable: input.direction === 'PAID' && component.recoverable,
-        transactionDate: toDbDate(input.date),
+          journalEntryId: input.journalEntryId,
+          sourceType: input.sourceType,
+          sourceId: input.sourceId,
+          taxRuleId: component.ruleId,
+          taxType: component.taxType,
+          province: input.province,
+          rate: component.rate,
+          taxableAmount: fromCents(component.taxableCents),
+          exemptAmount: fromCents(exempt),
+          amount: fromCents(component.taxCents),
+          direction: input.direction,
+          recoverable: input.direction === 'PAID' && component.recoverable,
+          transactionDate: toDbDate(input.date),
         };
       }),
     });
@@ -190,7 +199,12 @@ export class TaxService {
     input: { sourceType: string; sourceId: string; date: IsoDate; journalEntryId: string },
   ): Promise<void> {
     const lines = await tx.taxLine.findMany({
-      where: { dealerId: ctx.dealerId, sourceType: input.sourceType, sourceId: input.sourceId, isReversal: false },
+      where: {
+        dealerId: ctx.dealerId,
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        isReversal: false,
+      },
     });
     if (lines.length === 0) return;
     await tx.taxLine.createMany({
@@ -222,7 +236,12 @@ export class TaxService {
         OR: [{ dealerId: null }, { dealerId: ctx.dealerId }],
         ...(province ? { province } : {}),
       },
-      orderBy: [{ province: 'asc' }, { taxType: 'asc' }, { effectiveFrom: 'desc' }, { minPriceCents: 'asc' }],
+      orderBy: [
+        { province: 'asc' },
+        { taxType: 'asc' },
+        { effectiveFrom: 'desc' },
+        { minPriceCents: 'asc' },
+      ],
       include: { _count: { select: { taxLines: { where: { dealerId: ctx.dealerId } } } } },
     });
     return rows.map((row) => toView(row, row._count.taxLines));
@@ -242,7 +261,12 @@ export class TaxService {
         action: 'tax.rule_created',
         entityType: 'TaxRule',
         entityId: rule.id,
-        after: { province: rule.province, taxType: rule.taxType, rate: rule.rate.toString(), effectiveFrom: input.effectiveFrom },
+        after: {
+          province: rule.province,
+          taxType: rule.taxType,
+          rate: rule.rate.toString(),
+          effectiveFrom: input.effectiveFrom,
+        },
       });
       return toView(rule, 0);
     });
@@ -310,12 +334,18 @@ export class TaxService {
     });
   }
 
-  async setRuleActive(ctx: AccountingContext, ruleId: string, isActive: boolean): Promise<TaxRuleView> {
+  async setRuleActive(
+    ctx: AccountingContext,
+    ruleId: string,
+    isActive: boolean,
+  ): Promise<TaxRuleView> {
     return this.prisma.$transaction(async (tx) => {
       const rule = await tx.taxRule.findFirst({ where: { id: ruleId } });
       if (!rule) throw new NotFoundException('Tax rule not found');
       if (rule.dealerId !== ctx.dealerId) {
-        throw new ForbiddenException('Platform default rules are managed by Vintrax; add your own rule to override one');
+        throw new ForbiddenException(
+          'Platform default rules are managed by Vintrax; add your own rule to override one',
+        );
       }
       const updated = await tx.taxRule.update({ where: { id: rule.id }, data: { isActive } });
       await recordAudit(tx, ctx, {
@@ -334,7 +364,12 @@ export class TaxService {
   async listPlatformRules(): Promise<TaxRuleView[]> {
     const rows = await this.prisma.taxRule.findMany({
       where: { dealerId: null },
-      orderBy: [{ province: 'asc' }, { taxType: 'asc' }, { effectiveFrom: 'desc' }, { minPriceCents: 'asc' }],
+      orderBy: [
+        { province: 'asc' },
+        { taxType: 'asc' },
+        { effectiveFrom: 'desc' },
+        { minPriceCents: 'asc' },
+      ],
       include: { _count: { select: { taxLines: true } } },
     });
     return rows.map((row) => toView(row, row._count.taxLines));
@@ -347,7 +382,11 @@ export class TaxService {
     return toView(rule, 0);
   }
 
-  async supersedePlatformRule(actorId: string, ruleId: string, input: TaxRuleSupersedeInput): Promise<TaxRuleView> {
+  async supersedePlatformRule(
+    actorId: string,
+    ruleId: string,
+    input: TaxRuleSupersedeInput,
+  ): Promise<TaxRuleView> {
     return this.prisma.$transaction(async (tx) => {
       const rule = await tx.taxRule.findFirst({ where: { id: ruleId, dealerId: null } });
       if (!rule) throw new NotFoundException('Tax rule not found');
@@ -446,11 +485,20 @@ export class TaxService {
     const settings = await this.prisma.accountingSettings.findUniqueOrThrow({
       where: { dealerId: ctx.dealerId },
     });
-    const months = settings.taxFilingFrequency === 'MONTHLY' ? 1 : settings.taxFilingFrequency === 'QUARTERLY' ? 3 : 12;
+    const months =
+      settings.taxFilingFrequency === 'MONTHLY'
+        ? 1
+        : settings.taxFilingFrequency === 'QUARTERLY'
+          ? 3
+          : 12;
     const kinds = applicableReturnKinds(settings.province);
     let created = 0;
     await this.prisma.$transaction(async (tx) => {
-      for (let start = fiscalYearStart; start < addMonths(fiscalYearStart, 12); start = addMonths(start, months)) {
+      for (
+        let start = fiscalYearStart;
+        start < addMonths(fiscalYearStart, 12);
+        start = addMonths(start, months)
+      ) {
         const end = addDays(addMonths(start, months), -1);
         for (const kind of kinds) {
           const exists = await tx.taxFilingPeriod.findFirst({
@@ -485,7 +533,9 @@ export class TaxService {
 
   async updateFiling(ctx: AccountingContext, filingId: string, input: TaxFilingUpdateInput) {
     return this.prisma.$transaction(async (tx) => {
-      const filing = await tx.taxFilingPeriod.findFirst({ where: { id: filingId, dealerId: ctx.dealerId } });
+      const filing = await tx.taxFilingPeriod.findFirst({
+        where: { id: filingId, dealerId: ctx.dealerId },
+      });
       if (!filing) throw new NotFoundException('Filing period not found');
       if (filing.status === 'CLOSED' && input.status !== 'CLOSED') {
         throw new ConflictException('A closed filing period cannot be changed');
@@ -495,7 +545,9 @@ export class TaxService {
         data: {
           ...(input.status ? { status: input.status } : {}),
           ...(input.adjustments !== undefined ? { adjustments: fromCents(input.adjustments) } : {}),
-          ...(input.confirmationNumber !== undefined ? { confirmationNumber: input.confirmationNumber } : {}),
+          ...(input.confirmationNumber !== undefined
+            ? { confirmationNumber: input.confirmationNumber }
+            : {}),
           ...(input.notes !== undefined ? { notes: input.notes } : {}),
           ...(input.status === 'FILED' && filing.status !== 'FILED'
             ? { filedAt: new Date(), filedById: ctx.userId }
@@ -519,7 +571,10 @@ export class TaxService {
    */
   async summary(ctx: AccountingContext, from: IsoDate, to: IsoDate) {
     const lines = await this.prisma.taxLine.findMany({
-      where: { dealerId: ctx.dealerId, transactionDate: { gte: toDbDate(from), lte: toDbDate(to) } },
+      where: {
+        dealerId: ctx.dealerId,
+        transactionDate: { gte: toDbDate(from), lte: toDbDate(to) },
+      },
       select: {
         taxType: true,
         direction: true,
@@ -532,7 +587,11 @@ export class TaxService {
       },
     });
     const filings = await this.prisma.taxFilingPeriod.findMany({
-      where: { dealerId: ctx.dealerId, startDate: { gte: toDbDate(from) }, endDate: { lte: toDbDate(to) } },
+      where: {
+        dealerId: ctx.dealerId,
+        startDate: { gte: toDbDate(from) },
+        endDate: { lte: toDbDate(to) },
+      },
       select: { kind: true, adjustments: true },
     });
 
@@ -542,9 +601,13 @@ export class TaxService {
       const paid = mine.filter((line) => line.direction === 'PAID');
       const collectedCents = sumCents(collected.map((line) => toCents(line.amount)));
       const paidCents = sumCents(paid.map((line) => toCents(line.amount)));
-      const recoverableCents = sumCents(paid.filter((line) => line.recoverable).map((line) => toCents(line.amount)));
+      const recoverableCents = sumCents(
+        paid.filter((line) => line.recoverable).map((line) => toCents(line.amount)),
+      );
       const adjustmentsCents = sumCents(
-        filings.filter((filing) => filing.kind === kind).map((filing) => toCents(filing.adjustments)),
+        filings
+          .filter((filing) => filing.kind === kind)
+          .map((filing) => toCents(filing.adjustments)),
       );
       return {
         kind,

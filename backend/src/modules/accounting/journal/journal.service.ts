@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { JournalCreateInput, JournalReverseInput, ReportQuery } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
@@ -104,7 +109,16 @@ export class JournalService {
           orderBy: { lineNo: 'asc' },
           include: {
             account: { select: { id: true, code: true, name: true } },
-            vehicle: { select: { id: true, vin: true, year: true, make: true, model: true, stockNumber: true } },
+            vehicle: {
+              select: {
+                id: true,
+                vin: true,
+                year: true,
+                make: true,
+                model: true,
+                stockNumber: true,
+              },
+            },
             customer: { select: { id: true, name: true } },
             vendor: { select: { id: true, name: true } },
           },
@@ -115,7 +129,9 @@ export class JournalService {
     });
     if (!entry) throw new NotFoundException('Journal entry not found');
     const people = await this.prisma.user.findMany({
-      where: { id: { in: [entry.createdById, entry.postedById].filter((id): id is string => Boolean(id)) } },
+      where: {
+        id: { in: [entry.createdById, entry.postedById].filter((id): id is string => Boolean(id)) },
+      },
       select: { id: true, firstName: true, lastName: true },
     });
     const name = (id: string | null) => {
@@ -147,7 +163,10 @@ export class JournalService {
       reversalReason: entry.reversalReason,
       reversedBy: entry.reversedBy,
       reversalOf: entry.reversalOf,
-      attachments: attachments.map((file) => ({ ...file, createdAt: file.createdAt.toISOString() })),
+      attachments: attachments.map((file) => ({
+        ...file,
+        createdAt: file.createdAt.toISOString(),
+      })),
       lines: entry.lines.map((line) => ({
         id: line.id,
         lineNo: line.lineNo,
@@ -168,7 +187,9 @@ export class JournalService {
   /** A manual entry: posted now (accounting.post) or kept as a draft. */
   async create(ctx: AccountingContext, input: JournalCreateInput) {
     if (input.post && !ctx.permissions.has('accounting.post')) {
-      throw new BadRequestException('You can save this as a draft; posting needs the post permission');
+      throw new BadRequestException(
+        'You can save this as a draft; posting needs the post permission',
+      );
     }
     return this.prisma.$transaction(async (tx) => {
       const entry = await this.posting.post(tx, ctx, {
@@ -195,10 +216,14 @@ export class JournalService {
   /** Replaces a draft's contents. Posted entries are never edited. */
   async updateDraft(ctx: AccountingContext, entryId: string, input: JournalCreateInput) {
     return this.prisma.$transaction(async (tx) => {
-      const entry = await tx.journalEntry.findFirst({ where: { id: entryId, dealerId: ctx.dealerId } });
+      const entry = await tx.journalEntry.findFirst({
+        where: { id: entryId, dealerId: ctx.dealerId },
+      });
       if (!entry) throw new NotFoundException('Journal entry not found');
       if (entry.status !== 'DRAFT') {
-        throw new ConflictException('A posted entry cannot be edited; reverse it or post an adjustment');
+        throw new ConflictException(
+          'A posted entry cannot be edited; reverse it or post an adjustment',
+        );
       }
       const total = input.lines.reduce((sum, line) => sum + line.debit, 0);
       await tx.journalLine.deleteMany({ where: { entryId: entry.id } });
@@ -230,7 +255,9 @@ export class JournalService {
         where: { dealerId: ctx.dealerId, id: { in: input.lines.map((line) => line.accountId) } },
       });
       if (accounts !== new Set(input.lines.map((line) => line.accountId)).size) {
-        throw new BadRequestException('One of the accounts does not exist in this chart of accounts');
+        throw new BadRequestException(
+          'One of the accounts does not exist in this chart of accounts',
+        );
       }
       await recordAudit(tx, ctx, {
         action: 'journal.draft_updated',
@@ -255,7 +282,9 @@ export class JournalService {
   /** A draft was never on the books, so it may be discarded. */
   async deleteDraft(ctx: AccountingContext, entryId: string) {
     await this.prisma.$transaction(async (tx) => {
-      const entry = await tx.journalEntry.findFirst({ where: { id: entryId, dealerId: ctx.dealerId } });
+      const entry = await tx.journalEntry.findFirst({
+        where: { id: entryId, dealerId: ctx.dealerId },
+      });
       if (!entry) throw new NotFoundException('Journal entry not found');
       if (entry.status !== 'DRAFT') {
         throw new ConflictException('Posted entries are never deleted; reverse it instead');

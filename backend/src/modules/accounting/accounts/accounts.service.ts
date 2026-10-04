@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   SUBTYPE_TYPE,
@@ -35,9 +40,15 @@ export class AccountsService {
 
   async list(ctx: AccountingContext, asOf?: IsoDate): Promise<AccountView[]> {
     const [accounts, totals, banks] = await Promise.all([
-      this.prisma.acctAccount.findMany({ where: { dealerId: ctx.dealerId }, orderBy: { code: 'asc' } }),
+      this.prisma.acctAccount.findMany({
+        where: { dealerId: ctx.dealerId },
+        orderBy: { code: 'asc' },
+      }),
       accountTotals(this.prisma, ctx.dealerId, { to: asOf ?? null }),
-      this.prisma.bankAccount.findMany({ where: { dealerId: ctx.dealerId }, select: { glAccountId: true } }),
+      this.prisma.bankAccount.findMany({
+        where: { dealerId: ctx.dealerId },
+        select: { glAccountId: true },
+      }),
     ]);
     const bankGl = new Set(banks.map((bank) => bank.glAccountId));
     return accounts.map((account) => ({
@@ -58,7 +69,9 @@ export class AccountsService {
 
   async create(ctx: AccountingContext, input: AccountCreateInput) {
     if (input.subtype === 'CURRENT_YEAR_EARNINGS') {
-      throw new BadRequestException('Current year earnings is calculated; there is one such account');
+      throw new BadRequestException(
+        'Current year earnings is calculated; there is one such account',
+      );
     }
     return this.prisma.$transaction(async (tx) => {
       if (input.parentId) await this.requireAccount(tx, ctx, input.parentId);
@@ -95,17 +108,24 @@ export class AccountsService {
       const account = await this.requireAccount(tx, ctx, accountId);
       if (input.isActive === false) {
         if (account.isSystem) {
-          throw new ConflictException('This account is used by automatic postings and stays active');
+          throw new ConflictException(
+            'This account is used by automatic postings and stays active',
+          );
         }
-        const bank = await tx.bankAccount.findFirst({ where: { glAccountId: account.id, isActive: true } });
+        const bank = await tx.bankAccount.findFirst({
+          where: { glAccountId: account.id, isActive: true },
+        });
         if (bank) throw new ConflictException('Close the bank account first');
         const totals = await accountTotals(tx, ctx.dealerId, { accountIds: [account.id] });
         if (normalBalance(account.type, totals.get(account.id)) !== 0) {
-          throw new ConflictException('An account with a balance cannot be deactivated; move the balance first');
+          throw new ConflictException(
+            'An account with a balance cannot be deactivated; move the balance first',
+          );
         }
       }
       if (input.parentId) {
-        if (input.parentId === account.id) throw new BadRequestException('An account cannot be its own parent');
+        if (input.parentId === account.id)
+          throw new BadRequestException('An account cannot be its own parent');
         await this.requireAccount(tx, ctx, input.parentId);
       }
       const updated = await tx.acctAccount.update({
@@ -121,15 +141,25 @@ export class AccountsService {
         action: 'account.updated',
         entityType: 'AcctAccount',
         entityId: account.id,
-        before: { name: account.name, isActive: account.isActive, description: account.description },
+        before: {
+          name: account.name,
+          isActive: account.isActive,
+          description: account.description,
+        },
         after: { name: updated.name, isActive: updated.isActive, description: updated.description },
       });
       return { id: updated.id };
     });
   }
 
-  private async requireAccount(tx: Prisma.TransactionClient, ctx: AccountingContext, accountId: string) {
-    const account = await tx.acctAccount.findFirst({ where: { id: accountId, dealerId: ctx.dealerId } });
+  private async requireAccount(
+    tx: Prisma.TransactionClient,
+    ctx: AccountingContext,
+    accountId: string,
+  ) {
+    const account = await tx.acctAccount.findFirst({
+      where: { id: accountId, dealerId: ctx.dealerId },
+    });
     if (!account) throw new NotFoundException('Account not found');
     return account;
   }

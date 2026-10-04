@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   accountingSettingsSchema,
@@ -14,7 +26,12 @@ import { CurrentUser } from '../../../common/decorators';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { zodBody } from '../../../common/pipes/zod-validation.pipe';
 import { AccountingGuard } from '../core/accounting.guard';
-import { Acct, AccountingSetupRoute, RequireAccounting, type AccountingContext } from '../core/context';
+import {
+  Acct,
+  AccountingSetupRoute,
+  RequireAccounting,
+  type AccountingContext,
+} from '../core/context';
 import { AccountingSettingsService } from '../settings/settings.service';
 
 /**
@@ -48,7 +65,10 @@ export class AccountingSetupController {
   @AccountingSetupRoute()
   @RequireAccounting('accounting.settings')
   @ApiOperation({ summary: 'Set up accounting: settings, chart of accounts, fiscal year, bank' })
-  setup(@Acct() ctx: AccountingContext, @Body(zodBody(accountingSetupSchema)) input: AccountingSetupInput) {
+  setup(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(accountingSetupSchema)) input: AccountingSetupInput,
+  ) {
     return this.settings.setup(ctx, input);
   }
 
@@ -62,7 +82,10 @@ export class AccountingSetupController {
   @Patch('settings')
   @UseGuards(AccountingGuard)
   @RequireAccounting('accounting.settings')
-  updateSettings(@Acct() ctx: AccountingContext, @Body(zodBody(accountingSettingsSchema)) input: AccountingSettingsInput) {
+  updateSettings(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(accountingSettingsSchema)) input: AccountingSettingsInput,
+  ) {
     return this.settings.updateSettings(ctx, input);
   }
 
@@ -77,7 +100,10 @@ export class AccountingSetupController {
   @UseGuards(AccountingGuard)
   @RequireAccounting('accounting.manage_team')
   @ApiOperation({ summary: 'Give an existing Vintrax account a role in this dealership' })
-  addMember(@Acct() ctx: AccountingContext, @Body(zodBody(staffMemberSchema)) input: StaffMemberInput) {
+  addMember(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(staffMemberSchema)) input: StaffMemberInput,
+  ) {
     return this.settings.addMember(ctx, input);
   }
 
@@ -96,7 +122,10 @@ export class AccountingSetupController {
   @UseGuards(AccountingGuard)
   @RequireAccounting('accounting.manage_team')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async removeMember(@Acct() ctx: AccountingContext, @Param('memberId', ParseUUIDPipe) memberId: string) {
+  async removeMember(
+    @Acct() ctx: AccountingContext,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
+  ) {
     await this.settings.removeMember(ctx, memberId);
   }
 }

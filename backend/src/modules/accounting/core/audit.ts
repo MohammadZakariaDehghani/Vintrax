@@ -39,6 +39,8 @@ export async function recordAudit(
 function toJson(value: unknown): Prisma.InputJsonValue | undefined {
   if (value === undefined || value === null) return undefined;
   return JSON.parse(
-    JSON.stringify(value, (_key, item: unknown) => (typeof item === 'bigint' ? item.toString() : item)),
+    JSON.stringify(value, (_key, item: unknown) =>
+      typeof item === 'bigint' ? item.toString() : item,
+    ),
   ) as Prisma.InputJsonValue;
 }

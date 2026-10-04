@@ -4,7 +4,11 @@ import {
   SetMetadata,
   type ExecutionContext,
 } from '@nestjs/common';
-import { STAFF_ROLE_PERMISSIONS, type AccountingPermission, type DealerStaffRole } from '@vintrax/shared';
+import {
+  STAFF_ROLE_PERMISSIONS,
+  type AccountingPermission,
+  type DealerStaffRole,
+} from '@vintrax/shared';
 import type { Request } from 'express';
 
 /**

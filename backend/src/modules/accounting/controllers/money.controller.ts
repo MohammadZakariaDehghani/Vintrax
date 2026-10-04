@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   bankAccountSchema,
@@ -86,7 +99,10 @@ export class MoneyController {
 
   @Get('invoices')
   @RequireAccounting('accounting.view')
-  listInvoices(@Acct() ctx: AccountingContext, @Query(zodQuery(invoiceQuerySchema)) query: ReportQuery & { openOnly?: boolean }) {
+  listInvoices(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(invoiceQuerySchema)) query: ReportQuery & { openOnly?: boolean },
+  ) {
     return this.invoices.list(ctx, query);
   }
 
@@ -108,7 +124,9 @@ export class MoneyController {
 
   @Get('customers/:customerId/statement')
   @RequireAccounting('accounting.view')
-  @ApiOperation({ summary: 'A customer statement: opening balance, invoices, payments, closing balance' })
+  @ApiOperation({
+    summary: 'A customer statement: opening balance, invoices, payments, closing balance',
+  })
   customerStatement(
     @Acct() ctx: AccountingContext,
     @Param('customerId', ParseUUIDPipe) customerId: string,
@@ -122,7 +140,10 @@ export class MoneyController {
 
   @Get('bills')
   @RequireAccounting('accounting.view')
-  listBills(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  listBills(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.bills.list(ctx, query);
   }
 
@@ -169,7 +190,10 @@ export class MoneyController {
 
   @Get('payments')
   @RequireAccounting('accounting.view')
-  listPayments(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  listPayments(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.payments.list(ctx, query);
   }
 
@@ -194,7 +218,10 @@ export class MoneyController {
 
   @Get('expenses')
   @RequireAccounting('accounting.view')
-  listExpenses(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  listExpenses(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.expenses.list(ctx, query);
   }
 
@@ -223,7 +250,10 @@ export class MoneyController {
 
   @Post('recurring-expenses')
   @RequireAccounting('accounting.create')
-  createRecurring(@Acct() ctx: AccountingContext, @Body(zodBody(recurringExpenseSchema)) input: RecurringExpenseInput) {
+  createRecurring(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(recurringExpenseSchema)) input: RecurringExpenseInput,
+  ) {
     return this.expenses.createRecurring(ctx, input);
   }
 
@@ -264,7 +294,10 @@ export class MoneyController {
 
   @Post('bank-accounts')
   @RequireAccounting('accounting.manage_accounts')
-  createBankAccount(@Acct() ctx: AccountingContext, @Body(zodBody(bankAccountSchema)) input: BankAccountInput) {
+  createBankAccount(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(bankAccountSchema)) input: BankAccountInput,
+  ) {
     return this.banking.createAccount(ctx, input);
   }
 
@@ -273,7 +306,8 @@ export class MoneyController {
   updateBankAccount(
     @Acct() ctx: AccountingContext,
     @Param('bankAccountId', ParseUUIDPipe) bankAccountId: string,
-    @Body(zodBody(bankAccountUpdateSchema)) input: { name?: string; bankName?: string | null; isActive?: boolean },
+    @Body(zodBody(bankAccountUpdateSchema))
+    input: { name?: string; bankName?: string | null; isActive?: boolean },
   ) {
     return this.banking.updateAccount(ctx, bankAccountId, input);
   }
@@ -292,7 +326,10 @@ export class MoneyController {
   @Post('bank-transactions')
   @RequireAccounting('accounting.create', 'accounting.post')
   @ApiOperation({ summary: 'Record a deposit, withdrawal, fee, interest or transfer' })
-  createBankTransaction(@Acct() ctx: AccountingContext, @Body(zodBody(bankTransactionSchema)) input: BankTransactionInput) {
+  createBankTransaction(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(bankTransactionSchema)) input: BankTransactionInput,
+  ) {
     return this.banking.createTransaction(ctx, input);
   }
 
@@ -310,19 +347,28 @@ export class MoneyController {
 
   @Get('reconciliations')
   @RequireAccounting('accounting.view')
-  reconciliations(@Acct() ctx: AccountingContext, @Query(zodQuery(bankQuerySchema)) query: { bankAccountId?: string }) {
+  reconciliations(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(bankQuerySchema)) query: { bankAccountId?: string },
+  ) {
     return this.banking.reconciliations(ctx, query.bankAccountId);
   }
 
   @Post('reconciliations')
   @RequireAccounting('accounting.reconcile_bank')
-  startReconciliation(@Acct() ctx: AccountingContext, @Body(zodBody(reconciliationStartSchema)) input: ReconciliationStartInput) {
+  startReconciliation(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(reconciliationStartSchema)) input: ReconciliationStartInput,
+  ) {
     return this.banking.startReconciliation(ctx, input);
   }
 
   @Get('reconciliations/:reconciliationId')
   @RequireAccounting('accounting.view')
-  reconciliation(@Acct() ctx: AccountingContext, @Param('reconciliationId', ParseUUIDPipe) reconciliationId: string) {
+  reconciliation(
+    @Acct() ctx: AccountingContext,
+    @Param('reconciliationId', ParseUUIDPipe) reconciliationId: string,
+  ) {
     return this.banking.reconciliation(ctx, reconciliationId);
   }
 
@@ -339,11 +385,15 @@ export class MoneyController {
 
   @Post('reconciliations/:reconciliationId/complete')
   @RequireAccounting('accounting.reconcile_bank')
-  @ApiOperation({ summary: 'Complete a reconciliation (the difference must be zero, or an authorized adjustment given)' })
+  @ApiOperation({
+    summary:
+      'Complete a reconciliation (the difference must be zero, or an authorized adjustment given)',
+  })
   completeReconciliation(
     @Acct() ctx: AccountingContext,
     @Param('reconciliationId', ParseUUIDPipe) reconciliationId: string,
-    @Body(zodBody(reconciliationCompleteSchema)) input: { adjustment?: { accountId: string; reason: string } | null },
+    @Body(zodBody(reconciliationCompleteSchema))
+    input: { adjustment?: { accountId: string; reason: string } | null },
   ) {
     return this.banking.completeReconciliation(ctx, reconciliationId, input.adjustment ?? null);
   }
@@ -351,7 +401,10 @@ export class MoneyController {
   @Delete('reconciliations/:reconciliationId')
   @RequireAccounting('accounting.reconcile_bank')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async discardReconciliation(@Acct() ctx: AccountingContext, @Param('reconciliationId', ParseUUIDPipe) reconciliationId: string) {
+  async discardReconciliation(
+    @Acct() ctx: AccountingContext,
+    @Param('reconciliationId', ParseUUIDPipe) reconciliationId: string,
+  ) {
     await this.banking.discardReconciliation(ctx, reconciliationId);
   }
 
@@ -359,15 +412,24 @@ export class MoneyController {
 
   @Get('floor-plan')
   @RequireAccounting('accounting.view')
-  async floorPlanNotes(@Acct() ctx: AccountingContext, @Query(zodQuery(floorPlanQuerySchema)) query: z.infer<typeof floorPlanQuerySchema>) {
-    const [notes, summary] = await Promise.all([this.floorPlan.notes(ctx, query), this.floorPlan.summary(ctx)]);
+  async floorPlanNotes(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(floorPlanQuerySchema)) query: z.infer<typeof floorPlanQuerySchema>,
+  ) {
+    const [notes, summary] = await Promise.all([
+      this.floorPlan.notes(ctx, query),
+      this.floorPlan.summary(ctx),
+    ]);
     return { notes, summary };
   }
 
   @Post('floor-plan')
   @RequireAccounting('accounting.create', 'accounting.post')
   @ApiOperation({ summary: 'Floor-plan a vehicle already in inventory' })
-  createFloorPlanNote(@Acct() ctx: AccountingContext, @Body(zodBody(floorPlanNoteSchema)) input: FloorPlanNoteInput) {
+  createFloorPlanNote(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(floorPlanNoteSchema)) input: FloorPlanNoteInput,
+  ) {
     return this.floorPlan.createNote(ctx, input);
   }
 

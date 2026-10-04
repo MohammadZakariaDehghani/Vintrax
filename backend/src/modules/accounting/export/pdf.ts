@@ -19,7 +19,7 @@ const ROW_HEIGHT = 12;
 function textWidth(text: string, size: number, bold = false): number {
   let units = 0;
   for (const char of text) {
-    if ('ijl.,:;|!\''.includes(char)) units += 278;
+    if ("ijl.,:;|!'".includes(char)) units += 278;
     else if ('ftrI()[]- '.includes(char)) units += 333;
     else if ('mwMW'.includes(char)) units += 833;
     else if (/[A-Z]/.test(char)) units += 667;
@@ -74,7 +74,9 @@ export function toPdfFile(table: ReportTable, generatedAt = new Date()): Buffer 
     if (column.kind === 'number' || column.kind === 'percent') return 48;
     const longest = Math.max(
       textWidth(column.label, FONT_SIZE, true),
-      ...table.rows.slice(0, 300).map((row) => textWidth(cellText(row[column.key], column.kind, true), FONT_SIZE)),
+      ...table.rows
+        .slice(0, 300)
+        .map((row) => textWidth(cellText(row[column.key], column.kind, true), FONT_SIZE)),
     );
     return Math.min(220, Math.max(40, longest + 6));
   });
@@ -86,15 +88,23 @@ export function toPdfFile(table: ReportTable, generatedAt = new Date()): Buffer 
   let y = 0;
 
   const text = (x: number, yy: number, value: string, bold = false, size = FONT_SIZE) =>
-    ops.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${x.toFixed(2)} ${yy.toFixed(2)} Td ${pdfString(value)} Tj ET`);
+    ops.push(
+      `BT /${bold ? 'F2' : 'F1'} ${size} Tf ${x.toFixed(2)} ${yy.toFixed(2)} Td ${pdfString(value)} Tj ET`,
+    );
 
-  const drawRow = (row: Record<string, string | number | null | undefined>, bold: boolean, header = false) => {
+  const drawRow = (
+    row: Record<string, string | number | null | undefined>,
+    bold: boolean,
+    header = false,
+  ) => {
     let x = MARGIN;
     table.columns.forEach((column, index) => {
       const width = widths[index]!;
       const value = header ? column.label : cellText(row[column.key], column.kind, true);
       const shown = fit(value, width - 4, FONT_SIZE, bold);
-      const right = !header && (column.kind === 'money' || column.kind === 'number' || column.kind === 'percent');
+      const right =
+        !header &&
+        (column.kind === 'money' || column.kind === 'number' || column.kind === 'percent');
       const offset = right ? width - 2 - textWidth(shown, FONT_SIZE, bold) : 2;
       text(x + offset, y, shown, bold);
       x += width;
@@ -114,15 +124,22 @@ export function toPdfFile(table: ReportTable, generatedAt = new Date()): Buffer 
     }
     y -= 6;
     drawRow({}, true, true);
-    ops.push(`${MARGIN} ${(y + ROW_HEIGHT - 3).toFixed(2)} m ${PAGE_WIDTH - MARGIN} ${(y + ROW_HEIGHT - 3).toFixed(2)} l 0.5 w S`);
+    ops.push(
+      `${MARGIN} ${(y + ROW_HEIGHT - 3).toFixed(2)} m ${PAGE_WIDTH - MARGIN} ${(y + ROW_HEIGHT - 3).toFixed(2)} l 0.5 w S`,
+    );
   };
 
   startPage();
-  const rows: Array<[Record<string, string | number | null | undefined>, boolean]> = table.rows.map((row) => [row, false]);
+  const rows: Array<[Record<string, string | number | null | undefined>, boolean]> = table.rows.map(
+    (row) => [row, false],
+  );
   if (table.totals) rows.push([table.totals, true]);
   for (const [row, bold] of rows) {
     if (y < MARGIN + ROW_HEIGHT * 2) startPage();
-    if (bold) ops.push(`${MARGIN} ${(y + ROW_HEIGHT - 3).toFixed(2)} m ${PAGE_WIDTH - MARGIN} ${(y + ROW_HEIGHT - 3).toFixed(2)} l 0.5 w S`);
+    if (bold)
+      ops.push(
+        `${MARGIN} ${(y + ROW_HEIGHT - 3).toFixed(2)} m ${PAGE_WIDTH - MARGIN} ${(y + ROW_HEIGHT - 3).toFixed(2)} l 0.5 w S`,
+      );
     drawRow(row, bold);
   }
   pages.push(ops.join('\n'));
@@ -140,7 +157,8 @@ export function toPdfFile(table: ReportTable, generatedAt = new Date()): Buffer 
   const kids = footed.map((_, index) => `${6 + index * 2} 0 R`).join(' ');
   objects[2] = `<< /Type /Pages /Kids [${kids}] /Count ${footed.length} >>`;
   objects[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
-  objects[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+  objects[4] =
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
   footed.forEach((content, index) => {
     const contentId = 5 + index * 2;
     const pageId = 6 + index * 2;
@@ -161,7 +179,8 @@ export function toPdfFile(table: ReportTable, generatedAt = new Date()): Buffer 
     offset += chunk.length;
   }
   const xref = [`xref\n0 ${objects.length}\n`, '0000000000 65535 f \n'];
-  for (let id = 1; id < objects.length; id += 1) xref.push(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
+  for (let id = 1; id < objects.length; id += 1)
+    xref.push(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
   chunks.push(
     Buffer.from(
       `${xref.join('')}trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF\n`,

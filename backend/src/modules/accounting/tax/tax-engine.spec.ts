@@ -8,7 +8,10 @@ import { calculateTax, effectiveRules, type TaxRuleInput } from './tax-engine';
  * follow from the rates each default cites.
  */
 
-function rulesFor(province: Province, date: string): Array<TaxRuleInput & { dealerId: string | null }> {
+function rulesFor(
+  province: Province,
+  date: string,
+): Array<TaxRuleInput & { dealerId: string | null }> {
   return DEFAULT_TAX_RULES.filter(
     (rule) =>
       rule.province === province &&
@@ -29,7 +32,12 @@ function rulesFor(province: Province, date: string): Array<TaxRuleInput & { deal
   }));
 }
 
-const sale = (province: Province, lines: Array<[TaxCategory, number]>, tradeInCents = 0, date = '2026-06-15') =>
+const sale = (
+  province: Province,
+  lines: Array<[TaxCategory, number]>,
+  tradeInCents = 0,
+  date = '2026-06-15',
+) =>
   calculateTax({
     rules: rulesFor(province, date),
     lines: lines.map(([category, amountCents]) => ({ category, amountCents })),
@@ -75,7 +83,10 @@ describe('trade-ins', () => {
     // Ontario: $30,000 car, $10,000 trade-in → HST on $20,000.
     expect(byType(sale('ON', [['VEHICLE', 3_000_000]], 1_000_000))).toEqual({ HST: 260_000 });
     // Saskatchewan's own example: $18,000 less $5,000 trade → 6 % of $13,000.
-    expect(byType(sale('SK', [['VEHICLE', 1_800_000]], 500_000))).toEqual({ GST: 65_000, PST: 78_000 });
+    expect(byType(sale('SK', [['VEHICLE', 1_800_000]], 500_000))).toEqual({
+      GST: 65_000,
+      PST: 78_000,
+    });
   });
 
   it('never makes the taxable amount negative', () => {
@@ -148,7 +159,12 @@ describe('exemptions and rounding', () => {
 describe('dealer overrides', () => {
   it('replaces the platform rule of the same type, and only that type', () => {
     const platform = rulesFor('QC', '2026-01-01');
-    const dealerQst = { ...platform.find((rule) => rule.taxType === 'QST')!, id: 'mine', dealerId: 'd1', rate: '10' };
+    const dealerQst = {
+      ...platform.find((rule) => rule.taxType === 'QST')!,
+      id: 'mine',
+      dealerId: 'd1',
+      rate: '10',
+    };
     const rules = effectiveRules([...platform, dealerQst]);
     expect(rules.map((rule) => [rule.taxType, rule.rate])).toEqual(
       expect.arrayContaining([

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  BookOpen,
   Calculator,
   CircleHelp,
   FileUp,
@@ -27,7 +28,7 @@ interface NavLink {
 
 /**
  * The dealer portal's sections: the dashboard, the inventory and what hangs
- * off it, costs, and finance applications. Help opens the assistant rather than a page.
+ * off it, costs, finance applications and the accounting books. Help opens the assistant rather than a page.
  *
  * "Inventory" owns every /dealer/inventory path except the import screen,
  * which has its own entry, so exactly one entry is ever marked current.
@@ -71,6 +72,12 @@ const LINKS: NavLink[] = [
     label: 'Finance',
     icon: Landmark,
     match: (path) => path.startsWith('/dealer/finance'),
+  },
+  {
+    href: '/dealer/accounting',
+    label: 'Accounting',
+    icon: BookOpen,
+    match: (path) => path.startsWith('/dealer/accounting'),
   },
 ];
 

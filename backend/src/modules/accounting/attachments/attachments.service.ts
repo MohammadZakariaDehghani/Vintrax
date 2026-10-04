@@ -63,7 +63,9 @@ export class AttachmentsService {
       where: { dealerId: ctx.dealerId, entityType, entityId },
     });
     if (existing >= MAX_ATTACHMENTS_PER_RECORD) {
-      throw new BadRequestException(`A record can have at most ${MAX_ATTACHMENTS_PER_RECORD} attachments`);
+      throw new BadRequestException(
+        `A record can have at most ${MAX_ATTACHMENTS_PER_RECORD} attachments`,
+      );
     }
     const stored = await this.storage.uploadDocument({
       folder: 'documents',
@@ -110,13 +112,15 @@ export class AttachmentsService {
     const where = { id: entityId, dealerId: ctx.dealerId };
     const delegates: Record<AttachableType, () => Promise<unknown>> = {
       JournalEntry: () => this.prisma.journalEntry.findFirst({ where, select: { id: true } }),
-      VehicleAcquisition: () => this.prisma.vehicleAcquisition.findFirst({ where, select: { id: true } }),
+      VehicleAcquisition: () =>
+        this.prisma.vehicleAcquisition.findFirst({ where, select: { id: true } }),
       VehicleSale: () => this.prisma.vehicleSale.findFirst({ where, select: { id: true } }),
       Expense: () => this.prisma.expense.findFirst({ where, select: { id: true } }),
       VendorBill: () => this.prisma.vendorBill.findFirst({ where, select: { id: true } }),
       CustomerInvoice: () => this.prisma.customerInvoice.findFirst({ where, select: { id: true } }),
       Payment: () => this.prisma.payment.findFirst({ where, select: { id: true } }),
-      BankReconciliation: () => this.prisma.bankReconciliation.findFirst({ where, select: { id: true } }),
+      BankReconciliation: () =>
+        this.prisma.bankReconciliation.findFirst({ where, select: { id: true } }),
       BankTransaction: () => this.prisma.bankTransaction.findFirst({ where, select: { id: true } }),
       TaxFilingPeriod: () => this.prisma.taxFilingPeriod.findFirst({ where, select: { id: true } }),
       CustomerDeposit: () => this.prisma.customerDeposit.findFirst({ where, select: { id: true } }),
@@ -130,7 +134,14 @@ export class AttachmentsService {
 
   async auditLog(
     ctx: AccountingContext,
-    query: { entityType?: string; entityId?: string; action?: string; userId?: string; page: number; pageSize: number },
+    query: {
+      entityType?: string;
+      entityId?: string;
+      action?: string;
+      userId?: string;
+      page: number;
+      pageSize: number;
+    },
   ) {
     const where = {
       dealerId: ctx.dealerId,
@@ -172,12 +183,23 @@ export class AttachmentsService {
       where: { dealerId: ctx.dealerId, userId: ctx.userId, ...(report ? { report } : {}) },
       orderBy: { name: 'asc' },
     });
-    return rows.map((row) => ({ id: row.id, name: row.name, report: row.report, filters: row.filters }));
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      report: row.report,
+      filters: row.filters,
+    }));
   }
 
   async saveFilter(ctx: AccountingContext, input: SavedReportFilterInput) {
     const row = await this.prisma.savedReportFilter.create({
-      data: { dealerId: ctx.dealerId, userId: ctx.userId, name: input.name, report: input.report, filters: input.filters },
+      data: {
+        dealerId: ctx.dealerId,
+        userId: ctx.userId,
+        name: input.name,
+        report: input.report,
+        filters: input.filters,
+      },
     });
     return { id: row.id };
   }

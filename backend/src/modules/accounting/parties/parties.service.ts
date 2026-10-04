@@ -33,7 +33,10 @@ export class PartiesService {
         take: query.pageSize,
       }),
     ]);
-    const balances = await this.customerBalances(ctx, rows.map((row) => row.id));
+    const balances = await this.customerBalances(
+      ctx,
+      rows.map((row) => row.id),
+    );
     return {
       items: rows.map((row) => ({ ...customerView(row), balanceCents: balances.get(row.id) ?? 0 })),
       total,
@@ -44,7 +47,9 @@ export class PartiesService {
   }
 
   async customer(ctx: AccountingContext, customerId: string) {
-    const row = await this.prisma.customer.findFirst({ where: { id: customerId, dealerId: ctx.dealerId } });
+    const row = await this.prisma.customer.findFirst({
+      where: { id: customerId, dealerId: ctx.dealerId },
+    });
     if (!row) throw new NotFoundException('Customer not found');
     const balances = await this.customerBalances(ctx, [row.id]);
     return { ...customerView(row), balanceCents: balances.get(row.id) ?? 0 };
@@ -53,18 +58,32 @@ export class PartiesService {
   async createCustomer(ctx: AccountingContext, input: CustomerInput) {
     return this.prisma.$transaction(async (tx) => {
       if (input.userId) {
-        const user = await tx.user.findUnique({ where: { id: input.userId }, select: { id: true } });
+        const user = await tx.user.findUnique({
+          where: { id: input.userId },
+          select: { id: true },
+        });
         if (!user) throw new BadRequestException('That Vintrax account does not exist');
       }
       const customer = await tx.customer.create({ data: { dealerId: ctx.dealerId, ...input } });
-      await recordAudit(tx, ctx, { action: 'customer.created', entityType: 'Customer', entityId: customer.id, after: input });
+      await recordAudit(tx, ctx, {
+        action: 'customer.created',
+        entityType: 'Customer',
+        entityId: customer.id,
+        after: input,
+      });
       return customerView(customer);
     });
   }
 
-  async updateCustomer(ctx: AccountingContext, customerId: string, input: Partial<CustomerInput> & { isActive?: boolean }) {
+  async updateCustomer(
+    ctx: AccountingContext,
+    customerId: string,
+    input: Partial<CustomerInput> & { isActive?: boolean },
+  ) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.customer.findFirst({ where: { id: customerId, dealerId: ctx.dealerId } });
+      const existing = await tx.customer.findFirst({
+        where: { id: customerId, dealerId: ctx.dealerId },
+      });
       if (!existing) throw new NotFoundException('Customer not found');
       const customer = await tx.customer.update({ where: { id: existing.id }, data: input });
       await recordAudit(tx, ctx, {
@@ -78,7 +97,10 @@ export class PartiesService {
     });
   }
 
-  async vendors(ctx: AccountingContext, query: { q?: string; kind?: string; page: number; pageSize: number }) {
+  async vendors(
+    ctx: AccountingContext,
+    query: { q?: string; kind?: string; page: number; pageSize: number },
+  ) {
     const where: Prisma.VendorWhereInput = {
       dealerId: ctx.dealerId,
       ...(query.kind ? { kind: query.kind as never } : {}),
@@ -100,7 +122,10 @@ export class PartiesService {
         take: query.pageSize,
       }),
     ]);
-    const balances = await this.vendorBalances(ctx, rows.map((row) => row.id));
+    const balances = await this.vendorBalances(
+      ctx,
+      rows.map((row) => row.id),
+    );
     return {
       items: rows.map((row) => ({ ...vendorView(row), balanceCents: balances.get(row.id) ?? 0 })),
       total,
@@ -113,14 +138,25 @@ export class PartiesService {
   async createVendor(ctx: AccountingContext, input: VendorInput) {
     return this.prisma.$transaction(async (tx) => {
       const vendor = await tx.vendor.create({ data: { dealerId: ctx.dealerId, ...input } });
-      await recordAudit(tx, ctx, { action: 'vendor.created', entityType: 'Vendor', entityId: vendor.id, after: input });
+      await recordAudit(tx, ctx, {
+        action: 'vendor.created',
+        entityType: 'Vendor',
+        entityId: vendor.id,
+        after: input,
+      });
       return vendorView(vendor);
     });
   }
 
-  async updateVendor(ctx: AccountingContext, vendorId: string, input: Partial<VendorInput> & { isActive?: boolean }) {
+  async updateVendor(
+    ctx: AccountingContext,
+    vendorId: string,
+    input: Partial<VendorInput> & { isActive?: boolean },
+  ) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.vendor.findFirst({ where: { id: vendorId, dealerId: ctx.dealerId } });
+      const existing = await tx.vendor.findFirst({
+        where: { id: vendorId, dealerId: ctx.dealerId },
+      });
       if (!existing) throw new NotFoundException('Vendor not found');
       const vendor = await tx.vendor.update({ where: { id: existing.id }, data: input });
       await recordAudit(tx, ctx, {
@@ -135,7 +171,10 @@ export class PartiesService {
   }
 
   /** What each customer owes: their AR ledger balance (debit-positive). */
-  private async customerBalances(ctx: AccountingContext, ids: string[]): Promise<Map<string, number>> {
+  private async customerBalances(
+    ctx: AccountingContext,
+    ids: string[],
+  ): Promise<Map<string, number>> {
     if (ids.length === 0) return new Map();
     const ar = await this.prisma.acctAccount.findMany({
       where: { dealerId: ctx.dealerId, subtype: 'RECEIVABLE' },
@@ -151,11 +190,16 @@ export class PartiesService {
       },
       _sum: { debit: true, credit: true },
     });
-    return new Map(rows.map((row) => [row.customerId!, toCents(row._sum.debit) - toCents(row._sum.credit)]));
+    return new Map(
+      rows.map((row) => [row.customerId!, toCents(row._sum.debit) - toCents(row._sum.credit)]),
+    );
   }
 
   /** What the dealership owes each vendor: their AP ledger balance (credit-positive). */
-  private async vendorBalances(ctx: AccountingContext, ids: string[]): Promise<Map<string, number>> {
+  private async vendorBalances(
+    ctx: AccountingContext,
+    ids: string[],
+  ): Promise<Map<string, number>> {
     if (ids.length === 0) return new Map();
     const ap = await this.prisma.acctAccount.findMany({
       where: { dealerId: ctx.dealerId, subtype: 'PAYABLE' },
@@ -171,7 +215,9 @@ export class PartiesService {
       },
       _sum: { debit: true, credit: true },
     });
-    return new Map(rows.map((row) => [row.vendorId!, toCents(row._sum.credit) - toCents(row._sum.debit)]));
+    return new Map(
+      rows.map((row) => [row.vendorId!, toCents(row._sum.credit) - toCents(row._sum.debit)]),
+    );
   }
 }
 

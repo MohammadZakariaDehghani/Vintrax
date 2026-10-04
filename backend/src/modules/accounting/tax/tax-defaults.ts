@@ -55,18 +55,16 @@ const BC_PST_308 =
 const GST_ONLY: Province[] = ['AB', 'BC', 'MB', 'NT', 'NU', 'QC', 'SK', 'YT'];
 
 export const DEFAULT_TAX_RULES: readonly DefaultTaxRule[] = [
-  ...GST_ONLY.map(
-    (province): DefaultTaxRule => ({
-      province,
-      taxType: 'GST',
-      name: 'GST',
-      rate: '5',
-      effectiveFrom: '2008-01-01',
-      tradeInReducesBase: true,
-      recoverable: true,
-      source: CRA_RATES,
-    }),
-  ),
+  ...GST_ONLY.map((province): DefaultTaxRule => ({
+    province,
+    taxType: 'GST',
+    name: 'GST',
+    rate: '5',
+    effectiveFrom: '2008-01-01',
+    tradeInReducesBase: true,
+    recoverable: true,
+    source: CRA_RATES,
+  })),
   {
     province: 'ON',
     taxType: 'HST',
@@ -151,23 +149,21 @@ export const DEFAULT_TAX_RULES: readonly DefaultTaxRule[] = [
       [12_500_000, 14_999_999, '15'],
       [15_000_000, null, '20'],
     ] as const
-  ).map(
-    ([min, max, rate]): DefaultTaxRule => ({
-      province: 'BC',
-      taxType: 'PST',
-      name: `PST on vehicles (${rate}%)`,
-      rate,
-      effectiveFrom: '2018-04-01',
-      taxableCategories: ['VEHICLE', 'FEES'],
-      minPriceCents: min,
-      ...(max === null ? {} : { maxPriceCents: max }),
-      tradeInReducesBase: true,
-      recoverable: false,
-      source: `${BC_PST_308}; BC Notice 2018-003`,
-      notes:
-        'Passenger vehicles. The rate is set by the purchase price before the trade-in; tax applies to the price after it.',
-    }),
-  ),
+  ).map(([min, max, rate]): DefaultTaxRule => ({
+    province: 'BC',
+    taxType: 'PST',
+    name: `PST on vehicles (${rate}%)`,
+    rate,
+    effectiveFrom: '2018-04-01',
+    taxableCategories: ['VEHICLE', 'FEES'],
+    minPriceCents: min,
+    ...(max === null ? {} : { maxPriceCents: max }),
+    tradeInReducesBase: true,
+    recoverable: false,
+    source: `${BC_PST_308}; BC Notice 2018-003`,
+    notes:
+      'Passenger vehicles. The rate is set by the purchase price before the trade-in; tax applies to the price after it.',
+  })),
   {
     province: 'BC',
     taxType: 'PST',
@@ -177,8 +173,7 @@ export const DEFAULT_TAX_RULES: readonly DefaultTaxRule[] = [
     taxableCategories: ['ACCESSORIES', 'PARTS', 'GENERAL', 'SERVICE', 'WARRANTY'],
     tradeInReducesBase: false,
     recoverable: false,
-    source:
-      'BC Provincial Sales Tax Act; https://www2.gov.bc.ca/gov/content/taxes/sales-taxes/pst',
+    source: 'BC Provincial Sales Tax Act; https://www2.gov.bc.ca/gov/content/taxes/sales-taxes/pst',
   },
   {
     province: 'SK',
@@ -210,7 +205,9 @@ export const DEFAULT_TAX_RULES: readonly DefaultTaxRule[] = [
 export function defaultTaxRulesSql(): string {
   const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;
   const array = (values: readonly string[] | undefined) =>
-    values && values.length > 0 ? `ARRAY[${values.map(quote).join(', ')}]::text[]` : `ARRAY[]::text[]`;
+    values && values.length > 0
+      ? `ARRAY[${values.map(quote).join(', ')}]::text[]`
+      : `ARRAY[]::text[]`;
   const rows = DEFAULT_TAX_RULES.map(
     (rule) =>
       `(gen_random_uuid(), NULL, ${quote(rule.province)}::"Province", ${quote(rule.taxType)}::"TaxType", ${quote(rule.name)}, ${rule.rate}, ` +

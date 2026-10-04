@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
@@ -20,7 +25,12 @@ export class PeriodsService {
   async list(ctx: AccountingContext) {
     // The current year always exists, so the screen has something to show.
     await this.prisma.$transaction(async (tx) => {
-      await ensureFiscalYear(tx, ctx.dealerId, todayIso(), await fiscalCalendarOf(tx, ctx.dealerId));
+      await ensureFiscalYear(
+        tx,
+        ctx.dealerId,
+        todayIso(),
+        await fiscalCalendarOf(tx, ctx.dealerId),
+      );
     });
     const years = await this.prisma.fiscalYear.findMany({
       where: { dealerId: ctx.dealerId },
@@ -61,8 +71,17 @@ export class PeriodsService {
   /** Creates next year's periods ahead of time (otherwise the first posting does). */
   async openYear(ctx: AccountingContext, date: string) {
     return this.prisma.$transaction(async (tx) => {
-      const year = await ensureFiscalYear(tx, ctx.dealerId, date, await fiscalCalendarOf(tx, ctx.dealerId));
-      await recordAudit(tx, ctx, { action: 'period.year_opened', entityType: 'FiscalYear', entityId: year.id });
+      const year = await ensureFiscalYear(
+        tx,
+        ctx.dealerId,
+        date,
+        await fiscalCalendarOf(tx, ctx.dealerId),
+      );
+      await recordAudit(tx, ctx, {
+        action: 'period.year_opened',
+        entityType: 'FiscalYear',
+        entityId: year.id,
+      });
       return year;
     });
   }
@@ -70,7 +89,8 @@ export class PeriodsService {
   async closePeriod(ctx: AccountingContext, periodId: string, reason: string | null) {
     return this.prisma.$transaction(async (tx) => {
       const period = await this.requirePeriod(tx, ctx, periodId);
-      if (period.status === 'CLOSED') throw new ConflictException(`${period.name} is already closed`);
+      if (period.status === 'CLOSED')
+        throw new ConflictException(`${period.name} is already closed`);
       const drafts = await tx.journalEntry.count({
         where: {
           dealerId: ctx.dealerId,
@@ -79,7 +99,9 @@ export class PeriodsService {
         },
       });
       if (drafts > 0) {
-        throw new ConflictException(`Post or delete the ${drafts} draft entr${drafts === 1 ? 'y' : 'ies'} in ${period.name} first`);
+        throw new ConflictException(
+          `Post or delete the ${drafts} draft entr${drafts === 1 ? 'y' : 'ies'} in ${period.name} first`,
+        );
       }
       await tx.accountingPeriod.update({
         where: { id: period.id },
@@ -102,11 +124,18 @@ export class PeriodsService {
       const period = await this.requirePeriod(tx, ctx, periodId);
       if (period.status === 'OPEN') throw new ConflictException(`${period.name} is already open`);
       if (period.fiscalYear.status === 'CLOSED') {
-        throw new ConflictException(`${period.fiscalYear.name} has been closed at year end; reopen the year first`);
+        throw new ConflictException(
+          `${period.fiscalYear.name} has been closed at year end; reopen the year first`,
+        );
       }
       await tx.accountingPeriod.update({
         where: { id: period.id },
-        data: { status: 'OPEN', reopenedAt: new Date(), reopenedById: ctx.userId, reopenReason: reason },
+        data: {
+          status: 'OPEN',
+          reopenedAt: new Date(),
+          reopenedById: ctx.userId,
+          reopenReason: reason,
+        },
       });
       await recordAudit(tx, ctx, {
         action: 'period.reopened',
@@ -145,15 +174,25 @@ export class PeriodsService {
         });
         if (earlierOpen) throw new ConflictException(`Close ${earlierOpen.name} first`);
         const drafts = await tx.journalEntry.count({
-          where: { dealerId: ctx.dealerId, status: 'DRAFT', date: { gte: year.startDate, lte: year.endDate } },
+          where: {
+            dealerId: ctx.dealerId,
+            status: 'DRAFT',
+            date: { gte: year.startDate, lte: year.endDate },
+          },
         });
-        if (drafts > 0) throw new ConflictException(`Post or delete the ${drafts} draft entries in ${year.name} first`);
+        if (drafts > 0)
+          throw new ConflictException(
+            `Post or delete the ${drafts} draft entries in ${year.name} first`,
+          );
 
         // The closing entry is dated in the last period, which must be open
         // while it posts; the whole year is closed straight after.
         const lastPeriod = year.periods.find((period) => period.number === 12);
         if (lastPeriod?.status === 'CLOSED') {
-          await tx.accountingPeriod.update({ where: { id: lastPeriod.id }, data: { status: 'OPEN' } });
+          await tx.accountingPeriod.update({
+            where: { id: lastPeriod.id },
+            data: { status: 'OPEN' },
+          });
         }
 
         const accounts = await tx.acctAccount.findMany({
@@ -164,7 +203,9 @@ export class PeriodsService {
           to: endDate,
           accountIds: accounts.map((account) => account.id),
         });
-        const { RETAINED_EARNINGS: retained } = await this.posting.accounts(tx, ctx.dealerId, ['RETAINED_EARNINGS']);
+        const { RETAINED_EARNINGS: retained } = await this.posting.accounts(tx, ctx.dealerId, [
+          'RETAINED_EARNINGS',
+        ]);
 
         const lines: LedgerLine[] = [];
         let netDebit = 0; // debit-positive sum of the P&L balances
@@ -212,7 +253,12 @@ export class PeriodsService {
           data: { status: 'CLOSED', closedAt: new Date(), closedById: ctx.userId, closingEntryId },
         });
         // The next year exists, so its opening balances are visible at once.
-        await ensureFiscalYear(tx, ctx.dealerId, addDays(endDate, 1), await fiscalCalendarOf(tx, ctx.dealerId));
+        await ensureFiscalYear(
+          tx,
+          ctx.dealerId,
+          addDays(endDate, 1),
+          await fiscalCalendarOf(tx, ctx.dealerId),
+        );
 
         await recordAudit(tx, ctx, {
           action: 'period.year_closed',
@@ -230,7 +276,9 @@ export class PeriodsService {
   /** Undoes a year-end close: reopens the year and reverses its closing entry. */
   async reopenYear(ctx: AccountingContext, fiscalYearId: string, reason: string) {
     return this.prisma.$transaction(async (tx) => {
-      const year = await tx.fiscalYear.findFirst({ where: { id: fiscalYearId, dealerId: ctx.dealerId } });
+      const year = await tx.fiscalYear.findFirst({
+        where: { id: fiscalYearId, dealerId: ctx.dealerId },
+      });
       if (!year) throw new NotFoundException('Fiscal year not found');
       if (year.status !== 'CLOSED') throw new ConflictException(`${year.name} is not closed`);
       const laterClosed = await tx.fiscalYear.findFirst({
@@ -239,13 +287,24 @@ export class PeriodsService {
       });
       if (laterClosed) throw new ConflictException(`Reopen ${laterClosed.name} first`);
 
-      await tx.fiscalYear.update({ where: { id: year.id }, data: { status: 'OPEN', closedAt: null } });
+      await tx.fiscalYear.update({
+        where: { id: year.id },
+        data: { status: 'OPEN', closedAt: null },
+      });
       await tx.accountingPeriod.updateMany({
         where: { fiscalYearId: year.id },
-        data: { status: 'OPEN', reopenedAt: new Date(), reopenedById: ctx.userId, reopenReason: reason },
+        data: {
+          status: 'OPEN',
+          reopenedAt: new Date(),
+          reopenedById: ctx.userId,
+          reopenReason: reason,
+        },
       });
       if (year.closingEntryId) {
-        await this.posting.reverse(tx, ctx, year.closingEntryId, { date: fromDbDate(year.endDate), reason });
+        await this.posting.reverse(tx, ctx, year.closingEntryId, {
+          date: fromDbDate(year.endDate),
+          reason,
+        });
         await tx.fiscalYear.update({ where: { id: year.id }, data: { closingEntryId: null } });
       }
       await recordAudit(tx, ctx, {

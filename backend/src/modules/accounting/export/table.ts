@@ -24,9 +24,14 @@ export function centsDisplay(cents: number): string {
   return cents < 0 ? `(${text})` : text;
 }
 
-export function cellText(value: string | number | null | undefined, kind: string | undefined, forDisplay: boolean): string {
+export function cellText(
+  value: string | number | null | undefined,
+  kind: string | undefined,
+  forDisplay: boolean,
+): string {
   if (value === null || value === undefined) return '';
-  if (kind === 'money' && typeof value === 'number') return forDisplay ? centsDisplay(value) : centsText(value);
+  if (kind === 'money' && typeof value === 'number')
+    return forDisplay ? centsDisplay(value) : centsText(value);
   if (kind === 'percent' && typeof value === 'number') return `${(value / 100).toFixed(2)}%`;
   return String(value);
 }
@@ -46,7 +51,10 @@ export function toCsvFile(table: ReportTable): Buffer {
     table.columns
       .map((column) => {
         const value = row[column.key];
-        if (typeof value === 'number' && (column.kind === 'money' || column.kind === 'number' || column.kind === 'percent')) {
+        if (
+          typeof value === 'number' &&
+          (column.kind === 'money' || column.kind === 'number' || column.kind === 'percent')
+        ) {
           return cellText(value, column.kind, false);
         }
         return escapeCsvCell(value === null || value === undefined ? '' : String(value));

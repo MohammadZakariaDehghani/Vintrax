@@ -52,10 +52,18 @@ export class ExportService {
 
   async export(ctx: AccountingContext, report: ExportableReport, query: ExportQuery) {
     const table = await this.table(ctx, report, query);
-    const dealer = await this.prisma.dealer.findUnique({ where: { id: ctx.dealerId }, select: { name: true } });
-    if (dealer?.name) table.subtitle = table.subtitle ? `${dealer.name} · ${table.subtitle}` : dealer.name;
+    const dealer = await this.prisma.dealer.findUnique({
+      where: { id: ctx.dealerId },
+      select: { name: true },
+    });
+    if (dealer?.name)
+      table.subtitle = table.subtitle ? `${dealer.name} · ${table.subtitle}` : dealer.name;
     const body =
-      query.format === 'xlsx' ? toXlsxFile(table) : query.format === 'pdf' ? toPdfFile(table) : toCsvFile(table);
+      query.format === 'xlsx'
+        ? toXlsxFile(table)
+        : query.format === 'pdf'
+          ? toPdfFile(table)
+          : toCsvFile(table);
     return {
       body,
       contentType: CONTENT_TYPES[query.format],
@@ -63,13 +71,19 @@ export class ExportService {
     };
   }
 
-  async table(ctx: AccountingContext, report: ExportableReport, query: ExportQuery): Promise<ReportTable> {
+  async table(
+    ctx: AccountingContext,
+    report: ExportableReport,
+    query: ExportQuery,
+  ): Promise<ReportTable> {
     const all = { ...query, page: 1, pageSize: EXPORT_ROW_LIMIT };
     switch (report) {
       case 'general-ledger': {
         const ledger = await this.statements.generalLedger(ctx, all);
         return {
-          title: ledger.account ? `General ledger — ${ledger.account.code} ${ledger.account.name}` : 'General ledger',
+          title: ledger.account
+            ? `General ledger — ${ledger.account.code} ${ledger.account.name}`
+            : 'General ledger',
           subtitle: `${ledger.range.from} to ${ledger.range.to}`,
           columns: [
             { key: 'date', label: 'Date' },
@@ -81,17 +95,24 @@ export class ExportService {
             { key: 'party', label: 'Customer / vendor' },
             { key: 'debit', label: 'Debit', kind: 'money' },
             { key: 'credit', label: 'Credit', kind: 'money' },
-            ...(ledger.account ? [{ key: 'balance', label: 'Balance', kind: 'money' as const }] : []),
+            ...(ledger.account
+              ? [{ key: 'balance', label: 'Balance', kind: 'money' as const }]
+              : []),
           ],
           rows: [
-            ...(ledger.account ? [{ description: 'Opening balance', balance: ledger.openingCents }] : []),
+            ...(ledger.account
+              ? [{ description: 'Opening balance', balance: ledger.openingCents }]
+              : []),
             ...ledger.items.map((item) => ({
               date: item.date,
               reference: item.reference,
               account: `${item.account.code} ${item.account.name}`,
               description: item.description,
               source: JOURNAL_SOURCE_LABELS[item.source],
-              vehicle: item.vehicle ? item.vehicle.vin ?? `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}` : '',
+              vehicle: item.vehicle
+                ? (item.vehicle.vin ??
+                  `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`)
+                : '',
               party: item.customer?.name ?? item.vendor?.name ?? '',
               debit: item.debitCents || null,
               credit: item.creditCents || null,
@@ -146,14 +167,32 @@ export class ExportService {
         const rows: Row[] = [];
         const section = (s: StatementSection) => {
           rows.push({ name: s.label });
-          for (const line of s.lines) rows.push({ code: line.code, name: `  ${line.name}`, amount: line.amountCents, compare: line.compareCents });
-          rows.push({ name: `Total ${s.label.toLowerCase()}`, amount: s.totalCents, compare: s.compareTotalCents });
+          for (const line of s.lines)
+            rows.push({
+              code: line.code,
+              name: `  ${line.name}`,
+              amount: line.amountCents,
+              compare: line.compareCents,
+            });
+          rows.push({
+            name: `Total ${s.label.toLowerCase()}`,
+            amount: s.totalCents,
+            compare: s.compareTotalCents,
+          });
         };
         section(pl.revenue);
         section(pl.cogs);
-        rows.push({ name: 'Gross profit', amount: pl.grossProfitCents, compare: pl.compare?.grossProfitCents });
+        rows.push({
+          name: 'Gross profit',
+          amount: pl.grossProfitCents,
+          compare: pl.compare?.grossProfitCents,
+        });
         section(pl.expenses);
-        rows.push({ name: 'Operating income', amount: pl.operatingIncomeCents, compare: pl.compare?.operatingIncomeCents });
+        rows.push({
+          name: 'Operating income',
+          amount: pl.operatingIncomeCents,
+          compare: pl.compare?.operatingIncomeCents,
+        });
         if (pl.otherIncome.lines.length) section(pl.otherIncome);
         if (pl.otherExpense.lines.length) section(pl.otherExpense);
         return {
@@ -166,7 +205,11 @@ export class ExportService {
             ...(compare ? [{ key: 'compare', label: 'Comparison', kind: 'money' as const }] : []),
           ],
           rows,
-          totals: { name: 'Net income', amount: pl.netIncomeCents, compare: pl.compare?.netIncomeCents },
+          totals: {
+            name: 'Net income',
+            amount: pl.netIncomeCents,
+            compare: pl.compare?.netIncomeCents,
+          },
         };
       }
 
@@ -177,10 +220,30 @@ export class ExportService {
         for (const section of bs.sections) {
           if (section.lines.length === 0) continue;
           rows.push({ name: section.label });
-          for (const line of section.lines) rows.push({ code: line.code, name: `  ${line.name}`, amount: line.amountCents, compare: line.compareCents });
-          rows.push({ name: `Total ${section.label.toLowerCase()}`, amount: section.totalCents, compare: section.compareTotalCents });
-          if (section.key === 'FIXED_ASSETS') rows.push({ name: 'Total assets', amount: bs.totalAssetsCents, compare: bs.compare?.totalAssetsCents });
-          if (section.key === 'LONG_TERM_LIABILITIES') rows.push({ name: 'Total liabilities', amount: bs.totalLiabilitiesCents, compare: bs.compare?.totalLiabilitiesCents });
+          for (const line of section.lines)
+            rows.push({
+              code: line.code,
+              name: `  ${line.name}`,
+              amount: line.amountCents,
+              compare: line.compareCents,
+            });
+          rows.push({
+            name: `Total ${section.label.toLowerCase()}`,
+            amount: section.totalCents,
+            compare: section.compareTotalCents,
+          });
+          if (section.key === 'FIXED_ASSETS')
+            rows.push({
+              name: 'Total assets',
+              amount: bs.totalAssetsCents,
+              compare: bs.compare?.totalAssetsCents,
+            });
+          if (section.key === 'LONG_TERM_LIABILITIES')
+            rows.push({
+              name: 'Total liabilities',
+              amount: bs.totalLiabilitiesCents,
+              compare: bs.compare?.totalLiabilitiesCents,
+            });
         }
         return {
           title: 'Balance sheet',
@@ -195,21 +258,29 @@ export class ExportService {
           totals: {
             name: 'Total liabilities and equity',
             amount: bs.totalLiabilitiesCents + bs.totalEquityCents,
-            compare: bs.compare ? bs.compare.totalLiabilitiesCents + bs.compare.totalEquityCents : undefined,
+            compare: bs.compare
+              ? bs.compare.totalLiabilitiesCents + bs.compare.totalEquityCents
+              : undefined,
           },
         };
       }
 
       case 'cash-flow': {
         const cf = await this.statements.cashFlow(ctx, query);
-        const rows: Row[] = [{ name: 'Operating activities' }, { name: '  Net income', amount: cf.netIncomeCents }];
-        for (const line of cf.operating.lines) rows.push({ code: line.code, name: `  ${line.name}`, amount: line.amountCents });
+        const rows: Row[] = [
+          { name: 'Operating activities' },
+          { name: '  Net income', amount: cf.netIncomeCents },
+        ];
+        for (const line of cf.operating.lines)
+          rows.push({ code: line.code, name: `  ${line.name}`, amount: line.amountCents });
         rows.push({ name: 'Net cash from operating activities', amount: cf.operating.totalCents });
         rows.push({ name: 'Investing activities' });
-        for (const line of cf.investing.lines) rows.push({ code: line.code, name: `  ${line.name}`, amount: line.amountCents });
+        for (const line of cf.investing.lines)
+          rows.push({ code: line.code, name: `  ${line.name}`, amount: line.amountCents });
         rows.push({ name: 'Net cash from investing activities', amount: cf.investing.totalCents });
         rows.push({ name: 'Financing activities' });
-        for (const line of cf.financing.lines) rows.push({ code: line.code, name: `  ${line.name}`, amount: line.amountCents });
+        for (const line of cf.financing.lines)
+          rows.push({ code: line.code, name: `  ${line.name}`, amount: line.amountCents });
         rows.push({ name: 'Net cash from financing activities', amount: cf.financing.totalCents });
         rows.push({ name: 'Net change in cash', amount: cf.netChangeCents });
         rows.push({ name: 'Cash at beginning of period', amount: cf.beginningCashCents });
@@ -261,16 +332,34 @@ export class ExportService {
       case 'ap-aging': {
         const receivable = report === 'ar-aging';
         const asOf = query.to ?? todayIso();
-        const aging = receivable ? await this.operations.arAging(ctx, asOf) : await this.operations.apAging(ctx, asOf);
+        const aging = receivable
+          ? await this.operations.arAging(ctx, asOf)
+          : await this.operations.apAging(ctx, asOf);
         const groups = receivable
-          ? (aging as Awaited<ReturnType<OperationsReportsService['arAging']>>).byCustomer.map((row) => ({ name: row.customer.name, buckets: row.buckets, totalCents: row.totalCents }))
-          : (aging as Awaited<ReturnType<OperationsReportsService['apAging']>>).byVendor.map((row) => ({ name: row.vendor.name, buckets: row.buckets, totalCents: row.totalCents }));
+          ? (aging as Awaited<ReturnType<OperationsReportsService['arAging']>>).byCustomer.map(
+              (row) => ({
+                name: row.customer.name,
+                buckets: row.buckets,
+                totalCents: row.totalCents,
+              }),
+            )
+          : (aging as Awaited<ReturnType<OperationsReportsService['apAging']>>).byVendor.map(
+              (row) => ({
+                name: row.vendor.name,
+                buckets: row.buckets,
+                totalCents: row.totalCents,
+              }),
+            );
         return {
           title: receivable ? 'Accounts receivable aging' : 'Accounts payable aging',
           subtitle: `As of ${aging.asOf}`,
           columns: [
             { key: 'name', label: receivable ? 'Customer' : 'Vendor' },
-            ...AGING_BUCKETS.map((bucket) => ({ key: bucket, label: AGING_BUCKET_LABELS[bucket], kind: 'money' as const })),
+            ...AGING_BUCKETS.map((bucket) => ({
+              key: bucket,
+              label: AGING_BUCKET_LABELS[bucket],
+              kind: 'money' as const,
+            })),
             { key: 'total', label: 'Total', kind: 'money' },
           ],
           rows: groups.map((group) => ({
@@ -411,7 +500,10 @@ export class ExportService {
             vendor: item.vendor?.name ?? '',
             account: item.account ? `${item.account.code} ${item.account.name}` : '',
             treatment: EXPENSE_TREATMENT_LABELS[item.treatment],
-            vehicle: item.vehicle ? item.vehicle.vin ?? `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}` : '',
+            vehicle: item.vehicle
+              ? (item.vehicle.vin ??
+                `${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`)
+              : '',
             description: item.description,
             amount: item.amountCents,
             tax: item.taxCents,
@@ -423,7 +515,8 @@ export class ExportService {
       }
 
       case 'reconciliation': {
-        if (!query.reconciliationId) throw new BadRequestException('Choose a reconciliation to export');
+        if (!query.reconciliationId)
+          throw new BadRequestException('Choose a reconciliation to export');
         const rec = await this.banking.reconciliation(ctx, query.reconciliationId);
         return {
           title: `Bank reconciliation — ${rec.bankAccount.name}`,
@@ -454,13 +547,40 @@ export class ExportService {
         const rows: Row[] = [
           { metric: 'Units sold', value: kpis.unitsSold, kind: 'number' },
           { metric: 'Average selling price', value: kpis.averageSellingPriceCents, kind: 'money' },
-          { metric: 'Average gross profit per vehicle', value: kpis.averageGrossProfitCents, kind: 'money' },
-          { metric: 'Gross margin', value: kpis.grossMarginBasisPoints === null ? null : `${(kpis.grossMarginBasisPoints / 100).toFixed(2)}%`, kind: 'text' },
-          { metric: 'Inventory turnover', value: kpis.inventoryTurnover === null ? null : String(kpis.inventoryTurnover), kind: 'text' },
-          { metric: 'Average days in inventory', value: kpis.averageDaysInInventory, kind: 'number' },
+          {
+            metric: 'Average gross profit per vehicle',
+            value: kpis.averageGrossProfitCents,
+            kind: 'money',
+          },
+          {
+            metric: 'Gross margin',
+            value:
+              kpis.grossMarginBasisPoints === null
+                ? null
+                : `${(kpis.grossMarginBasisPoints / 100).toFixed(2)}%`,
+            kind: 'text',
+          },
+          {
+            metric: 'Inventory turnover',
+            value: kpis.inventoryTurnover === null ? null : String(kpis.inventoryTurnover),
+            kind: 'text',
+          },
+          {
+            metric: 'Average days in inventory',
+            value: kpis.averageDaysInInventory,
+            kind: 'number',
+          },
           { metric: 'Average vehicle cost', value: kpis.averageVehicleCostCents, kind: 'money' },
-          { metric: 'Reconditioning per vehicle', value: kpis.reconditioningPerVehicleCents, kind: 'money' },
-          { metric: 'Advertising per vehicle sold', value: kpis.advertisingPerVehicleCents, kind: 'money' },
+          {
+            metric: 'Reconditioning per vehicle',
+            value: kpis.reconditioningPerVehicleCents,
+            kind: 'money',
+          },
+          {
+            metric: 'Advertising per vehicle sold',
+            value: kpis.advertisingPerVehicleCents,
+            kind: 'money',
+          },
           { metric: 'Revenue per unit', value: kpis.revenuePerUnitCents, kind: 'money' },
           { metric: 'Expense per unit', value: kpis.expensePerUnitCents, kind: 'money' },
           { metric: 'Net profit per unit', value: kpis.netProfitPerUnitCents, kind: 'money' },
@@ -487,7 +607,11 @@ export class ExportService {
 
       case 'monthly': {
         const month = query.month ?? (query.from ?? todayIso()).slice(0, 7);
-        const result = await this.operations.monthly(ctx, month, query.compare === 'PREVIOUS_YEAR' ? 'SAME_MONTH_LAST_YEAR' : 'PREVIOUS_MONTH');
+        const result = await this.operations.monthly(
+          ctx,
+          month,
+          query.compare === 'PREVIOUS_YEAR' ? 'SAME_MONTH_LAST_YEAR' : 'PREVIOUS_MONTH',
+        );
         const metrics: Array<[string, keyof typeof result.current, 'money' | 'number']> = [
           ['Revenue', 'revenueCents', 'money'],
           ['Cost of sales', 'cogsCents', 'money'],
@@ -505,7 +629,8 @@ export class ExportService {
           ['Accounts payable', 'apCents', 'money'],
           ['Inventory', 'inventoryCents', 'money'],
         ];
-        const text = (value: number, kind: 'money' | 'number') => (kind === 'money' ? centsText(value) : String(value));
+        const text = (value: number, kind: 'money' | 'number') =>
+          kind === 'money' ? centsText(value) : String(value);
         return {
           title: `Monthly report — ${month}`,
           subtitle: `Compared with ${result.compareRange.from} to ${result.compareRange.to}`,

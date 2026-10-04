@@ -1,11 +1,21 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma, Province } from '@prisma/client';
 import type { InvoiceInput, ReportQuery } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
 import { recordAudit } from '../core/audit';
 import { fromDbDate, toDbDate, todayIso } from '../core/dates';
-import { dealerProvince, nextInvoiceNumber, requireAccount, requireCustomer } from '../core/documents';
+import {
+  dealerProvince,
+  nextInvoiceNumber,
+  requireAccount,
+  requireCustomer,
+} from '../core/documents';
 import { fromCents, sumCents, toCents } from '../core/money';
 import { PostingService, type LedgerLine } from '../journal/posting.service';
 import { TaxService, payableAccountKey } from '../tax/tax.service';
@@ -75,7 +85,10 @@ export class InvoicesService {
       const tax = await this.tax.calculate(tx, ctx.dealerId, {
         province,
         date: input.date,
-        lines: input.lines.map((line) => ({ category: line.taxCategory, amountCents: line.amount })),
+        lines: input.lines.map((line) => ({
+          category: line.taxCategory,
+          amountCents: line.amount,
+        })),
       });
       const subtotal = sumCents(input.lines.map((line) => line.amount));
       const total = subtotal + tax.totalTaxCents;
@@ -103,7 +116,13 @@ export class InvoicesService {
       });
 
       const lines: LedgerLine[] = [
-        { accountId: ar, debit: total, credit: 0, description: `Invoice ${invoice.number}`, customerId: customer.id },
+        {
+          accountId: ar,
+          debit: total,
+          credit: 0,
+          description: `Invoice ${invoice.number}`,
+          customerId: customer.id,
+        },
         ...input.lines.map((line) => ({
           accountId: line.accountId,
           debit: 0,
@@ -132,7 +151,10 @@ export class InvoicesService {
         sourceId: invoice.id,
         lines,
       });
-      await tx.customerInvoice.update({ where: { id: invoice.id }, data: { journalEntryId: entry.id } });
+      await tx.customerInvoice.update({
+        where: { id: invoice.id },
+        data: { journalEntryId: entry.id },
+      });
       await this.tax.recordTaxLines(tx, ctx, {
         calculation: tax,
         province,
@@ -146,20 +168,34 @@ export class InvoicesService {
         action: 'invoice.created',
         entityType: 'CustomerInvoice',
         entityId: invoice.id,
-        after: { number: invoice.number, customerId: customer.id, totalCents: total, journal: entry.reference },
+        after: {
+          number: invoice.number,
+          customerId: customer.id,
+          totalCents: total,
+          journal: entry.reference,
+        },
       });
-      return { id: invoice.id, number: invoice.number, totalCents: total, journalEntryId: entry.id };
+      return {
+        id: invoice.id,
+        number: invoice.number,
+        totalCents: total,
+        journalEntryId: entry.id,
+      };
     });
   }
 
   /** Voids an unpaid invoice raised here (not a sale's — reverse the sale). */
   async void(ctx: AccountingContext, invoiceId: string, reason: string) {
     return this.prisma.$transaction(async (tx) => {
-      const invoice = await tx.customerInvoice.findFirst({ where: { id: invoiceId, dealerId: ctx.dealerId } });
+      const invoice = await tx.customerInvoice.findFirst({
+        where: { id: invoiceId, dealerId: ctx.dealerId },
+      });
       if (!invoice) throw new NotFoundException('Invoice not found');
       if (invoice.status === 'VOID') throw new ConflictException('This invoice is already void');
-      if (invoice.saleId) throw new ConflictException('This invoice belongs to a sale; reverse the sale instead');
-      if (toCents(invoice.amountPaid) > 0) throw new ConflictException('Payments are applied to this invoice; reverse them first');
+      if (invoice.saleId)
+        throw new ConflictException('This invoice belongs to a sale; reverse the sale instead');
+      if (toCents(invoice.amountPaid) > 0)
+        throw new ConflictException('Payments are applied to this invoice; reverse them first');
       const reversal = await this.posting.reverse(tx, ctx, invoice.journalEntryId!, { reason });
       await this.tax.reverseTaxLines(tx, ctx, {
         sourceType: 'CustomerInvoice',
@@ -167,7 +203,10 @@ export class InvoicesService {
         date: todayIso(),
         journalEntryId: reversal.id,
       });
-      await tx.customerInvoice.update({ where: { id: invoice.id }, data: { status: 'VOID', voidEntryId: reversal.id } });
+      await tx.customerInvoice.update({
+        where: { id: invoice.id },
+        data: { status: 'VOID', voidEntryId: reversal.id },
+      });
       await recordAudit(tx, ctx, {
         action: 'invoice.voided',
         entityType: 'CustomerInvoice',
@@ -182,7 +221,9 @@ export class InvoicesService {
 
   /** Everything with one customer, oldest first, with a running balance. */
   async statement(ctx: AccountingContext, customerId: string, from: string, to: string) {
-    const customer = await this.prisma.customer.findFirst({ where: { id: customerId, dealerId: ctx.dealerId } });
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, dealerId: ctx.dealerId },
+    });
     if (!customer) throw new NotFoundException('Customer not found');
     const ar = await this.prisma.acctAccount.findMany({
       where: { dealerId: ctx.dealerId, subtype: 'RECEIVABLE' },
@@ -205,13 +246,22 @@ export class InvoicesService {
         accountId: { in: arIds },
         entry: { status: 'POSTED', date: { gte: toDbDate(from), lte: toDbDate(to) } },
       },
-      include: { entry: { select: { id: true, date: true, reference: true, description: true, source: true } } },
+      include: {
+        entry: {
+          select: { id: true, date: true, reference: true, description: true, source: true },
+        },
+      },
       orderBy: [{ entry: { date: 'asc' } }, { entry: { number: 'asc' } }],
     });
     let balance = toCents(opening._sum.debit) - toCents(opening._sum.credit);
     const openingCents = balance;
     return {
-      customer: { id: customer.id, name: customer.name, email: customer.email, address: customer.address },
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        address: customer.address,
+      },
       from,
       to,
       openingCents,

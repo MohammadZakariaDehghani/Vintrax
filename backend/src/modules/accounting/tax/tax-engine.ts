@@ -84,7 +84,9 @@ export function calculateTax(input: TaxCalculationInput): TaxCalculation {
   const gross = sumCents(input.lines.map((line) => line.amountCents));
   const vehiclePrice =
     input.vehiclePriceCents ??
-    sumCents(input.lines.filter((line) => line.category === 'VEHICLE').map((line) => line.amountCents));
+    sumCents(
+      input.lines.filter((line) => line.category === 'VEHICLE').map((line) => line.amountCents),
+    );
   const tradeIn = Math.max(0, input.tradeInCents ?? 0);
 
   const components: TaxComponent[] = [];
@@ -124,7 +126,9 @@ export function calculateTax(input: TaxCalculationInput): TaxCalculation {
 
   return {
     components,
-    totalTaxCents: sumCents(components.filter((c) => !isIncluded(c, input.rules)).map((c) => c.taxCents)),
+    totalTaxCents: sumCents(
+      components.filter((c) => !isIncluded(c, input.rules)).map((c) => c.taxCents),
+    ),
     grossCents: gross,
   };
 }

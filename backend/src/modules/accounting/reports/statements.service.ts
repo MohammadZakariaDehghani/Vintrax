@@ -93,7 +93,9 @@ export class StatementsService {
       range,
       rows,
       totals,
-      balanced: totals.debitCents === totals.creditCents && totals.closingDebitCents === totals.closingCreditCents,
+      balanced:
+        totals.debitCents === totals.creditCents &&
+        totals.closingDebitCents === totals.closingCreditCents,
     };
   }
 
@@ -112,7 +114,11 @@ export class StatementsService {
     const lineWhere: Prisma.JournalLineWhereInput = {
       dealerId: ctx.dealerId,
       ...(query.accountId ? { accountId: query.accountId } : {}),
-      ...(query.vehicleId ? { vehicleId: query.vehicleId } : vehicleIds ? { vehicleId: { in: vehicleIds } } : {}),
+      ...(query.vehicleId
+        ? { vehicleId: query.vehicleId }
+        : vehicleIds
+          ? { vehicleId: { in: vehicleIds } }
+          : {}),
       ...(query.customerId ? { customerId: query.customerId } : {}),
       ...(query.vendorId ? { vendorId: query.vendorId } : {}),
     };
@@ -139,7 +145,16 @@ export class StatementsService {
         include: {
           account: { select: { id: true, code: true, name: true, type: true } },
           entry: {
-            select: { id: true, date: true, reference: true, description: true, source: true, sourceType: true, sourceId: true, createdById: true },
+            select: {
+              id: true,
+              date: true,
+              reference: true,
+              description: true,
+              source: true,
+              sourceType: true,
+              sourceId: true,
+              createdById: true,
+            },
           },
           vehicle: { select: { id: true, vin: true, year: true, make: true, model: true } },
           customer: { select: { id: true, name: true } },
@@ -153,7 +168,9 @@ export class StatementsService {
 
     // A running balance only makes sense within one account.
     const account = query.accountId
-      ? await this.prisma.acctAccount.findFirst({ where: { id: query.accountId, dealerId: ctx.dealerId } })
+      ? await this.prisma.acctAccount.findFirst({
+          where: { id: query.accountId, dealerId: ctx.dealerId },
+        })
       : null;
     const openingDebit = toCents(opening._sum.debit) - toCents(opening._sum.credit);
     let pageStart = openingDebit;
@@ -172,7 +189,9 @@ export class StatementsService {
     const credits = toCents(sums._sum.credit);
     return {
       range,
-      account: account ? { id: account.id, code: account.code, name: account.name, type: account.type } : null,
+      account: account
+        ? { id: account.id, code: account.code, name: account.name, type: account.type }
+        : null,
       openingCents: sign * openingDebit,
       debitsCents: debits,
       creditsCents: credits,
@@ -208,17 +227,35 @@ export class StatementsService {
 
   // --- Profit and loss ------------------------------------------------------------------
 
-  async profitAndLoss(ctx: AccountingContext, query: ReportQuery & { columns?: 'TOTAL' | 'MONTHLY' }) {
+  async profitAndLoss(
+    ctx: AccountingContext,
+    query: ReportQuery & { columns?: 'TOTAL' | 'MONTHLY' },
+  ) {
     const range = await resolveRange(this.prisma, ctx.dealerId, query);
     const compare = query.compare !== 'NONE' ? comparisonRange(range, query.compare) : null;
     const accounts = await this.accounts(ctx.dealerId);
-    const current = await accountTotals(this.prisma, ctx.dealerId, { from: range.from, to: range.to, excludeClosing: true });
+    const current = await accountTotals(this.prisma, ctx.dealerId, {
+      from: range.from,
+      to: range.to,
+      excludeClosing: true,
+    });
     const previous = compare
-      ? await accountTotals(this.prisma, ctx.dealerId, { from: compare.from, to: compare.to, excludeClosing: true })
+      ? await accountTotals(this.prisma, ctx.dealerId, {
+          from: compare.from,
+          to: compare.to,
+          excludeClosing: true,
+        })
       : null;
     const statement = buildProfitAndLoss(accounts, current, previous);
 
-    let months: Array<{ from: IsoDate; to: IsoDate; label: string; netIncomeCents: number; revenueCents: number; grossProfitCents: number }> | null = null;
+    let months: Array<{
+      from: IsoDate;
+      to: IsoDate;
+      label: string;
+      netIncomeCents: number;
+      revenueCents: number;
+      grossProfitCents: number;
+    }> | null = null;
     if (query.columns === 'MONTHLY') {
       months = [];
       let start = `${range.from.slice(0, 7)}-01`;
@@ -226,12 +263,20 @@ export class StatementsService {
         const end = addDays(addMonthsIso(start, 1), -1);
         const from = start < range.from ? range.from : start;
         const to = end > range.to ? range.to : end;
-        const totals = await accountTotals(this.prisma, ctx.dealerId, { from, to, excludeClosing: true });
+        const totals = await accountTotals(this.prisma, ctx.dealerId, {
+          from,
+          to,
+          excludeClosing: true,
+        });
         const pl = buildProfitAndLoss(accounts, totals, null);
         months.push({
           from,
           to,
-          label: new Date(`${start}T00:00:00Z`).toLocaleDateString('en-CA', { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+          label: new Date(`${start}T00:00:00Z`).toLocaleDateString('en-CA', {
+            month: 'short',
+            year: 'numeric',
+            timeZone: 'UTC',
+          }),
           revenueCents: pl.revenue.totalCents,
           grossProfitCents: pl.grossProfitCents,
           netIncomeCents: pl.netIncomeCents,
@@ -256,7 +301,9 @@ export class StatementsService {
         const other = previous.sections.find((candidate) => candidate.key === section.key);
         section.compareTotalCents = other?.totalCents ?? 0;
         for (const line of section.lines) {
-          line.compareCents = other?.lines.find((candidate) => candidate.accountId === line.accountId)?.amountCents ?? 0;
+          line.compareCents =
+            other?.lines.find((candidate) => candidate.accountId === line.accountId)?.amountCents ??
+            0;
         }
       }
     }
@@ -265,7 +312,11 @@ export class StatementsService {
       compareAsOf,
       ...sheet,
       compare: previous
-        ? { totalAssetsCents: previous.totalAssetsCents, totalLiabilitiesCents: previous.totalLiabilitiesCents, totalEquityCents: previous.totalEquityCents }
+        ? {
+            totalAssetsCents: previous.totalAssetsCents,
+            totalLiabilitiesCents: previous.totalLiabilitiesCents,
+            totalEquityCents: previous.totalEquityCents,
+          }
         : null,
     };
   }
@@ -281,24 +332,39 @@ export class StatementsService {
     ];
     const sections: StatementSection[] = groups.map((group) => {
       const lines = accounts
-        .filter((account) => SUBTYPE_BALANCE_SHEET_GROUP[account.subtype] === group.key && account.subtype !== 'CURRENT_YEAR_EARNINGS')
+        .filter(
+          (account) =>
+            SUBTYPE_BALANCE_SHEET_GROUP[account.subtype] === group.key &&
+            account.subtype !== 'CURRENT_YEAR_EARNINGS',
+        )
         .map((account) => ({
           accountId: account.id,
           code: account.code,
           name: account.name,
           // Assets debit-positive (accumulated depreciation shows negative);
           // liabilities and equity credit-positive.
-          amountCents: account.type === 'ASSET' ? debitBalance(totals.get(account.id)) : -debitBalance(totals.get(account.id)),
+          amountCents:
+            account.type === 'ASSET'
+              ? debitBalance(totals.get(account.id))
+              : -debitBalance(totals.get(account.id)),
         }))
         .filter((line) => line.amountCents !== 0);
-      return { key: group.key, label: group.label, lines, totalCents: sumCents(lines.map((line) => line.amountCents)) };
+      return {
+        key: group.key,
+        label: group.label,
+        lines,
+        totalCents: sumCents(lines.map((line) => line.amountCents)),
+      };
     });
 
     // Current year earnings: every revenue, cost and expense balance not yet
     // closed into retained earnings.
     const earnings = -sumCents(
       accounts
-        .filter((account) => account.type === 'REVENUE' || account.type === 'COGS' || account.type === 'EXPENSE')
+        .filter(
+          (account) =>
+            account.type === 'REVENUE' || account.type === 'COGS' || account.type === 'EXPENSE',
+        )
         .map((account) => debitBalance(totals.get(account.id))),
     );
     const cye = accounts.find((account) => account.subtype === 'CURRENT_YEAR_EARNINGS');
@@ -313,8 +379,12 @@ export class StatementsService {
       equity.totalCents += earnings;
     }
 
-    const totalAssets = sumCents(sections.filter((s) => s.key.endsWith('ASSETS')).map((s) => s.totalCents));
-    const totalLiabilities = sumCents(sections.filter((s) => s.key.endsWith('LIABILITIES')).map((s) => s.totalCents));
+    const totalAssets = sumCents(
+      sections.filter((s) => s.key.endsWith('ASSETS')).map((s) => s.totalCents),
+    );
+    const totalLiabilities = sumCents(
+      sections.filter((s) => s.key.endsWith('LIABILITIES')).map((s) => s.totalCents),
+    );
     const totalEquity = equity.totalCents;
     return {
       sections,
@@ -335,13 +405,23 @@ export class StatementsService {
   }
 
   async cashFlowFor(dealerId: string, accounts: AccountRow[], range: DateRange) {
-    const before = await accountTotals(this.prisma, dealerId, { to: addDays(range.from, -1), excludeClosing: true });
+    const before = await accountTotals(this.prisma, dealerId, {
+      to: addDays(range.from, -1),
+      excludeClosing: true,
+    });
     const at = await accountTotals(this.prisma, dealerId, { to: range.to, excludeClosing: true });
-    const during = await accountTotals(this.prisma, dealerId, { from: range.from, to: range.to, excludeClosing: true });
+    const during = await accountTotals(this.prisma, dealerId, {
+      from: range.from,
+      to: range.to,
+      excludeClosing: true,
+    });
 
     const netIncome = -sumCents(
       accounts
-        .filter((account) => account.type === 'REVENUE' || account.type === 'COGS' || account.type === 'EXPENSE')
+        .filter(
+          (account) =>
+            account.type === 'REVENUE' || account.type === 'COGS' || account.type === 'EXPENSE',
+        )
         .map((account) => debitBalance(during.get(account.id))),
     );
 
@@ -363,7 +443,12 @@ export class StatementsService {
       }
       if (change === 0) continue;
       // An asset going up uses cash; a liability or equity going up provides it.
-      sections[section].push({ accountId: account.id, code: account.code, name: account.name, amountCents: -change });
+      sections[section].push({
+        accountId: account.id,
+        code: account.code,
+        name: account.name,
+        amountCents: -change,
+      });
     }
     const operating = netIncome + sumCents(sections.OPERATING.map((line) => line.amountCents));
     const investing = sumCents(sections.INVESTING.map((line) => line.amountCents));
@@ -385,7 +470,11 @@ export class StatementsService {
   /** The net income for a range (closing entries excluded). */
   async netIncome(dealerId: string, range: DateRange): Promise<number> {
     const accounts = await this.accounts(dealerId);
-    const totals = await accountTotals(this.prisma, dealerId, { from: range.from, to: range.to, excludeClosing: true });
+    const totals = await accountTotals(this.prisma, dealerId, {
+      from: range.from,
+      to: range.to,
+      excludeClosing: true,
+    });
     return buildProfitAndLoss(accounts, totals, null).netIncomeCents;
   }
 
@@ -393,7 +482,10 @@ export class StatementsService {
   async balancesAt(dealerId: string, asOf: IsoDate) {
     const accounts = await this.accounts(dealerId);
     const totals = await accountTotals(this.prisma, dealerId, { to: asOf });
-    return accounts.map((account) => ({ ...account, balanceCents: normalBalance(account.type, totals.get(account.id)) }));
+    return accounts.map((account) => ({
+      ...account,
+      balanceCents: normalBalance(account.type, totals.get(account.id)),
+    }));
   }
 }
 
@@ -412,7 +504,11 @@ export function buildProfitAndLoss(
   current: Map<string, AccountTotals>,
   previous: Map<string, AccountTotals> | null,
 ) {
-  const section = (key: string, label: string, filter: (account: AccountRow) => boolean): StatementSection => {
+  const section = (
+    key: string,
+    label: string,
+    filter: (account: AccountRow) => boolean,
+  ): StatementSection => {
     const lines = accounts
       .filter(filter)
       .map((account) => ({
@@ -420,7 +516,9 @@ export function buildProfitAndLoss(
         code: account.code,
         name: account.name,
         amountCents: normalBalance(account.type, current.get(account.id)),
-        ...(previous ? { compareCents: normalBalance(account.type, previous.get(account.id)) } : {}),
+        ...(previous
+          ? { compareCents: normalBalance(account.type, previous.get(account.id)) }
+          : {}),
       }))
       .filter((line) => line.amountCents !== 0 || (line.compareCents ?? 0) !== 0);
     return {
@@ -428,14 +526,24 @@ export function buildProfitAndLoss(
       label,
       lines,
       totalCents: sumCents(lines.map((line) => line.amountCents)),
-      ...(previous ? { compareTotalCents: sumCents(lines.map((line) => line.compareCents ?? 0)) } : {}),
+      ...(previous
+        ? { compareTotalCents: sumCents(lines.map((line) => line.compareCents ?? 0)) }
+        : {}),
     };
   };
   const revenue = section('REVENUE', 'Revenue', (a) => a.subtype === 'OPERATING_REVENUE');
   const cogs = section('COGS', 'Cost of sales', (a) => a.type === 'COGS');
-  const expenses = section('OPERATING_EXPENSES', 'Operating expenses', (a) => a.subtype === 'OPERATING_EXPENSE');
+  const expenses = section(
+    'OPERATING_EXPENSES',
+    'Operating expenses',
+    (a) => a.subtype === 'OPERATING_EXPENSE',
+  );
   const otherIncome = section('OTHER_INCOME', 'Other income', (a) => a.subtype === 'OTHER_INCOME');
-  const otherExpense = section('OTHER_EXPENSE', 'Interest and other expenses', (a) => a.subtype === 'OTHER_EXPENSE');
+  const otherExpense = section(
+    'OTHER_EXPENSE',
+    'Interest and other expenses',
+    (a) => a.subtype === 'OTHER_EXPENSE',
+  );
 
   const grossProfit = revenue.totalCents - cogs.totalCents;
   const operatingIncome = grossProfit - expenses.totalCents;
@@ -444,7 +552,9 @@ export function buildProfitAndLoss(
     ? {
         grossProfitCents: (revenue.compareTotalCents ?? 0) - (cogs.compareTotalCents ?? 0),
         operatingIncomeCents:
-          (revenue.compareTotalCents ?? 0) - (cogs.compareTotalCents ?? 0) - (expenses.compareTotalCents ?? 0),
+          (revenue.compareTotalCents ?? 0) -
+          (cogs.compareTotalCents ?? 0) -
+          (expenses.compareTotalCents ?? 0),
         netIncomeCents:
           (revenue.compareTotalCents ?? 0) -
           (cogs.compareTotalCents ?? 0) -
@@ -457,7 +567,8 @@ export function buildProfitAndLoss(
     revenue,
     cogs,
     grossProfitCents: grossProfit,
-    grossMarginBasisPoints: revenue.totalCents > 0 ? Math.round((grossProfit * 10_000) / revenue.totalCents) : null,
+    grossMarginBasisPoints:
+      revenue.totalCents > 0 ? Math.round((grossProfit * 10_000) / revenue.totalCents) : null,
     expenses,
     operatingIncomeCents: operatingIncome,
     otherIncome,

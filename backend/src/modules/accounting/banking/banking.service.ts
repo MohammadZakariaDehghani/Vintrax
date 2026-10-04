@@ -1,6 +1,17 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { centsToDecimalString, type BankAccountInput, type BankTransactionInput, type ReconciliationStartInput, type ReportQuery } from '@vintrax/shared';
+import {
+  centsToDecimalString,
+  type BankAccountInput,
+  type BankTransactionInput,
+  type ReconciliationStartInput,
+  type ReportQuery,
+} from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
 import { recordAudit } from '../core/audit';
@@ -25,7 +36,9 @@ export class BankingService {
     const banks = await this.prisma.bankAccount.findMany({
       where: { dealerId: ctx.dealerId },
       orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
-      include: { glAccount: { select: { id: true, code: true, name: true, type: true, subtype: true } } },
+      include: {
+        glAccount: { select: { id: true, code: true, name: true, type: true, subtype: true } },
+      },
     });
     const totals = await accountTotals(this.prisma, ctx.dealerId, {
       accountIds: banks.map((bank) => bank.glAccountId),
@@ -62,7 +75,8 @@ export class BankingService {
         isActive: bank.isActive,
         lastReconciledDate: last ? fromDbDate(last.statementDate) : null,
         lastReconciledBalanceCents: last ? toCents(last.endingBalance) : null,
-        unreconciledCount: unreconciled.find((row) => row.accountId === bank.glAccountId)?._count ?? 0,
+        unreconciledCount:
+          unreconciled.find((row) => row.accountId === bank.glAccountId)?._count ?? 0,
       };
     });
   }
@@ -71,15 +85,23 @@ export class BankingService {
     return this.prisma.$transaction((tx) => createBankAccount(tx, ctx, this.posting, input));
   }
 
-  async updateAccount(ctx: AccountingContext, bankAccountId: string, input: { name?: string; bankName?: string | null; isActive?: boolean }) {
+  async updateAccount(
+    ctx: AccountingContext,
+    bankAccountId: string,
+    input: { name?: string; bankName?: string | null; isActive?: boolean },
+  ) {
     return this.prisma.$transaction(async (tx) => {
-      const bank = await tx.bankAccount.findFirst({ where: { id: bankAccountId, dealerId: ctx.dealerId } });
+      const bank = await tx.bankAccount.findFirst({
+        where: { id: bankAccountId, dealerId: ctx.dealerId },
+      });
       if (!bank) throw new NotFoundException('Bank account not found');
       if (input.isActive === false) {
         const gl = await tx.acctAccount.findUniqueOrThrow({ where: { id: bank.glAccountId } });
         const totals = await accountTotals(tx, ctx.dealerId, { accountIds: [gl.id] });
         if (normalBalance(gl.type, totals.get(gl.id)) !== 0) {
-          throw new ConflictException('An account with a balance cannot be closed; transfer the balance first');
+          throw new ConflictException(
+            'An account with a balance cannot be closed; transfer the balance first',
+          );
         }
       }
       const updated = await tx.bankAccount.update({
@@ -90,7 +112,11 @@ export class BankingService {
           ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
         },
       });
-      if (input.name) await tx.acctAccount.update({ where: { id: bank.glAccountId }, data: { name: input.name } });
+      if (input.name)
+        await tx.acctAccount.update({
+          where: { id: bank.glAccountId },
+          data: { name: input.name },
+        });
       await recordAudit(tx, ctx, {
         action: 'bank.account_updated',
         entityType: 'BankAccount',
@@ -127,7 +153,11 @@ export class BankingService {
         accountId: bank.glAccountId,
         entry: { status: 'POSTED', date: { gte: toDbDate(range.from), lte: toDbDate(range.to) } },
       },
-      include: { entry: { select: { id: true, date: true, reference: true, description: true, source: true } } },
+      include: {
+        entry: {
+          select: { id: true, date: true, reference: true, description: true, source: true },
+        },
+      },
       orderBy: [{ entry: { date: 'asc' } }, { entry: { number: 'asc' } }],
     });
     return {
@@ -165,20 +195,43 @@ export class BankingService {
       if (input.kind === 'TRANSFER') {
         const target = await bankGlAccount(tx, ctx, input.toBankAccountId!);
         lines = [
-          { accountId: target.glAccountId, debit: amount, credit: 0, description: `Transfer from ${bank.name}` },
-          { accountId: bank.glAccountId, debit: 0, credit: amount, description: `Transfer to ${target.name}` },
+          {
+            accountId: target.glAccountId,
+            debit: amount,
+            credit: 0,
+            description: `Transfer from ${bank.name}`,
+          },
+          {
+            accountId: bank.glAccountId,
+            debit: 0,
+            credit: amount,
+            description: `Transfer to ${target.name}`,
+          },
         ];
         counterAccountId = target.glAccountId;
       } else {
         if (input.kind === 'FEE' && !counterAccountId) {
-          counterAccountId = (await this.posting.accounts(tx, ctx.dealerId, ['BANK_FEES'])).BANK_FEES;
+          counterAccountId = (await this.posting.accounts(tx, ctx.dealerId, ['BANK_FEES']))
+            .BANK_FEES;
         }
         const counter = await requireAccount(tx, ctx, counterAccountId!);
-        if (counter.id === bank.glAccountId) throw new BadRequestException('Choose a different account for the other side');
-        const moneyIn = input.kind === 'DEPOSIT' || (input.kind === 'ADJUSTMENT' && input.amount > 0);
+        if (counter.id === bank.glAccountId)
+          throw new BadRequestException('Choose a different account for the other side');
+        const moneyIn =
+          input.kind === 'DEPOSIT' || (input.kind === 'ADJUSTMENT' && input.amount > 0);
         lines = [
-          { accountId: bank.glAccountId, debit: moneyIn ? amount : 0, credit: moneyIn ? 0 : amount, description: input.description },
-          { accountId: counter.id, debit: moneyIn ? 0 : amount, credit: moneyIn ? amount : 0, description: input.description },
+          {
+            accountId: bank.glAccountId,
+            debit: moneyIn ? amount : 0,
+            credit: moneyIn ? 0 : amount,
+            description: input.description,
+          },
+          {
+            accountId: counter.id,
+            debit: moneyIn ? 0 : amount,
+            credit: moneyIn ? amount : 0,
+            description: input.description,
+          },
         ];
       }
 
@@ -204,7 +257,10 @@ export class BankingService {
         sourceId: transaction.id,
         lines,
       });
-      await tx.bankTransaction.update({ where: { id: transaction.id }, data: { journalEntryId: entry.id } });
+      await tx.bankTransaction.update({
+        where: { id: transaction.id },
+        data: { journalEntryId: entry.id },
+      });
       await recordAudit(tx, ctx, {
         action: 'bank.transaction_created',
         entityType: 'BankTransaction',
@@ -217,14 +273,21 @@ export class BankingService {
 
   async reverseTransaction(ctx: AccountingContext, transactionId: string, reason: string) {
     return this.prisma.$transaction(async (tx) => {
-      const transaction = await tx.bankTransaction.findFirst({ where: { id: transactionId, dealerId: ctx.dealerId } });
+      const transaction = await tx.bankTransaction.findFirst({
+        where: { id: transactionId, dealerId: ctx.dealerId },
+      });
       if (!transaction) throw new NotFoundException('Transaction not found');
-      if (transaction.status !== 'POSTED') throw new ConflictException('This transaction is already reversed');
-      if (!transaction.journalEntryId) throw new ConflictException('Opening balances are corrected with a journal entry');
+      if (transaction.status !== 'POSTED')
+        throw new ConflictException('This transaction is already reversed');
+      if (!transaction.journalEntryId)
+        throw new ConflictException('Opening balances are corrected with a journal entry');
       const reconciled = await tx.journalLine.count({
         where: { entryId: transaction.journalEntryId, reconciliationId: { not: null } },
       });
-      if (reconciled > 0) throw new ConflictException('This transaction has been reconciled; post an adjustment instead');
+      if (reconciled > 0)
+        throw new ConflictException(
+          'This transaction has been reconciled; post an adjustment instead',
+        );
       const reversal = await this.posting.reverse(tx, ctx, transaction.journalEntryId, { reason });
       await tx.bankTransaction.update({ where: { id: transaction.id }, data: { status: 'VOID' } });
       await recordAudit(tx, ctx, {
@@ -292,7 +355,12 @@ export class BankingService {
         action: 'reconciliation.started',
         entityType: 'BankReconciliation',
         entityId: reconciliation.id,
-        after: { bankAccountId: bank.id, statementDate: input.statementDate, endingBalanceCents: input.endingBalance, beginningCents: beginning },
+        after: {
+          bankAccountId: bank.id,
+          statementDate: input.statementDate,
+          endingBalanceCents: input.endingBalance,
+          beginningCents: beginning,
+        },
       });
       return { id: reconciliation.id };
     });
@@ -301,7 +369,10 @@ export class BankingService {
   /** The statement view: every uncleared (or cleared-here) line up to the statement date. */
   async reconciliation(ctx: AccountingContext, reconciliationId: string) {
     const rec = await this.requireReconciliation(this.prisma, ctx, reconciliationId);
-    const bank = await this.prisma.bankAccount.findUniqueOrThrow({ where: { id: rec.bankAccountId }, include: { glAccount: true } });
+    const bank = await this.prisma.bankAccount.findUniqueOrThrow({
+      where: { id: rec.bankAccountId },
+      include: { glAccount: true },
+    });
     const sign = bank.glAccount.type === 'ASSET' ? 1 : -1;
     const lines = await this.prisma.journalLine.findMany({
       where: {
@@ -328,7 +399,8 @@ export class BankingService {
       cleared: line.reconciliationId === rec.id,
     }));
     const clearedBalance =
-      toCents(rec.beginningBalance) + sumCents(items.filter((item) => item.cleared).map((item) => item.amountCents));
+      toCents(rec.beginningBalance) +
+      sumCents(items.filter((item) => item.cleared).map((item) => item.amountCents));
     return {
       id: rec.id,
       bankAccount: { id: bank.id, name: bank.name },
@@ -350,7 +422,8 @@ export class BankingService {
   async setCleared(ctx: AccountingContext, reconciliationId: string, clearedLineIds: string[]) {
     await this.prisma.$transaction(async (tx) => {
       const rec = await this.requireReconciliation(tx, ctx, reconciliationId);
-      if (rec.status !== 'IN_PROGRESS') throw new ConflictException('This reconciliation is completed');
+      if (rec.status !== 'IN_PROGRESS')
+        throw new ConflictException('This reconciliation is completed');
       const bank = await tx.bankAccount.findUniqueOrThrow({ where: { id: rec.bankAccountId } });
       if (clearedLineIds.length > 0) {
         const eligible = await tx.journalLine.count({
@@ -363,7 +436,9 @@ export class BankingService {
           },
         });
         if (eligible !== new Set(clearedLineIds).size) {
-          throw new BadRequestException('Some of those items are not on this account or are already reconciled');
+          throw new BadRequestException(
+            'Some of those items are not on this account or are already reconciled',
+          );
         }
       }
       await tx.journalLine.updateMany({
@@ -371,7 +446,10 @@ export class BankingService {
         data: { reconciliationId: null },
       });
       if (clearedLineIds.length > 0) {
-        await tx.journalLine.updateMany({ where: { id: { in: clearedLineIds } }, data: { reconciliationId: rec.id } });
+        await tx.journalLine.updateMany({
+          where: { id: { in: clearedLineIds } },
+          data: { reconciliationId: rec.id },
+        });
       }
       await this.refreshTotals(tx, rec.id);
     });
@@ -390,7 +468,8 @@ export class BankingService {
   ) {
     return this.prisma.$transaction(async (tx) => {
       const rec = await this.requireReconciliation(tx, ctx, reconciliationId);
-      if (rec.status !== 'IN_PROGRESS') throw new ConflictException('This reconciliation is already completed');
+      if (rec.status !== 'IN_PROGRESS')
+        throw new ConflictException('This reconciliation is already completed');
       await this.refreshTotals(tx, rec.id);
       const fresh = await tx.bankReconciliation.findUniqueOrThrow({ where: { id: rec.id } });
       const difference = toCents(fresh.difference);
@@ -404,9 +483,13 @@ export class BankingService {
             differenceCents: difference,
           });
         }
-        const bank = await tx.bankAccount.findUniqueOrThrow({ where: { id: rec.bankAccountId }, include: { glAccount: true } });
+        const bank = await tx.bankAccount.findUniqueOrThrow({
+          where: { id: rec.bankAccountId },
+          include: { glAccount: true },
+        });
         const counter = await requireAccount(tx, ctx, adjustment.accountId);
-        if (counter.id === bank.glAccountId) throw new BadRequestException('Choose the account the difference belongs in');
+        if (counter.id === bank.glAccountId)
+          throw new BadRequestException('Choose the account the difference belongs in');
         const isAsset = bank.glAccount.type === 'ASSET';
         // The bank shows more than the cleared items: increase the book balance.
         const debitBank = isAsset ? difference > 0 : difference < 0;
@@ -420,8 +503,18 @@ export class BankingService {
           sourceType: 'BankReconciliation',
           sourceId: rec.id,
           lines: [
-            { accountId: bank.glAccountId, debit: debitBank ? amount : 0, credit: debitBank ? 0 : amount, description: adjustment.reason },
-            { accountId: counter.id, debit: debitBank ? 0 : amount, credit: debitBank ? amount : 0, description: adjustment.reason },
+            {
+              accountId: bank.glAccountId,
+              debit: debitBank ? amount : 0,
+              credit: debitBank ? 0 : amount,
+              description: adjustment.reason,
+            },
+            {
+              accountId: counter.id,
+              debit: debitBank ? 0 : amount,
+              credit: debitBank ? amount : 0,
+              description: adjustment.reason,
+            },
           ],
         });
         await tx.journalLine.updateMany({
@@ -446,7 +539,11 @@ export class BankingService {
         action: 'reconciliation.completed',
         entityType: 'BankReconciliation',
         entityId: rec.id,
-        after: { statementBalanceCents: toCents(rec.endingBalance), differenceCents: difference, adjustmentEntryId },
+        after: {
+          statementBalanceCents: toCents(rec.endingBalance),
+          differenceCents: difference,
+          adjustmentEntryId,
+        },
         reason: adjustment?.reason ?? null,
       });
       return { id: rec.id, adjustmentEntryId };
@@ -457,10 +554,18 @@ export class BankingService {
   async discardReconciliation(ctx: AccountingContext, reconciliationId: string) {
     await this.prisma.$transaction(async (tx) => {
       const rec = await this.requireReconciliation(tx, ctx, reconciliationId);
-      if (rec.status !== 'IN_PROGRESS') throw new ConflictException('A completed reconciliation is kept');
-      await tx.journalLine.updateMany({ where: { reconciliationId: rec.id }, data: { reconciliationId: null } });
+      if (rec.status !== 'IN_PROGRESS')
+        throw new ConflictException('A completed reconciliation is kept');
+      await tx.journalLine.updateMany({
+        where: { reconciliationId: rec.id },
+        data: { reconciliationId: null },
+      });
       await tx.bankReconciliation.delete({ where: { id: rec.id } });
-      await recordAudit(tx, ctx, { action: 'reconciliation.discarded', entityType: 'BankReconciliation', entityId: rec.id });
+      await recordAudit(tx, ctx, {
+        action: 'reconciliation.discarded',
+        entityType: 'BankReconciliation',
+        entityId: rec.id,
+      });
     });
   }
 
@@ -474,20 +579,38 @@ export class BankingService {
       _sum: { debit: true, credit: true },
     });
     const sign = rec.bankAccount.glAccount.type === 'ASSET' ? 1 : -1;
-    const cleared = toCents(rec.beginningBalance) + sign * (toCents(sums._sum.debit) - toCents(sums._sum.credit));
+    const cleared =
+      toCents(rec.beginningBalance) + sign * (toCents(sums._sum.debit) - toCents(sums._sum.credit));
     await tx.bankReconciliation.update({
       where: { id: reconciliationId },
-      data: { clearedBalance: fromCents(cleared), difference: fromCents(toCents(rec.endingBalance) - cleared) },
+      data: {
+        clearedBalance: fromCents(cleared),
+        difference: fromCents(toCents(rec.endingBalance) - cleared),
+      },
     });
   }
 
-  private async requireReconciliation(db: Tx | PrismaService, ctx: AccountingContext, reconciliationId: string) {
-    const rec = await db.bankReconciliation.findFirst({ where: { id: reconciliationId, dealerId: ctx.dealerId } });
+  private async requireReconciliation(
+    db: Tx | PrismaService,
+    ctx: AccountingContext,
+    reconciliationId: string,
+  ) {
+    const rec = await db.bankReconciliation.findFirst({
+      where: { id: reconciliationId, dealerId: ctx.dealerId },
+    });
     if (!rec) throw new NotFoundException('Reconciliation not found');
     return rec;
   }
 }
 
 function kindLabel(kind: string): string {
-  return { DEPOSIT: 'Deposit', WITHDRAWAL: 'Withdrawal', TRANSFER: 'Transfer', FEE: 'Bank fee', ADJUSTMENT: 'Adjustment' }[kind] ?? kind;
+  return (
+    {
+      DEPOSIT: 'Deposit',
+      WITHDRAWAL: 'Withdrawal',
+      TRANSFER: 'Transfer',
+      FEE: 'Bank fee',
+      ADJUSTMENT: 'Adjustment',
+    }[kind] ?? kind
+  );
 }

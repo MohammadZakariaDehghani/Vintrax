@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma, VehicleCostCategory } from '@prisma/client';
 import type { AcquisitionInput, ReportQuery } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
@@ -22,7 +27,13 @@ type Tx = Prisma.TransactionClient;
 
 /** The cost components of a purchase, and the cost category each one is. */
 const COMPONENTS: Array<{
-  field: 'purchasePrice' | 'auctionFee' | 'transportation' | 'inspection' | 'reconditioning' | 'otherCosts';
+  field:
+    | 'purchasePrice'
+    | 'auctionFee'
+    | 'transportation'
+    | 'inspection'
+    | 'reconditioning'
+    | 'otherCosts';
   category: VehicleCostCategory;
   label: string;
 }> = [
@@ -62,7 +73,9 @@ export class AcquisitionsService {
       },
       orderBy: { date: 'desc' },
       include: {
-        vehicle: { select: { id: true, vin: true, year: true, make: true, model: true, stockNumber: true } },
+        vehicle: {
+          select: { id: true, vin: true, year: true, make: true, model: true, stockNumber: true },
+        },
         vendor: { select: { id: true, name: true } },
         customer: { select: { id: true, name: true } },
       },
@@ -79,7 +92,11 @@ export class AcquisitionsService {
         customer: row.customer,
         purchasePriceCents: toCents(row.purchasePrice),
         additionalCostsCents:
-          toCents(row.auctionFee) + toCents(row.transportation) + toCents(row.inspection) + toCents(row.reconditioning) + toCents(row.otherCosts),
+          toCents(row.auctionFee) +
+          toCents(row.transportation) +
+          toCents(row.inspection) +
+          toCents(row.reconditioning) +
+          toCents(row.otherCosts),
         taxCents: toCents(row.taxTotal),
         totalCents: toCents(row.total),
         settlement: row.settlement,
@@ -98,9 +115,10 @@ export class AcquisitionsService {
         const vendor = input.vendorId ? await requireVendor(tx, ctx, input.vendorId) : null;
         const { province } = await dealerProvince(tx, ctx.dealerId);
 
-        const components = COMPONENTS.map((component) => ({ ...component, cents: input[component.field] })).filter(
-          (component) => component.cents > 0,
-        );
+        const components = COMPONENTS.map((component) => ({
+          ...component,
+          cents: input[component.field],
+        })).filter((component) => component.cents > 0);
         const costCents = sumCents(components.map((component) => component.cents));
 
         // GST/HST/QST a registered vendor charged is recoverable. A dealer buys
@@ -119,7 +137,11 @@ export class AcquisitionsService {
         const taxCents = sumCents(taxComponents.map((component) => component.taxCents));
         const totalCents = costCents + taxCents;
 
-        const accounts = await this.posting.accounts(tx, ctx.dealerId, ['VEHICLE_INVENTORY', 'AP', 'FLOOR_PLAN']);
+        const accounts = await this.posting.accounts(tx, ctx.dealerId, [
+          'VEHICLE_INVENTORY',
+          'AP',
+          'FLOOR_PLAN',
+        ]);
         const lines: LedgerLine[] = components.map((component) => ({
           accountId: accounts.VEHICLE_INVENTORY,
           debit: component.cents,
@@ -130,9 +152,10 @@ export class AcquisitionsService {
           costCategory: component.category,
         }));
         for (const component of taxComponents) {
-          const { [recoverableAccountKey(component.taxType)]: account } = await this.posting.accounts(tx, ctx.dealerId, [
-            recoverableAccountKey(component.taxType),
-          ]);
+          const { [recoverableAccountKey(component.taxType)]: account } =
+            await this.posting.accounts(tx, ctx.dealerId, [
+              recoverableAccountKey(component.taxType),
+            ]);
           lines.push({
             accountId: account,
             debit: component.taxCents,
@@ -148,9 +171,21 @@ export class AcquisitionsService {
         if (input.settlement === 'PAID') {
           const bank = await bankGlAccount(tx, ctx, input.bankAccountId!);
           bankAccountId = bank.id;
-          lines.push({ accountId: bank.glAccountId, debit: 0, credit: totalCents, description: 'Paid', vendorId: vendor?.id ?? null });
+          lines.push({
+            accountId: bank.glAccountId,
+            debit: 0,
+            credit: totalCents,
+            description: 'Paid',
+            vendorId: vendor?.id ?? null,
+          });
         } else if (input.settlement === 'ON_ACCOUNT') {
-          lines.push({ accountId: accounts.AP, debit: 0, credit: totalCents, description: 'On account', vendorId: vendor!.id });
+          lines.push({
+            accountId: accounts.AP,
+            debit: 0,
+            credit: totalCents,
+            description: 'On account',
+            vendorId: vendor!.id,
+          });
         } else {
           const terms = input.floorPlan!;
           const lender = await requireVendor(tx, ctx, terms.lenderVendorId);
@@ -172,7 +207,12 @@ export class AcquisitionsService {
             }
             const bank = await bankGlAccount(tx, ctx, input.bankAccountId);
             bankAccountId = bank.id;
-            lines.push({ accountId: bank.glAccountId, debit: 0, credit: totalCents - floorPrincipal, description: 'Paid' });
+            lines.push({
+              accountId: bank.glAccountId,
+              debit: 0,
+              credit: totalCents - floorPrincipal,
+              description: 'Paid',
+            });
           }
         }
 
@@ -299,7 +339,14 @@ export class AcquisitionsService {
             journal: entry.reference,
           },
         });
-        return { id: acquisition.id, journalEntryId: entry.id, reference: entry.reference, totalCents, billId, floorPlanNoteId };
+        return {
+          id: acquisition.id,
+          journalEntryId: entry.id,
+          reference: entry.reference,
+          totalCents,
+          billId,
+          floorPlanNoteId,
+        };
       },
       { timeout: 30_000 },
     );
@@ -316,22 +363,31 @@ export class AcquisitionsService {
         where: { id: acquisitionId, dealerId: ctx.dealerId },
       });
       if (!acquisition) throw new NotFoundException('Purchase not found');
-      if (acquisition.status !== 'POSTED') throw new ConflictException('This purchase is already void');
+      if (acquisition.status !== 'POSTED')
+        throw new ConflictException('This purchase is already void');
       if (acquisition.method === 'TRADE_IN') {
         throw new ConflictException('A trade-in is undone by reversing the sale it came with');
       }
       await lockDealerVehicle(tx, ctx, acquisition.vehicleId);
       const sold = await tx.vehicleSale.findFirst({
-        where: { dealerId: ctx.dealerId, vehicleId: acquisition.vehicleId, status: 'POSTED', saleDate: { gte: acquisition.date } },
+        where: {
+          dealerId: ctx.dealerId,
+          vehicleId: acquisition.vehicleId,
+          status: 'POSTED',
+          saleDate: { gte: acquisition.date },
+        },
       });
       if (sold) throw new ConflictException('The vehicle has been sold; reverse the sale first');
       if (acquisition.billId) {
         const bill = await tx.vendorBill.findUniqueOrThrow({ where: { id: acquisition.billId } });
-        if (toCents(bill.amountPaid) > 0) throw new ConflictException('The bill has payments; reverse them first');
+        if (toCents(bill.amountPaid) > 0)
+          throw new ConflictException('The bill has payments; reverse them first');
         await tx.vendorBill.update({ where: { id: bill.id }, data: { status: 'VOID' } });
       }
       if (acquisition.floorPlanNoteId) {
-        const note = await tx.floorPlanNote.findUniqueOrThrow({ where: { id: acquisition.floorPlanNoteId } });
+        const note = await tx.floorPlanNote.findUniqueOrThrow({
+          where: { id: acquisition.floorPlanNoteId },
+        });
         if (toCents(note.principalPaid) > 0 || toCents(note.interestPaid) > 0) {
           throw new ConflictException('The floor plan has payments; reverse them first');
         }
@@ -345,7 +401,10 @@ export class AcquisitionsService {
         journalEntryId: reversal.id,
       });
       await tx.vehicleCost.deleteMany({ where: { journalEntryId: acquisition.journalEntryId! } });
-      await tx.vehicleAcquisition.update({ where: { id: acquisition.id }, data: { status: 'VOID' } });
+      await tx.vehicleAcquisition.update({
+        where: { id: acquisition.id },
+        data: { status: 'VOID' },
+      });
       await recordAudit(tx, ctx, {
         action: 'vehicle.acquisition_voided',
         entityType: 'VehicleAcquisition',
