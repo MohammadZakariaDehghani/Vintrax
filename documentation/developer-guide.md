@@ -76,16 +76,18 @@ Without Docker, point `DATABASE_URL` and `REDIS_URL` at local services and skip
 
 All use the password **`VintraxDemo123!`**.
 
-| Email                           | Role              | Good for                       |
-| ------------------------------- | ----------------- | ------------------------------ |
-| `jordan.lee@example.test`       | Buyer             | Favourites, bidding, messaging |
-| `sam.okafor@example.test`       | Buyer             | A second bidder                |
-| `unverified.buyer@example.test` | Buyer             | The verified-email gate        |
-| `sales@northshoremotors.test`   | Dealer (verified) | Inventory, analytics           |
-| `contact@maplecityauto.test`    | Dealer (pending)  | Verification workflow          |
-| `marc.tremblay@example.test`    | Private seller    | Seller flow                    |
-| `inspector@vintrax.test`        | Inspector         | Condition reports              |
-| `admin@vintrax.test`            | Super admin       | Everything                     |
+| Email                              | Role                           | Good for                                 |
+| ---------------------------------- | ------------------------------ | ---------------------------------------- |
+| `jordan.lee@example.test`          | Buyer                          | Favourites, bidding, messaging           |
+| `sam.okafor@example.test`          | Buyer                          | A second bidder                          |
+| `unverified.buyer@example.test`    | Buyer                          | The verified-email gate                  |
+| `sales@northshoremotors.test`      | Dealer (verified)              | Inventory, analytics, accounting (owner) |
+| `accountant@northshoremotors.test` | North Shore staff: accountant  | Accounting: books, reports, tax          |
+| `rep@northshoremotors.test`        | North Shore staff: salesperson | Accounting deal desk only                |
+| `contact@maplecityauto.test`       | Dealer (pending)               | Verification workflow                    |
+| `marc.tremblay@example.test`       | Private seller                 | Seller flow                              |
+| `inspector@vintrax.test`           | Inspector                      | Condition reports                        |
+| `admin@vintrax.test`               | Super admin                    | Everything                               |
 
 The seed creates 20 vehicles across four provinces, three dealerships, three
 completed inspections, two live auctions with bid history, favourites,

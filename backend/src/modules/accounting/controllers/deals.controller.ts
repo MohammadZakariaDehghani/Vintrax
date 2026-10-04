@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   VENDOR_KINDS,
@@ -32,7 +45,11 @@ import { PartiesService } from '../parties/parties.service';
 import { DepositsService } from '../sales/deposits.service';
 import { SalesService } from '../sales/sales.service';
 
-const optionalId = z.string().uuid().optional().or(z.literal('').transform(() => undefined));
+const optionalId = z
+  .string()
+  .uuid()
+  .optional()
+  .or(z.literal('').transform(() => undefined));
 const partyQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   kind: z.enum(VENDOR_KINDS).optional(),
@@ -79,7 +96,10 @@ export class DealsController {
   @Get('vehicles')
   @RequireAccounting('accounting.sales')
   @ApiOperation({ summary: 'The dealership’s vehicles, for choosing one in a deal or purchase' })
-  vehicles(@Acct() ctx: AccountingContext, @Query(zodQuery(vehicleQuerySchema)) query: { q?: string; includeSold: boolean }) {
+  vehicles(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(vehicleQuerySchema)) query: { q?: string; includeSold: boolean },
+  ) {
     return this.sales.vehicleOptions(ctx, query.q, query.includeSold);
   }
 
@@ -87,7 +107,10 @@ export class DealsController {
 
   @Get('customers')
   @RequireAccounting('accounting.sales')
-  customers(@Acct() ctx: AccountingContext, @Query(zodQuery(partyQuerySchema)) query: z.infer<typeof partyQuerySchema>) {
+  customers(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(partyQuerySchema)) query: z.infer<typeof partyQuerySchema>,
+  ) {
     return this.parties.customers(ctx, query);
   }
 
@@ -99,7 +122,10 @@ export class DealsController {
 
   @Post('customers')
   @RequireAccounting('accounting.sales')
-  createCustomer(@Acct() ctx: AccountingContext, @Body(zodBody(customerSchema)) input: CustomerInput) {
+  createCustomer(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(customerSchema)) input: CustomerInput,
+  ) {
     return this.parties.createCustomer(ctx, input);
   }
 
@@ -115,7 +141,10 @@ export class DealsController {
 
   @Get('vendors')
   @RequireAccounting('accounting.view')
-  vendors(@Acct() ctx: AccountingContext, @Query(zodQuery(partyQuerySchema)) query: z.infer<typeof partyQuerySchema>) {
+  vendors(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(partyQuerySchema)) query: z.infer<typeof partyQuerySchema>,
+  ) {
     return this.parties.vendors(ctx, query);
   }
 
@@ -139,14 +168,22 @@ export class DealsController {
 
   @Get('acquisitions')
   @RequireAccounting('accounting.view')
-  listAcquisitions(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  listAcquisitions(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.acquisitions.list(ctx, query);
   }
 
   @Post('acquisitions')
   @RequireAccounting('accounting.create', 'accounting.post')
-  @ApiOperation({ summary: 'Record a vehicle purchase into inventory (paid, on account or floor plan)' })
-  createAcquisition(@Acct() ctx: AccountingContext, @Body(zodBody(acquisitionSchema)) input: AcquisitionInput) {
+  @ApiOperation({
+    summary: 'Record a vehicle purchase into inventory (paid, on account or floor plan)',
+  })
+  createAcquisition(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(acquisitionSchema)) input: AcquisitionInput,
+  ) {
     return this.acquisitions.create(ctx, input);
   }
 
@@ -164,7 +201,10 @@ export class DealsController {
 
   @Get('trade-ins')
   @RequireAccounting('accounting.sales')
-  listTradeIns(@Acct() ctx: AccountingContext, @Query(zodQuery(dealQuerySchema)) query: z.infer<typeof dealQuerySchema>) {
+  listTradeIns(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(dealQuerySchema)) query: z.infer<typeof dealQuerySchema>,
+  ) {
     return this.tradeIns.list(ctx, query);
   }
 
@@ -177,7 +217,10 @@ export class DealsController {
 
   @Post('trade-ins/:tradeInId/withdraw')
   @RequireAccounting('accounting.sales')
-  withdrawTradeIn(@Acct() ctx: AccountingContext, @Param('tradeInId', ParseUUIDPipe) tradeInId: string) {
+  withdrawTradeIn(
+    @Acct() ctx: AccountingContext,
+    @Param('tradeInId', ParseUUIDPipe) tradeInId: string,
+  ) {
     return this.tradeIns.withdraw(ctx, tradeInId);
   }
 
@@ -185,14 +228,20 @@ export class DealsController {
 
   @Get('deposits')
   @RequireAccounting('accounting.sales')
-  listDeposits(@Acct() ctx: AccountingContext, @Query(zodQuery(dealQuerySchema)) query: z.infer<typeof dealQuerySchema>) {
+  listDeposits(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(dealQuerySchema)) query: z.infer<typeof dealQuerySchema>,
+  ) {
     return this.deposits.list(ctx, query);
   }
 
   @Post('deposits')
   @RequireAccounting('accounting.post_sales')
   @ApiOperation({ summary: 'Receive a customer deposit (a liability until the sale)' })
-  receiveDeposit(@Acct() ctx: AccountingContext, @Body(zodBody(depositSchema)) input: DepositInput) {
+  receiveDeposit(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(depositSchema)) input: DepositInput,
+  ) {
     return this.deposits.receive(ctx, input);
   }
 
@@ -210,7 +259,10 @@ export class DealsController {
 
   @Get('sales')
   @RequireAccounting('accounting.sales')
-  async listSales(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  async listSales(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     const result = await this.sales.list(ctx, query);
     if (seesFinancials(ctx)) return result;
     return { ...result, items: result.items.map((item) => withoutCost(item)) };
@@ -225,7 +277,9 @@ export class DealsController {
 
   @Post('sales/quote')
   @RequireAccounting('accounting.sales')
-  @ApiOperation({ summary: 'Work out a deal — taxes, trade-in, deposits, balance — without saving it' })
+  @ApiOperation({
+    summary: 'Work out a deal — taxes, trade-in, deposits, balance — without saving it',
+  })
   async quoteSale(@Acct() ctx: AccountingContext, @Body(zodBody(saleSchema)) input: SaleInput) {
     const quote = await this.sales.quote(ctx, input);
     return seesFinancials(ctx) ? quote : withoutCost(quote);
@@ -250,7 +304,10 @@ export class DealsController {
   @Delete('sales/drafts/:saleId')
   @RequireAccounting('accounting.sales')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteDraft(@Acct() ctx: AccountingContext, @Param('saleId', ParseUUIDPipe) saleId: string) {
+  async deleteDraft(
+    @Acct() ctx: AccountingContext,
+    @Param('saleId', ParseUUIDPipe) saleId: string,
+  ) {
     await this.sales.deleteDraft(ctx, saleId);
   }
 
@@ -262,14 +319,19 @@ export class DealsController {
 
   @Post('sales')
   @RequireAccounting('accounting.post_sales')
-  @ApiOperation({ summary: 'Post a vehicle sale: one transaction for revenue, tax, cost of sale, trade-in and receivables' })
+  @ApiOperation({
+    summary:
+      'Post a vehicle sale: one transaction for revenue, tax, cost of sale, trade-in and receivables',
+  })
   postSale(@Acct() ctx: AccountingContext, @Body(zodBody(saleSchema)) input: SaleInput) {
     return this.sales.post(ctx, input);
   }
 
   @Post('sales/:saleId/reverse')
   @RequireAccounting('accounting.reverse')
-  @ApiOperation({ summary: 'Reverse a posted sale (an equal and opposite entry; the vehicle returns to stock)' })
+  @ApiOperation({
+    summary: 'Reverse a posted sale (an equal and opposite entry; the vehicle returns to stock)',
+  })
   reverseSale(
     @Acct() ctx: AccountingContext,
     @Param('saleId', ParseUUIDPipe) saleId: string,
@@ -283,13 +345,21 @@ export class DealsController {
 /** Removes cost-of-sale and profit figures from a sale or quote. */
 function withoutCost<T extends object>(value: T): T {
   const copy = { ...value } as Record<string, unknown>;
-  for (const key of ['costOfSaleCents', 'grossProfitCents', 'grossMarginBasisPoints', 'journalEntryId', 'reversalEntryId']) {
+  for (const key of [
+    'costOfSaleCents',
+    'grossProfitCents',
+    'grossMarginBasisPoints',
+    'journalEntryId',
+    'reversalEntryId',
+  ]) {
     delete copy[key];
   }
   // The floor plan payoff is the vehicle's financed cost.
   if (Array.isArray(copy.warnings)) {
     copy.warnings = (copy.warnings as string[]).map((warning) =>
-      warning.startsWith('This vehicle is floor-planned') ? 'This vehicle is floor-planned and must be paid off when it sells' : warning,
+      warning.startsWith('This vehicle is floor-planned')
+        ? 'This vehicle is floor-planned and must be paid off when it sells'
+        : warning,
     );
   }
   return copy as T;

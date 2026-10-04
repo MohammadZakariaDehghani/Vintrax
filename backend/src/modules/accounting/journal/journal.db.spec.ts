@@ -38,21 +38,33 @@ describeDb('double-entry journal', () => {
 
   afterAll(closeTestPrisma);
 
-  const entry = (lines: Array<{ accountId: string; debit?: string; credit?: string }>, date = todayIso()) =>
+  const entry = (
+    lines: Array<{ accountId: string; debit?: string; credit?: string }>,
+    date = todayIso(),
+  ) =>
     journalCreateSchema.parse({
       date,
       description: 'Test entry',
-      lines: lines.map((line) => ({ accountId: line.accountId, debit: line.debit ?? '', credit: line.credit ?? '' })),
+      lines: lines.map((line) => ({
+        accountId: line.accountId,
+        debit: line.debit ?? '',
+        credit: line.credit ?? '',
+      })),
       post: true,
     });
 
   it('sets up a Canadian dealership chart, a fiscal year and an opening balance', async () => {
     const accounts = await prisma.acctAccount.count({ where: { dealerId: dealer.dealerId } });
     expect(accounts).toBeGreaterThanOrEqual(70);
-    const year = await prisma.fiscalYear.findFirst({ where: { dealerId: dealer.dealerId }, include: { periods: true } });
+    const year = await prisma.fiscalYear.findFirst({
+      where: { dealerId: dealer.dealerId },
+      include: { periods: true },
+    });
     expect(year?.periods).toHaveLength(12);
 
-    const chequing = await prisma.bankAccount.findFirstOrThrow({ where: { dealerId: dealer.dealerId, type: 'CHEQUING' } });
+    const chequing = await prisma.bankAccount.findFirstOrThrow({
+      where: { dealerId: dealer.dealerId, type: 'CHEQUING' },
+    });
     expect(chequing.accountNumberLast4).toBe('4321');
     const totals = await accountTotals(prisma, dealer.dealerId);
     expect(debitBalance(totals.get(chequing.glAccountId))).toBe(5_000_000);
@@ -61,7 +73,13 @@ describeDb('double-entry journal', () => {
   });
 
   it('posts a balanced entry and keeps the trial balance in balance', async () => {
-    await journal.create(dealer.ctx, entry([{ accountId: rent, debit: '1500.00' }, { accountId: cash, credit: '1500' }]));
+    await journal.create(
+      dealer.ctx,
+      entry([
+        { accountId: rent, debit: '1500.00' },
+        { accountId: cash, credit: '1500' },
+      ]),
+    );
     const totals = await accountTotals(prisma, dealer.dealerId);
     let debits = 0;
     let credits = 0;
@@ -132,14 +150,23 @@ describeDb('double-entry journal', () => {
   it('never lets a posted entry or its lines be changed or deleted', async () => {
     const { id } = await journal.create(
       dealer.ctx,
-      entry([{ accountId: rent, debit: '10' }, { accountId: cash, credit: '10' }]),
+      entry([
+        { accountId: rent, debit: '10' },
+        { accountId: cash, credit: '10' },
+      ]),
     );
-    await expect(prisma.$executeRaw`UPDATE "JournalLine" SET "debit" = 20 WHERE "entryId" = ${id}::uuid AND "debit" > 0`).rejects.toThrow(
-      /cannot be changed/,
-    );
-    await expect(prisma.$executeRaw`DELETE FROM "JournalLine" WHERE "entryId" = ${id}::uuid`).rejects.toThrow(/cannot be deleted/);
-    await expect(prisma.$executeRaw`DELETE FROM "JournalEntry" WHERE "id" = ${id}::uuid`).rejects.toThrow(/cannot be deleted/);
-    await expect(prisma.$executeRaw`UPDATE "JournalEntry" SET "total" = 1 WHERE "id" = ${id}::uuid`).rejects.toThrow(/cannot be changed/);
+    await expect(
+      prisma.$executeRaw`UPDATE "JournalLine" SET "debit" = 20 WHERE "entryId" = ${id}::uuid AND "debit" > 0`,
+    ).rejects.toThrow(/cannot be changed/);
+    await expect(
+      prisma.$executeRaw`DELETE FROM "JournalLine" WHERE "entryId" = ${id}::uuid`,
+    ).rejects.toThrow(/cannot be deleted/);
+    await expect(
+      prisma.$executeRaw`DELETE FROM "JournalEntry" WHERE "id" = ${id}::uuid`,
+    ).rejects.toThrow(/cannot be deleted/);
+    await expect(
+      prisma.$executeRaw`UPDATE "JournalEntry" SET "total" = 1 WHERE "id" = ${id}::uuid`,
+    ).rejects.toThrow(/cannot be changed/);
     await expect(
       prisma.$executeRaw`INSERT INTO "JournalLine" ("id","entryId","dealerId","lineNo","accountId","debit","credit")
         VALUES (gen_random_uuid(), ${id}::uuid, ${dealer.dealerId}::uuid, 9, ${rent}::uuid, 1, 0)`,
@@ -150,7 +177,10 @@ describeDb('double-entry journal', () => {
   it('reverses an entry with its mirror image, once', async () => {
     const { id } = await journal.create(
       dealer.ctx,
-      entry([{ accountId: rent, debit: '250' }, { accountId: cash, credit: '250' }]),
+      entry([
+        { accountId: rent, debit: '250' },
+        { accountId: cash, credit: '250' },
+      ]),
     );
     const before = debitBalance((await accountTotals(prisma, dealer.dealerId)).get(rent));
     const reversal = await journal.reverse(dealer.ctx, id, { reason: 'Entered twice' });
@@ -159,16 +189,26 @@ describeDb('double-entry journal', () => {
 
     const original = await prisma.journalEntry.findUniqueOrThrow({ where: { id } });
     expect(original.reversedAt).not.toBeNull();
-    const mirror = await prisma.journalEntry.findUniqueOrThrow({ where: { id: reversal.id }, include: { lines: true } });
+    const mirror = await prisma.journalEntry.findUniqueOrThrow({
+      where: { id: reversal.id },
+      include: { lines: true },
+    });
     expect(mirror.reversalOfId).toBe(id);
     expect(mirror.kind).toBe('REVERSAL');
-    await expect(journal.reverse(dealer.ctx, id, { reason: 'again' })).rejects.toBeInstanceOf(ConflictException);
-    await expect(journal.reverse(dealer.ctx, reversal.id, { reason: 'again' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(journal.reverse(dealer.ctx, id, { reason: 'again' })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await expect(
+      journal.reverse(dealer.ctx, reversal.id, { reason: 'again' }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('keeps drafts off the books until they are posted', async () => {
     const draft = await journal.create(dealer.ctx, {
-      ...entry([{ accountId: rent, debit: '5' }, { accountId: cash, credit: '5' }]),
+      ...entry([
+        { accountId: rent, debit: '5' },
+        { accountId: cash, credit: '5' },
+      ]),
       post: false,
     });
     const before = debitBalance((await accountTotals(prisma, dealer.dealerId)).get(rent));
@@ -177,7 +217,10 @@ describeDb('double-entry journal', () => {
     expect(after - before).toBe(500);
 
     const another = await journal.create(dealer.ctx, {
-      ...entry([{ accountId: rent, debit: '5' }, { accountId: cash, credit: '5' }]),
+      ...entry([
+        { accountId: rent, debit: '5' },
+        { accountId: cash, credit: '5' },
+      ]),
       post: false,
     });
     await journal.deleteDraft(dealer.ctx, another.id);
@@ -199,7 +242,13 @@ describeDb('double-entry journal', () => {
 
     await expect(
       journal.create(other.ctx, {
-        ...entry([{ accountId: otherRent, debit: '1' }, { accountId: otherCash, credit: '1' }], date),
+        ...entry(
+          [
+            { accountId: otherRent, debit: '1' },
+            { accountId: otherCash, credit: '1' },
+          ],
+          date,
+        ),
       }),
     ).rejects.toThrow(/closed/);
 
@@ -210,7 +259,16 @@ describeDb('double-entry journal', () => {
 
     await periods.reopenPeriod(other.ctx, first.id, 'Late invoice');
     await expect(
-      journal.create(other.ctx, entry([{ accountId: otherRent, debit: '1' }, { accountId: otherCash, credit: '1' }], date)),
+      journal.create(
+        other.ctx,
+        entry(
+          [
+            { accountId: otherRent, debit: '1' },
+            { accountId: otherCash, credit: '1' },
+          ],
+          date,
+        ),
+      ),
     ).resolves.toBeDefined();
   });
 
@@ -221,7 +279,13 @@ describeDb('double-entry journal', () => {
     const theirVehicle = await createVehicle(prisma, dealer.ownerId);
 
     await expect(
-      journal.create(rival.ctx, entry([{ accountId: rent, debit: '1' }, { accountId: rivalCash, credit: '1' }])),
+      journal.create(
+        rival.ctx,
+        entry([
+          { accountId: rent, debit: '1' },
+          { accountId: rivalCash, credit: '1' },
+        ]),
+      ),
     ).rejects.toThrow(/does not exist in this chart/);
 
     const rivalRent = await accountByCode(prisma, rival.dealerId, '6100');
@@ -239,26 +303,44 @@ describeDb('double-entry journal', () => {
       ),
     ).rejects.toThrow(/Vehicle not found/);
 
-    const list = await journal.list(rival.ctx, { page: 1, pageSize: 200, compare: 'NONE', profitability: 'ALL' } as never);
+    const list = await journal.list(rival.ctx, {
+      page: 1,
+      pageSize: 200,
+      compare: 'NONE',
+      profitability: 'ALL',
+    } as never);
     expect(list.items.every((item) => item.id)).toBe(true);
-    const mine = await prisma.journalEntry.findMany({ where: { dealerId: dealer.dealerId }, select: { id: true } });
+    const mine = await prisma.journalEntry.findMany({
+      where: { dealerId: dealer.dealerId },
+      select: { id: true },
+    });
     expect(list.items.some((item) => mine.some((row) => row.id === item.id))).toBe(false);
   });
 
   it('keeps the accounting audit trail append-only', async () => {
-    const row = await prisma.accountingAuditLog.findFirstOrThrow({ where: { dealerId: dealer.dealerId } });
-    await expect(prisma.$executeRaw`UPDATE "AccountingAuditLog" SET "action" = 'x' WHERE "id" = ${row.id}::uuid`).rejects.toThrow(
-      /append-only/,
-    );
-    await expect(prisma.$executeRaw`DELETE FROM "AccountingAuditLog" WHERE "id" = ${row.id}::uuid`).rejects.toThrow(/append-only/);
-    const posted = await prisma.accountingAuditLog.count({ where: { dealerId: dealer.dealerId, action: 'journal.posted' } });
+    const row = await prisma.accountingAuditLog.findFirstOrThrow({
+      where: { dealerId: dealer.dealerId },
+    });
+    await expect(
+      prisma.$executeRaw`UPDATE "AccountingAuditLog" SET "action" = 'x' WHERE "id" = ${row.id}::uuid`,
+    ).rejects.toThrow(/append-only/);
+    await expect(
+      prisma.$executeRaw`DELETE FROM "AccountingAuditLog" WHERE "id" = ${row.id}::uuid`,
+    ).rejects.toThrow(/append-only/);
+    const posted = await prisma.accountingAuditLog.count({
+      where: { dealerId: dealer.dealerId, action: 'journal.posted' },
+    });
     expect(posted).toBeGreaterThan(0);
   });
 
   it('stores money exactly', async () => {
     const { id } = await journal.create(
       dealer.ctx,
-      entry([{ accountId: rent, debit: '0.10' }, { accountId: rent, debit: '0.20' }, { accountId: cash, credit: '0.30' }]),
+      entry([
+        { accountId: rent, debit: '0.10' },
+        { accountId: rent, debit: '0.20' },
+        { accountId: cash, credit: '0.30' },
+      ]),
     );
     const saved = await prisma.journalEntry.findUniqueOrThrow({ where: { id } });
     expect(saved.total).toEqual(new Prisma.Decimal('0.30'));

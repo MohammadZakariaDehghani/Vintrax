@@ -53,7 +53,9 @@ export function rangeFor(
     }
     case 'THIS_QUARTER': {
       const monthsIn = Math.floor(
-        (Number(today.slice(0, 4)) * 12 + Number(today.slice(5, 7)) - (Number(fiscal.from.slice(0, 4)) * 12 + Number(fiscal.from.slice(5, 7)))) /
+        (Number(today.slice(0, 4)) * 12 +
+          Number(today.slice(5, 7)) -
+          (Number(fiscal.from.slice(0, 4)) * 12 + Number(fiscal.from.slice(5, 7)))) /
           3,
       );
       let from = addMonths(fiscal.from, monthsIn * 3);
@@ -71,9 +73,12 @@ export function rangeFor(
       range = { from: addMonths(fiscal.from, -12), to: addDays(fiscal.from, -1) };
       break;
     case 'CUSTOM': {
-      if (!custom?.from || !custom.to) throw new BadRequestException('Choose a start and an end date');
-      if (custom.to < custom.from) throw new BadRequestException('The end date is before the start date');
-      if (daysBetween(custom.from, custom.to) > 3700) throw new BadRequestException('Choose ten years or less');
+      if (!custom?.from || !custom.to)
+        throw new BadRequestException('Choose a start and an end date');
+      if (custom.to < custom.from)
+        throw new BadRequestException('The end date is before the start date');
+      if (daysBetween(custom.from, custom.to) > 3700)
+        throw new BadRequestException('Choose ten years or less');
       range = { from: custom.from, to: custom.to };
       break;
     }
@@ -82,14 +87,18 @@ export function rangeFor(
 }
 
 /** The period before, of the same length, or the same period a year earlier. */
-export function comparisonRange(range: DateRange, mode: 'PREVIOUS_PERIOD' | 'PREVIOUS_YEAR'): DateRange {
-  if (mode === 'PREVIOUS_YEAR') return { from: addMonths(range.from, -12), to: addMonths(range.to, -12) };
+export function comparisonRange(
+  range: DateRange,
+  mode: 'PREVIOUS_PERIOD' | 'PREVIOUS_YEAR',
+): DateRange {
+  if (mode === 'PREVIOUS_YEAR')
+    return { from: addMonths(range.from, -12), to: addMonths(range.to, -12) };
   // A whole-month range compares with the months before it; anything else by days.
-  const wholeMonths =
-    range.from.endsWith('-01') && addDays(range.to, 1).endsWith('-01');
+  const wholeMonths = range.from.endsWith('-01') && addDays(range.to, 1).endsWith('-01');
   if (wholeMonths) {
     const months =
-      Number(addDays(range.to, 1).slice(0, 4)) * 12 + Number(addDays(range.to, 1).slice(5, 7)) -
+      Number(addDays(range.to, 1).slice(0, 4)) * 12 +
+      Number(addDays(range.to, 1).slice(5, 7)) -
       (Number(range.from.slice(0, 4)) * 12 + Number(range.from.slice(5, 7)));
     return { from: addMonths(range.from, -months), to: addDays(range.from, -1) };
   }

@@ -23,8 +23,13 @@ export function Attachments({ entityType, entityId }: { entityType: string; enti
   const { can } = useAccounting();
   const input = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<unknown>(null);
-  const list = useAcctQuery<Attachment[]>(['attachments', entityType, entityId], `/attachments/${entityType}/${entityId}`);
-  const upload = useAcctMutation((file: File) => acct.upload(`/attachments/${entityType}/${entityId}`, file));
+  const list = useAcctQuery<Attachment[]>(
+    ['attachments', entityType, entityId],
+    `/attachments/${entityType}/${entityId}`,
+  );
+  const upload = useAcctMutation((file: File) =>
+    acct.upload(`/attachments/${entityType}/${entityId}`, file),
+  );
 
   return (
     <div>
@@ -45,7 +50,12 @@ export function Attachments({ entityType, entityId }: { entityType: string; enti
                 if (file) upload.mutate(file);
               }}
             />
-            <Button size="sm" variant="outline" loading={upload.isPending} onClick={() => input.current?.click()}>
+            <Button
+              size="sm"
+              variant="outline"
+              loading={upload.isPending}
+              onClick={() => input.current?.click()}
+            >
               <Upload className="h-3.5 w-3.5" aria-hidden /> Attach a file
             </Button>
           </>

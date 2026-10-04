@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { centsToDecimalString, type PaymentInput, type ReportQuery } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
@@ -38,7 +43,9 @@ export class PaymentsService {
         date: { gte: toDbDate(range.from), lte: toDbDate(range.to) },
         ...(query.customerId ? { customerId: query.customerId } : {}),
         ...(query.vendorId ? { vendorId: query.vendorId } : {}),
-        ...(query.reference ? { reference: { contains: query.reference, mode: 'insensitive' } } : {}),
+        ...(query.reference
+          ? { reference: { contains: query.reference, mode: 'insensitive' } }
+          : {}),
       },
       orderBy: [{ date: 'desc' }, { number: 'desc' }],
       include: {
@@ -74,7 +81,9 @@ export class PaymentsService {
           bill: allocation.bill,
           amountCents: toCents(allocation.amount),
         })),
-        unallocatedCents: toCents(row.amount) - sumCents(row.allocations.map((allocation) => toCents(allocation.amount))),
+        unallocatedCents:
+          toCents(row.amount) -
+          sumCents(row.allocations.map((allocation) => toCents(allocation.amount))),
         journalEntryId: row.journalEntryId,
       })),
     };
@@ -94,7 +103,13 @@ export class PaymentsService {
       const isRefund = input.kind === 'REFUND';
       // A refund goes the other way and is not applied to documents.
       const expectedDirection =
-        party.type === 'customer' ? (isRefund ? 'SENT' : 'RECEIVED') : isRefund ? 'RECEIVED' : 'SENT';
+        party.type === 'customer'
+          ? isRefund
+            ? 'SENT'
+            : 'RECEIVED'
+          : isRefund
+            ? 'RECEIVED'
+            : 'SENT';
       if (input.direction !== expectedDirection) {
         throw new BadRequestException(
           party.type === 'customer'
@@ -119,24 +134,33 @@ export class PaymentsService {
         if (allocation.invoiceId) {
           const [invoice] = await tx.$queryRaw<Array<{ id: string }>>`
             SELECT "id" FROM "CustomerInvoice" WHERE "id" = ${allocation.invoiceId}::uuid AND "dealerId" = ${ctx.dealerId}::uuid FOR UPDATE`;
-          const row = invoice ? await tx.customerInvoice.findUniqueOrThrow({ where: { id: invoice.id } }) : null;
-          if (!row || row.customerId !== party.id) throw new BadRequestException('Invoice not found for this customer');
+          const row = invoice
+            ? await tx.customerInvoice.findUniqueOrThrow({ where: { id: invoice.id } })
+            : null;
+          if (!row || row.customerId !== party.id)
+            throw new BadRequestException('Invoice not found for this customer');
           if (row.status === 'VOID') throw new ConflictException(`Invoice ${row.number} is void`);
           const open = toCents(row.total) - toCents(row.amountPaid);
           if (allocation.amount > open) {
-            throw new BadRequestException(`Invoice ${row.number} has only ${centsToDecimalString(open)} open`);
+            throw new BadRequestException(
+              `Invoice ${row.number} has only ${centsToDecimalString(open)} open`,
+            );
           }
         } else if (allocation.billId) {
           const [bill] = await tx.$queryRaw<Array<{ id: string }>>`
             SELECT "id" FROM "VendorBill" WHERE "id" = ${allocation.billId}::uuid AND "dealerId" = ${ctx.dealerId}::uuid FOR UPDATE`;
-          const row = bill ? await tx.vendorBill.findUniqueOrThrow({ where: { id: bill.id } }) : null;
+          const row = bill
+            ? await tx.vendorBill.findUniqueOrThrow({ where: { id: bill.id } })
+            : null;
           if (!row || row.vendorId !== party.id || row.kind !== 'BILL') {
             throw new BadRequestException('Bill not found for this vendor');
           }
           if (row.status === 'VOID') throw new ConflictException(`Bill #${row.number} is void`);
           const open = toCents(row.total) - toCents(row.amountPaid);
           if (allocation.amount > open) {
-            throw new BadRequestException(`Bill #${row.number} has only ${centsToDecimalString(open)} open`);
+            throw new BadRequestException(
+              `Bill #${row.number} has only ${centsToDecimalString(open)} open`,
+            );
           }
         } else {
           throw new BadRequestException('Each allocation names an invoice or a bill');
@@ -171,7 +195,11 @@ export class PaymentsService {
       const moneyIn = input.direction === 'RECEIVED';
       const dims = party.type === 'customer' ? { customerId: party.id } : { vendorId: party.id };
       const source =
-        party.type === 'customer' ? (isRefund ? 'CUSTOMER_REFUND' : 'CUSTOMER_PAYMENT') : 'VENDOR_PAYMENT';
+        party.type === 'customer'
+          ? isRefund
+            ? 'CUSTOMER_REFUND'
+            : 'CUSTOMER_PAYMENT'
+          : 'VENDOR_PAYMENT';
       const entry = await this.posting.post(tx, ctx, {
         date: input.date,
         description: `${isRefund ? 'Refund' : 'Payment'} #${payment.number} ${moneyIn ? 'from' : 'to'} ${party.name}`,
@@ -180,15 +208,27 @@ export class PaymentsService {
         sourceType: 'Payment',
         sourceId: payment.id,
         lines: [
-          { accountId: bank.glAccountId, debit: moneyIn ? input.amount : 0, credit: moneyIn ? 0 : input.amount, ...dims },
-          { accountId: control, debit: moneyIn ? 0 : input.amount, credit: moneyIn ? input.amount : 0, ...dims },
+          {
+            accountId: bank.glAccountId,
+            debit: moneyIn ? input.amount : 0,
+            credit: moneyIn ? 0 : input.amount,
+            ...dims,
+          },
+          {
+            accountId: control,
+            debit: moneyIn ? 0 : input.amount,
+            credit: moneyIn ? input.amount : 0,
+            ...dims,
+          },
         ],
       });
       await tx.payment.update({ where: { id: payment.id }, data: { journalEntryId: entry.id } });
 
       for (const allocation of input.allocations) {
         if (allocation.invoiceId) {
-          const invoice = await tx.customerInvoice.findUniqueOrThrow({ where: { id: allocation.invoiceId } });
+          const invoice = await tx.customerInvoice.findUniqueOrThrow({
+            where: { id: allocation.invoiceId },
+          });
           const paid = toCents(invoice.amountPaid) + allocation.amount;
           await tx.customerInvoice.update({
             where: { id: invoice.id },
@@ -230,32 +270,46 @@ export class PaymentsService {
         include: { allocations: true },
       });
       if (!payment) throw new NotFoundException('Payment not found');
-      if (payment.status !== 'POSTED') throw new ConflictException('This payment is already reversed');
+      if (payment.status !== 'POSTED')
+        throw new ConflictException('This payment is already reversed');
       const reconciled = await tx.journalLine.count({
         where: { entryId: payment.journalEntryId!, reconciliationId: { not: null } },
       });
       if (reconciled > 0) {
-        throw new ConflictException('This payment has been reconciled with the bank; post an adjustment instead');
+        throw new ConflictException(
+          'This payment has been reconciled with the bank; post an adjustment instead',
+        );
       }
       const reversal = await this.posting.reverse(tx, ctx, payment.journalEntryId!, { reason });
       for (const allocation of payment.allocations) {
         if (allocation.invoiceId) {
-          const invoice = await tx.customerInvoice.findUniqueOrThrow({ where: { id: allocation.invoiceId } });
+          const invoice = await tx.customerInvoice.findUniqueOrThrow({
+            where: { id: allocation.invoiceId },
+          });
           const paid = toCents(invoice.amountPaid) - toCents(allocation.amount);
           await tx.customerInvoice.update({
             where: { id: invoice.id },
-            data: { amountPaid: fromCents(paid), status: invoice.status === 'VOID' ? 'VOID' : settlement(toCents(invoice.total), paid) },
+            data: {
+              amountPaid: fromCents(paid),
+              status: invoice.status === 'VOID' ? 'VOID' : settlement(toCents(invoice.total), paid),
+            },
           });
         } else if (allocation.billId) {
           const bill = await tx.vendorBill.findUniqueOrThrow({ where: { id: allocation.billId } });
           const paid = toCents(bill.amountPaid) - toCents(allocation.amount);
           await tx.vendorBill.update({
             where: { id: bill.id },
-            data: { amountPaid: fromCents(paid), status: bill.status === 'VOID' ? 'VOID' : settlement(toCents(bill.total), paid) },
+            data: {
+              amountPaid: fromCents(paid),
+              status: bill.status === 'VOID' ? 'VOID' : settlement(toCents(bill.total), paid),
+            },
           });
         }
       }
-      await tx.payment.update({ where: { id: payment.id }, data: { status: 'VOID', reversalEntryId: reversal.id } });
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: 'VOID', reversalEntryId: reversal.id },
+      });
       await recordAudit(tx, ctx, {
         action: 'payment.reversed',
         entityType: 'Payment',

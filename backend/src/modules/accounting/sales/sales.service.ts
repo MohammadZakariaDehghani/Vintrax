@@ -1,6 +1,17 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, type Province } from '@prisma/client';
-import { centsToDecimalString, saleInputToForm, saleSchema, type ReportQuery, type SaleInput } from '@vintrax/shared';
+import {
+  centsToDecimalString,
+  saleInputToForm,
+  saleSchema,
+  type ReportQuery,
+  type SaleInput,
+} from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
 import { recordAudit } from '../core/audit';
@@ -86,7 +97,17 @@ export class SalesService {
             }
           : {}),
       },
-      select: { id: true, vin: true, stockNumber: true, year: true, make: true, model: true, trim: true, status: true, priceCad: true },
+      select: {
+        id: true,
+        vin: true,
+        stockNumber: true,
+        year: true,
+        make: true,
+        model: true,
+        trim: true,
+        status: true,
+        priceCad: true,
+      },
       orderBy: { updatedAt: 'desc' },
       take: 50,
     });
@@ -114,7 +135,9 @@ export class SalesService {
       where,
       orderBy: [{ saleDate: 'desc' }, { number: 'desc' }],
       include: {
-        vehicle: { select: { id: true, vin: true, year: true, make: true, model: true, stockNumber: true } },
+        vehicle: {
+          select: { id: true, vin: true, year: true, make: true, model: true, stockNumber: true },
+        },
         customer: { select: { id: true, name: true } },
         salesperson: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -129,7 +152,9 @@ export class SalesService {
         status: row.status,
         vehicle: row.vehicle,
         customer: row.customer,
-        salesperson: row.salesperson ? `${row.salesperson.firstName} ${row.salesperson.lastName}` : null,
+        salesperson: row.salesperson
+          ? `${row.salesperson.firstName} ${row.salesperson.lastName}`
+          : null,
         salePriceCents: toCents(row.salePrice),
         totalCents: toCents(row.totalAmount),
         taxCents: toCents(row.taxTotal),
@@ -144,7 +169,17 @@ export class SalesService {
     const sale = await this.prisma.vehicleSale.findFirst({
       where: { id: saleId, dealerId: ctx.dealerId },
       include: {
-        vehicle: { select: { id: true, vin: true, year: true, make: true, model: true, stockNumber: true, condition: true } },
+        vehicle: {
+          select: {
+            id: true,
+            vin: true,
+            year: true,
+            make: true,
+            model: true,
+            stockNumber: true,
+            condition: true,
+          },
+        },
         customer: { select: { id: true, name: true, email: true, phone: true } },
         salesperson: { select: { id: true, firstName: true, lastName: true } },
         tradeIn: true,
@@ -158,7 +193,14 @@ export class SalesService {
     });
     const invoices = await this.prisma.customerInvoice.findMany({
       where: { dealerId: ctx.dealerId, saleId: sale.id },
-      select: { id: true, number: true, total: true, amountPaid: true, status: true, customerId: true },
+      select: {
+        id: true,
+        number: true,
+        total: true,
+        amountPaid: true,
+        status: true,
+        customerId: true,
+      },
     });
     return {
       id: sale.id,
@@ -221,7 +263,9 @@ export class SalesService {
 
   /** The deal recap without saving anything. */
   async quote(ctx: AccountingContext, input: SaleInput) {
-    return this.prisma.$transaction(async (tx) => this.compute(tx, ctx, input), { isolationLevel: 'ReadCommitted' });
+    return this.prisma.$transaction(async (tx) => this.compute(tx, ctx, input), {
+      isolationLevel: 'ReadCommitted',
+    });
   }
 
   /** A draft deal — anyone on the deal desk may save one. */
@@ -257,9 +301,12 @@ export class SalesService {
       };
       let id = saleId;
       if (saleId) {
-        const existing = await tx.vehicleSale.findFirst({ where: { id: saleId, dealerId: ctx.dealerId } });
+        const existing = await tx.vehicleSale.findFirst({
+          where: { id: saleId, dealerId: ctx.dealerId },
+        });
         if (!existing) throw new NotFoundException('Sale not found');
-        if (existing.status !== 'DRAFT') throw new ConflictException('A posted sale cannot be edited; reverse it');
+        if (existing.status !== 'DRAFT')
+          throw new ConflictException('A posted sale cannot be edited; reverse it');
         await tx.vehicleSale.update({ where: { id: saleId }, data });
       } else {
         const created = await tx.vehicleSale.create({
@@ -284,19 +331,29 @@ export class SalesService {
 
   async deleteDraft(ctx: AccountingContext, saleId: string) {
     await this.prisma.$transaction(async (tx) => {
-      const sale = await tx.vehicleSale.findFirst({ where: { id: saleId, dealerId: ctx.dealerId } });
+      const sale = await tx.vehicleSale.findFirst({
+        where: { id: saleId, dealerId: ctx.dealerId },
+      });
       if (!sale) throw new NotFoundException('Sale not found');
-      if (sale.status !== 'DRAFT') throw new ConflictException('A posted sale is reversed, not deleted');
+      if (sale.status !== 'DRAFT')
+        throw new ConflictException('A posted sale is reversed, not deleted');
       await tx.vehicleSale.delete({ where: { id: sale.id } });
-      await recordAudit(tx, ctx, { action: 'sale.draft_deleted', entityType: 'VehicleSale', entityId: sale.id });
+      await recordAudit(tx, ctx, {
+        action: 'sale.draft_deleted',
+        entityType: 'VehicleSale',
+        entityId: sale.id,
+      });
     });
   }
 
   /** Posts a saved draft. */
   async postDraft(ctx: AccountingContext, saleId: string) {
-    const sale = await this.prisma.vehicleSale.findFirst({ where: { id: saleId, dealerId: ctx.dealerId } });
+    const sale = await this.prisma.vehicleSale.findFirst({
+      where: { id: saleId, dealerId: ctx.dealerId },
+    });
     if (!sale) throw new NotFoundException('Sale not found');
-    if (sale.status !== 'DRAFT' || !sale.draft) throw new ConflictException('Only a draft sale can be posted');
+    if (sale.status !== 'DRAFT' || !sale.draft)
+      throw new ConflictException('Only a draft sale can be posted');
     const input = saleSchema.parse(sale.draft);
     return this.post(ctx, input, sale.id);
   }
@@ -322,7 +379,8 @@ export class SalesService {
           'FINANCE_REVENUE',
           'AP',
         ]);
-        const revenueAccount = vehicle.condition === 'NEW' ? accounts.NEW_VEHICLE_SALES : accounts.USED_VEHICLE_SALES;
+        const revenueAccount =
+          vehicle.condition === 'NEW' ? accounts.NEW_VEHICLE_SALES : accounts.USED_VEHICLE_SALES;
         const label = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
 
         // The sale record first, so the journal can point at it.
@@ -330,7 +388,9 @@ export class SalesService {
           ? (await tx.vehicleSale.findUniqueOrThrow({ where: { id: draftId } })).number
           : await nextNumber(tx, ctx.dealerId, 'nextSaleNumber');
         const tradeIn = input.tradeInId
-          ? await tx.tradeIn.findFirstOrThrow({ where: { id: input.tradeInId, dealerId: ctx.dealerId } })
+          ? await tx.tradeIn.findFirstOrThrow({
+              where: { id: input.tradeInId, dealerId: ctx.dealerId },
+            })
           : null;
         const saleData = {
           vehicleId: vehicle.id,
@@ -365,7 +425,10 @@ export class SalesService {
           postedAt: new Date(),
         };
         const sale = draftId
-          ? await tx.vehicleSale.update({ where: { id: draftId }, data: { ...saleData, draft: Prisma.DbNull } })
+          ? await tx.vehicleSale.update({
+              where: { id: draftId },
+              data: { ...saleData, draft: Prisma.DbNull },
+            })
           : await tx.vehicleSale.create({
               data: { ...saleData, dealerId: ctx.dealerId, number, createdById: ctx.userId },
             });
@@ -386,10 +449,22 @@ export class SalesService {
         }
         if (input.downPayment > 0) {
           const bank = await bankGlAccount(tx, ctx, input.bankAccountId!);
-          lines.push({ accountId: bank.glAccountId, debit: input.downPayment, credit: 0, description: 'Down payment', ...dims });
+          lines.push({
+            accountId: bank.glAccountId,
+            debit: input.downPayment,
+            credit: 0,
+            description: 'Down payment',
+            ...dims,
+          });
         }
         if (computation.balanceDueCents > 0) {
-          lines.push({ accountId: accounts.AR, debit: computation.balanceDueCents, credit: 0, description: 'Balance due', ...dims });
+          lines.push({
+            accountId: accounts.AR,
+            debit: computation.balanceDueCents,
+            credit: 0,
+            description: 'Balance due',
+            ...dims,
+          });
         }
         let lenderCustomerId: string | null = null;
         const lenderReceivable = input.financedAmount + input.financeRevenue;
@@ -440,12 +515,48 @@ export class SalesService {
         }
 
         // Revenue, by kind.
-        lines.push({ accountId: revenueAccount, debit: 0, credit: computation.vehicleNetCents, description: label, ...dims });
-        lines.push({ accountId: accounts.FEE_REVENUE, debit: 0, credit: computation.feesCents, description: 'Dealer and documentation fees', ...dims });
-        lines.push({ accountId: accounts.ACCESSORIES_SALES, debit: 0, credit: input.accessories, description: 'Accessories', ...dims });
-        lines.push({ accountId: accounts.EXTENDED_WARRANTY_REVENUE, debit: 0, credit: input.warranty, description: 'Extended warranty', ...dims });
-        lines.push({ accountId: accounts.OTHER_REVENUE, debit: 0, credit: input.otherCharges, description: 'Other charges', ...dims });
-        lines.push({ accountId: accounts.FINANCE_REVENUE, debit: 0, credit: input.financeRevenue, description: 'Finance reserve', vehicleId: vehicle.id });
+        lines.push({
+          accountId: revenueAccount,
+          debit: 0,
+          credit: computation.vehicleNetCents,
+          description: label,
+          ...dims,
+        });
+        lines.push({
+          accountId: accounts.FEE_REVENUE,
+          debit: 0,
+          credit: computation.feesCents,
+          description: 'Dealer and documentation fees',
+          ...dims,
+        });
+        lines.push({
+          accountId: accounts.ACCESSORIES_SALES,
+          debit: 0,
+          credit: input.accessories,
+          description: 'Accessories',
+          ...dims,
+        });
+        lines.push({
+          accountId: accounts.EXTENDED_WARRANTY_REVENUE,
+          debit: 0,
+          credit: input.warranty,
+          description: 'Extended warranty',
+          ...dims,
+        });
+        lines.push({
+          accountId: accounts.OTHER_REVENUE,
+          debit: 0,
+          credit: input.otherCharges,
+          description: 'Other charges',
+          ...dims,
+        });
+        lines.push({
+          accountId: accounts.FINANCE_REVENUE,
+          debit: 0,
+          credit: input.financeRevenue,
+          description: 'Finance reserve',
+          vehicleId: vehicle.id,
+        });
 
         // Each tax separately, to its own payable account.
         for (const component of computation.tax.components) {
@@ -462,8 +573,20 @@ export class SalesService {
         }
 
         // Inventory out at book value, to cost of sales.
-        lines.push({ accountId: accounts.VEHICLE_COGS, debit: computation.costOfSaleCents, credit: 0, description: `Cost of ${label}`, vehicleId: vehicle.id });
-        lines.push({ accountId: accounts.VEHICLE_INVENTORY, debit: 0, credit: computation.costOfSaleCents, description: `${label} sold`, vehicleId: vehicle.id });
+        lines.push({
+          accountId: accounts.VEHICLE_COGS,
+          debit: computation.costOfSaleCents,
+          credit: 0,
+          description: `Cost of ${label}`,
+          vehicleId: vehicle.id,
+        });
+        lines.push({
+          accountId: accounts.VEHICLE_INVENTORY,
+          debit: 0,
+          credit: computation.costOfSaleCents,
+          description: `${label} sold`,
+          vehicleId: vehicle.id,
+        });
 
         const entry = await this.posting.post(tx, ctx, {
           date: input.saleDate,
@@ -477,7 +600,9 @@ export class SalesService {
 
         // Deposits applied.
         for (const application of input.deposits) {
-          const deposit = await tx.customerDeposit.findUniqueOrThrow({ where: { id: application.depositId } });
+          const deposit = await tx.customerDeposit.findUniqueOrThrow({
+            where: { id: application.depositId },
+          });
           const applied = toCents(deposit.applied) + application.amount;
           await tx.customerDeposit.update({
             where: { id: deposit.id },
@@ -511,7 +636,12 @@ export class SalesService {
               date: toDbDate(input.saleDate),
               dueDate: toDbDate(dueDate),
               description: `Balance due on sale #${sale.number} — ${label}`,
-              lines: [{ description: `Sale #${sale.number} balance`, amountCents: computation.balanceDueCents }],
+              lines: [
+                {
+                  description: `Sale #${sale.number} balance`,
+                  amountCents: computation.balanceDueCents,
+                },
+              ],
               subtotal: fromCents(computation.balanceDueCents),
               total: fromCents(computation.balanceDueCents),
               journalEntryId: entry.id,
@@ -580,7 +710,13 @@ export class SalesService {
                 vendorReference: `Payoff ${tradeIn.vin ?? `${tradeIn.year} ${tradeIn.make} ${tradeIn.model}`}`,
                 date: toDbDate(input.saleDate),
                 dueDate: toDbDate(addDays(input.saleDate, 10)),
-                lines: [{ description: 'Trade-in lien payoff', amountCents: computation.lienPayoffCents, vehicleId: tradeIn.vehicleId }],
+                lines: [
+                  {
+                    description: 'Trade-in lien payoff',
+                    amountCents: computation.lienPayoffCents,
+                    vehicleId: tradeIn.vehicleId,
+                  },
+                ],
                 subtotal: fromCents(computation.lienPayoffCents),
                 total: fromCents(computation.lienPayoffCents),
                 journalEntryId: entry.id,
@@ -608,7 +744,10 @@ export class SalesService {
           where: { id: vehicle.id },
           data: { status: 'SOLD', soldAt: toDbDate(input.saleDate) },
         });
-        await tx.vehicleSale.update({ where: { id: sale.id }, data: { journalEntryId: entry.id, invoiceId } });
+        await tx.vehicleSale.update({
+          where: { id: sale.id },
+          data: { journalEntryId: entry.id, invoiceId },
+        });
 
         await recordAudit(tx, ctx, {
           action: 'sale.posted',
@@ -626,7 +765,13 @@ export class SalesService {
           },
         });
 
-        return { id: sale.id, number: sale.number, journalEntryId: entry.id, reference: entry.reference, computation };
+        return {
+          id: sale.id,
+          number: sale.number,
+          journalEntryId: entry.id,
+          reference: entry.reference,
+          computation,
+        };
       },
       { timeout: 30_000 },
     );
@@ -641,32 +786,57 @@ export class SalesService {
   async reverse(ctx: AccountingContext, saleId: string, reason: string) {
     return this.prisma.$transaction(
       async (tx) => {
-        const sale = await tx.vehicleSale.findFirst({ where: { id: saleId, dealerId: ctx.dealerId } });
+        const sale = await tx.vehicleSale.findFirst({
+          where: { id: saleId, dealerId: ctx.dealerId },
+        });
         if (!sale) throw new NotFoundException('Sale not found');
-        if (sale.status !== 'POSTED') throw new ConflictException('Only a posted sale can be reversed');
+        if (sale.status !== 'POSTED')
+          throw new ConflictException('Only a posted sale can be reversed');
         await lockDealerVehicle(tx, ctx, sale.vehicleId);
 
-        const invoices = await tx.customerInvoice.findMany({ where: { dealerId: ctx.dealerId, saleId: sale.id } });
+        const invoices = await tx.customerInvoice.findMany({
+          where: { dealerId: ctx.dealerId, saleId: sale.id },
+        });
         if (invoices.some((invoice) => toCents(invoice.amountPaid) > 0)) {
-          throw new ConflictException('Payments have been received on this sale; reverse them first');
+          throw new ConflictException(
+            'Payments have been received on this sale; reverse them first',
+          );
         }
-        const tradeIn = sale.tradeInId ? await tx.tradeIn.findUniqueOrThrow({ where: { id: sale.tradeInId } }) : null;
+        const tradeIn = sale.tradeInId
+          ? await tx.tradeIn.findUniqueOrThrow({ where: { id: sale.tradeInId } })
+          : null;
         if (tradeIn) {
           const resold = await tx.vehicleSale.findFirst({
             where: { dealerId: ctx.dealerId, vehicleId: tradeIn.vehicleId, status: 'POSTED' },
           });
-          if (resold) throw new ConflictException('The trade-in has since been sold; reverse that sale first');
+          if (resold)
+            throw new ConflictException(
+              'The trade-in has since been sold; reverse that sale first',
+            );
           const lienBills = await tx.vendorBill.findMany({
-            where: { dealerId: ctx.dealerId, journalEntryId: sale.journalEntryId!, vendorId: tradeIn.lienHolderVendorId ?? undefined },
+            where: {
+              dealerId: ctx.dealerId,
+              journalEntryId: sale.journalEntryId!,
+              vendorId: tradeIn.lienHolderVendorId ?? undefined,
+            },
           });
           if (lienBills.some((bill) => toCents(bill.amountPaid) > 0)) {
-            throw new ConflictException('The trade-in lien has been paid; reverse that payment first');
+            throw new ConflictException(
+              'The trade-in lien has been paid; reverse that payment first',
+            );
           }
-          for (const bill of lienBills) await tx.vendorBill.update({ where: { id: bill.id }, data: { status: 'VOID' } });
+          for (const bill of lienBills)
+            await tx.vendorBill.update({ where: { id: bill.id }, data: { status: 'VOID' } });
           if (tradeIn.acquisitionId) {
-            await tx.vehicleAcquisition.update({ where: { id: tradeIn.acquisitionId }, data: { status: 'VOID' } });
+            await tx.vehicleAcquisition.update({
+              where: { id: tradeIn.acquisitionId },
+              data: { status: 'VOID' },
+            });
           }
-          await tx.tradeIn.update({ where: { id: tradeIn.id }, data: { status: 'DRAFT', saleId: null, acquisitionId: null } });
+          await tx.tradeIn.update({
+            where: { id: tradeIn.id },
+            data: { status: 'DRAFT', saleId: null, acquisitionId: null },
+          });
         }
 
         const reversal = await this.posting.reverse(tx, ctx, sale.journalEntryId!, { reason });
@@ -679,15 +849,25 @@ export class SalesService {
         await tx.vehicleCost.deleteMany({ where: { journalEntryId: sale.journalEntryId! } });
 
         for (const invoice of invoices) {
-          await tx.customerInvoice.update({ where: { id: invoice.id }, data: { status: 'VOID', voidEntryId: reversal.id } });
+          await tx.customerInvoice.update({
+            where: { id: invoice.id },
+            data: { status: 'VOID', voidEntryId: reversal.id },
+          });
         }
-        const applications = await tx.customerDepositEvent.findMany({ where: { saleId: sale.id, kind: 'APPLIED' } });
+        const applications = await tx.customerDepositEvent.findMany({
+          where: { saleId: sale.id, kind: 'APPLIED' },
+        });
         for (const application of applications) {
-          const deposit = await tx.customerDeposit.findUniqueOrThrow({ where: { id: application.depositId } });
+          const deposit = await tx.customerDeposit.findUniqueOrThrow({
+            where: { id: application.depositId },
+          });
           const applied = toCents(deposit.applied) - toCents(application.amount);
           await tx.customerDeposit.update({
             where: { id: deposit.id },
-            data: { applied: fromCents(applied), status: depositStatus(toCents(deposit.amount), applied, toCents(deposit.refunded)) },
+            data: {
+              applied: fromCents(applied),
+              status: depositStatus(toCents(deposit.amount), applied, toCents(deposit.refunded)),
+            },
           });
           await tx.customerDepositEvent.create({
             data: {
@@ -706,7 +886,10 @@ export class SalesService {
           where: { id: sale.vehicleId },
           data: { status: sale.previousVehicleStatus ?? 'DRAFT', soldAt: null },
         });
-        await tx.vehicleSale.update({ where: { id: sale.id }, data: { status: 'VOID', reversalEntryId: reversal.id } });
+        await tx.vehicleSale.update({
+          where: { id: sale.id },
+          data: { status: 'VOID', reversalEntryId: reversal.id },
+        });
         await recordAudit(tx, ctx, {
           action: 'sale.reversed',
           entityType: 'VehicleSale',
@@ -743,18 +926,26 @@ export class SalesService {
     });
     if (alreadySold) {
       const reacquired = await tx.vehicleAcquisition.findFirst({
-        where: { dealerId: ctx.dealerId, vehicleId: vehicle.id, status: 'POSTED', date: { gt: alreadySold.saleDate } },
+        where: {
+          dealerId: ctx.dealerId,
+          vehicleId: vehicle.id,
+          status: 'POSTED',
+          date: { gt: alreadySold.saleDate },
+        },
       });
-      if (!reacquired) throw new ConflictException(`This vehicle was sold on sale #${alreadySold.number}`);
+      if (!reacquired)
+        throw new ConflictException(`This vehicle was sold on sale #${alreadySold.number}`);
     }
-    if (vehicle.status === 'IN_AUCTION') throw new ConflictException('The vehicle is in a running auction');
+    if (vehicle.status === 'IN_AUCTION')
+      throw new ConflictException('The vehicle is in a running auction');
     await requireCustomer(tx, ctx, input.customerId);
 
     if (input.salespersonId && input.salespersonId !== ctx.ownerUserId) {
       const member = await tx.dealerMember.findFirst({
         where: { dealerId: ctx.dealerId, userId: input.salespersonId },
       });
-      if (!member) throw new BadRequestException('The salesperson is not on this dealership’s team');
+      if (!member)
+        throw new BadRequestException('The salesperson is not on this dealership’s team');
     }
     if (input.financeLenderVendorId) await requireVendor(tx, ctx, input.financeLenderVendorId);
     if (input.bankAccountId) await bankGlAccount(tx, ctx, input.bankAccountId);
@@ -764,11 +955,16 @@ export class SalesService {
     let tradeCost = 0;
     let lienPayoff = 0;
     if (input.tradeInId) {
-      const tradeIn = await tx.tradeIn.findFirst({ where: { id: input.tradeInId, dealerId: ctx.dealerId } });
+      const tradeIn = await tx.tradeIn.findFirst({
+        where: { id: input.tradeInId, dealerId: ctx.dealerId },
+      });
       if (!tradeIn) throw new BadRequestException('Trade-in not found');
-      if (tradeIn.status !== 'DRAFT') throw new ConflictException('This trade-in is already on a sale');
-      if (tradeIn.customerId !== input.customerId) throw new BadRequestException('The trade-in belongs to another customer');
-      if (tradeIn.vehicleId === vehicle.id) throw new BadRequestException('A vehicle cannot be traded in on itself');
+      if (tradeIn.status !== 'DRAFT')
+        throw new ConflictException('This trade-in is already on a sale');
+      if (tradeIn.customerId !== input.customerId)
+        throw new BadRequestException('The trade-in belongs to another customer');
+      if (tradeIn.vehicleId === vehicle.id)
+        throw new BadRequestException('A vehicle cannot be traded in on itself');
       tradeAllowance = toCents(tradeIn.tradeAllowance);
       const appraised = toCents(tradeIn.appraisedValue);
       tradeCost = appraised > 0 ? Math.min(appraised, tradeAllowance) : tradeAllowance;
@@ -779,16 +975,21 @@ export class SalesService {
     let deposits = 0;
     const seen = new Set<string>();
     for (const application of input.deposits) {
-      if (seen.has(application.depositId)) throw new BadRequestException('A deposit is listed twice');
+      if (seen.has(application.depositId))
+        throw new BadRequestException('A deposit is listed twice');
       seen.add(application.depositId);
       const deposit = await tx.customerDeposit.findFirst({
         where: { id: application.depositId, dealerId: ctx.dealerId },
       });
       if (!deposit) throw new BadRequestException('Deposit not found');
-      if (deposit.customerId !== input.customerId) throw new BadRequestException('A deposit belongs to another customer');
-      const remaining = toCents(deposit.amount) - toCents(deposit.applied) - toCents(deposit.refunded);
+      if (deposit.customerId !== input.customerId)
+        throw new BadRequestException('A deposit belongs to another customer');
+      const remaining =
+        toCents(deposit.amount) - toCents(deposit.applied) - toCents(deposit.refunded);
       if (application.amount > remaining) {
-        throw new BadRequestException(`Deposit #${deposit.number} has only ${centsToDecimalString(remaining)} left`);
+        throw new BadRequestException(
+          `Deposit #${deposit.number} has only ${centsToDecimalString(remaining)} left`,
+        );
       }
       deposits += application.amount;
     }
@@ -811,15 +1012,22 @@ export class SalesService {
       tradeInCents: tradeAllowance,
       vehiclePriceCents: vehicleNet,
     });
-    if (tax.components.length === 0) warnings.push(`No sales tax is configured for ${province} on ${input.saleDate}`);
-    if (tax.components.some((component) => component.taxCents > 0 && component.recoverable === false && component.taxType !== 'PST')) {
+    if (tax.components.length === 0)
+      warnings.push(`No sales tax is configured for ${province} on ${input.saleDate}`);
+    if (
+      tax.components.some(
+        (component) =>
+          component.taxCents > 0 && component.recoverable === false && component.taxType !== 'PST',
+      )
+    ) {
       warnings.push('A non-recoverable federal tax rule is configured; check the tax settings');
     }
     const subtotal = vehicleNet + fees + input.accessories + input.warranty + input.otherCharges;
     const taxTotal = tax.totalTaxCents;
     const total = subtotal + taxTotal;
 
-    const balanceDue = total - tradeAllowance + lienPayoff - deposits - input.downPayment - input.financedAmount;
+    const balanceDue =
+      total - tradeAllowance + lienPayoff - deposits - input.downPayment - input.financedAmount;
     if (balanceDue < 0) {
       throw new BadRequestException(
         `Payments and credits exceed the deal total by ${centsToDecimalString(-balanceDue)}; reduce the down payment or deposits`,
@@ -827,12 +1035,19 @@ export class SalesService {
     }
 
     // Cost of sale: the vehicle's book value, read from the ledger.
-    const { VEHICLE_INVENTORY: inventory } = await this.posting.accounts(tx, ctx.dealerId, ['VEHICLE_INVENTORY']);
-    const totals = await accountTotals(tx, ctx.dealerId, { accountIds: [inventory], vehicleId: vehicle.id });
+    const { VEHICLE_INVENTORY: inventory } = await this.posting.accounts(tx, ctx.dealerId, [
+      'VEHICLE_INVENTORY',
+    ]);
+    const totals = await accountTotals(tx, ctx.dealerId, {
+      accountIds: [inventory],
+      vehicleId: vehicle.id,
+    });
     const bookValue = debitBalance(totals.get(inventory));
     if (bookValue <= 0) {
-      const message = 'This vehicle has no cost on the books. Record its purchase first, so cost of sales and gross profit are right.';
-      if (!settings.allowNegativeInventory && !options.forDraft) throw new ConflictException(message);
+      const message =
+        'This vehicle has no cost on the books. Record its purchase first, so cost of sales and gross profit are right.';
+      if (!settings.allowNegativeInventory && !options.forDraft)
+        throw new ConflictException(message);
       warnings.push(message);
     }
     const floorPlan = await tx.floorPlanNote.findFirst({
@@ -841,7 +1056,9 @@ export class SalesService {
     });
     if (floorPlan) {
       const owed = toCents(floorPlan.principal) - toCents(floorPlan.principalPaid);
-      warnings.push(`This vehicle is floor-planned; ${centsToDecimalString(owed)} must be paid off when it sells`);
+      warnings.push(
+        `This vehicle is floor-planned; ${centsToDecimalString(owed)} must be paid off when it sells`,
+      );
     }
 
     const costOfSale = Math.max(0, bookValue);
@@ -866,16 +1083,24 @@ export class SalesService {
       balanceDueCents: balanceDue,
       costOfSaleCents: costOfSale,
       grossProfitCents: grossProfit,
-      grossMarginBasisPoints: netRevenue > 0 ? Math.round((grossProfit * 10_000) / netRevenue) : null,
+      grossMarginBasisPoints:
+        netRevenue > 0 ? Math.round((grossProfit * 10_000) / netRevenue) : null,
       warnings,
     };
   }
 
   /** The lender a deal is financed through, as the customer who owes the dealer. */
-  private async lenderAsCustomer(tx: Tx, ctx: AccountingContext, vendorId: string): Promise<string> {
+  private async lenderAsCustomer(
+    tx: Tx,
+    ctx: AccountingContext,
+    vendorId: string,
+  ): Promise<string> {
     const vendor = await requireVendor(tx, ctx, vendorId);
     const name = `${vendor.name} (finance lender)`;
-    const existing = await tx.customer.findFirst({ where: { dealerId: ctx.dealerId, name }, select: { id: true } });
+    const existing = await tx.customer.findFirst({
+      where: { dealerId: ctx.dealerId, name },
+      select: { id: true },
+    });
     if (existing) return existing.id;
     const created = await tx.customer.create({
       data: { dealerId: ctx.dealerId, name, notes: `Finance lender — vendor ${vendor.id}` },

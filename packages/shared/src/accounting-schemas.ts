@@ -43,28 +43,26 @@ import {
 const MAX_CENTS = 1_000_000_000_000;
 
 const amount = (options: { allowNegative?: boolean; allowZero?: boolean } = {}) =>
-  z
-    .union([z.string(), z.number()])
-    .transform((value, ctx) => {
-      const cents = parseMoneyToCents(value);
-      if (cents === null) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter an amount like 1234.56' });
-        return z.NEVER;
-      }
-      if (!options.allowNegative && cents < 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The amount cannot be negative' });
-        return z.NEVER;
-      }
-      if (!options.allowZero && cents === 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The amount must be more than zero' });
-        return z.NEVER;
-      }
-      if (Math.abs(cents) > MAX_CENTS) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The amount is too large' });
-        return z.NEVER;
-      }
-      return cents;
-    });
+  z.union([z.string(), z.number()]).transform((value, ctx) => {
+    const cents = parseMoneyToCents(value);
+    if (cents === null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter an amount like 1234.56' });
+      return z.NEVER;
+    }
+    if (!options.allowNegative && cents < 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The amount cannot be negative' });
+      return z.NEVER;
+    }
+    if (!options.allowZero && cents === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The amount must be more than zero' });
+      return z.NEVER;
+    }
+    if (Math.abs(cents) > MAX_CENTS) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The amount is too large' });
+      return z.NEVER;
+    }
+    return cents;
+  });
 
 /** A positive amount. */
 export const moneyInput = amount();
@@ -228,7 +226,7 @@ export const journalLineInputSchema = z
     customerId: optionalId(),
     vendorId: optionalId(),
   })
-  .refine((line) => (line.debit > 0) !== (line.credit > 0), {
+  .refine((line) => line.debit > 0 !== line.credit > 0, {
     message: 'Each line is either a debit or a credit',
     path: ['debit'],
   });
@@ -387,7 +385,9 @@ export const vendorSchema = z.object({
   notes: optionalText(2000),
 });
 export type VendorInput = z.infer<typeof vendorSchema>;
-export const vendorUpdateSchema = vendorSchema.partial().extend({ isActive: z.boolean().optional() });
+export const vendorUpdateSchema = vendorSchema
+  .partial()
+  .extend({ isActive: z.boolean().optional() });
 
 // --- Inventory --------------------------------------------------------------------------------
 
@@ -513,7 +513,8 @@ export const saleSchema = z
     path: ['bankAccountId'],
   })
   .refine(
-    (sale) => (sale.financedAmount === 0 && sale.financeRevenue === 0) || sale.financeLenderVendorId,
+    (sale) =>
+      (sale.financedAmount === 0 && sale.financeRevenue === 0) || sale.financeLenderVendorId,
     { message: 'Choose the finance lender', path: ['financeLenderVendorId'] },
   );
 export type SaleInput = z.infer<typeof saleSchema>;
@@ -731,10 +732,13 @@ export const bankTransactionSchema = z
     message: 'Enter a positive amount',
     path: ['amount'],
   })
-  .refine((t) => t.kind !== 'TRANSFER' || (t.toBankAccountId && t.toBankAccountId !== t.bankAccountId), {
-    message: 'Choose a different account to transfer to',
-    path: ['toBankAccountId'],
-  })
+  .refine(
+    (t) => t.kind !== 'TRANSFER' || (t.toBankAccountId && t.toBankAccountId !== t.bankAccountId),
+    {
+      message: 'Choose a different account to transfer to',
+      path: ['toBankAccountId'],
+    },
+  )
   .refine((t) => t.kind === 'TRANSFER' || t.kind === 'FEE' || t.counterAccountId, {
     message: 'Choose the account on the other side',
     path: ['counterAccountId'],

@@ -12,7 +12,14 @@
 
 // --- Accounts ----------------------------------------------------------------
 
-export const ACCOUNT_TYPES = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'COGS', 'EXPENSE'] as const;
+export const ACCOUNT_TYPES = [
+  'ASSET',
+  'LIABILITY',
+  'EQUITY',
+  'REVENUE',
+  'COGS',
+  'EXPENSE',
+] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
@@ -111,11 +118,7 @@ export const ACCOUNT_SUBTYPE_LABELS: Record<AccountSubtype, string> = {
 
 /** Balance-sheet grouping for the statement. */
 export type BalanceSheetGroup =
-  | 'CURRENT_ASSETS'
-  | 'FIXED_ASSETS'
-  | 'CURRENT_LIABILITIES'
-  | 'LONG_TERM_LIABILITIES'
-  | 'EQUITY';
+  'CURRENT_ASSETS' | 'FIXED_ASSETS' | 'CURRENT_LIABILITIES' | 'LONG_TERM_LIABILITIES' | 'EQUITY';
 
 export const SUBTYPE_BALANCE_SHEET_GROUP: Partial<Record<AccountSubtype, BalanceSheetGroup>> = {
   CASH: 'CURRENT_ASSETS',
@@ -214,9 +217,12 @@ export type AccountingPermission = (typeof ACCOUNTING_PERMISSIONS)[number];
 export const STAFF_ROLE_PERMISSIONS: Record<DealerStaffRole, readonly AccountingPermission[]> = {
   OWNER: ACCOUNTING_PERMISSIONS,
   MANAGER: ACCOUNTING_PERMISSIONS.filter(
-    (permission) => permission !== 'accounting.reopen_period' && permission !== 'accounting.manage_team',
+    (permission) =>
+      permission !== 'accounting.reopen_period' && permission !== 'accounting.manage_team',
   ),
-  ACCOUNTANT: ACCOUNTING_PERMISSIONS.filter((permission) => permission !== 'accounting.manage_team'),
+  ACCOUNTANT: ACCOUNTING_PERMISSIONS.filter(
+    (permission) => permission !== 'accounting.manage_team',
+  ),
   SALES_MANAGER: ['accounting.sales', 'accounting.post_sales'],
   SALES_USER: ['accounting.sales'],
 };

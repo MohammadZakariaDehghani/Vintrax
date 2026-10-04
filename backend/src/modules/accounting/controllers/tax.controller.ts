@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   PROVINCES,
@@ -43,21 +53,33 @@ export class TaxController {
 
   @Get('rules')
   @RequireAccounting('accounting.view')
-  @ApiOperation({ summary: 'Tax rules in effect for the dealer (platform defaults and overrides, with history)' })
-  async rules(@Acct() ctx: AccountingContext, @Query(zodQuery(provinceQuerySchema)) query: { province?: (typeof PROVINCES)[number] }) {
+  @ApiOperation({
+    summary: 'Tax rules in effect for the dealer (platform defaults and overrides, with history)',
+  })
+  async rules(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(provinceQuerySchema)) query: { province?: (typeof PROVINCES)[number] },
+  ) {
     return { disclaimer: TAX_DISCLAIMER, rules: await this.tax.listRules(ctx, query.province) };
   }
 
   @Post('rules')
   @RequireAccounting('accounting.manage_tax')
-  @ApiOperation({ summary: 'Add a dealer-specific rule (overrides the platform rule of that tax type)' })
-  createRule(@Acct() ctx: AccountingContext, @Body(zodBody(taxRuleCreateSchema)) input: TaxRuleCreateInput) {
+  @ApiOperation({
+    summary: 'Add a dealer-specific rule (overrides the platform rule of that tax type)',
+  })
+  createRule(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(taxRuleCreateSchema)) input: TaxRuleCreateInput,
+  ) {
     return this.tax.createDealerRule(ctx, input);
   }
 
   @Post('rules/:ruleId/supersede')
   @RequireAccounting('accounting.manage_tax')
-  @ApiOperation({ summary: 'A new rate from a date; the old version stays for earlier transactions' })
+  @ApiOperation({
+    summary: 'A new rate from a date; the old version stays for earlier transactions',
+  })
   supersedeRule(
     @Acct() ctx: AccountingContext,
     @Param('ruleId', ParseUUIDPipe) ruleId: string,
@@ -85,10 +107,19 @@ export class TaxController {
 
   @Get('summary')
   @RequireAccounting('accounting.view')
-  @ApiOperation({ summary: 'Tax collected, paid, recoverable and net payable by return, for a range' })
-  async summary(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  @ApiOperation({
+    summary: 'Tax collected, paid, recoverable and net payable by return, for a range',
+  })
+  async summary(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     const range = await resolveRange(this.prisma, ctx.dealerId, query, 'THIS_QUARTER');
-    return { range, disclaimer: TAX_DISCLAIMER, returns: await this.tax.summary(ctx, range.from, range.to) };
+    return {
+      range,
+      disclaimer: TAX_DISCLAIMER,
+      returns: await this.tax.summary(ctx, range.from, range.to),
+    };
   }
 
   @Get('filings')
@@ -99,20 +130,30 @@ export class TaxController {
 
   @Post('filings')
   @RequireAccounting('accounting.manage_tax')
-  createFiling(@Acct() ctx: AccountingContext, @Body(zodBody(taxFilingCreateSchema)) input: TaxFilingCreateInput) {
+  createFiling(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(taxFilingCreateSchema)) input: TaxFilingCreateInput,
+  ) {
     return this.tax.createFiling(ctx, input);
   }
 
   @Post('filings/generate')
   @RequireAccounting('accounting.manage_tax')
-  @ApiOperation({ summary: 'Create the filing periods of a fiscal year at the dealer’s filing frequency' })
-  generateFilings(@Acct() ctx: AccountingContext, @Body(zodBody(generateFilingsSchema)) input: { fiscalYearStart: string }) {
+  @ApiOperation({
+    summary: 'Create the filing periods of a fiscal year at the dealer’s filing frequency',
+  })
+  generateFilings(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(generateFilingsSchema)) input: { fiscalYearStart: string },
+  ) {
     return this.tax.generateFilings(ctx, input.fiscalYearStart);
   }
 
   @Patch('filings/:filingId')
   @RequireAccounting('accounting.manage_tax')
-  @ApiOperation({ summary: 'Move a filing through Open → In review → Filed → Closed, record adjustments' })
+  @ApiOperation({
+    summary: 'Move a filing through Open → In review → Filed → Closed, record adjustments',
+  })
   updateFiling(
     @Acct() ctx: AccountingContext,
     @Param('filingId', ParseUUIDPipe) filingId: string,
@@ -140,7 +181,10 @@ export class PlatformTaxRulesController {
 
   @Post()
   @RequirePermissions('settings:manage')
-  create(@CurrentUser() user: AuthUser, @Body(zodBody(taxRuleCreateSchema)) input: TaxRuleCreateInput) {
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(taxRuleCreateSchema)) input: TaxRuleCreateInput,
+  ) {
     return this.tax.createPlatformRule(user.id, input);
   }
 

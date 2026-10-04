@@ -44,7 +44,9 @@ import { OperationsReportsService } from '../reports/operations.service';
 import { StatementsService } from '../reports/statements.service';
 import { AccountingSearchService } from '../search/search.service';
 
-const plQuerySchema = reportQuerySchema.extend({ columns: z.enum(['TOTAL', 'MONTHLY']).default('TOTAL') });
+const plQuerySchema = reportQuerySchema.extend({
+  columns: z.enum(['TOTAL', 'MONTHLY']).default('TOTAL'),
+});
 const asOfSchema = z.object({ asOf: dateInput.optional() });
 const monthlySchema = z.object({
   month: z
@@ -87,20 +89,31 @@ export class ReportsController {
   @Get('dashboard')
   @RequireAccounting('accounting.view')
   @ApiOperation({ summary: 'The accounting overview for a date range' })
-  dashboard(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  dashboard(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.operations.dashboard(ctx, query);
   }
 
   @Get('reports/trial-balance')
   @RequireAccounting('accounting.view')
-  trialBalance(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  trialBalance(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.statements.trialBalance(ctx, query);
   }
 
   @Get('reports/general-ledger')
   @RequireAccounting('accounting.view')
-  @ApiOperation({ summary: 'Posted journal lines with filters; a running balance when one account is chosen' })
-  generalLedger(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  @ApiOperation({
+    summary: 'Posted journal lines with filters; a running balance when one account is chosen',
+  })
+  generalLedger(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.statements.generalLedger(ctx, query);
   }
 
@@ -115,7 +128,10 @@ export class ReportsController {
 
   @Get('reports/balance-sheet')
   @RequireAccounting('accounting.view')
-  balanceSheet(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  balanceSheet(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.statements.balanceSheet(ctx, query);
   }
 
@@ -139,13 +155,19 @@ export class ReportsController {
 
   @Get('reports/vehicle-profitability')
   @RequireAccounting('accounting.view')
-  vehicleProfitability(@Acct() ctx: AccountingContext, @Query(zodQuery(reportQuerySchema)) query: ReportQuery) {
+  vehicleProfitability(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(reportQuerySchema)) query: ReportQuery,
+  ) {
     return this.operations.vehicleProfitability(ctx, query);
   }
 
   @Get('reports/inventory-valuation')
   @RequireAccounting('accounting.view')
-  inventoryValuation(@Acct() ctx: AccountingContext, @Query(zodQuery(asOfSchema)) query: { asOf?: string }) {
+  inventoryValuation(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(asOfSchema)) query: { asOf?: string },
+  ) {
     return this.operations.inventoryValuation(ctx, query.asOf);
   }
 
@@ -157,13 +179,19 @@ export class ReportsController {
 
   @Get('reports/monthly')
   @RequireAccounting('accounting.view')
-  monthly(@Acct() ctx: AccountingContext, @Query(zodQuery(monthlySchema)) query: z.infer<typeof monthlySchema>) {
+  monthly(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(monthlySchema)) query: z.infer<typeof monthlySchema>,
+  ) {
     return this.operations.monthly(ctx, query.month ?? todayIso().slice(0, 7), query.compare);
   }
 
   @Get('reports/fiscal-year')
   @RequireAccounting('accounting.view')
-  fiscalYear(@Acct() ctx: AccountingContext, @Query(zodQuery(fiscalYearSchema)) query: z.infer<typeof fiscalYearSchema>) {
+  fiscalYear(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(fiscalYearSchema)) query: z.infer<typeof fiscalYearSchema>,
+  ) {
     return this.operations.fiscalYear(ctx, query.which);
   }
 
@@ -191,14 +219,19 @@ export class ReportsController {
 
   @Get('health')
   @RequireAccounting('accounting.view')
-  @ApiOperation({ summary: 'Accounting Health: unbalanced entries, mismatches, unreconciled items and more' })
+  @ApiOperation({
+    summary: 'Accounting Health: unbalanced entries, mismatches, unreconciled items and more',
+  })
   healthCheck(@Acct() ctx: AccountingContext) {
     return this.health.check(ctx);
   }
 
   @Get('search')
   @RequireAccounting('accounting.view')
-  search(@Acct() ctx: AccountingContext, @Query(zodQuery(accountingSearchSchema)) query: { q: string }) {
+  search(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(accountingSearchSchema)) query: { q: string },
+  ) {
     return this.searcher.search(ctx, query.q);
   }
 
@@ -206,7 +239,10 @@ export class ReportsController {
 
   @Get('audit')
   @RequireAccounting('accounting.view')
-  audit(@Acct() ctx: AccountingContext, @Query(zodQuery(auditQuerySchema)) query: z.infer<typeof auditQuerySchema>) {
+  audit(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(auditQuerySchema)) query: z.infer<typeof auditQuerySchema>,
+  ) {
     return this.attachments.auditLog(ctx, query);
   }
 
@@ -226,7 +262,9 @@ export class ReportsController {
   @Post('attachments/:entityType/:entityId')
   @RequireAccounting('accounting.create')
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Attach a receipt, invoice or statement (PDF, JPEG or PNG) to a record' })
+  @ApiOperation({
+    summary: 'Attach a receipt, invoice or statement (PDF, JPEG or PNG) to a record',
+  })
   @UseInterceptors(FileInterceptor('file', { storage: undefined }))
   uploadAttachment(
     @Acct() ctx: AccountingContext,
@@ -241,7 +279,9 @@ export class ReportsController {
 
   @Get('attachments/:attachmentId')
   @RequireAccounting('accounting.view')
-  @ApiOperation({ summary: 'Download an attachment (only through this route, only to the same dealership)' })
+  @ApiOperation({
+    summary: 'Download an attachment (only through this route, only to the same dealership)',
+  })
   async downloadAttachment(
     @Acct() ctx: AccountingContext,
     @Param('attachmentId', ParseUUIDPipe) attachmentId: string,
@@ -264,20 +304,29 @@ export class ReportsController {
 
   @Get('saved-filters')
   @RequireAccounting('accounting.view')
-  savedFilters(@Acct() ctx: AccountingContext, @Query(zodQuery(savedFilterQuerySchema)) query: { report?: string }) {
+  savedFilters(
+    @Acct() ctx: AccountingContext,
+    @Query(zodQuery(savedFilterQuerySchema)) query: { report?: string },
+  ) {
     return this.attachments.savedFilters(ctx, query.report);
   }
 
   @Post('saved-filters')
   @RequireAccounting('accounting.view')
-  saveFilter(@Acct() ctx: AccountingContext, @Body(zodBody(savedReportFilterSchema)) input: SavedReportFilterInput) {
+  saveFilter(
+    @Acct() ctx: AccountingContext,
+    @Body(zodBody(savedReportFilterSchema)) input: SavedReportFilterInput,
+  ) {
     return this.attachments.saveFilter(ctx, input);
   }
 
   @Delete('saved-filters/:filterId')
   @RequireAccounting('accounting.view')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteFilter(@Acct() ctx: AccountingContext, @Param('filterId', ParseUUIDPipe) filterId: string) {
+  async deleteFilter(
+    @Acct() ctx: AccountingContext,
+    @Param('filterId', ParseUUIDPipe) filterId: string,
+  ) {
     await this.attachments.deleteFilter(ctx, filterId);
   }
 }

@@ -15,6 +15,7 @@ how to work on it, and where it goes next.
 | Working on the UI                          | [Frontend](./frontend.md)                            |
 | Working on the mobile app                  | [Mobile](./mobile.md)                                |
 | Uploading or serving vehicle photos        | [Vehicle images](./images.md)                        |
+| Keeping a dealership's books               | [Dealer accounting](./accounting.md)                 |
 | Deploying to a server                      | [Docker and production deployment](./docker.md)      |
 | Surveying the deployment options           | [Deployment](./deployment.md)                        |
 | Wondering why something is the way it is   | [Decision Log](./decision-log.md)                    |
@@ -35,6 +36,8 @@ how to work on it, and where it goes next.
 - **[Vehicle images](./images.md)** — the photo pipeline: validation,
   responsive WebP variants, storage, `images:migrate`, caching and the
   frontend's `srcset`/`<picture>`.
+- **[Dealer accounting](./accounting.md)** — the double-entry ledger, Canadian
+  sales tax, dealer workflows, reports and roles.
 - **[Brand](./brand.md)** — the mark, the palette, and why red is not a brand
   colour here.
 - **[Roles and transaction flows](./transaction-flow.md)** — the permission

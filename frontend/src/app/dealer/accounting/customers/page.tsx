@@ -29,7 +29,10 @@ export default function CustomersPage() {
   const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Party | null>(null);
-  const list = useAcctQuery<Paged<Party>>([tab, q, page], `/${tab}${qs({ q, page, pageSize: 50 })}`);
+  const list = useAcctQuery<Paged<Party>>(
+    [tab, q, page],
+    `/${tab}${qs({ q, page, pageSize: 50 })}`,
+  );
   const showVendors = can('accounting.view');
 
   return (
@@ -40,7 +43,8 @@ export default function CustomersPage() {
         actions={
           tab === 'customers' || can('accounting.create') ? (
             <Button onClick={() => setAdding(true)}>
-              <Plus className="h-4 w-4" aria-hidden /> New {tab === 'customers' ? 'customer' : 'vendor'}
+              <Plus className="h-4 w-4" aria-hidden /> New{' '}
+              {tab === 'customers' ? 'customer' : 'vendor'}
             </Button>
           ) : null
         }
@@ -53,7 +57,10 @@ export default function CustomersPage() {
               type="button"
               role="tab"
               aria-selected={entry === tab}
-              onClick={() => { setTab(entry); setPage(1); }}
+              onClick={() => {
+                setTab(entry);
+                setPage(1);
+              }}
               className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium capitalize ${entry === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             >
               {entry}
@@ -61,7 +68,17 @@ export default function CustomersPage() {
           ))}
         </div>
       ) : null}
-      <Input type="search" aria-label="Search" placeholder="Search by name, email or phone" className="mb-4 max-w-sm" value={q} onChange={(event) => { setQ(event.target.value); setPage(1); }} />
+      <Input
+        type="search"
+        aria-label="Search"
+        placeholder="Search by name, email or phone"
+        className="mb-4 max-w-sm"
+        value={q}
+        onChange={(event) => {
+          setQ(event.target.value);
+          setPage(1);
+        }}
+      />
       <DataTable
         loading={list.isPending}
         error={list.error}
@@ -73,21 +90,77 @@ export default function CustomersPage() {
             label: 'Name',
             render: (row) =>
               showVendors ? (
-                <Link href={`/dealer/accounting/${tab}/${row.id}`} className="font-medium text-primary hover:underline">{row.name}</Link>
+                <Link
+                  href={
+                    tab === 'customers'
+                      ? `/dealer/accounting/customers/${row.id}`
+                      : `/dealer/accounting/vendors/${row.id}`
+                  }
+                  className="font-medium text-primary hover:underline"
+                >
+                  {row.name}
+                </Link>
               ) : (
                 <span className="font-medium">{row.name}</span>
               ),
           },
-          ...(tab === 'vendors' ? [{ key: 'kind', label: 'Kind', render: (row: Party) => (row.kind ? VENDOR_KIND_LABELS[row.kind] : '—') }] : []),
-          { key: 'contact', label: 'Contact', render: (row) => [row.email, row.phone].filter(Boolean).join(' · ') || '—' },
-          { key: 'where', label: 'Province', render: (row) => [row.city, row.province].filter(Boolean).join(', ') || '—' },
-          ...(showVendors ? [{ key: 'balance', label: tab === 'customers' ? 'Owes you' : 'You owe', align: 'right' as const, render: (row: Party) => <Amount cents={row.balanceCents} /> }] : []),
-          { key: 'edit', label: '', align: 'right', render: (row) => <Button size="sm" variant="ghost" onClick={() => setEditing(row)}>Edit</Button> },
+          ...(tab === 'vendors'
+            ? [
+                {
+                  key: 'kind',
+                  label: 'Kind',
+                  render: (row: Party) => (row.kind ? VENDOR_KIND_LABELS[row.kind] : '—'),
+                },
+              ]
+            : []),
+          {
+            key: 'contact',
+            label: 'Contact',
+            render: (row) => [row.email, row.phone].filter(Boolean).join(' · ') || '—',
+          },
+          {
+            key: 'where',
+            label: 'Province',
+            render: (row) => [row.city, row.province].filter(Boolean).join(', ') || '—',
+          },
+          ...(showVendors
+            ? [
+                {
+                  key: 'balance',
+                  label: tab === 'customers' ? 'Owes you' : 'You owe',
+                  align: 'right' as const,
+                  render: (row: Party) => <Amount cents={row.balanceCents} />,
+                },
+              ]
+            : []),
+          {
+            key: 'edit',
+            label: '',
+            align: 'right',
+            render: (row) => (
+              <Button size="sm" variant="ghost" onClick={() => setEditing(row)}>
+                Edit
+              </Button>
+            ),
+          },
         ]}
       />
-      {list.data ? <Pagination page={list.data.page} totalPages={list.data.totalPages} onChange={setPage} /> : null}
-      {adding ? <PartyDialog kind={tab === 'customers' ? 'customer' : 'vendor'} onClose={() => setAdding(false)} /> : null}
-      {editing ? <PartyDialog kind={tab === 'customers' ? 'customer' : 'vendor'} existing={{ ...editing }} onClose={() => setEditing(null)} /> : null}
+      {list.data ? (
+        <Pagination page={list.data.page} totalPages={list.data.totalPages} onChange={setPage} />
+      ) : null}
+      {adding ? (
+        <PartyDialog
+          kind={tab === 'customers' ? 'customer' : 'vendor'}
+          onClose={() => setAdding(false)}
+        />
+      ) : null}
+      {editing ? (
+        <PartyDialog
+          kind={tab === 'customers' ? 'customer' : 'vendor'}
+          existing={{ ...editing }}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
     </>
   );
 }

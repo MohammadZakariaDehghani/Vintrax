@@ -52,7 +52,9 @@ export function PageHeader({
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
-        {description ? <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p> : null}
+        {description ? (
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>
+        ) : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
@@ -87,7 +89,13 @@ export function Section({
 }
 
 /** Shows its children only to callers with the permission. The API enforces it regardless. */
-export function Can({ permission, children }: { permission: Parameters<ReturnType<typeof useAccounting>['can']>[0]; children: ReactNode }) {
+export function Can({
+  permission,
+  children,
+}: {
+  permission: Parameters<ReturnType<typeof useAccounting>['can']>[0];
+  children: ReactNode;
+}) {
   const { can } = useAccounting();
   return can(permission) ? <>{children}</> : null;
 }
@@ -138,7 +146,12 @@ export function DataTable<T>({
                 <th
                   key={column.key}
                   scope="col"
-                  className={cn(cell, 'whitespace-nowrap font-semibold', alignClass(column.align), column.className)}
+                  className={cn(
+                    cell,
+                    'whitespace-nowrap font-semibold',
+                    alignClass(column.align),
+                    column.className,
+                  )}
                 >
                   {column.label}
                 </th>
@@ -150,7 +163,10 @@ export function DataTable<T>({
               rows.map((row, index) => (
                 <tr key={rowKey(row, index)} className="hover:bg-secondary/30">
                   {columns.map((column) => (
-                    <td key={column.key} className={cn(cell, alignClass(column.align), column.className)}>
+                    <td
+                      key={column.key}
+                      className={cn(cell, alignClass(column.align), column.className)}
+                    >
                       {column.render(row)}
                     </td>
                   ))}
@@ -158,13 +174,15 @@ export function DataTable<T>({
               ))
             ) : (
               <tr>
-                <td colSpan={columns.length}>
-                  {empty ?? <EmptyState title="Nothing here yet" />}
-                </td>
+                <td colSpan={columns.length}>{empty ?? <EmptyState title="Nothing here yet" />}</td>
               </tr>
             )}
           </tbody>
-          {footer ? <tfoot className="border-t-2 border-border bg-secondary/30 font-semibold">{footer}</tfoot> : null}
+          {footer ? (
+            <tfoot className="border-t-2 border-border bg-secondary/30 font-semibold">
+              {footer}
+            </tfoot>
+          ) : null}
         </table>
       </div>
     </Card>
@@ -172,10 +190,22 @@ export function DataTable<T>({
 }
 
 function alignClass(align: Column<unknown>['align']) {
-  return align === 'right' ? 'text-right tabular' : align === 'center' ? 'text-center' : 'text-left';
+  return align === 'right'
+    ? 'text-right tabular'
+    : align === 'center'
+      ? 'text-center'
+      : 'text-left';
 }
 
-export function Amount({ cents, strong, muted }: { cents: number | null | undefined; strong?: boolean; muted?: boolean }) {
+export function Amount({
+  cents,
+  strong,
+  muted,
+}: {
+  cents: number | null | undefined;
+  strong?: boolean;
+  muted?: boolean;
+}) {
   return (
     <span
       className={cn(
@@ -235,13 +265,25 @@ export function RangeFilter({
             <label htmlFor="range-from" className="text-xs font-medium text-muted-foreground">
               From
             </label>
-            <Input id="range-from" type="date" className="h-9 w-40" value={value.from} onChange={(event) => onChange({ ...value, from: event.target.value })} />
+            <Input
+              id="range-from"
+              type="date"
+              className="h-9 w-40"
+              value={value.from}
+              onChange={(event) => onChange({ ...value, from: event.target.value })}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="range-to" className="text-xs font-medium text-muted-foreground">
               To
             </label>
-            <Input id="range-to" type="date" className="h-9 w-40" value={value.to} onChange={(event) => onChange({ ...value, to: event.target.value })} />
+            <Input
+              id="range-to"
+              type="date"
+              className="h-9 w-40"
+              value={value.to}
+              onChange={(event) => onChange({ ...value, to: event.target.value })}
+            />
           </div>
         </>
       ) : null}
@@ -274,7 +316,10 @@ export function ExportButtons({
     setBusy(format);
     setError(null);
     try {
-      await acct.save(`/exports/${report}${qs({ ...params, format })}`, `${report}-${todayIso()}.${format}`);
+      await acct.save(
+        `/exports/${report}${qs({ ...params, format })}`,
+        `${report}-${todayIso()}.${format}`,
+      );
     } catch (caught) {
       setError(caught);
     } finally {
@@ -285,7 +330,13 @@ export function ExportButtons({
     <div className="flex flex-col items-end gap-1">
       <div className="flex gap-1" role="group" aria-label="Export">
         {(['csv', 'xlsx', 'pdf'] as const).map((format) => (
-          <Button key={format} size="sm" variant="outline" loading={busy === format} onClick={() => void run(format)}>
+          <Button
+            key={format}
+            size="sm"
+            variant="outline"
+            loading={busy === format}
+            onClick={() => void run(format)}
+          >
             {busy === format ? null : <Download className="h-3.5 w-3.5" aria-hidden />}
             {format === 'xlsx' ? 'Excel' : format.toUpperCase()}
           </Button>
@@ -345,12 +396,19 @@ export interface PartyOption {
 }
 
 export function useCustomers(q = '') {
-  return useAcctQuery<Paged<PartyOption>>(['customers', q], `/customers${qs({ q, pageSize: 200 })}`);
+  return useAcctQuery<Paged<PartyOption>>(
+    ['customers', q],
+    `/customers${qs({ q, pageSize: 200 })}`,
+  );
 }
 
 export function useVendors(kind?: string) {
   const { can } = useAccounting();
-  return useAcctQuery<Paged<PartyOption>>(['vendors', kind], `/vendors${qs({ kind, pageSize: 200 })}`, can('accounting.view'));
+  return useAcctQuery<Paged<PartyOption>>(
+    ['vendors', kind],
+    `/vendors${qs({ kind, pageSize: 200 })}`,
+    can('accounting.view'),
+  );
 }
 
 export interface VehicleOption {
@@ -363,7 +421,10 @@ export interface VehicleOption {
 }
 
 export function useVehicleOptions(q = '', includeSold = false) {
-  return useAcctQuery<VehicleOption[]>(['vehicles', q, includeSold], `/vehicles${qs({ q, includeSold: includeSold ? 'true' : undefined })}`);
+  return useAcctQuery<VehicleOption[]>(
+    ['vehicles', q, includeSold],
+    `/vehicles${qs({ q, includeSold: includeSold ? 'true' : undefined })}`,
+  );
 }
 
 interface Paged<T> {
@@ -371,20 +432,46 @@ interface Paged<T> {
   total: number;
 }
 
-export function vehicleLabel(vehicle: { label?: string; year?: number; make?: string; model?: string; vin?: string | null; stockNumber?: string | null } | null | undefined) {
+export function vehicleLabel(
+  vehicle:
+    | {
+        label?: string;
+        year?: number;
+        make?: string;
+        model?: string;
+        vin?: string | null;
+        stockNumber?: string | null;
+      }
+    | null
+    | undefined,
+) {
   if (!vehicle) return '—';
-  const name = vehicle.label ?? `${vehicle.year ?? ''} ${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim();
-  const id = vehicle.stockNumber ? `#${vehicle.stockNumber}` : vehicle.vin ? `…${vehicle.vin.slice(-6)}` : '';
+  const name =
+    vehicle.label ?? `${vehicle.year ?? ''} ${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim();
+  const id = vehicle.stockNumber
+    ? `#${vehicle.stockNumber}`
+    : vehicle.vin
+      ? `…${vehicle.vin.slice(-6)}`
+      : '';
   return id ? `${name} (${id})` : name;
 }
 
 // --- Form helpers ----------------------------------------------------------------------------
 
 /** Account <option>s grouped by type, active accounts only. */
-export function AccountOptions({ accounts, filter }: { accounts: AccountOption[] | undefined; filter?: (account: AccountOption) => boolean }) {
-  const list = (accounts ?? []).filter((account) => account.isActive && (!filter || filter(account)));
+export function AccountOptions({
+  accounts,
+  filter,
+}: {
+  accounts: AccountOption[] | undefined;
+  filter?: (account: AccountOption) => boolean;
+}) {
+  const list = (accounts ?? []).filter(
+    (account) => account.isActive && (!filter || filter(account)),
+  );
   const groups = new Map<string, AccountOption[]>();
-  for (const account of list) groups.set(account.type, [...(groups.get(account.type) ?? []), account]);
+  for (const account of list)
+    groups.set(account.type, [...(groups.get(account.type) ?? []), account]);
   return (
     <>
       {[...groups.entries()].map(([type, items]) => (
@@ -494,8 +581,17 @@ export function ReasonDialog({
         </>
       }
     >
-      <Field label={optional ? 'Reason (optional)' : 'Reason'} htmlFor="reason" hint="Kept in the audit trail.">
-        <Textarea id="reason" value={reason} maxLength={300} onChange={(event) => setReason(event.target.value)} />
+      <Field
+        label={optional ? 'Reason (optional)' : 'Reason'}
+        htmlFor="reason"
+        hint="Kept in the audit trail."
+      >
+        <Textarea
+          id="reason"
+          value={reason}
+          maxLength={300}
+          onChange={(event) => setReason(event.target.value)}
+        />
       </Field>
       {error ? <ErrorAlert error={error} className="mt-3" /> : null}
     </Dialog>
@@ -520,10 +616,17 @@ export { rangeParams };
 
 export function EntryStatus({ status, reversed }: { status: string; reversed?: boolean }) {
   if (reversed) return <Badge variant="outline">Reversed</Badge>;
-  return status === 'POSTED' ? <Badge variant="success">Posted</Badge> : <Badge variant="warning">Draft</Badge>;
+  return status === 'POSTED' ? (
+    <Badge variant="success">Posted</Badge>
+  ) : (
+    <Badge variant="warning">Draft</Badge>
+  );
 }
 
-const DOCUMENT_VARIANT: Record<string, 'success' | 'warning' | 'outline' | 'primary' | 'destructive' | 'default'> = {
+const DOCUMENT_VARIANT: Record<
+  string,
+  'success' | 'warning' | 'outline' | 'primary' | 'destructive' | 'default'
+> = {
   POSTED: 'success',
   OPEN: 'primary',
   PARTIAL: 'warning',

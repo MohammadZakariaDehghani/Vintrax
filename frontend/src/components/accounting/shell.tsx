@@ -34,7 +34,16 @@ import {
   TAX_FILING_FREQUENCIES,
   type AccountingPermission,
 } from '@vintrax/shared';
-import { Button, Card, CardContent, ErrorAlert, Field, Input, Select, Spinner } from '@/components/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  ErrorAlert,
+  Field,
+  Input,
+  Select,
+  Spinner,
+} from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
 import { ApiError } from '@/lib/api-client';
@@ -62,54 +71,152 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
   {
     group: 'Overview',
     items: [
-      { href: '/dealer/accounting', label: 'Overview', icon: LayoutDashboard, permission: 'accounting.view', exact: true },
-      { href: '/dealer/accounting/health', label: 'Accounting health', icon: Activity, permission: 'accounting.view' },
+      {
+        href: '/dealer/accounting',
+        label: 'Overview',
+        icon: LayoutDashboard,
+        permission: 'accounting.view',
+        exact: true,
+      },
+      {
+        href: '/dealer/accounting/health',
+        label: 'Accounting health',
+        icon: Activity,
+        permission: 'accounting.view',
+      },
     ],
   },
   {
     group: 'Sales',
     items: [
-      { href: '/dealer/accounting/sales', label: 'Deal desk', icon: ShoppingCart, permission: 'accounting.sales' },
-      { href: '/dealer/accounting/deposits', label: 'Deposits & trade-ins', icon: HandCoins, permission: 'accounting.sales' },
-      { href: '/dealer/accounting/customers', label: 'Customers & vendors', icon: Users, permission: 'accounting.sales' },
+      {
+        href: '/dealer/accounting/sales',
+        label: 'Deal desk',
+        icon: ShoppingCart,
+        permission: 'accounting.sales',
+      },
+      {
+        href: '/dealer/accounting/deposits',
+        label: 'Deposits & trade-ins',
+        icon: HandCoins,
+        permission: 'accounting.sales',
+      },
+      {
+        href: '/dealer/accounting/customers',
+        label: 'Customers & vendors',
+        icon: Users,
+        permission: 'accounting.sales',
+      },
     ],
   },
   {
     group: 'Inventory',
     items: [
-      { href: '/dealer/accounting/purchases', label: 'Vehicle purchases', icon: Car, permission: 'accounting.view' },
-      { href: '/dealer/accounting/floor-plan', label: 'Floor plan', icon: Truck, permission: 'accounting.view' },
+      {
+        href: '/dealer/accounting/purchases',
+        label: 'Vehicle purchases',
+        icon: Car,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/floor-plan',
+        label: 'Floor plan',
+        icon: Truck,
+        permission: 'accounting.view',
+      },
     ],
   },
   {
     group: 'Money',
     items: [
-      { href: '/dealer/accounting/receivables', label: 'Receivables', icon: FileText, permission: 'accounting.view' },
-      { href: '/dealer/accounting/payables', label: 'Payables', icon: Receipt, permission: 'accounting.view' },
-      { href: '/dealer/accounting/payments', label: 'Payments', icon: Wallet, permission: 'accounting.view' },
-      { href: '/dealer/accounting/expenses', label: 'Expenses', icon: Receipt, permission: 'accounting.view' },
-      { href: '/dealer/accounting/banking', label: 'Banking & reconciliation', icon: Landmark, permission: 'accounting.view' },
+      {
+        href: '/dealer/accounting/receivables',
+        label: 'Receivables',
+        icon: FileText,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/payables',
+        label: 'Payables',
+        icon: Receipt,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/payments',
+        label: 'Payments',
+        icon: Wallet,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/expenses',
+        label: 'Expenses',
+        icon: Receipt,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/banking',
+        label: 'Banking & reconciliation',
+        icon: Landmark,
+        permission: 'accounting.view',
+      },
     ],
   },
   {
     group: 'Books',
     items: [
-      { href: '/dealer/accounting/journal', label: 'Journal entries', icon: BookOpen, permission: 'accounting.view' },
-      { href: '/dealer/accounting/ledger', label: 'General ledger', icon: ListTree, permission: 'accounting.view' },
-      { href: '/dealer/accounting/accounts', label: 'Chart of accounts', icon: Building, permission: 'accounting.view' },
-      { href: '/dealer/accounting/periods', label: 'Fiscal periods', icon: CalendarRange, permission: 'accounting.view' },
+      {
+        href: '/dealer/accounting/journal',
+        label: 'Journal entries',
+        icon: BookOpen,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/ledger',
+        label: 'General ledger',
+        icon: ListTree,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/accounts',
+        label: 'Chart of accounts',
+        icon: Building,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/periods',
+        label: 'Fiscal periods',
+        icon: CalendarRange,
+        permission: 'accounting.view',
+      },
     ],
   },
   {
     group: 'Tax & reports',
     items: [
-      { href: '/dealer/accounting/tax', label: 'Tax center', icon: Scale, permission: 'accounting.view' },
-      { href: '/dealer/accounting/reports', label: 'Reports', icon: FileBarChart, permission: 'accounting.view' },
+      {
+        href: '/dealer/accounting/tax',
+        label: 'Tax center',
+        icon: Scale,
+        permission: 'accounting.view',
+      },
+      {
+        href: '/dealer/accounting/reports',
+        label: 'Reports',
+        icon: FileBarChart,
+        permission: 'accounting.view',
+      },
     ],
   },
   {
     group: 'Administration',
-    items: [{ href: '/dealer/accounting/settings', label: 'Settings & team', icon: Settings, permission: 'accounting.settings' }],
+    items: [
+      {
+        href: '/dealer/accounting/settings',
+        label: 'Settings & team',
+        icon: Settings,
+        permission: 'accounting.settings',
+      },
+    ],
   },
 ];
 
@@ -157,7 +264,12 @@ function AccountingGate({ children }: { children: ReactNode }) {
   if (dealerships.isPending || (dealerships.data?.length && (!dealerId || status.isPending))) {
     return <Spinner label="Opening the books" />;
   }
-  if (dealerships.error) return <Container><ErrorAlert error={dealerships.error} /></Container>;
+  if (dealerships.error)
+    return (
+      <Container>
+        <ErrorAlert error={dealerships.error} />
+      </Container>
+    );
   if (!dealerships.data?.length) {
     return (
       <Container>
@@ -173,7 +285,12 @@ function AccountingGate({ children }: { children: ReactNode }) {
       </Container>
     );
   }
-  if (status.error || !status.data) return <Container><ErrorAlert error={status.error} /></Container>;
+  if (status.error || !status.data)
+    return (
+      <Container>
+        <ErrorAlert error={status.error} />
+      </Container>
+    );
 
   const value = {
     status: status.data,
@@ -210,7 +327,9 @@ function Frame({ children }: { children: ReactNode }) {
   const groups = NAV.map((group) => ({
     ...group,
     items: group.items.filter((item) =>
-      item.permission === 'accounting.settings' ? can('accounting.settings') || can('accounting.manage_team') : can(item.permission),
+      item.permission === 'accounting.settings'
+        ? can('accounting.settings') || can('accounting.manage_team')
+        : can(item.permission),
     ),
   })).filter((group) => group.items.length > 0);
   const flat = groups.flatMap((group) => group.items);
@@ -228,15 +347,24 @@ function Frame({ children }: { children: ReactNode }) {
       <DashboardNav />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Accounting</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Accounting
+          </p>
           <p className="truncate font-semibold">
             {status.dealer.name}{' '}
-            <span className="text-sm font-normal text-muted-foreground">· {DEALER_STAFF_ROLE_LABELS[status.role]}</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              · {DEALER_STAFF_ROLE_LABELS[status.role]}
+            </span>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {dealerships.length > 1 ? (
-            <Select aria-label="Dealership" className="h-9 w-56" value={dealerId} onChange={(event) => switchDealer(event.target.value)}>
+            <Select
+              aria-label="Dealership"
+              className="h-9 w-56"
+              value={dealerId}
+              onChange={(event) => switchDealer(event.target.value)}
+            >
               {dealerships.map((entry) => (
                 <option key={entry.dealerId} value={entry.dealerId}>
                   {entry.name}
@@ -254,7 +382,11 @@ function Frame({ children }: { children: ReactNode }) {
             <label htmlFor="acct-section" className="sr-only">
               Section
             </label>
-            <Select id="acct-section" value={current?.href ?? ''} onChange={(event) => router.push(event.target.value)}>
+            <Select
+              id="acct-section"
+              value={current?.href ?? ''}
+              onChange={(event) => router.push(event.target.value)}
+            >
               {current ? null : <option value="">Choose a section</option>}
               {groups.map((group) => (
                 <optgroup key={group.group} label={group.group}>
@@ -270,7 +402,9 @@ function Frame({ children }: { children: ReactNode }) {
           <div className="sticky top-20 hidden space-y-4 lg:block">
             {groups.map((group) => (
               <div key={group.group}>
-                <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.group}</p>
+                <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {group.group}
+                </p>
                 <ul className="space-y-0.5">
                   {group.items.map((item) => {
                     const active = isActive(item, pathname);
@@ -280,7 +414,9 @@ function Frame({ children }: { children: ReactNode }) {
                           href={item.href}
                           aria-current={active ? 'page' : undefined}
                           className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                            active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                            active
+                              ? 'bg-primary text-primary-foreground'
+                              : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                           }`}
                         >
                           <item.icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -294,10 +430,12 @@ function Frame({ children }: { children: ReactNode }) {
             ))}
           </div>
         </nav>
-        <main className="min-w-0">
+        <div className="min-w-0">
           {children}
-          <p className="mt-10 border-t border-border pt-4 text-xs text-muted-foreground">{TAX_DISCLAIMER}</p>
-        </main>
+          <p className="mt-10 border-t border-border pt-4 text-xs text-muted-foreground">
+            {TAX_DISCLAIMER}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -327,7 +465,10 @@ function GlobalSearch() {
   });
   return (
     <div className="relative w-full sm:w-72">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden
+      />
       <Input
         type="search"
         aria-label="Search the books"
@@ -349,10 +490,18 @@ function GlobalSearch() {
             <ul>
               {results.data.map((hit) => (
                 <li key={`${hit.kind}-${hit.id}`}>
-                  <Link href={hit.href} className="block px-3 py-2 text-sm hover:bg-secondary" onClick={() => setOpen(false)}>
-                    <span className="mr-2 text-xs font-semibold uppercase text-muted-foreground">{formatEnum(hit.kind)}</span>
+                  <Link
+                    href={hit.href}
+                    className="block px-3 py-2 text-sm hover:bg-secondary"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="mr-2 text-xs font-semibold uppercase text-muted-foreground">
+                      {formatEnum(hit.kind)}
+                    </span>
                     {hit.title}
-                    {hit.subtitle ? <span className="block text-xs text-muted-foreground">{hit.subtitle}</span> : null}
+                    {hit.subtitle ? (
+                      <span className="block text-xs text-muted-foreground">{hit.subtitle}</span>
+                    ) : null}
                   </Link>
                 </li>
               ))}
@@ -368,7 +517,20 @@ function GlobalSearch() {
 
 // --- One-time setup ----------------------------------------------------------------------
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 
 function SetupScreen() {
   const { status, can } = useAccounting();
@@ -391,7 +553,8 @@ function SetupScreen() {
   });
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
-  const set = (key: keyof typeof form) => (value: string | boolean) => setForm((previous) => ({ ...previous, [key]: value }));
+  const set = (key: keyof typeof form) => (value: string | boolean) =>
+    setForm((previous) => ({ ...previous, [key]: value }));
 
   const needsPst = useMemo(() => ['BC', 'SK', 'MB'].includes(form.province), [form.province]);
 
@@ -452,17 +615,35 @@ function SetupScreen() {
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Set up accounting</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           This creates a Canadian dealership chart of accounts, your current fiscal year and its
-          periods, and your bank account. You can add accounts and change settings later; the
-          fiscal calendar is fixed once you post.
+          periods, and your bank account. You can add accounts and change settings later; the fiscal
+          calendar is fixed once you post.
         </p>
         <form onSubmit={(event) => void submit(event)} className="mt-6 space-y-6">
           <Card>
             <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
-              <Field label="Legal name" htmlFor="legalName" error={fieldError('legalName')} className="sm:col-span-2">
-                <Input id="legalName" required value={form.legalName} onChange={(event) => set('legalName')(event.target.value)} />
+              <Field
+                label="Legal name"
+                htmlFor="legalName"
+                error={fieldError('legalName')}
+                className="sm:col-span-2"
+              >
+                <Input
+                  id="legalName"
+                  required
+                  value={form.legalName}
+                  onChange={(event) => set('legalName')(event.target.value)}
+                />
               </Field>
-              <Field label="Province or territory" htmlFor="province" hint="Sets which sales taxes apply by default.">
-                <Select id="province" value={form.province} onChange={(event) => set('province')(event.target.value)}>
+              <Field
+                label="Province or territory"
+                htmlFor="province"
+                hint="Sets which sales taxes apply by default."
+              >
+                <Select
+                  id="province"
+                  value={form.province}
+                  onChange={(event) => set('province')(event.target.value)}
+                >
                   {PROVINCES.map((province) => (
                     <option key={province} value={province}>
                       {PROVINCE_LABELS[province]}
@@ -471,19 +652,35 @@ function SetupScreen() {
                 </Select>
               </Field>
               <Field label="Business number" htmlFor="bn">
-                <Input id="bn" value={form.businessNumber} onChange={(event) => set('businessNumber')(event.target.value)} />
+                <Input
+                  id="bn"
+                  value={form.businessNumber}
+                  onChange={(event) => set('businessNumber')(event.target.value)}
+                />
               </Field>
               <Field label="GST/HST registration" htmlFor="gst" hint="e.g. 123456789RT0001">
-                <Input id="gst" value={form.gstHstNumber} onChange={(event) => set('gstHstNumber')(event.target.value)} />
+                <Input
+                  id="gst"
+                  value={form.gstHstNumber}
+                  onChange={(event) => set('gstHstNumber')(event.target.value)}
+                />
               </Field>
               {needsPst ? (
                 <Field label="PST / RST registration" htmlFor="pst">
-                  <Input id="pst" value={form.pstNumber} onChange={(event) => set('pstNumber')(event.target.value)} />
+                  <Input
+                    id="pst"
+                    value={form.pstNumber}
+                    onChange={(event) => set('pstNumber')(event.target.value)}
+                  />
                 </Field>
               ) : null}
               {form.province === 'QC' ? (
                 <Field label="QST registration" htmlFor="qst">
-                  <Input id="qst" value={form.qstNumber} onChange={(event) => set('qstNumber')(event.target.value)} />
+                  <Input
+                    id="qst"
+                    value={form.qstNumber}
+                    onChange={(event) => set('qstNumber')(event.target.value)}
+                  />
                 </Field>
               ) : null}
             </CardContent>
@@ -492,7 +689,11 @@ function SetupScreen() {
           <Card>
             <CardContent className="grid gap-4 pt-5 sm:grid-cols-3">
               <Field label="Fiscal year starts" htmlFor="fyMonth">
-                <Select id="fyMonth" value={form.fiscalYearStartMonth} onChange={(event) => set('fiscalYearStartMonth')(event.target.value)}>
+                <Select
+                  id="fyMonth"
+                  value={form.fiscalYearStartMonth}
+                  onChange={(event) => set('fiscalYearStartMonth')(event.target.value)}
+                >
                   {MONTHS.map((month, index) => (
                     <option key={month} value={index + 1}>
                       {month}
@@ -501,10 +702,21 @@ function SetupScreen() {
                 </Select>
               </Field>
               <Field label="On day" htmlFor="fyDay">
-                <Input id="fyDay" type="number" min={1} max={28} value={form.fiscalYearStartDay} onChange={(event) => set('fiscalYearStartDay')(event.target.value)} />
+                <Input
+                  id="fyDay"
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={form.fiscalYearStartDay}
+                  onChange={(event) => set('fiscalYearStartDay')(event.target.value)}
+                />
               </Field>
               <Field label="Sales tax filing" htmlFor="freq">
-                <Select id="freq" value={form.taxFilingFrequency} onChange={(event) => set('taxFilingFrequency')(event.target.value)}>
+                <Select
+                  id="freq"
+                  value={form.taxFilingFrequency}
+                  onChange={(event) => set('taxFilingFrequency')(event.target.value)}
+                >
                   {TAX_FILING_FREQUENCIES.map((frequency) => (
                     <option key={frequency} value={frequency}>
                       {formatEnum(frequency)}
@@ -518,22 +730,55 @@ function SetupScreen() {
           <Card>
             <CardContent className="grid gap-4 pt-5 sm:grid-cols-2">
               <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
-                <input type="checkbox" checked={form.withBank} onChange={(event) => set('withBank')(event.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={form.withBank}
+                  onChange={(event) => set('withBank')(event.target.checked)}
+                />
                 Add my operating bank account now
               </label>
               {form.withBank ? (
                 <>
                   <Field label="Account name" htmlFor="bankName">
-                    <Input id="bankName" value={form.bankName} onChange={(event) => set('bankName')(event.target.value)} />
+                    <Input
+                      id="bankName"
+                      value={form.bankName}
+                      onChange={(event) => set('bankName')(event.target.value)}
+                    />
                   </Field>
                   <Field label="Bank" htmlFor="bankInstitution">
-                    <Input id="bankInstitution" value={form.bankInstitution} onChange={(event) => set('bankInstitution')(event.target.value)} />
+                    <Input
+                      id="bankInstitution"
+                      value={form.bankInstitution}
+                      onChange={(event) => set('bankInstitution')(event.target.value)}
+                    />
                   </Field>
-                  <Field label="Last 4 digits only" htmlFor="last4" hint="Never the full account number." error={fieldError('openingBank.accountNumberLast4')}>
-                    <Input id="last4" inputMode="numeric" maxLength={4} pattern="\d{4}" value={form.last4} onChange={(event) => set('last4')(event.target.value.replace(/\D/g, ''))} />
+                  <Field
+                    label="Last 4 digits only"
+                    htmlFor="last4"
+                    hint="Never the full account number."
+                    error={fieldError('openingBank.accountNumberLast4')}
+                  >
+                    <Input
+                      id="last4"
+                      inputMode="numeric"
+                      maxLength={4}
+                      pattern="\d{4}"
+                      value={form.last4}
+                      onChange={(event) => set('last4')(event.target.value.replace(/\D/g, ''))}
+                    />
                   </Field>
-                  <Field label="Opening balance" htmlFor="openingBalance" hint="The balance on the day you start.">
-                    <MoneyInput id="openingBalance" allowNegative value={form.openingBalance} onChange={(value) => set('openingBalance')(value)} />
+                  <Field
+                    label="Opening balance"
+                    htmlFor="openingBalance"
+                    hint="The balance on the day you start."
+                  >
+                    <MoneyInput
+                      id="openingBalance"
+                      allowNegative
+                      value={form.openingBalance}
+                      onChange={(value) => set('openingBalance')(value)}
+                    />
                   </Field>
                 </>
               ) : null}

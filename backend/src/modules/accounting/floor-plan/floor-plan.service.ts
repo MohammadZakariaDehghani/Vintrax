@@ -1,5 +1,14 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { centsToDecimalString, type FloorPlanNoteInput, type FloorPlanPaymentInput } from '@vintrax/shared';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  centsToDecimalString,
+  type FloorPlanNoteInput,
+  type FloorPlanPaymentInput,
+} from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
 import { recordAudit } from '../core/audit';
@@ -21,18 +30,25 @@ export class FloorPlanService {
     private readonly posting: PostingService,
   ) {}
 
-  async notes(ctx: AccountingContext, query: { status?: string; lenderId?: string; vehicleId?: string }) {
+  async notes(
+    ctx: AccountingContext,
+    query: { status?: string; lenderId?: string; vehicleId?: string },
+  ) {
     const rows = await this.prisma.floorPlanNote.findMany({
       where: {
         dealerId: ctx.dealerId,
-        ...(query.status === 'ACTIVE' || query.status === 'PAID_OFF' ? { status: query.status } : {}),
+        ...(query.status === 'ACTIVE' || query.status === 'PAID_OFF'
+          ? { status: query.status }
+          : {}),
         ...(query.lenderId ? { lenderVendorId: query.lenderId } : {}),
         ...(query.vehicleId ? { vehicleId: query.vehicleId } : {}),
       },
       orderBy: [{ status: 'asc' }, { originationDate: 'asc' }],
       include: {
         lender: { select: { id: true, name: true } },
-        vehicle: { select: { id: true, vin: true, year: true, make: true, model: true, status: true } },
+        vehicle: {
+          select: { id: true, vin: true, year: true, make: true, model: true, status: true },
+        },
         transactions: { orderBy: { date: 'asc' } },
       },
     });
@@ -77,7 +93,9 @@ export class FloorPlanService {
       });
       if (active) throw new ConflictException('This vehicle is already floor-planned');
       const bank = await bankGlAccount(tx, ctx, input.bankAccountId);
-      const { FLOOR_PLAN: floorPlan } = await this.posting.accounts(tx, ctx.dealerId, ['FLOOR_PLAN']);
+      const { FLOOR_PLAN: floorPlan } = await this.posting.accounts(tx, ctx.dealerId, [
+        'FLOOR_PLAN',
+      ]);
       const note = await tx.floorPlanNote.create({
         data: {
           dealerId: ctx.dealerId,
@@ -97,8 +115,20 @@ export class FloorPlanService {
         sourceType: 'FloorPlanNote',
         sourceId: note.id,
         lines: [
-          { accountId: bank.glAccountId, debit: input.principal, credit: 0, vendorId: lender.id, vehicleId: vehicle.id },
-          { accountId: floorPlan, debit: 0, credit: input.principal, vendorId: lender.id, vehicleId: vehicle.id },
+          {
+            accountId: bank.glAccountId,
+            debit: input.principal,
+            credit: 0,
+            vendorId: lender.id,
+            vehicleId: vehicle.id,
+          },
+          {
+            accountId: floorPlan,
+            debit: 0,
+            credit: input.principal,
+            vendorId: lender.id,
+            vehicleId: vehicle.id,
+          },
         ],
       });
       await tx.floorPlanNote.update({ where: { id: note.id }, data: { journalEntryId: entry.id } });
@@ -106,7 +136,12 @@ export class FloorPlanService {
         action: 'floor_plan.advanced',
         entityType: 'FloorPlanNote',
         entityId: note.id,
-        after: { lenderId: lender.id, vehicleId: vehicle.id, principalCents: input.principal, journal: entry.reference },
+        after: {
+          lenderId: lender.id,
+          vehicleId: vehicle.id,
+          principalCents: input.principal,
+          journal: entry.reference,
+        },
       });
       return { id: note.id, journalEntryId: entry.id };
     });
@@ -126,7 +161,12 @@ export class FloorPlanService {
         throw new BadRequestException('A payment cannot predate the advance');
       }
       const outstanding = toCents(note.principal) - toCents(note.principalPaid);
-      const principal = input.kind === 'PAYOFF' ? outstanding : input.kind === 'INTEREST_PAYMENT' ? 0 : input.principal;
+      const principal =
+        input.kind === 'PAYOFF'
+          ? outstanding
+          : input.kind === 'INTEREST_PAYMENT'
+            ? 0
+            : input.principal;
       const interest = input.interest;
       if (principal > outstanding) {
         throw new BadRequestException(`Only ${centsToDecimalString(outstanding)} is outstanding`);
@@ -134,14 +174,31 @@ export class FloorPlanService {
       if (principal + interest === 0) throw new BadRequestException('Nothing to pay');
 
       const bank = await bankGlAccount(tx, ctx, input.bankAccountId);
-      const { FLOOR_PLAN: floorPlan, INTEREST_EXPENSE: interestExpense } = await this.posting.accounts(tx, ctx.dealerId, [
-        'FLOOR_PLAN',
-        'INTEREST_EXPENSE',
-      ]);
+      const { FLOOR_PLAN: floorPlan, INTEREST_EXPENSE: interestExpense } =
+        await this.posting.accounts(tx, ctx.dealerId, ['FLOOR_PLAN', 'INTEREST_EXPENSE']);
       const lines: LedgerLine[] = [
-        { accountId: floorPlan, debit: principal, credit: 0, description: 'Floor plan principal', vendorId: note.lenderVendorId, vehicleId: note.vehicleId },
-        { accountId: interestExpense, debit: interest, credit: 0, description: 'Floor plan interest', vendorId: note.lenderVendorId, vehicleId: note.vehicleId },
-        { accountId: bank.glAccountId, debit: 0, credit: principal + interest, vendorId: note.lenderVendorId },
+        {
+          accountId: floorPlan,
+          debit: principal,
+          credit: 0,
+          description: 'Floor plan principal',
+          vendorId: note.lenderVendorId,
+          vehicleId: note.vehicleId,
+        },
+        {
+          accountId: interestExpense,
+          debit: interest,
+          credit: 0,
+          description: 'Floor plan interest',
+          vendorId: note.lenderVendorId,
+          vehicleId: note.vehicleId,
+        },
+        {
+          accountId: bank.glAccountId,
+          debit: 0,
+          credit: principal + interest,
+          vendorId: note.lenderVendorId,
+        },
       ];
       const transaction = await tx.floorPlanTransaction.create({
         data: {
@@ -161,7 +218,10 @@ export class FloorPlanService {
         sourceId: note.id,
         lines,
       });
-      await tx.floorPlanTransaction.update({ where: { id: transaction.id }, data: { journalEntryId: entry.id } });
+      await tx.floorPlanTransaction.update({
+        where: { id: transaction.id },
+        data: { journalEntryId: entry.id },
+      });
       const principalPaid = toCents(note.principalPaid) + principal;
       await tx.floorPlanNote.update({
         where: { id: note.id },
@@ -175,7 +235,12 @@ export class FloorPlanService {
         action: 'floor_plan.payment',
         entityType: 'FloorPlanNote',
         entityId: note.id,
-        after: { kind: input.kind, principalCents: principal, interestCents: interest, journal: entry.reference },
+        after: {
+          kind: input.kind,
+          principalCents: principal,
+          interestCents: interest,
+          journal: entry.reference,
+        },
       });
       return { id: transaction.id, journalEntryId: entry.id };
     });
@@ -184,16 +249,31 @@ export class FloorPlanService {
   /** Outstanding by lender, and each lender's statement of advances and payments. */
   async summary(ctx: AccountingContext) {
     const notes = await this.notes(ctx, {});
-    const lenders = new Map<string, { lender: { id: string; name: string }; outstandingCents: number; interestPaidCents: number; vehicles: number }>();
+    const lenders = new Map<
+      string,
+      {
+        lender: { id: string; name: string };
+        outstandingCents: number;
+        interestPaidCents: number;
+        vehicles: number;
+      }
+    >();
     for (const note of notes) {
-      const row = lenders.get(note.lender.id) ?? { lender: note.lender, outstandingCents: 0, interestPaidCents: 0, vehicles: 0 };
+      const row = lenders.get(note.lender.id) ?? {
+        lender: note.lender,
+        outstandingCents: 0,
+        interestPaidCents: 0,
+        vehicles: 0,
+      };
       row.outstandingCents += note.status === 'ACTIVE' ? note.outstandingCents : 0;
       row.interestPaidCents += note.interestPaidCents;
       row.vehicles += note.status === 'ACTIVE' ? 1 : 0;
       lenders.set(note.lender.id, row);
     }
     return {
-      totalOutstandingCents: sumCents(notes.filter((note) => note.status === 'ACTIVE').map((note) => note.outstandingCents)),
+      totalOutstandingCents: sumCents(
+        notes.filter((note) => note.status === 'ACTIVE').map((note) => note.outstandingCents),
+      ),
       totalInterestPaidCents: sumCents(notes.map((note) => note.interestPaidCents)),
       soldOutOfTrust: notes.filter((note) => note.soldOutOfTrust).length,
       byLender: [...lenders.values()],

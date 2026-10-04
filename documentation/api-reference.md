@@ -205,19 +205,19 @@ DEALER, ADMIN and SUPER_ADMIN all hold it and no new permission was added.
 All under `vehicle:write` and scoped to the caller the same way. Another
 dealer's vehicle or cost answers **404**, exactly as a missing one does.
 
-| Method   | Path                                 | Purpose                                                               |
-| -------- | ------------------------------------ | --------------------------------------------------------------------- |
-| `GET`    | `/dealer/inventory`                  | Own vehicles: search, status/make/model/year/price/source, sort, page |
-| `GET`    | `/dealer/inventory/stats`            | Counts by status, inventory value, inventory cost, makes              |
-| `GET`    | `/dealer/inventory/selection`        | Every id matching a filter (up to 2,000), for "select all"            |
-| `POST`   | `/dealer/inventory/export`           | CSV of the given ids; ids not owned are left out                      |
+| Method   | Path                                 | Purpose                                                                   |
+| -------- | ------------------------------------ | ------------------------------------------------------------------------- |
+| `GET`    | `/dealer/inventory`                  | Own vehicles: search, status/make/model/year/price/source, sort, page     |
+| `GET`    | `/dealer/inventory/stats`            | Counts by status, inventory value, inventory cost, makes                  |
+| `GET`    | `/dealer/inventory/selection`        | Every id matching a filter (up to 2,000), for "select all"                |
+| `POST`   | `/dealer/inventory/export`           | CSV of the given ids; ids not owned are left out                          |
 | `POST`   | `/dealer/inventory/:id/duplicate`    | Copy into a new draft, without VIN, stock number, video, history or costs |
-| `GET`    | `/dealer/costs`                      | Cost overview: summary cards and per-vehicle totals and gross margin  |
-| `GET`    | `/dealer/inventory/:vehicleId/costs` | One vehicle's cost entries and totals                                 |
-| `POST`   | `/dealer/inventory/:vehicleId/costs` | Record a cost (`amountCents`, integer cents)                          |
-| `PATCH`  | `/dealer/costs/:costId`              | Change a cost                                                         |
-| `DELETE` | `/dealer/costs/:costId`              | Delete a cost (204)                                                   |
-| `POST`   | `/dealer/help/chat`                  | Ask the help assistant (20 a minute)                                  |
+| `GET`    | `/dealer/costs`                      | Cost overview: summary cards and per-vehicle totals and gross margin      |
+| `GET`    | `/dealer/inventory/:vehicleId/costs` | One vehicle's cost entries and totals                                     |
+| `POST`   | `/dealer/inventory/:vehicleId/costs` | Record a cost (`amountCents`, integer cents)                              |
+| `PATCH`  | `/dealer/costs/:costId`              | Change a cost                                                             |
+| `DELETE` | `/dealer/costs/:costId`              | Delete a cost (204)                                                       |
+| `POST`   | `/dealer/help/chat`                  | Ask the help assistant (20 a minute)                                      |
 
 Each inventory row carries `qualityScore`, the listing-quality score out of
 100 from `listingQuality` in `@vintrax/shared`: photos 40 (full at 10),
@@ -229,17 +229,17 @@ strict: a `vehicleId`, `sellerId` or any other unknown field is a 400.
 
 ### Home page promo tiles: image or video
 
-| Method | Path                         | Auth              | Purpose                                                |
-| ------ | ---------------------------- | ----------------- | ------------------------------------------------------ |
-| `GET`  | `/promo-tiles`               | Public            | Switched-on tiles that have their photo or video       |
-| `GET`  | `/admin/promo-tiles`         | `content:manage`  | All three slots, saved or not                          |
-| `PUT`  | `/admin/promo-tiles/:slot`   | `content:manage`  | Save a slot: layout, link, and `mediaType`             |
-| `POST` | `/uploads/promo-tiles`       | `content:manage`  | Upload a tile photo                                    |
-| `POST` | `/uploads/promo-tiles/video` | `content:manage`  | Upload a small tile video in one request (scripts)     |
-| `POST` | `/uploads/promo-tiles/video/sessions` | `content:manage` | Start a video upload: `sizeBytes`, `contentType` |
-| `POST` | `/uploads/promo-tiles/video/sessions/:id/chunks/:index` | `content:manage` | Send the next 8 MB piece |
-| `POST` | `/uploads/promo-tiles/video/sessions/:id/complete` | `content:manage` | All pieces sent; optimising starts (202) |
-| `GET`  | `/uploads/promo-tiles/video/sessions/:id` | `content:manage` | `UPLOADING`, `PROCESSING`, `READY` (with URLs) or `FAILED` |
+| Method | Path                                                    | Auth             | Purpose                                                    |
+| ------ | ------------------------------------------------------- | ---------------- | ---------------------------------------------------------- |
+| `GET`  | `/promo-tiles`                                          | Public           | Switched-on tiles that have their photo or video           |
+| `GET`  | `/admin/promo-tiles`                                    | `content:manage` | All three slots, saved or not                              |
+| `PUT`  | `/admin/promo-tiles/:slot`                              | `content:manage` | Save a slot: layout, link, and `mediaType`                 |
+| `POST` | `/uploads/promo-tiles`                                  | `content:manage` | Upload a tile photo                                        |
+| `POST` | `/uploads/promo-tiles/video`                            | `content:manage` | Upload a small tile video in one request (scripts)         |
+| `POST` | `/uploads/promo-tiles/video/sessions`                   | `content:manage` | Start a video upload: `sizeBytes`, `contentType`           |
+| `POST` | `/uploads/promo-tiles/video/sessions/:id/chunks/:index` | `content:manage` | Send the next 8 MB piece                                   |
+| `POST` | `/uploads/promo-tiles/video/sessions/:id/complete`      | `content:manage` | All pieces sent; optimising starts (202)                   |
+| `GET`  | `/uploads/promo-tiles/video/sessions/:id`               | `content:manage` | `UPLOADING`, `PROCESSING`, `READY` (with URLs) or `FAILED` |
 
 A tile's layout — `widthSpan`, `heightPx`, its slot — is the same fields
 whether `mediaType` is `IMAGE` or `VIDEO`; there is no separate video layout.
@@ -338,23 +338,23 @@ imports and carries a warning.
 
 ## Vehicles
 
-| Method         | Path                                  | Auth                                       | Purpose                                         |
-| -------------- | ------------------------------------- | ------------------------------------------ | ----------------------------------------------- |
-| `GET`          | `/vehicles`                           | optional                                   | Search with filters, facets, sorting            |
-| `GET`          | `/vehicles/mine`                      | seller                                     | Own inventory, including drafts                 |
-| `GET`          | `/vehicles/pending-review`            | admin                                      | Moderation queue                                |
-| `GET`          | `/vehicles/:idOrSlug`                 | optional                                   | One vehicle                                     |
-| `POST`         | `/vehicles`                           | seller                                     | Create a listing                                |
-| `PATCH`        | `/vehicles/:id`                       | owner                                      | Update a listing — everything except its status |
-| `PATCH`        | `/vehicles/:id/status`                | owner                                      | Submit for review, withdraw, archive, re-draft  |
-| `DELETE`       | `/vehicles/:id`                       | owner                                      | Delete a listing                                |
-| `POST`         | `/vehicles/:id/images`                | owner                                      | Add one photo (multipart), processed            |
-| `PUT`          | `/vehicles/:id/images/:imageId`       | owner                                      | Replace one photo's file, keeping its place     |
-| `DELETE`       | `/vehicles/:id/images/:imageId`       | owner                                      | Remove one photo and its files (idempotent)     |
-| `PATCH`        | `/vehicles/:id/moderate`              | admin                                      | Approve or reject                               |
-| `GET`          | `/vehicles/:id/documents/:documentId` | seller, admin or the buyer on a live order | Download a document                             |
-| `PUT`/`DELETE` | `/vehicles/:id/favourite`             | ✅                                         | Save or unsave                                  |
-| `GET`          | `/me/favourites`                      | ✅                                         | Saved vehicles                                  |
+| Method         | Path                                  | Auth                                       | Purpose                                           |
+| -------------- | ------------------------------------- | ------------------------------------------ | ------------------------------------------------- |
+| `GET`          | `/vehicles`                           | optional                                   | Search with filters, facets, sorting              |
+| `GET`          | `/vehicles/mine`                      | seller                                     | Own inventory, including drafts                   |
+| `GET`          | `/vehicles/pending-review`            | admin                                      | Moderation queue                                  |
+| `GET`          | `/vehicles/:idOrSlug`                 | optional                                   | One vehicle                                       |
+| `POST`         | `/vehicles`                           | seller                                     | Create a listing                                  |
+| `PATCH`        | `/vehicles/:id`                       | owner                                      | Update a listing — everything except its status   |
+| `PATCH`        | `/vehicles/:id/status`                | owner                                      | Submit for review, withdraw, archive, re-draft    |
+| `DELETE`       | `/vehicles/:id`                       | owner                                      | Delete a listing                                  |
+| `POST`         | `/vehicles/:id/images`                | owner                                      | Add one photo (multipart), processed              |
+| `PUT`          | `/vehicles/:id/images/:imageId`       | owner                                      | Replace one photo's file, keeping its place       |
+| `DELETE`       | `/vehicles/:id/images/:imageId`       | owner                                      | Remove one photo and its files (idempotent)       |
+| `PATCH`        | `/vehicles/:id/moderate`              | admin                                      | Approve or reject                                 |
+| `GET`          | `/vehicles/:id/documents/:documentId` | seller, admin or the buyer on a live order | Download a document                               |
+| `PUT`/`DELETE` | `/vehicles/:id/favourite`             | ✅                                         | Save or unsave                                    |
+| `GET`          | `/me/favourites`                      | ✅                                         | Saved vehicles                                    |
 | `GET`          | `/vin/:vin`                           | seller (30/min)                            | Decode a VIN: make, model, year, trim, drivetrain |
 
 `GET /vin/:vin` asks NHTSA's vPIC decoder (a fixed address, 8 s timeout) and
@@ -487,11 +487,11 @@ vehicles return **404, not 403**, so inventory cannot be mapped by probing ids.
 
 ### Car tools
 
-| Method | Path                  | Auth       | Purpose                                                          |
-| ------ | --------------------- | ---------- | ---------------------------------------------------------------- |
-| `GET`  | `/car-value/makes`    | —          | Makes the value tool can estimate, most common first             |
-| `GET`  | `/car-value/models`   | —          | A make's models (`make`)                                         |
-| `GET`  | `/car-value/estimate` | — (30/min) | What a car is worth (`year`, `make`, `model`, `mileageKm`)       |
+| Method | Path                  | Auth       | Purpose                                                             |
+| ------ | --------------------- | ---------- | ------------------------------------------------------------------- |
+| `GET`  | `/car-value/makes`    | —          | Makes the value tool can estimate, most common first                |
+| `GET`  | `/car-value/models`   | —          | A make's models (`make`)                                            |
+| `GET`  | `/car-value/estimate` | — (30/min) | What a car is worth (`year`, `make`, `model`, `mileageKm`)          |
 | `GET`  | `/car-value/similar`  | — (60/min) | Every car for sale like it, closest first (`year`, `make`, `model`) |
 
 `/car-value/similar` returns every `ACTIVE` or `IN_AUCTION` listing of that
@@ -564,33 +564,33 @@ routes.
 
 ## Site presentation
 
-| Method   | Path                                | Auth             | Purpose                            |
-| -------- | ----------------------------------- | ---------------- | ---------------------------------- |
-| `GET`    | `/admin/body-type-images`           | —                | Body-type shortcut photographs     |
-| `PUT`    | `/admin/body-type-images/:bodyType` | `content:manage` | Set one                            |
-| `DELETE` | `/admin/body-type-images/:bodyType` | `content:manage` | Remove one, restoring the fallback |
-| `GET`    | `/admin/footer`                     | —                | The site footer, sections and links |
-| `PUT`    | `/admin/footer`                     | `content:manage` | Replace the whole footer            |
-| `GET`    | `/admin/site-settings/public`       | —                | Footer copyright lines and Contact page content |
-| `GET`    | `/admin/site-settings`              | `content:manage` | The same, plus where Contact messages are emailed |
-| `PUT`    | `/admin/site-settings`              | `content:manage` | Replace the site settings (see `contactMapUrl` below) |
-| `GET`    | `/pages/:slug`                      | —                | One published page, such as About us |
-| `POST`   | `/contact`                          | — (5/min)        | Send a Contact-page message         |
-| `GET`    | `/admin/contact-messages`           | `content:manage` | Contact-page messages, newest first |
-| `DELETE` | `/admin/contact-messages/:id`       | `content:manage` | Delete one                          |
-| `POST`   | `/uploads/footer-icons`             | `content:manage` | Upload a footer link's icon image   |
-| `POST`   | `/uploads/site-images`              | `content:manage` | Upload a site image, such as the Contact map |
-| `GET`    | `/home-features`                    | —                | Home page feature blocks, in order  |
-| `GET`    | `/admin/home-features`              | `content:manage` | Every feature block, hidden ones too |
-| `POST`   | `/admin/home-features`              | `content:manage` | Add a block at the bottom           |
-| `PATCH`  | `/admin/home-features/:id`          | `content:manage` | Edit, show or hide a block          |
-| `PUT`    | `/admin/home-features/order`        | `content:manage` | Set the order (every id, top to bottom) |
-| `DELETE` | `/admin/home-features/:id`          | `content:manage` | Delete a block                      |
-| `POST`   | `/uploads/home-features`            | `content:manage` | Upload a feature block's photo      |
-| `GET`    | `/vehicles/:id/contact`             | signed in (20/min) | The seller's phone number for a listing |
-| `GET`    | `/admin/make-logos`                 | —                | Logos set for vehicle makes         |
-| `PUT`    | `/admin/make-logos/:make`           | `content:manage` | Set one                             |
-| `DELETE` | `/admin/make-logos/:make`           | `content:manage` | Remove one, restoring the generated mark |
+| Method   | Path                                | Auth               | Purpose                                               |
+| -------- | ----------------------------------- | ------------------ | ----------------------------------------------------- |
+| `GET`    | `/admin/body-type-images`           | —                  | Body-type shortcut photographs                        |
+| `PUT`    | `/admin/body-type-images/:bodyType` | `content:manage`   | Set one                                               |
+| `DELETE` | `/admin/body-type-images/:bodyType` | `content:manage`   | Remove one, restoring the fallback                    |
+| `GET`    | `/admin/footer`                     | —                  | The site footer, sections and links                   |
+| `PUT`    | `/admin/footer`                     | `content:manage`   | Replace the whole footer                              |
+| `GET`    | `/admin/site-settings/public`       | —                  | Footer copyright lines and Contact page content       |
+| `GET`    | `/admin/site-settings`              | `content:manage`   | The same, plus where Contact messages are emailed     |
+| `PUT`    | `/admin/site-settings`              | `content:manage`   | Replace the site settings (see `contactMapUrl` below) |
+| `GET`    | `/pages/:slug`                      | —                  | One published page, such as About us                  |
+| `POST`   | `/contact`                          | — (5/min)          | Send a Contact-page message                           |
+| `GET`    | `/admin/contact-messages`           | `content:manage`   | Contact-page messages, newest first                   |
+| `DELETE` | `/admin/contact-messages/:id`       | `content:manage`   | Delete one                                            |
+| `POST`   | `/uploads/footer-icons`             | `content:manage`   | Upload a footer link's icon image                     |
+| `POST`   | `/uploads/site-images`              | `content:manage`   | Upload a site image, such as the Contact map          |
+| `GET`    | `/home-features`                    | —                  | Home page feature blocks, in order                    |
+| `GET`    | `/admin/home-features`              | `content:manage`   | Every feature block, hidden ones too                  |
+| `POST`   | `/admin/home-features`              | `content:manage`   | Add a block at the bottom                             |
+| `PATCH`  | `/admin/home-features/:id`          | `content:manage`   | Edit, show or hide a block                            |
+| `PUT`    | `/admin/home-features/order`        | `content:manage`   | Set the order (every id, top to bottom)               |
+| `DELETE` | `/admin/home-features/:id`          | `content:manage`   | Delete a block                                        |
+| `POST`   | `/uploads/home-features`            | `content:manage`   | Upload a feature block's photo                        |
+| `GET`    | `/vehicles/:id/contact`             | signed in (20/min) | The seller's phone number for a listing               |
+| `GET`    | `/admin/make-logos`                 | —                  | Logos set for vehicle makes                           |
+| `PUT`    | `/admin/make-logos/:make`           | `content:manage`   | Set one                                               |
+| `DELETE` | `/admin/make-logos/:make`           | `content:manage`   | Remove one, restoring the generated mark              |
 
 `contactMapUrl` is a Google Maps link to the place: a share link
 (`maps.app.goo.gl/…`), a place, search or map link on a Google domain, or the
@@ -779,6 +779,185 @@ hero take an optional `media` presentation, as follows.
 
 Home features also take `subtitle` and `layout` (`SPLIT` or `FULL_BLEED`).
 Home boxes take `title`, `body` and `ctaLabel`. Slots run from 1 to 12.
+
+## Dealer accounting
+
+Paths are under `/dealer/accounting` unless shown in full. See
+[accounting.md](./accounting.md) for the model behind them.
+
+- **Guard.** Every route except `/dealerships` runs behind `AccountingGuard`.
+  It resolves the caller's dealership and staff role on the server and checks
+  the `accounting.*` permission listed below. Owners have every permission.
+- **Choosing a dealership.** Someone on several dealerships' staff sends
+  `x-dealer-id`; the guard accepts only one of their own.
+- **Before setup.** Until the dealer sets accounting up, every route except
+  `/status` and `/setup` answers `409` with `code: "ACCOUNTING_NOT_SET_UP"`.
+- **Money in.** Requests send amounts as decimal strings (`"1234.50"`).
+- **Money out.** Responses return integer cents in fields ending `Cents`, and
+  rates as percentage strings (`"9.975"`).
+- **Date filters.** Lists and reports take `preset` (`TODAY`, `THIS_WEEK`,
+  `THIS_MONTH`, `LAST_MONTH`, `THIS_QUARTER`, `YEAR_TO_DATE`,
+  `CURRENT_FISCAL_YEAR`, `PREVIOUS_FISCAL_YEAR`) or `preset=CUSTOM&from=&to=`.
+  Comparisons take `compare=PREVIOUS_PERIOD|PREVIOUS_YEAR`.
+- **Corrections.** Posted records are corrected with `void`/`reverse`, which
+  take `{ reason }`; they are never edited or deleted.
+
+### Setup, settings and team
+
+| Method   | Path              | Permission    | Purpose                                                             |
+| -------- | ----------------- | ------------- | ------------------------------------------------------------------- |
+| `GET`    | `/dealerships`    | signed in     | Dealerships whose books the caller can open, with their role        |
+| `GET`    | `/status`         | staff         | Whether accounting is set up, and the caller's role and permissions |
+| `POST`   | `/setup`          | `settings`    | Set up accounting: settings, chart of accounts, fiscal year, bank   |
+| `GET`    | `/settings`       | `view`        | Accounting settings                                                 |
+| `PATCH`  | `/settings`       | `settings`    | Change settings (fiscal calendar locked once anything posts)        |
+| `GET`    | `/team`           | `manage_team` | The owner and staff with their roles                                |
+| `POST`   | `/team`           | `manage_team` | Give an existing Vintrax account a role in this dealership          |
+| `PATCH`  | `/team/:memberId` | `manage_team` | Change a staff member's role                                        |
+| `DELETE` | `/team/:memberId` | `manage_team` | Remove a staff member                                               |
+
+### Deal desk and inventory
+
+| Method   | Path                                | Permission              | Purpose                                                                    |
+| -------- | ----------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
+| `GET`    | `/vehicles`                         | `sales`                 | The dealership's vehicles, for choosing one in a deal or purchase          |
+| `GET`    | `/customers`                        | `sales`                 | Customers with what each owes (`q`, `page`, `pageSize`)                    |
+| `GET`    | `/customers/:customerId`            | `sales`                 | One customer and their balance                                             |
+| `POST`   | `/customers`                        | `sales`                 | Add a customer                                                             |
+| `PATCH`  | `/customers/:customerId`            | `sales`                 | Change a customer, or deactivate one                                       |
+| `GET`    | `/vendors`                          | `view`                  | Vendors with what you owe each (`kind`, `q`)                               |
+| `POST`   | `/vendors`                          | `create`                | Add a vendor (auction, supplier, lender …)                                 |
+| `PATCH`  | `/vendors/:vendorId`                | `edit`                  | Change a vendor, or deactivate one                                         |
+| `GET`    | `/acquisitions`                     | `view`                  | Vehicle purchases in a range                                               |
+| `POST`   | `/acquisitions`                     | `create`, `post`        | Record a purchase: paid, on account (with a bill) or floor plan            |
+| `POST`   | `/acquisitions/:acquisitionId/void` | `reverse`               | Void a purchase of an unsold vehicle (`reason`)                            |
+| `GET`    | `/trade-ins`                        | `sales`                 | Appraised trade-ins (`customerId`)                                         |
+| `POST`   | `/trade-ins`                        | `sales`                 | Appraise a trade-in: actual cash value, allowance, lien payoff             |
+| `POST`   | `/trade-ins/:tradeInId/withdraw`    | `sales`                 | Withdraw an appraisal that was not used                                    |
+| `GET`    | `/deposits`                         | `sales`                 | Deposits with what is still held                                           |
+| `POST`   | `/deposits`                         | `post_sales`            | Take a deposit (a liability until the sale)                                |
+| `POST`   | `/deposits/:depositId/refund`       | `post_sales`, `reverse` | Refund some or all of a deposit, with a reason                             |
+| `GET`    | `/sales`                            | `sales`                 | Deals in a range (cost fields only for `view`)                             |
+| `GET`    | `/sales/:saleId`                    | `sales`                 | One deal with its tax lines and invoices                                   |
+| `POST`   | `/sales/quote`                      | `sales`                 | Work out a deal — taxes, trade-in, deposits, balance — without saving it   |
+| `POST`   | `/sales/drafts`                     | `sales`                 | Save a draft deal                                                          |
+| `PATCH`  | `/sales/drafts/:saleId`             | `sales`                 | Change a draft deal                                                        |
+| `DELETE` | `/sales/drafts/:saleId`             | `sales`                 | Delete a draft deal                                                        |
+| `POST`   | `/sales/drafts/:saleId/post`        | `post_sales`            | Post a saved draft                                                         |
+| `POST`   | `/sales`                            | `post_sales`            | Post a sale in one transaction                                             |
+| `POST`   | `/sales/:saleId/reverse`            | `reverse`               | Reverse a posted sale (also needs `post_sales`)                            |
+| `GET`    | `/customers/:customerId/statement`  | `view`                  | A customer statement: opening balance, invoices, payments, closing balance |
+| `GET`    | `/vendors/:vendorId/statement`      | `view`                  | A vendor statement                                                         |
+
+### Ledger and periods
+
+| Method   | Path                                 | Permission        | Purpose                                                                        |
+| -------- | ------------------------------------ | ----------------- | ------------------------------------------------------------------------------ |
+| `GET`    | `/accounts`                          | `view`            | Chart of accounts with balances                                                |
+| `POST`   | `/accounts`                          | `manage_accounts` | Add an account (`code`, `name`, `subtype`)                                     |
+| `PATCH`  | `/accounts/:accountId`               | `manage_accounts` | Rename or deactivate an account (not a system account, not one with a balance) |
+| `GET`    | `/journal`                           | `view`            | Journal entries, filtered and paged                                            |
+| `GET`    | `/journal/:entryId`                  | `view`            | One entry with its lines, source document and attachments                      |
+| `POST`   | `/journal`                           | `create`          | Create a manual entry; `post: true` also needs `post`                          |
+| `PATCH`  | `/journal/:entryId`                  | `edit`            | Change a draft entry                                                           |
+| `POST`   | `/journal/:entryId/post`             | `post`            | Post a draft entry                                                             |
+| `DELETE` | `/journal/:entryId`                  | `edit`            | Delete a draft entry (posted entries are reversed, never deleted)              |
+| `POST`   | `/journal/:entryId/reverse`          | `reverse`         | Reverse a posted manual entry with an equal and opposite entry                 |
+| `GET`    | `/periods`                           | `view`            | Fiscal years with their periods and draft counts                               |
+| `POST`   | `/fiscal-years`                      | `close_period`    | Open the fiscal year containing a date                                         |
+| `POST`   | `/periods/:periodId/close`           | `close_period`    | Close a period                                                                 |
+| `POST`   | `/periods/:periodId/reopen`          | `reopen_period`   | Reopen a period (`reason`, audited)                                            |
+| `POST`   | `/fiscal-years/:fiscalYearId/close`  | `close_period`    | Year-end close: post the closing entry to retained earnings                    |
+| `POST`   | `/fiscal-years/:fiscalYearId/reopen` | `reopen_period`   | Reopen a year: reverses its closing entry (`reason`)                           |
+
+### Receivables, payables, payments and expenses
+
+| Method  | Path                           | Permission       | Purpose                                                              |
+| ------- | ------------------------------ | ---------------- | -------------------------------------------------------------------- |
+| `GET`   | `/invoices`                    | `view`           | Invoices (`status`, `customerId`, `openOnly`)                        |
+| `POST`  | `/invoices`                    | `create`, `post` | Raise an invoice; tax from the rules                                 |
+| `POST`  | `/invoices/:invoiceId/void`    | `reverse`        | Void an unpaid invoice (`reason`)                                    |
+| `GET`   | `/bills`                       | `view`           | Bills and credit notes (`status`, `vendorId`, `q`)                   |
+| `POST`  | `/bills`                       | `create`, `post` | Enter a vendor bill or credit note                                   |
+| `POST`  | `/bills/:creditId/apply`       | `post`           | Apply a vendor credit note to one of that vendor's bills             |
+| `POST`  | `/bills/:billId/void`          | `reverse`        | Void an unpaid bill (`reason`)                                       |
+| `GET`   | `/payments`                    | `view`           | Payments in a range (`reference`)                                    |
+| `POST`  | `/payments`                    | `create`, `post` | Record a payment received or made, applied to invoices or bills      |
+| `POST`  | `/payments/:paymentId/reverse` | `reverse`        | Reverse a payment not yet reconciled                                 |
+| `GET`   | `/expenses`                    | `view`           | Expenses in a range                                                  |
+| `POST`  | `/expenses`                    | `create`, `post` | Record an expense: operating, vehicle cost, cost of sales or capital |
+| `POST`  | `/expenses/:expenseId/reverse` | `reverse`        | Reverse an expense                                                   |
+| `GET`   | `/recurring-expenses`          | `view`           | Recurring expenses and which are due                                 |
+| `POST`  | `/recurring-expenses`          | `create`         | Add a recurring expense                                              |
+| `PATCH` | `/recurring-expenses/:id`      | `edit`           | Pause or resume one                                                  |
+| `POST`  | `/recurring-expenses/post-due` | `create`, `post` | Post every recurring expense that has come due                       |
+
+### Banking and floor plan
+
+| Method   | Path                                          | Permission        | Purpose                                                                               |
+| -------- | --------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------- |
+| `GET`    | `/bank-accounts`                              | `view`            | Bank, cash and card accounts: balance, masked number, last reconciled                 |
+| `GET`    | `/bank-accounts/options`                      | `sales`           | Bank and cash accounts by name only, for taking a deposit                             |
+| `POST`   | `/bank-accounts`                              | `manage_accounts` | Add one (last four digits only), with an opening balance                              |
+| `PATCH`  | `/bank-accounts/:bankAccountId`               | `manage_accounts` | Rename or deactivate one                                                              |
+| `GET`    | `/bank-accounts/:bankAccountId/register`      | `view`            | Every posted movement in a bank account, with the running balance                     |
+| `POST`   | `/bank-transactions`                          | `create`, `post`  | Record a deposit, withdrawal, fee, interest or transfer                               |
+| `POST`   | `/bank-transactions/:transactionId/reverse`   | `reverse`         | Reverse a bank transaction                                                            |
+| `GET`    | `/reconciliations`                            | `view`            | Reconciliations (`bankAccountId`)                                                     |
+| `POST`   | `/reconciliations`                            | `reconcile_bank`  | Start one: statement date and closing balance                                         |
+| `GET`    | `/reconciliations/:reconciliationId`          | `view`            | Lines, cleared balance and the difference                                             |
+| `PATCH`  | `/reconciliations/:reconciliationId/cleared`  | `reconcile_bank`  | Set which ledger lines the statement shows as cleared                                 |
+| `POST`   | `/reconciliations/:reconciliationId/complete` | `reconcile_bank`  | Complete it: the difference must be zero, or pass `adjustment: { accountId, reason }` |
+| `DELETE` | `/reconciliations/:reconciliationId`          | `reconcile_bank`  | Discard an unfinished one                                                             |
+| `GET`    | `/floor-plan`                                 | `view`            | Notes and totals by lender                                                            |
+| `POST`   | `/floor-plan`                                 | `create`, `post`  | Floor-plan a vehicle already in inventory                                             |
+| `POST`   | `/floor-plan/:noteId/payments`                | `create`, `post`  | Pay principal, interest or the payoff on a floor-plan note                            |
+
+### Tax
+
+| Method  | Path                                            | Permission        | Purpose                                                                     |
+| ------- | ----------------------------------------------- | ----------------- | --------------------------------------------------------------------------- |
+| `GET`   | `/tax/rules`                                    | `view`            | Rules for a province, defaults and the dealer's own, with versions          |
+| `POST`  | `/tax/rules`                                    | `manage_tax`      | Add a dealer rule (cite `source`)                                           |
+| `POST`  | `/tax/rules/:ruleId/supersede`                  | `manage_tax`      | A new rate from a date; the old version stays for earlier transactions      |
+| `PATCH` | `/tax/rules/:ruleId`                            | `manage_tax`      | Turn a dealer rule on or off                                                |
+| `POST`  | `/tax/quote`                                    | `sales`           | Calculate tax for a set of lines without recording anything                 |
+| `GET`   | `/tax/summary`                                  | `view`            | Tax collected, paid, recoverable and net payable by return, for a range     |
+| `GET`   | `/tax/filings`                                  | `view`            | Filing periods with their figures                                           |
+| `POST`  | `/tax/filings`                                  | `manage_tax`      | Create a custom filing period                                               |
+| `POST`  | `/tax/filings/generate`                         | `manage_tax`      | Create the filing periods of a fiscal year at the dealer's filing frequency |
+| `PATCH` | `/tax/filings/:filingId`                        | `manage_tax`      | Move a filing through Open → In review → Filed → Closed, record adjustments |
+| `GET`   | `/admin/accounting/tax-rules`                   | `settings:manage` | The platform's default rules                                                |
+| `POST`  | `/admin/accounting/tax-rules`                   | `settings:manage` | Add a default rule                                                          |
+| `POST`  | `/admin/accounting/tax-rules/:ruleId/supersede` | `settings:manage` | A new default rate from a date                                              |
+
+### Reports, exports and tools
+
+| Method   | Path                                 | Permission       | Purpose                                                                         |
+| -------- | ------------------------------------ | ---------------- | ------------------------------------------------------------------------------- |
+| `GET`    | `/dashboard`                         | `view`           | The accounting overview for a date range                                        |
+| `GET`    | `/reports/trial-balance`             | `view`           | Trial balance; `balanced`                                                       |
+| `GET`    | `/reports/general-ledger`            | `view`           | Posted journal lines with filters; a running balance when one account is chosen |
+| `GET`    | `/reports/profit-loss`               | `view`           | P&L; `compare`, `columns=MONTHLY`                                               |
+| `GET`    | `/reports/balance-sheet`             | `view`           | Balance sheet as of the range end (at most today); `balanced`                   |
+| `GET`    | `/reports/cash-flow`                 | `view`           | Cash flow, indirect method; `reconciles`                                        |
+| `GET`    | `/reports/ar-aging`                  | `view`           | Receivables by days past due (`asOf`)                                           |
+| `GET`    | `/reports/ap-aging`                  | `view`           | Payables by days past due (`asOf`)                                              |
+| `GET`    | `/reports/vehicle-profitability`     | `view`           | Per-vehicle cost, revenue and gross profit                                      |
+| `GET`    | `/reports/inventory-valuation`       | `view`           | Book value, aging, check against the inventory account                          |
+| `GET`    | `/reports/kpis`                      | `view`           | Dealer KPIs for a range                                                         |
+| `GET`    | `/reports/monthly`                   | `view`           | A month against the previous month or last year (`month`, `compare`)            |
+| `GET`    | `/reports/fiscal-year`               | `view`           | This or last fiscal year, by month (`which`)                                    |
+| `GET`    | `/exports/:report`                   | `view`, `export` | Download a report: `format=csv                                                  | xlsx | pdf`, plus its filters |
+| `GET`    | `/health`                            | `view`           | Accounting Health: unbalanced entries, mismatches, unreconciled items and more  |
+| `GET`    | `/search`                            | `view`           | Search VINs, customers, vendors, documents, references, accounts (`q`)          |
+| `GET`    | `/audit`                             | `view`           | The audit trail (`action`, `entityType`, `entityId`, `userId`)                  |
+| `GET`    | `/attachments/:entityType/:entityId` | `view`           | Files on a record                                                               |
+| `POST`   | `/attachments/:entityType/:entityId` | `create`         | Attach a PDF, JPEG or PNG (multipart `file`)                                    |
+| `GET`    | `/attachments/:attachmentId`         | `view`           | Download an attachment                                                          |
+| `GET`    | `/saved-filters`                     | `view`           | The caller's saved report views (`report`)                                      |
+| `POST`   | `/saved-filters`                     | `view`           | Save a view: `{ name, report, filters }`                                        |
+| `DELETE` | `/saved-filters/:filterId`           | `view`           | Delete a saved view                                                             |
 
 ## Uploads, admin, health
 

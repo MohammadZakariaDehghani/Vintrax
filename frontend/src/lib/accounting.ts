@@ -155,7 +155,7 @@ export interface RangeState {
 export const DEFAULT_RANGE: RangeState = { preset: 'THIS_MONTH', from: '', to: '' };
 
 /** The query parameters a range filter sends. */
-export function rangeParams(range: RangeState) {
+export function rangeParams(range: RangeState): Record<string, string> {
   return range.preset === 'CUSTOM'
     ? { preset: 'CUSTOM', from: range.from, to: range.to }
     : { preset: range.preset };
@@ -216,4 +216,10 @@ export function sourceHref(sourceType: string | null, sourceId: string | null): 
     default:
       return null;
   }
+}
+
+/** A YYYY-MM-DD date moved by whole days, in UTC so no time zone shifts it. */
+export function addDaysIso(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }

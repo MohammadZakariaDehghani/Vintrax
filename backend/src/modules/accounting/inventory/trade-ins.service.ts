@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { TradeInInput } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
@@ -21,7 +26,9 @@ export class TradeInsService {
       where: {
         dealerId: ctx.dealerId,
         ...(query.customerId ? { customerId: query.customerId } : {}),
-        ...(query.status === 'DRAFT' || query.status === 'POSTED' || query.status === 'VOID' ? { status: query.status } : {}),
+        ...(query.status === 'DRAFT' || query.status === 'POSTED' || query.status === 'VOID'
+          ? { status: query.status }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -43,7 +50,9 @@ export class TradeInsService {
       if (vehicleId) {
         const vehicle = await requireDealerVehicle(tx, ctx, vehicleId);
         if (vehicle.status !== 'DRAFT') {
-          throw new BadRequestException('Use a draft vehicle for a trade-in, or let one be created');
+          throw new BadRequestException(
+            'Use a draft vehicle for a trade-in, or let one be created',
+          );
         }
       } else {
         const dealer = await tx.dealer.findUniqueOrThrow({
@@ -126,11 +135,18 @@ export class TradeInsService {
   /** A draft trade-in may be withdrawn; its draft vehicle stays for reuse. */
   async withdraw(ctx: AccountingContext, tradeInId: string) {
     await this.prisma.$transaction(async (tx) => {
-      const tradeIn = await tx.tradeIn.findFirst({ where: { id: tradeInId, dealerId: ctx.dealerId } });
+      const tradeIn = await tx.tradeIn.findFirst({
+        where: { id: tradeInId, dealerId: ctx.dealerId },
+      });
       if (!tradeIn) throw new NotFoundException('Trade-in not found');
-      if (tradeIn.status !== 'DRAFT') throw new ConflictException('A trade-in on a posted sale is undone by reversing the sale');
+      if (tradeIn.status !== 'DRAFT')
+        throw new ConflictException('A trade-in on a posted sale is undone by reversing the sale');
       await tx.tradeIn.update({ where: { id: tradeIn.id }, data: { status: 'VOID' } });
-      await recordAudit(tx, ctx, { action: 'trade_in.withdrawn', entityType: 'TradeIn', entityId: tradeIn.id });
+      await recordAudit(tx, ctx, {
+        action: 'trade_in.withdrawn',
+        entityType: 'TradeIn',
+        entityId: tradeIn.id,
+      });
     });
   }
 }

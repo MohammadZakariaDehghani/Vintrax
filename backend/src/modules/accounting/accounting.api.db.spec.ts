@@ -29,7 +29,9 @@ import { closeTestPrisma, createVehicle, describeDb, testPrisma } from './testin
 @Injectable()
 class TestAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext) {
-    const req = context.switchToHttp().getRequest<{ headers: Record<string, string>; user?: AuthUser }>();
+    const req = context
+      .switchToHttp()
+      .getRequest<{ headers: Record<string, string>; user?: AuthUser }>();
     const id = req.headers['x-test-user'];
     if (!id) return true;
     const user = await testPrisma().user.findUniqueOrThrow({ where: { id } });
@@ -62,7 +64,17 @@ describeDb('accounting API', () => {
   let app: INestApplication;
   const today = todayIso();
 
-  const users: Record<'owner' | 'accountant' | 'sales' | 'salesManager' | 'otherOwner' | 'admin' | 'superAdmin' | 'stranger', string> = {
+  const users: Record<
+    | 'owner'
+    | 'accountant'
+    | 'sales'
+    | 'salesManager'
+    | 'otherOwner'
+    | 'admin'
+    | 'superAdmin'
+    | 'stranger',
+    string
+  > = {
     owner: '',
     accountant: '',
     sales: '',
@@ -120,14 +132,24 @@ describeDb('accounting API', () => {
     const owner = await makeUser('owner', 'DEALER');
     users.owner = owner.id;
     const dealer = await prisma.dealer.create({
-      data: { ownerId: owner.id, name: `API Motors ${owner.id.slice(0, 6)}`, slug: `api-motors-${owner.id.slice(0, 8)}`, province: 'ON' },
+      data: {
+        ownerId: owner.id,
+        name: `API Motors ${owner.id.slice(0, 6)}`,
+        slug: `api-motors-${owner.id.slice(0, 8)}`,
+        province: 'ON',
+      },
     });
     dealerId = dealer.id;
 
     const otherOwner = await makeUser('other', 'DEALER');
     users.otherOwner = otherOwner.id;
     const other = await prisma.dealer.create({
-      data: { ownerId: otherOwner.id, name: `Other Motors ${otherOwner.id.slice(0, 6)}`, slug: `other-motors-${otherOwner.id.slice(0, 8)}`, province: 'BC' },
+      data: {
+        ownerId: otherOwner.id,
+        name: `Other Motors ${otherOwner.id.slice(0, 6)}`,
+        slug: `other-motors-${otherOwner.id.slice(0, 8)}`,
+        province: 'BC',
+      },
     });
     otherDealerId = other.id;
 
@@ -162,12 +184,23 @@ describeDb('accounting API', () => {
         fiscalYearStartDay: 1,
         taxFilingFrequency: 'QUARTERLY',
         gstHstNumber: '123456789RT0001',
-        openingBank: { name: 'Operating chequing', bankName: 'Test Bank', accountNumberLast4: '4321', openingBalance: '50000' },
+        openingBank: {
+          name: 'Operating chequing',
+          bankName: 'Test Bank',
+          accountNumberLast4: '4321',
+          openingBalance: '50000',
+        },
       })
       .expect(201);
     await as('otherOwner')
       .post(`${base}/setup`)
-      .send({ legalName: 'Other Motors Ltd.', province: 'BC', fiscalYearStartMonth: 4, fiscalYearStartDay: 1, taxFilingFrequency: 'MONTHLY' })
+      .send({
+        legalName: 'Other Motors Ltd.',
+        province: 'BC',
+        fiscalYearStartMonth: 4,
+        fiscalYearStartDay: 1,
+        taxFilingFrequency: 'MONTHLY',
+      })
       .expect(201);
 
     for (const [who, role] of [
@@ -185,7 +218,17 @@ describeDb('accounting API', () => {
   });
 
   it('keeps financial reports from sales staff', async () => {
-    for (const path of ['dashboard', 'reports/profit-loss', 'reports/balance-sheet', 'reports/trial-balance', 'reports/vehicle-profitability', 'journal', 'accounts', 'health', 'exports/profit-loss']) {
+    for (const path of [
+      'dashboard',
+      'reports/profit-loss',
+      'reports/balance-sheet',
+      'reports/trial-balance',
+      'reports/vehicle-profitability',
+      'journal',
+      'accounts',
+      'health',
+      'exports/profit-loss',
+    ]) {
       await as('sales').get(`${base}/${path}`).expect(403);
       await as('salesManager').get(`${base}/${path}`).expect(403);
     }
@@ -198,12 +241,29 @@ describeDb('accounting API', () => {
 
   it('lets only roles with post_sales post deposits and sales, and hides cost from sales staff', async () => {
     const vehicleId = await createVehicle(prisma, users.owner);
-    const bank = (await as('owner').get(`${base}/bank-accounts`).expect(200)).body.find((account: { type: string }) => account.type === 'CHEQUING');
+    const bank = (await as('owner').get(`${base}/bank-accounts`).expect(200)).body.find(
+      (account: { type: string }) => account.type === 'CHEQUING',
+    );
     await as('owner')
       .post(`${base}/acquisitions`)
-      .send({ vehicleId, method: 'AUCTION', date: today, purchasePrice: '20000', auctionFee: '800', transportation: '500', reconditioning: '1200', settlement: 'PAID', bankAccountId: bank.id })
+      .send({
+        vehicleId,
+        method: 'AUCTION',
+        date: today,
+        purchasePrice: '20000',
+        auctionFee: '800',
+        transportation: '500',
+        reconditioning: '1200',
+        settlement: 'PAID',
+        bankAccountId: bank.id,
+      })
       .expect(201);
-    const customer = (await as('sales').post(`${base}/customers`).send({ name: 'Casey Buyer', province: 'ON' }).expect(201)).body;
+    const customer = (
+      await as('sales')
+        .post(`${base}/customers`)
+        .send({ name: 'Casey Buyer', province: 'ON' })
+        .expect(201)
+    ).body;
 
     // Sales user: may quote and save a draft, may not post a deposit or the sale.
     const deal = { vehicleId, customerId: customer.id, saleDate: today, salePrice: '28000' };
@@ -211,7 +271,17 @@ describeDb('accounting API', () => {
     expect(quote.body.totalCents).toBe(3_164_000);
     expect(quote.body).not.toHaveProperty('costOfSaleCents');
     expect(quote.body).not.toHaveProperty('grossProfitCents');
-    await as('sales').post(`${base}/deposits`).send({ customerId: customer.id, vehicleId, amount: '1000', date: today, method: 'CASH', bankAccountId: bank.id }).expect(403);
+    await as('sales')
+      .post(`${base}/deposits`)
+      .send({
+        customerId: customer.id,
+        vehicleId,
+        amount: '1000',
+        date: today,
+        method: 'CASH',
+        bankAccountId: bank.id,
+      })
+      .expect(403);
     await as('sales').post(`${base}/sales`).send(deal).expect(403);
     const draft = await as('sales').post(`${base}/sales/drafts`).send(deal).expect(201);
 
@@ -220,43 +290,79 @@ describeDb('accounting API', () => {
 
     // The owner sees the profit: $28,000 − $22,500 = $5,500, from the ledger.
     const profit = await as('owner').get(`${base}/reports/vehicle-profitability`).expect(200);
-    const row = profit.body.rows.find((candidate: { vehicleId: string }) => candidate.vehicleId === vehicleId);
+    const row = profit.body.rows.find(
+      (candidate: { vehicleId: string }) => candidate.vehicleId === vehicleId,
+    );
     expect(row.grossProfitCents).toBe(550_000);
     // Sales staff cannot reverse a sale.
-    await as('salesManager').post(`${base}/sales/${draft.body.id}/reverse`).send({ reason: 'Test' }).expect(403);
+    await as('salesManager')
+      .post(`${base}/sales/${draft.body.id}/reverse`)
+      .send({ reason: 'Test' })
+      .expect(403);
   });
 
   it('produces balanced statements for the accountant', async () => {
-    const tb = await as('accountant').get(`${base}/reports/trial-balance`).query({ preset: 'YEAR_TO_DATE' }).expect(200);
+    const tb = await as('accountant')
+      .get(`${base}/reports/trial-balance`)
+      .query({ preset: 'YEAR_TO_DATE' })
+      .expect(200);
     expect(tb.body.balanced).toBe(true);
     expect(tb.body.totals.debitCents).toBe(tb.body.totals.creditCents);
     const bs = await as('accountant').get(`${base}/reports/balance-sheet`).expect(200);
     expect(bs.body.balanced).toBe(true);
-    const cf = await as('accountant').get(`${base}/reports/cash-flow`).query({ preset: 'YEAR_TO_DATE' }).expect(200);
+    const cf = await as('accountant')
+      .get(`${base}/reports/cash-flow`)
+      .query({ preset: 'YEAR_TO_DATE' })
+      .expect(200);
     expect(cf.body.reconciles).toBe(true);
-    const pl = await as('accountant').get(`${base}/reports/profit-loss`).query({ preset: 'YEAR_TO_DATE' }).expect(200);
+    const pl = await as('accountant')
+      .get(`${base}/reports/profit-loss`)
+      .query({ preset: 'YEAR_TO_DATE' })
+      .expect(200);
     expect(pl.body.grossProfitCents).toBe(550_000);
     const health = await as('accountant').get(`${base}/health`).expect(200);
-    expect(health.body.findings.filter((finding: { code: string }) => finding.code === 'UNBALANCED_JOURNAL')).toHaveLength(0);
+    expect(
+      health.body.findings.filter(
+        (finding: { code: string }) => finding.code === 'UNBALANCED_JOURNAL',
+      ),
+    ).toHaveLength(0);
   });
 
   it('exports reports as CSV, Excel and PDF', async () => {
-    const csv = await as('accountant').get(`${base}/exports/trial-balance`).query({ format: 'csv', preset: 'YEAR_TO_DATE' }).expect(200);
+    const csv = await as('accountant')
+      .get(`${base}/exports/trial-balance`)
+      .query({ format: 'csv', preset: 'YEAR_TO_DATE' })
+      .expect(200);
     expect(csv.headers['content-type']).toContain('text/csv');
-    expect(csv.headers['content-disposition']).toMatch(/attachment; filename="trial-balance-\d{4}-\d{2}-\d{2}\.csv"/);
+    expect(csv.headers['content-disposition']).toMatch(
+      /attachment; filename="trial-balance-\d{4}-\d{2}-\d{2}\.csv"/,
+    );
     expect(csv.text).toContain('Trial balance');
 
-    const xlsx = await as('accountant').get(`${base}/exports/profit-loss`).query({ format: 'xlsx' }).buffer(true).parse(binary).expect(200);
+    const xlsx = await as('accountant')
+      .get(`${base}/exports/profit-loss`)
+      .query({ format: 'xlsx' })
+      .buffer(true)
+      .parse(binary)
+      .expect(200);
     expect((xlsx.body as Buffer).subarray(0, 2).toString('latin1')).toBe('PK');
 
-    const pdf = await as('accountant').get(`${base}/exports/vehicle-profitability`).query({ format: 'pdf' }).buffer(true).parse(binary).expect(200);
+    const pdf = await as('accountant')
+      .get(`${base}/exports/vehicle-profitability`)
+      .query({ format: 'pdf' })
+      .buffer(true)
+      .parse(binary)
+      .expect(200);
     expect((pdf.body as Buffer).subarray(0, 5).toString('latin1')).toBe('%PDF-');
 
     await as('accountant').get(`${base}/exports/not-a-report`).expect(400);
   });
 
   it('rejects an unbalanced journal entry', async () => {
-    const accounts = (await as('accountant').get(`${base}/accounts`).expect(200)).body as Array<{ id: string; code: string }>;
+    const accounts = (await as('accountant').get(`${base}/accounts`).expect(200)).body as Array<{
+      id: string;
+      code: string;
+    }>;
     const cash = accounts.find((account) => account.code === '1000')!;
     const equity = accounts.find((account) => account.code.startsWith('3'))!;
     await as('accountant')
@@ -277,15 +383,24 @@ describeDb('accounting API', () => {
     // Another dealer cannot choose this dealership…
     await as('otherOwner').get(`${base}/dashboard`).set('x-dealer-id', dealerId).expect(403);
     // …nor read its records by id.
-    const entries = (await as('owner').get(`${base}/journal`).query({ preset: 'YEAR_TO_DATE' }).expect(200)).body.items as Array<{ id: string }>;
+    const entries = (
+      await as('owner').get(`${base}/journal`).query({ preset: 'YEAR_TO_DATE' }).expect(200)
+    ).body.items as Array<{ id: string }>;
     expect(entries.length).toBeGreaterThan(0);
     await as('otherOwner').get(`${base}/journal/${entries[0]!.id}`).expect(404);
-    const theirs = (await as('otherOwner').get(`${base}/journal`).query({ preset: 'YEAR_TO_DATE' }).expect(200)).body.items as Array<{ id: string }>;
+    const theirs = (
+      await as('otherOwner').get(`${base}/journal`).query({ preset: 'YEAR_TO_DATE' }).expect(200)
+    ).body.items as Array<{ id: string }>;
     expect(theirs.map((entry) => entry.id)).not.toContain(entries[0]!.id);
     // The other dealer's chart of accounts is its own.
-    const otherAccounts = (await as('otherOwner').get(`${base}/accounts`).expect(200)).body as Array<{ id: string }>;
-    const ourAccounts = (await as('owner').get(`${base}/accounts`).expect(200)).body as Array<{ id: string }>;
-    expect(otherAccounts.some((account) => ourAccounts.some((ours) => ours.id === account.id))).toBe(false);
+    const otherAccounts = (await as('otherOwner').get(`${base}/accounts`).expect(200))
+      .body as Array<{ id: string }>;
+    const ourAccounts = (await as('owner').get(`${base}/accounts`).expect(200)).body as Array<{
+      id: string;
+    }>;
+    expect(
+      otherAccounts.some((account) => ourAccounts.some((ours) => ours.id === account.id)),
+    ).toBe(false);
     expect(otherDealerId).not.toBe(dealerId);
   });
 

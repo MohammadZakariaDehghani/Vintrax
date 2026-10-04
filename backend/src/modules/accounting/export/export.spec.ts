@@ -86,7 +86,12 @@ describe('report exports', () => {
 
   it('round-trips arbitrary data through the zip writer', () => {
     const data = Buffer.from('x'.repeat(10_000) + 'é');
-    const files = unzip(zip([{ name: 'a.txt', data }, { name: 'b/c.txt', data: Buffer.from('') }]));
+    const files = unzip(
+      zip([
+        { name: 'a.txt', data },
+        { name: 'b/c.txt', data: Buffer.from('') },
+      ]),
+    );
     expect(files.get('a.txt')).toBe(data.toString('utf8'));
     expect(files.get('b/c.txt')).toBe('');
   });
@@ -100,15 +105,26 @@ describe('report exports', () => {
     const startxref = Number(/startxref\n(\d+)/.exec(text)![1]);
     expect(text.slice(startxref, startxref + 4)).toBe('xref');
     // Every object offset in the table is right.
-    const offsets = [...text.slice(startxref).matchAll(/^(\d{10}) 00000 n $/gm)].map((match) => Number(match[1]));
-    offsets.forEach((offset, index) => expect(text.slice(offset).startsWith(`${index + 1} 0 obj`)).toBe(true));
+    const offsets = [...text.slice(startxref).matchAll(/^(\d{10}) 00000 n $/gm)].map((match) =>
+      Number(match[1]),
+    );
+    offsets.forEach((offset, index) =>
+      expect(text.slice(offset).startsWith(`${index + 1} 0 obj`)).toBe(true),
+    );
     expect(text).toContain('($1,234.56)');
     expect(text).toContain('(Owner \\(equity\\) \\\\ test)');
     expect(text).toContain('page 1 of 1');
   });
 
   it('paginates long reports', () => {
-    const long: ReportTable = { ...table, rows: Array.from({ length: 200 }, (_, i) => ({ code: String(i), name: `Account ${i}`, debit: i })) };
+    const long: ReportTable = {
+      ...table,
+      rows: Array.from({ length: 200 }, (_, i) => ({
+        code: String(i),
+        name: `Account ${i}`,
+        debit: i,
+      })),
+    };
     const text = toPdfFile(long).toString('latin1');
     const pages = Number(/\/Count (\d+)/.exec(text)![1]);
     expect(pages).toBeGreaterThan(3);

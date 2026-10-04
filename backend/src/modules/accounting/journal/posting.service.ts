@@ -1,6 +1,17 @@
 import { centsToDecimalString } from '@vintrax/shared';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma, JournalKind, JournalSource, TaxType, VehicleCostCategory } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type {
+  Prisma,
+  JournalKind,
+  JournalSource,
+  TaxType,
+  VehicleCostCategory,
+} from '@prisma/client';
 import type { AccountingContext } from '../core/context';
 import { recordAudit } from '../core/audit';
 import { fromCents, sumCents, toCents } from '../core/money';
@@ -75,7 +86,12 @@ export class PostingService {
     const reference = `${settings.journalPrefix}${String(number).padStart(6, '0')}`;
 
     if (status === 'POSTED') {
-      await assertPeriodOpen(tx, ctx.dealerId, request.date, await fiscalCalendarOf(tx, ctx.dealerId));
+      await assertPeriodOpen(
+        tx,
+        ctx.dealerId,
+        request.date,
+        await fiscalCalendarOf(tx, ctx.dealerId),
+      );
     }
 
     const entry = await tx.journalEntry.create({
@@ -161,7 +177,12 @@ export class PostingService {
 
     await tx.journalEntry.update({
       where: { id: entry.id },
-      data: { status: 'POSTED', total: fromCents(total), postedAt: new Date(), postedById: ctx.userId },
+      data: {
+        status: 'POSTED',
+        total: fromCents(total),
+        postedAt: new Date(),
+        postedById: ctx.userId,
+      },
     });
     await recordAudit(tx, ctx, {
       action: 'journal.posted',
@@ -189,7 +210,8 @@ export class PostingService {
       include: { lines: { orderBy: { lineNo: 'asc' } }, reversedBy: { select: { id: true } } },
     });
     if (!entry) throw new NotFoundException('Journal entry not found');
-    if (entry.status !== 'POSTED') throw new ConflictException('Only a posted entry can be reversed');
+    if (entry.status !== 'POSTED')
+      throw new ConflictException('Only a posted entry can be reversed');
     if (entry.reversedBy || entry.reversedAt) {
       throw new ConflictException(`${entry.reference} has already been reversed`);
     }
@@ -200,7 +222,11 @@ export class PostingService {
     let date = options.date ?? fromDbDate(entry.date);
     if (!options.date) {
       const period = await tx.accountingPeriod.findFirst({
-        where: { dealerId: ctx.dealerId, startDate: { lte: entry.date }, endDate: { gte: entry.date } },
+        where: {
+          dealerId: ctx.dealerId,
+          startDate: { lte: entry.date },
+          endDate: { gte: entry.date },
+        },
         select: { status: true },
       });
       if (period?.status === 'CLOSED') date = todayIso();
@@ -289,7 +315,9 @@ export class PostingService {
     if (inactive) throw new BadRequestException(`${inactive.name} is inactive`);
     const computed = accounts.find((account) => account.subtype === 'CURRENT_YEAR_EARNINGS');
     if (computed) {
-      throw new BadRequestException(`${computed.name} is calculated; post to Retained Earnings instead`);
+      throw new BadRequestException(
+        `${computed.name} is calculated; post to Retained Earnings instead`,
+      );
     }
 
     const vehicleIds = unique(lines.map((line) => line.vehicleId).filter(isString));
@@ -297,16 +325,21 @@ export class PostingService {
       const count = await tx.vehicle.count({
         where: { id: { in: vehicleIds }, sellerId: ctx.ownerUserId },
       });
-      if (count !== vehicleIds.length) throw new BadRequestException('Vehicle not found in your inventory');
+      if (count !== vehicleIds.length)
+        throw new BadRequestException('Vehicle not found in your inventory');
     }
     const customerIds = unique(lines.map((line) => line.customerId).filter(isString));
     if (customerIds.length > 0) {
-      const count = await tx.customer.count({ where: { id: { in: customerIds }, dealerId: ctx.dealerId } });
+      const count = await tx.customer.count({
+        where: { id: { in: customerIds }, dealerId: ctx.dealerId },
+      });
       if (count !== customerIds.length) throw new BadRequestException('Customer not found');
     }
     const vendorIds = unique(lines.map((line) => line.vendorId).filter(isString));
     if (vendorIds.length > 0) {
-      const count = await tx.vendor.count({ where: { id: { in: vendorIds }, dealerId: ctx.dealerId } });
+      const count = await tx.vendor.count({
+        where: { id: { in: vendorIds }, dealerId: ctx.dealerId },
+      });
       if (count !== vendorIds.length) throw new BadRequestException('Vendor not found');
     }
   }

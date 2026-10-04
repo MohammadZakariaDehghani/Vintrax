@@ -1,14 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import { PROVINCES, PROVINCE_LABELS, VENDOR_KINDS, VENDOR_KIND_LABELS, type VendorKind } from '@vintrax/shared';
+import {
+  PROVINCES,
+  PROVINCE_LABELS,
+  VENDOR_KINDS,
+  VENDOR_KIND_LABELS,
+  type VendorKind,
+} from '@vintrax/shared';
 import { Button, Dialog, ErrorAlert, Field, Input, Select } from '@/components/ui';
 import { acct, money } from '@/lib/accounting';
 import { useAccounting } from './context';
-import { fieldError, useAcctMutation, useBankOptions, useCustomers, useVehicleOptions, useVendors, vehicleLabel } from './ui';
+import {
+  fieldError,
+  useAcctMutation,
+  useBankOptions,
+  useCustomers,
+  useVehicleOptions,
+  useVendors,
+  vehicleLabel,
+} from './ui';
 
 /** Choose a customer, or add one without leaving the form. */
-export function CustomerSelect({ id, value, onChange }: { id: string; value: string; onChange: (id: string) => void }) {
+export function CustomerSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  onChange: (id: string) => void;
+}) {
   const customers = useCustomers();
   const [adding, setAdding] = useState(false);
   return (
@@ -85,7 +107,17 @@ export function VendorSelect({
   );
 }
 
-export function BankSelect({ id, value, onChange, placeholder = 'Choose an account' }: { id: string; value: string; onChange: (id: string) => void; placeholder?: string }) {
+export function BankSelect({
+  id,
+  value,
+  onChange,
+  placeholder = 'Choose an account',
+}: {
+  id: string;
+  value: string;
+  onChange: (id: string) => void;
+  placeholder?: string;
+}) {
   const banks = useBankOptions();
   return (
     <Select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
@@ -118,7 +150,13 @@ export function VehicleSelect({
   const list = vehicles.data ?? [];
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
-      <Input aria-label="Search vehicles" placeholder="VIN, stock #, make…" className="sm:w-44" value={q} onChange={(event) => setQ(event.target.value)} />
+      <Input
+        aria-label="Search vehicles"
+        placeholder="VIN, stock #, make…"
+        className="sm:w-44"
+        value={q}
+        onChange={(event) => setQ(event.target.value)}
+      />
       <Select
         id={id}
         value={value}
@@ -165,7 +203,8 @@ export function PartyDialog({
     paymentTermsDays: String(existing?.paymentTermsDays ?? '30'),
     notes: String(existing?.notes ?? ''),
   });
-  const set = (key: keyof typeof form) => (value: string) => setForm((previous) => ({ ...previous, [key]: value }));
+  const set = (key: keyof typeof form) => (value: string) =>
+    setForm((previous) => ({ ...previous, [key]: value }));
   const save = useAcctMutation(
     () => {
       const common = {
@@ -179,9 +218,16 @@ export function PartyDialog({
       const body =
         kind === 'customer'
           ? { ...common, city: form.city || null, postalCode: form.postalCode || null }
-          : { ...common, kind: form.kind, gstNumber: form.gstNumber || null, paymentTermsDays: Number(form.paymentTermsDays || 0) };
+          : {
+              ...common,
+              kind: form.kind,
+              gstNumber: form.gstNumber || null,
+              paymentTermsDays: Number(form.paymentTermsDays || 0),
+            };
       const path = `/${kind === 'customer' ? 'customers' : 'vendors'}`;
-      return existing ? acct.patch<{ id: string; name: string }>(`${path}/${existing.id}`, body) : acct.post<{ id: string; name: string }>(path, body);
+      return existing
+        ? acct.patch<{ id: string; name: string }>(`${path}/${existing.id}`, body)
+        : acct.post<{ id: string; name: string }>(path, body);
     },
     (created) => {
       onCreated?.(created);
@@ -196,59 +242,118 @@ export function PartyDialog({
       title={title}
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button loading={save.isPending} disabled={!form.name.trim()} onClick={() => save.mutate(undefined)}>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            loading={save.isPending}
+            disabled={!form.name.trim()}
+            onClick={() => save.mutate(undefined)}
+          >
             Save
           </Button>
         </>
       }
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name" htmlFor="party-name" className="sm:col-span-2" error={fieldError(save.error, 'name')}>
-          <Input id="party-name" value={form.name} onChange={(event) => set('name')(event.target.value)} />
+        <Field
+          label="Name"
+          htmlFor="party-name"
+          className="sm:col-span-2"
+          error={fieldError(save.error, 'name')}
+        >
+          <Input
+            id="party-name"
+            value={form.name}
+            onChange={(event) => set('name')(event.target.value)}
+          />
         </Field>
         {kind === 'vendor' ? (
           <Field label="Kind" htmlFor="party-kind">
-            <Select id="party-kind" value={form.kind} onChange={(event) => set('kind')(event.target.value)}>
+            <Select
+              id="party-kind"
+              value={form.kind}
+              onChange={(event) => set('kind')(event.target.value)}
+            >
               {VENDOR_KINDS.map((entry) => (
-                <option key={entry} value={entry}>{VENDOR_KIND_LABELS[entry]}</option>
+                <option key={entry} value={entry}>
+                  {VENDOR_KIND_LABELS[entry]}
+                </option>
               ))}
             </Select>
           </Field>
         ) : null}
         <Field label="Email" htmlFor="party-email" error={fieldError(save.error, 'email')}>
-          <Input id="party-email" type="email" value={form.email} onChange={(event) => set('email')(event.target.value)} />
+          <Input
+            id="party-email"
+            type="email"
+            value={form.email}
+            onChange={(event) => set('email')(event.target.value)}
+          />
         </Field>
         <Field label="Phone" htmlFor="party-phone">
-          <Input id="party-phone" value={form.phone} onChange={(event) => set('phone')(event.target.value)} />
+          <Input
+            id="party-phone"
+            value={form.phone}
+            onChange={(event) => set('phone')(event.target.value)}
+          />
         </Field>
         <Field label="Address" htmlFor="party-address" className="sm:col-span-2">
-          <Input id="party-address" value={form.address} onChange={(event) => set('address')(event.target.value)} />
+          <Input
+            id="party-address"
+            value={form.address}
+            onChange={(event) => set('address')(event.target.value)}
+          />
         </Field>
         {kind === 'customer' ? (
           <>
             <Field label="City" htmlFor="party-city">
-              <Input id="party-city" value={form.city} onChange={(event) => set('city')(event.target.value)} />
+              <Input
+                id="party-city"
+                value={form.city}
+                onChange={(event) => set('city')(event.target.value)}
+              />
             </Field>
             <Field label="Postal code" htmlFor="party-postal">
-              <Input id="party-postal" value={form.postalCode} onChange={(event) => set('postalCode')(event.target.value)} />
+              <Input
+                id="party-postal"
+                value={form.postalCode}
+                onChange={(event) => set('postalCode')(event.target.value)}
+              />
             </Field>
           </>
         ) : (
           <>
             <Field label="GST/HST number" htmlFor="party-gst">
-              <Input id="party-gst" value={form.gstNumber} onChange={(event) => set('gstNumber')(event.target.value)} />
+              <Input
+                id="party-gst"
+                value={form.gstNumber}
+                onChange={(event) => set('gstNumber')(event.target.value)}
+              />
             </Field>
             <Field label="Payment terms (days)" htmlFor="party-terms">
-              <Input id="party-terms" type="number" min={0} max={365} value={form.paymentTermsDays} onChange={(event) => set('paymentTermsDays')(event.target.value)} />
+              <Input
+                id="party-terms"
+                type="number"
+                min={0}
+                max={365}
+                value={form.paymentTermsDays}
+                onChange={(event) => set('paymentTermsDays')(event.target.value)}
+              />
             </Field>
           </>
         )}
         <Field label="Province" htmlFor="party-province">
-          <Select id="party-province" value={form.province} onChange={(event) => set('province')(event.target.value)}>
+          <Select
+            id="party-province"
+            value={form.province}
+            onChange={(event) => set('province')(event.target.value)}
+          >
             <option value="">—</option>
             {PROVINCES.map((province) => (
-              <option key={province} value={province}>{PROVINCE_LABELS[province]}</option>
+              <option key={province} value={province}>
+                {PROVINCE_LABELS[province]}
+              </option>
             ))}
           </Select>
         </Field>

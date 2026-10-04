@@ -35,7 +35,10 @@ export interface TestDealer {
 }
 
 /** A dealership owner and their dealership, not yet set up for accounting. */
-export async function createDealer(prisma: PrismaService, name = 'Test Motors'): Promise<TestDealer> {
+export async function createDealer(
+  prisma: PrismaService,
+  name = 'Test Motors',
+): Promise<TestDealer> {
   const suffix = randomUUID().slice(0, 8);
   const owner = await prisma.user.create({
     data: {
@@ -49,9 +52,18 @@ export async function createDealer(prisma: PrismaService, name = 'Test Motors'):
     },
   });
   const dealer = await prisma.dealer.create({
-    data: { ownerId: owner.id, name: `${name} ${suffix}`, slug: `test-motors-${suffix}`, province: 'ON' },
+    data: {
+      ownerId: owner.id,
+      name: `${name} ${suffix}`,
+      slug: `test-motors-${suffix}`,
+      province: 'ON',
+    },
   });
-  return { ownerId: owner.id, dealerId: dealer.id, ctx: contextFor(dealer.id, owner.id, owner.id, owner.email, 'OWNER') };
+  return {
+    ownerId: owner.id,
+    dealerId: dealer.id,
+    ctx: contextFor(dealer.id, owner.id, owner.id, owner.email, 'OWNER'),
+  };
 }
 
 export { contextFor };
@@ -72,7 +84,12 @@ export async function setUpAccounting(
     fiscalYearStartMonth: 1,
     fiscalYearStartDay: 1,
     taxFilingFrequency: 'QUARTERLY',
-    openingBank: { name: 'Operating chequing', bankName: 'Test Bank', accountNumberLast4: '4321', openingBalance: 5_000_000 },
+    openingBank: {
+      name: 'Operating chequing',
+      bankName: 'Test Bank',
+      accountNumberLast4: '4321',
+      openingBalance: 5_000_000,
+    },
     ...overrides,
   });
 }
@@ -81,7 +98,14 @@ export async function setUpAccounting(
 export async function createVehicle(
   prisma: PrismaService,
   ownerId: string,
-  overrides: { make?: string; model?: string; year?: number; condition?: 'NEW' | 'USED'; priceCad?: number; vin?: string } = {},
+  overrides: {
+    make?: string;
+    model?: string;
+    year?: number;
+    condition?: 'NEW' | 'USED';
+    priceCad?: number;
+    vin?: string;
+  } = {},
 ): Promise<string> {
   const suffix = randomUUID().slice(0, 8);
   const vehicle = await prisma.vehicle.create({
@@ -109,12 +133,20 @@ export async function createVehicle(
   return vehicle.id;
 }
 
-export async function accountId(prisma: PrismaService, dealerId: string, systemKey: string): Promise<string> {
+export async function accountId(
+  prisma: PrismaService,
+  dealerId: string,
+  systemKey: string,
+): Promise<string> {
   const account = await prisma.acctAccount.findFirstOrThrow({ where: { dealerId, systemKey } });
   return account.id;
 }
 
-export async function accountByCode(prisma: PrismaService, dealerId: string, code: string): Promise<string> {
+export async function accountByCode(
+  prisma: PrismaService,
+  dealerId: string,
+  code: string,
+): Promise<string> {
   const account = await prisma.acctAccount.findFirstOrThrow({ where: { dealerId, code } });
   return account.id;
 }

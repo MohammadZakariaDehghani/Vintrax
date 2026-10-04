@@ -54,7 +54,9 @@ export class AccountingSettingsService {
    * opening balance — all in one transaction.
    */
   async setup(ctx: AccountingContext, input: AccountingSetupInput) {
-    const existing = await this.prisma.accountingSettings.findUnique({ where: { dealerId: ctx.dealerId } });
+    const existing = await this.prisma.accountingSettings.findUnique({
+      where: { dealerId: ctx.dealerId },
+    });
     if (existing) throw new ConflictException('Accounting is already set up for this dealership');
 
     await this.prisma.$transaction(
@@ -127,7 +129,10 @@ export class AccountingSettingsService {
           action: 'accounting.setup',
           entityType: 'AccountingSettings',
           entityId: ctx.dealerId,
-          after: { ...input, openingBank: input.openingBank ? { name: input.openingBank.name } : null },
+          after: {
+            ...input,
+            openingBank: input.openingBank ? { name: input.openingBank.name } : null,
+          },
         });
       },
       { timeout: 30_000 },
@@ -136,18 +141,26 @@ export class AccountingSettingsService {
   }
 
   async settings(ctx: AccountingContext) {
-    const settings = await this.prisma.accountingSettings.findUniqueOrThrow({ where: { dealerId: ctx.dealerId } });
+    const settings = await this.prisma.accountingSettings.findUniqueOrThrow({
+      where: { dealerId: ctx.dealerId },
+    });
     return this.toSettings(settings);
   }
 
   async updateSettings(ctx: AccountingContext, input: AccountingSettingsInput) {
     return this.prisma.$transaction(async (tx) => {
-      const current = await tx.accountingSettings.findUniqueOrThrow({ where: { dealerId: ctx.dealerId } });
+      const current = await tx.accountingSettings.findUniqueOrThrow({
+        where: { dealerId: ctx.dealerId },
+      });
       const calendarChanged =
-        (input.fiscalYearStartMonth !== undefined && input.fiscalYearStartMonth !== current.fiscalYearStartMonth) ||
-        (input.fiscalYearStartDay !== undefined && input.fiscalYearStartDay !== current.fiscalYearStartDay);
+        (input.fiscalYearStartMonth !== undefined &&
+          input.fiscalYearStartMonth !== current.fiscalYearStartMonth) ||
+        (input.fiscalYearStartDay !== undefined &&
+          input.fiscalYearStartDay !== current.fiscalYearStartDay);
       if (calendarChanged) {
-        const posted = await tx.journalEntry.count({ where: { dealerId: ctx.dealerId, status: 'POSTED' } });
+        const posted = await tx.journalEntry.count({
+          where: { dealerId: ctx.dealerId, status: 'POSTED' },
+        });
         if (posted > 0) {
           throw new ConflictException(
             'The fiscal year cannot change once entries are posted; your accountant can close the year and start the new calendar',
@@ -162,10 +175,16 @@ export class AccountingSettingsService {
         });
         if (!bank) throw new BadRequestException('Bank account not found');
       }
-      if (input.nextJournalNumber !== undefined && input.nextJournalNumber < current.nextJournalNumber) {
+      if (
+        input.nextJournalNumber !== undefined &&
+        input.nextJournalNumber < current.nextJournalNumber
+      ) {
         throw new BadRequestException('Journal numbers can only move forward');
       }
-      if (input.nextInvoiceNumber !== undefined && input.nextInvoiceNumber < current.nextInvoiceNumber) {
+      if (
+        input.nextInvoiceNumber !== undefined &&
+        input.nextInvoiceNumber < current.nextInvoiceNumber
+      ) {
         throw new BadRequestException('Invoice numbers can only move forward');
       }
       const updated = await tx.accountingSettings.update({
@@ -196,7 +215,14 @@ export class AccountingSettingsService {
       orderBy: { createdAt: 'asc' },
     });
     return [
-      { id: null, userId: dealer.owner.id, name: `${dealer.owner.firstName} ${dealer.owner.lastName}`, email: dealer.owner.email, role: 'OWNER' as DealerStaffRole, permissions: [...STAFF_ROLE_PERMISSIONS.OWNER] },
+      {
+        id: null,
+        userId: dealer.owner.id,
+        name: `${dealer.owner.firstName} ${dealer.owner.lastName}`,
+        email: dealer.owner.email,
+        role: 'OWNER' as DealerStaffRole,
+        permissions: [...STAFF_ROLE_PERMISSIONS.OWNER],
+      },
       ...members.map((member) => ({
         id: member.id,
         userId: member.userId,
@@ -216,7 +242,9 @@ export class AccountingSettingsService {
         select: { id: true, status: true },
       });
       if (!user) {
-        throw new NotFoundException('No Vintrax account uses that email. Ask them to sign up first.');
+        throw new NotFoundException(
+          'No Vintrax account uses that email. Ask them to sign up first.',
+        );
       }
       if (user.id === ctx.ownerUserId) throw new ConflictException('That is the dealership owner');
       if (user.status !== 'ACTIVE' && user.status !== 'PENDING') {
@@ -241,9 +269,12 @@ export class AccountingSettingsService {
 
   async changeMemberRole(ctx: AccountingContext, memberId: string, role: DealerStaffRole) {
     return this.prisma.$transaction(async (tx) => {
-      const member = await tx.dealerMember.findFirst({ where: { id: memberId, dealerId: ctx.dealerId } });
+      const member = await tx.dealerMember.findFirst({
+        where: { id: memberId, dealerId: ctx.dealerId },
+      });
       if (!member) throw new NotFoundException('Team member not found');
-      if (member.userId === ctx.userId) throw new ForbiddenException('You cannot change your own role');
+      if (member.userId === ctx.userId)
+        throw new ForbiddenException('You cannot change your own role');
       await tx.dealerMember.update({ where: { id: member.id }, data: { role } });
       await recordAudit(tx, ctx, {
         action: 'team.member_role_changed',
@@ -258,7 +289,9 @@ export class AccountingSettingsService {
 
   async removeMember(ctx: AccountingContext, memberId: string) {
     await this.prisma.$transaction(async (tx) => {
-      const member = await tx.dealerMember.findFirst({ where: { id: memberId, dealerId: ctx.dealerId } });
+      const member = await tx.dealerMember.findFirst({
+        where: { id: memberId, dealerId: ctx.dealerId },
+      });
       if (!member) throw new NotFoundException('Team member not found');
       await tx.dealerMember.delete({ where: { id: member.id } });
       await recordAudit(tx, ctx, {
@@ -281,7 +314,9 @@ export class AccountingSettingsService {
       select: { role: true, dealer: { select: { id: true, name: true } } },
     });
     return [
-      ...(owned ? [{ dealerId: owned.id, name: owned.name, role: 'OWNER' as DealerStaffRole }] : []),
+      ...(owned
+        ? [{ dealerId: owned.id, name: owned.name, role: 'OWNER' as DealerStaffRole }]
+        : []),
       ...staff
         .filter((row) => row.dealer.id !== owned?.id)
         .map((row) => ({ dealerId: row.dealer.id, name: row.dealer.name, role: row.role })),

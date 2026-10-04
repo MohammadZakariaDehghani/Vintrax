@@ -1,11 +1,22 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma, Province, VehicleCostCategory } from '@prisma/client';
 import type { ExpenseInput, RecurringExpenseInput, ReportQuery } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
 import { recordAudit } from '../core/audit';
 import { addMonths, addDays, fromDbDate, toDbDate, todayIso } from '../core/dates';
-import { dealerProvince, nextNumber, requireAccount, requireDealerVehicle, requireVendor } from '../core/documents';
+import {
+  dealerProvince,
+  nextNumber,
+  requireAccount,
+  requireDealerVehicle,
+  requireVendor,
+} from '../core/documents';
 import { fromCents, sumCents, toCents } from '../core/money';
 import { bankGlAccount } from '../banking/bank-accounts';
 import { PostingService, type LedgerLine } from '../journal/posting.service';
@@ -78,19 +89,32 @@ export class ExpensesService {
     return {
       range,
       items,
-      totalCents: sumCents(items.filter((item) => item.status === 'POSTED').map((item) => item.totalCents)),
+      totalCents: sumCents(
+        items.filter((item) => item.status === 'POSTED').map((item) => item.totalCents),
+      ),
     };
   }
 
-  async create(ctx: AccountingContext, input: ExpenseInput, recurringExpenseId: string | null = null) {
+  async create(
+    ctx: AccountingContext,
+    input: ExpenseInput,
+    recurringExpenseId: string | null = null,
+  ) {
     return this.prisma.$transaction((tx) => this.post(tx, ctx, input, recurringExpenseId));
   }
 
-  private async post(tx: Tx, ctx: AccountingContext, input: ExpenseInput, recurringExpenseId: string | null) {
+  private async post(
+    tx: Tx,
+    ctx: AccountingContext,
+    input: ExpenseInput,
+    recurringExpenseId: string | null,
+  ) {
     const vendor = input.vendorId ? await requireVendor(tx, ctx, input.vendorId) : null;
     const vehicle = input.vehicleId ? await requireDealerVehicle(tx, ctx, input.vehicleId) : null;
     const bank = await bankGlAccount(tx, ctx, input.bankAccountId);
-    const { VEHICLE_INVENTORY: inventory } = await this.posting.accounts(tx, ctx.dealerId, ['VEHICLE_INVENTORY']);
+    const { VEHICLE_INVENTORY: inventory } = await this.posting.accounts(tx, ctx.dealerId, [
+      'VEHICLE_INVENTORY',
+    ]);
 
     let debitAccount = input.accountId;
     if (input.treatment === 'VEHICLE_COST') {
@@ -122,12 +146,16 @@ export class ExpensesService {
         })
       : null;
     const recoverable = (tax?.components ?? []).filter((component) => component.recoverable);
-    const nonRecoverable = sumCents((tax?.components ?? []).filter((c) => !c.recoverable).map((c) => c.taxCents));
+    const nonRecoverable = sumCents(
+      (tax?.components ?? []).filter((c) => !c.recoverable).map((c) => c.taxCents),
+    );
     const taxTotal = sumCents((tax?.components ?? []).map((component) => component.taxCents));
     const total = input.amount + taxTotal;
     const cost = input.amount + nonRecoverable;
     const costCategory: VehicleCostCategory | null =
-      input.treatment === 'VEHICLE_COST' ? ((input.costCategory as VehicleCostCategory | null) ?? 'OTHER') : null;
+      input.treatment === 'VEHICLE_COST'
+        ? ((input.costCategory as VehicleCostCategory | null) ?? 'OTHER')
+        : null;
 
     const expense = await tx.expense.create({
       data: {
@@ -176,7 +204,13 @@ export class ExpensesService {
         vendorId: vendor?.id ?? null,
       });
     }
-    lines.push({ accountId: bank.glAccountId, debit: 0, credit: total, description: input.description, vendorId: vendor?.id ?? null });
+    lines.push({
+      accountId: bank.glAccountId,
+      debit: 0,
+      credit: total,
+      description: input.description,
+      vendorId: vendor?.id ?? null,
+    });
 
     const entry = await this.posting.post(tx, ctx, {
       date: input.date,
@@ -205,7 +239,10 @@ export class ExpensesService {
       });
       vehicleCostId = vehicleCost.id;
     }
-    await tx.expense.update({ where: { id: expense.id }, data: { journalEntryId: entry.id, vehicleCostId } });
+    await tx.expense.update({
+      where: { id: expense.id },
+      data: { journalEntryId: entry.id, vehicleCostId },
+    });
 
     if (tax) {
       await this.tax.recordTaxLines(tx, ctx, {
@@ -237,23 +274,46 @@ export class ExpensesService {
 
   async reverse(ctx: AccountingContext, expenseId: string, reason: string) {
     return this.prisma.$transaction(async (tx) => {
-      const expense = await tx.expense.findFirst({ where: { id: expenseId, dealerId: ctx.dealerId } });
+      const expense = await tx.expense.findFirst({
+        where: { id: expenseId, dealerId: ctx.dealerId },
+      });
       if (!expense) throw new NotFoundException('Expense not found');
-      if (expense.status !== 'POSTED') throw new ConflictException('This expense is already reversed');
+      if (expense.status !== 'POSTED')
+        throw new ConflictException('This expense is already reversed');
       const reconciled = await tx.journalLine.count({
         where: { entryId: expense.journalEntryId!, reconciliationId: { not: null } },
       });
-      if (reconciled > 0) throw new ConflictException('This expense has been reconciled with the bank; post an adjustment instead');
+      if (reconciled > 0)
+        throw new ConflictException(
+          'This expense has been reconciled with the bank; post an adjustment instead',
+        );
       if (expense.vehicleId && expense.treatment === 'VEHICLE_COST') {
         const sold = await tx.vehicleSale.findFirst({
-          where: { dealerId: ctx.dealerId, vehicleId: expense.vehicleId, status: 'POSTED', saleDate: { gte: expense.date } },
+          where: {
+            dealerId: ctx.dealerId,
+            vehicleId: expense.vehicleId,
+            status: 'POSTED',
+            saleDate: { gte: expense.date },
+          },
         });
-        if (sold) throw new ConflictException('The vehicle has been sold since; post an adjustment instead');
+        if (sold)
+          throw new ConflictException(
+            'The vehicle has been sold since; post an adjustment instead',
+          );
       }
       const reversal = await this.posting.reverse(tx, ctx, expense.journalEntryId!, { reason });
-      await this.tax.reverseTaxLines(tx, ctx, { sourceType: 'Expense', sourceId: expense.id, date: todayIso(), journalEntryId: reversal.id });
-      if (expense.vehicleCostId) await tx.vehicleCost.deleteMany({ where: { id: expense.vehicleCostId } });
-      await tx.expense.update({ where: { id: expense.id }, data: { status: 'VOID', reversalEntryId: reversal.id } });
+      await this.tax.reverseTaxLines(tx, ctx, {
+        sourceType: 'Expense',
+        sourceId: expense.id,
+        date: todayIso(),
+        journalEntryId: reversal.id,
+      });
+      if (expense.vehicleCostId)
+        await tx.vehicleCost.deleteMany({ where: { id: expense.vehicleCostId } });
+      await tx.expense.update({
+        where: { id: expense.id },
+        data: { status: 'VOID', reversalEntryId: reversal.id },
+      });
       await recordAudit(tx, ctx, {
         action: 'expense.reversed',
         entityType: 'Expense',
@@ -272,7 +332,10 @@ export class ExpensesService {
     const rows = await this.prisma.recurringExpense.findMany({
       where: { dealerId: ctx.dealerId },
       orderBy: { nextDate: 'asc' },
-      include: { account: { select: { id: true, code: true, name: true } }, bankAccount: { select: { id: true, name: true } } },
+      include: {
+        account: { select: { id: true, code: true, name: true } },
+        bankAccount: { select: { id: true, name: true } },
+      },
     });
     return rows.map((row) => ({
       id: row.id,
@@ -312,7 +375,12 @@ export class ExpensesService {
           endDate: input.endDate ? toDbDate(input.endDate) : null,
         },
       });
-      await recordAudit(tx, ctx, { action: 'expense.recurring_created', entityType: 'RecurringExpense', entityId: row.id, after: input });
+      await recordAudit(tx, ctx, {
+        action: 'expense.recurring_created',
+        entityType: 'RecurringExpense',
+        entityId: row.id,
+        after: input,
+      });
       return { id: row.id };
     });
   }

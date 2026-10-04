@@ -109,10 +109,17 @@ export async function assertNotAlreadyInStock(tx: Tx, ctx: AccountingContext, ve
   });
   if (!acquisition) return;
   const soldSince = await tx.vehicleSale.findFirst({
-    where: { dealerId: ctx.dealerId, vehicleId, status: 'POSTED', saleDate: { gte: acquisition.date } },
+    where: {
+      dealerId: ctx.dealerId,
+      vehicleId,
+      status: 'POSTED',
+      saleDate: { gte: acquisition.date },
+    },
     select: { id: true },
   });
   if (!soldSince) {
-    throw new ConflictException('This vehicle’s purchase is already recorded; add further costs as expenses');
+    throw new ConflictException(
+      'This vehicle’s purchase is already recorded; add further costs as expenses',
+    );
   }
 }

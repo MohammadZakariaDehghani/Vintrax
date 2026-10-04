@@ -38,7 +38,11 @@ export async function ensureFiscalYear(
 
   // An existing year that overlaps (the fiscal calendar changed) blocks this.
   const overlapping = await tx.fiscalYear.findFirst({
-    where: { dealerId, startDate: { lte: toDbDate(range.to) }, endDate: { gte: toDbDate(range.from) } },
+    where: {
+      dealerId,
+      startDate: { lte: toDbDate(range.to) },
+      endDate: { gte: toDbDate(range.from) },
+    },
     select: { name: true },
   });
   if (overlapping) {

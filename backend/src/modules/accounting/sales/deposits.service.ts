@@ -69,7 +69,9 @@ export class DepositsService {
       const customer = await requireCustomer(tx, ctx, input.customerId);
       if (input.vehicleId) await requireDealerVehicle(tx, ctx, input.vehicleId);
       const bank = await bankGlAccount(tx, ctx, input.bankAccountId);
-      const { CUSTOMER_DEPOSITS: liability } = await this.posting.accounts(tx, ctx.dealerId, ['CUSTOMER_DEPOSITS']);
+      const { CUSTOMER_DEPOSITS: liability } = await this.posting.accounts(tx, ctx.dealerId, [
+        'CUSTOMER_DEPOSITS',
+      ]);
 
       const deposit = await tx.customerDeposit.create({
         data: {
@@ -94,19 +96,45 @@ export class DepositsService {
         sourceType: 'CustomerDeposit',
         sourceId: deposit.id,
         lines: [
-          { accountId: bank.glAccountId, debit: input.amount, credit: 0, customerId: customer.id, vehicleId: input.vehicleId },
-          { accountId: liability, debit: 0, credit: input.amount, customerId: customer.id, vehicleId: input.vehicleId },
+          {
+            accountId: bank.glAccountId,
+            debit: input.amount,
+            credit: 0,
+            customerId: customer.id,
+            vehicleId: input.vehicleId,
+          },
+          {
+            accountId: liability,
+            debit: 0,
+            credit: input.amount,
+            customerId: customer.id,
+            vehicleId: input.vehicleId,
+          },
         ],
       });
-      await tx.customerDeposit.update({ where: { id: deposit.id }, data: { journalEntryId: entry.id } });
+      await tx.customerDeposit.update({
+        where: { id: deposit.id },
+        data: { journalEntryId: entry.id },
+      });
       await tx.customerDepositEvent.create({
-        data: { depositId: deposit.id, kind: 'RECEIVED', amount: fromCents(input.amount), date: toDbDate(input.date), journalEntryId: entry.id },
+        data: {
+          depositId: deposit.id,
+          kind: 'RECEIVED',
+          amount: fromCents(input.amount),
+          date: toDbDate(input.date),
+          journalEntryId: entry.id,
+        },
       });
       await recordAudit(tx, ctx, {
         action: 'deposit.received',
         entityType: 'CustomerDeposit',
         entityId: deposit.id,
-        after: { customerId: customer.id, amountCents: input.amount, method: input.method, journal: entry.reference },
+        after: {
+          customerId: customer.id,
+          amountCents: input.amount,
+          method: input.method,
+          journal: entry.reference,
+        },
       });
       return { id: deposit.id, number: deposit.number, journalEntryId: entry.id };
     });
@@ -121,13 +149,19 @@ export class DepositsService {
         include: { customer: { select: { id: true, name: true } } },
       });
       if (!deposit) throw new NotFoundException('Deposit not found');
-      const remaining = toCents(deposit.amount) - toCents(deposit.applied) - toCents(deposit.refunded);
+      const remaining =
+        toCents(deposit.amount) - toCents(deposit.applied) - toCents(deposit.refunded);
       if (input.amount > remaining) {
-        throw new BadRequestException(`Only ${centsToDecimalString(remaining)} of this deposit remains`);
+        throw new BadRequestException(
+          `Only ${centsToDecimalString(remaining)} of this deposit remains`,
+        );
       }
-      if (input.date < fromDbDate(deposit.date)) throw new BadRequestException('A refund cannot predate the deposit');
+      if (input.date < fromDbDate(deposit.date))
+        throw new BadRequestException('A refund cannot predate the deposit');
       const bank = await bankGlAccount(tx, ctx, input.bankAccountId);
-      const { CUSTOMER_DEPOSITS: liability } = await this.posting.accounts(tx, ctx.dealerId, ['CUSTOMER_DEPOSITS']);
+      const { CUSTOMER_DEPOSITS: liability } = await this.posting.accounts(tx, ctx.dealerId, [
+        'CUSTOMER_DEPOSITS',
+      ]);
       const entry = await this.posting.post(tx, ctx, {
         date: input.date,
         description: `Deposit #${deposit.number} refund — ${deposit.customer.name}`,
@@ -136,15 +170,29 @@ export class DepositsService {
         sourceType: 'CustomerDeposit',
         sourceId: deposit.id,
         lines: [
-          { accountId: liability, debit: input.amount, credit: 0, customerId: deposit.customerId, vehicleId: deposit.vehicleId },
-          { accountId: bank.glAccountId, debit: 0, credit: input.amount, customerId: deposit.customerId },
+          {
+            accountId: liability,
+            debit: input.amount,
+            credit: 0,
+            customerId: deposit.customerId,
+            vehicleId: deposit.vehicleId,
+          },
+          {
+            accountId: bank.glAccountId,
+            debit: 0,
+            credit: input.amount,
+            customerId: deposit.customerId,
+          },
         ],
       });
       const refunded = toCents(deposit.refunded) + input.amount;
       const applied = toCents(deposit.applied);
       await tx.customerDeposit.update({
         where: { id: deposit.id },
-        data: { refunded: fromCents(refunded), status: depositStatus(toCents(deposit.amount), applied, refunded) },
+        data: {
+          refunded: fromCents(refunded),
+          status: depositStatus(toCents(deposit.amount), applied, refunded),
+        },
       });
       await tx.customerDepositEvent.create({
         data: {
@@ -175,4 +223,3 @@ export function depositStatus(amount: number, applied: number, refunded: number)
   if (applied > 0) return 'PARTIALLY_APPLIED' as const;
   return 'OPEN' as const;
 }
-

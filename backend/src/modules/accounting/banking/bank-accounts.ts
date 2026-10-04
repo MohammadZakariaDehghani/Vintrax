@@ -10,7 +10,10 @@ import type { PostingService } from '../journal/posting.service';
 type Tx = Prisma.TransactionClient;
 
 /** Where each kind of account sits in the chart, and its code range. */
-const GL_FOR_TYPE: Record<BankAccountType, { subtype: AcctAccountSubtype; from: number; to: number }> = {
+const GL_FOR_TYPE: Record<
+  BankAccountType,
+  { subtype: AcctAccountSubtype; from: number; to: number }
+> = {
   CASH: { subtype: 'CASH', from: 1001, to: 1009 },
   CHEQUING: { subtype: 'BANK', from: 1010, to: 1099 },
   SAVINGS: { subtype: 'BANK', from: 1010, to: 1099 },
@@ -19,7 +22,12 @@ const GL_FOR_TYPE: Record<BankAccountType, { subtype: AcctAccountSubtype; from: 
 };
 
 /** Money accounts a payment may come from or go to. */
-export const MONEY_SUBTYPES: AcctAccountSubtype[] = ['CASH', 'BANK', 'CREDIT_CARD', 'CURRENT_LIABILITY'];
+export const MONEY_SUBTYPES: AcctAccountSubtype[] = [
+  'CASH',
+  'BANK',
+  'CREDIT_CARD',
+  'CURRENT_LIABILITY',
+];
 
 /**
  * Creates a bank (or cash, or card) account with its own ledger account, and
@@ -56,7 +64,9 @@ export async function createBankAccount(
         name: input.name,
         type: typeOf(placement.subtype),
         subtype: placement.subtype,
-        description: input.bankName ? `${input.bankName}${input.accountNumberLast4 ? ` ····${input.accountNumberLast4}` : ''}` : null,
+        description: input.bankName
+          ? `${input.bankName}${input.accountNumberLast4 ? ` ····${input.accountNumberLast4}` : ''}`
+          : null,
       },
       select: { id: true },
     });
@@ -115,7 +125,12 @@ export async function createBankAccount(
     action: 'bank.account_created',
     entityType: 'BankAccount',
     entityId: bank.id,
-    after: { name: input.name, type: input.type, last4: input.accountNumberLast4, openingBalanceCents: input.openingBalance },
+    after: {
+      name: input.name,
+      type: input.type,
+      last4: input.accountNumberLast4,
+      openingBalanceCents: input.openingBalance,
+    },
   });
   return { id: bank.id, glAccountId };
 }

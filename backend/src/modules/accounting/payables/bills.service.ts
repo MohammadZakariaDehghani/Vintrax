@@ -1,11 +1,22 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Province, VehicleCostCategory } from '@prisma/client';
 import type { BillInput, ReportQuery } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
 import { recordAudit } from '../core/audit';
 import { daysBetween, fromDbDate, toDbDate, todayIso } from '../core/dates';
-import { dealerProvince, nextNumber, requireAccount, requireDealerVehicle, requireVendor } from '../core/documents';
+import {
+  dealerProvince,
+  nextNumber,
+  requireAccount,
+  requireDealerVehicle,
+  requireVendor,
+} from '../core/documents';
 import { allocateCents, fromCents, sumCents, toCents } from '../core/money';
 import { PostingService, type LedgerLine } from '../journal/posting.service';
 import { TaxService, recoverableAccountKey } from '../tax/tax.service';
@@ -70,10 +81,11 @@ export class BillsService {
   async create(ctx: AccountingContext, input: BillInput) {
     return this.prisma.$transaction(async (tx) => {
       const vendor = await requireVendor(tx, ctx, input.vendorId);
-      const { VEHICLE_INVENTORY: inventory, AP: ap } = await this.posting.accounts(tx, ctx.dealerId, [
-        'VEHICLE_INVENTORY',
-        'AP',
-      ]);
+      const { VEHICLE_INVENTORY: inventory, AP: ap } = await this.posting.accounts(
+        tx,
+        ctx.dealerId,
+        ['VEHICLE_INVENTORY', 'AP'],
+      );
       for (const line of input.lines) {
         const account = await requireAccount(tx, ctx, line.accountId);
         const allowed =
@@ -93,7 +105,10 @@ export class BillsService {
         ? await this.tax.calculate(tx, ctx.dealerId, {
             province,
             date: input.date,
-            lines: input.lines.map((line) => ({ category: line.taxCategory, amountCents: line.amount })),
+            lines: input.lines.map((line) => ({
+              category: line.taxCategory,
+              amountCents: line.amount,
+            })),
           })
         : null;
       const recoverable = (tax?.components ?? []).filter((component) => component.recoverable);
@@ -143,7 +158,10 @@ export class BillsService {
         description: line.description,
         vendorId: vendor.id,
         vehicleId: line.vehicleId,
-        costCategory: line.accountId === inventory ? ((line.costCategory as VehicleCostCategory | null) ?? 'OTHER') : null,
+        costCategory:
+          line.accountId === inventory
+            ? ((line.costCategory as VehicleCostCategory | null) ?? 'OTHER')
+            : null,
       }));
       for (const component of recoverable) {
         const key = recoverableAccountKey(component.taxType);
@@ -223,7 +241,12 @@ export class BillsService {
         action: credit ? 'bill.credit_created' : 'bill.created',
         entityType: 'VendorBill',
         entityId: bill.id,
-        after: { vendorId: vendor.id, totalCents: total, taxCents: taxTotal, journal: entry.reference },
+        after: {
+          vendorId: vendor.id,
+          totalCents: total,
+          taxCents: taxTotal,
+          journal: entry.reference,
+        },
       });
       return { id: bill.id, number: bill.number, totalCents: total, journalEntryId: entry.id };
     });
@@ -233,22 +256,33 @@ export class BillsService {
   async applyCredit(ctx: AccountingContext, creditId: string, billId: string, amount: number) {
     return this.prisma.$transaction(async (tx) => {
       const [credit, bill] = await Promise.all([
-        tx.vendorBill.findFirst({ where: { id: creditId, dealerId: ctx.dealerId, kind: 'CREDIT_NOTE' } }),
+        tx.vendorBill.findFirst({
+          where: { id: creditId, dealerId: ctx.dealerId, kind: 'CREDIT_NOTE' },
+        }),
         tx.vendorBill.findFirst({ where: { id: billId, dealerId: ctx.dealerId, kind: 'BILL' } }),
       ]);
       if (!credit || !bill) throw new NotFoundException('Credit note or bill not found');
-      if (credit.vendorId !== bill.vendorId) throw new BadRequestException('The credit and the bill are from different vendors');
-      if (credit.status === 'VOID' || bill.status === 'VOID') throw new ConflictException('One of them is void');
+      if (credit.vendorId !== bill.vendorId)
+        throw new BadRequestException('The credit and the bill are from different vendors');
+      if (credit.status === 'VOID' || bill.status === 'VOID')
+        throw new ConflictException('One of them is void');
       const creditLeft = toCents(credit.total) - toCents(credit.amountPaid);
       const billLeft = toCents(bill.total) - toCents(bill.amountPaid);
-      if (amount > creditLeft || amount > billLeft) throw new BadRequestException('That is more than is open on one of them');
+      if (amount > creditLeft || amount > billLeft)
+        throw new BadRequestException('That is more than is open on one of them');
       await tx.vendorBill.update({
         where: { id: credit.id },
-        data: { amountPaid: fromCents(toCents(credit.amountPaid) + amount), status: settlement(toCents(credit.total), toCents(credit.amountPaid) + amount) },
+        data: {
+          amountPaid: fromCents(toCents(credit.amountPaid) + amount),
+          status: settlement(toCents(credit.total), toCents(credit.amountPaid) + amount),
+        },
       });
       await tx.vendorBill.update({
         where: { id: bill.id },
-        data: { amountPaid: fromCents(toCents(bill.amountPaid) + amount), status: settlement(toCents(bill.total), toCents(bill.amountPaid) + amount) },
+        data: {
+          amountPaid: fromCents(toCents(bill.amountPaid) + amount),
+          status: settlement(toCents(bill.total), toCents(bill.amountPaid) + amount),
+        },
       });
       await recordAudit(tx, ctx, {
         action: 'bill.credit_applied',
@@ -265,15 +299,26 @@ export class BillsService {
       const bill = await tx.vendorBill.findFirst({ where: { id: billId, dealerId: ctx.dealerId } });
       if (!bill) throw new NotFoundException('Bill not found');
       if (bill.status === 'VOID') throw new ConflictException('This bill is already void');
-      if (toCents(bill.amountPaid) > 0) throw new ConflictException('Payments or credits are applied; reverse them first');
-      const entry = await tx.journalEntry.findUniqueOrThrow({ where: { id: bill.journalEntryId! } });
+      if (toCents(bill.amountPaid) > 0)
+        throw new ConflictException('Payments or credits are applied; reverse them first');
+      const entry = await tx.journalEntry.findUniqueOrThrow({
+        where: { id: bill.journalEntryId! },
+      });
       if (entry.sourceType !== 'VendorBill') {
         throw new ConflictException(`This bill came from a ${entry.sourceType}; void it there`);
       }
       const reversal = await this.posting.reverse(tx, ctx, entry.id, { reason });
-      await this.tax.reverseTaxLines(tx, ctx, { sourceType: 'VendorBill', sourceId: bill.id, date: todayIso(), journalEntryId: reversal.id });
+      await this.tax.reverseTaxLines(tx, ctx, {
+        sourceType: 'VendorBill',
+        sourceId: bill.id,
+        date: todayIso(),
+        journalEntryId: reversal.id,
+      });
       await tx.vehicleCost.deleteMany({ where: { journalEntryId: entry.id } });
-      await tx.vendorBill.update({ where: { id: bill.id }, data: { status: 'VOID', voidEntryId: reversal.id } });
+      await tx.vendorBill.update({
+        where: { id: bill.id },
+        data: { status: 'VOID', voidEntryId: reversal.id },
+      });
       await recordAudit(tx, ctx, {
         action: 'bill.voided',
         entityType: 'VendorBill',
@@ -288,7 +333,9 @@ export class BillsService {
 
   /** Everything with one vendor, oldest first, with a running balance owed. */
   async statement(ctx: AccountingContext, vendorId: string, from: string, to: string) {
-    const vendor = await this.prisma.vendor.findFirst({ where: { id: vendorId, dealerId: ctx.dealerId } });
+    const vendor = await this.prisma.vendor.findFirst({
+      where: { id: vendorId, dealerId: ctx.dealerId },
+    });
     if (!vendor) throw new NotFoundException('Vendor not found');
     const ap = await this.prisma.acctAccount.findMany({
       where: { dealerId: ctx.dealerId, subtype: 'PAYABLE' },
@@ -311,7 +358,11 @@ export class BillsService {
         accountId: { in: apIds },
         entry: { status: 'POSTED', date: { gte: toDbDate(from), lte: toDbDate(to) } },
       },
-      include: { entry: { select: { id: true, date: true, reference: true, description: true, source: true } } },
+      include: {
+        entry: {
+          select: { id: true, date: true, reference: true, description: true, source: true },
+        },
+      },
       orderBy: [{ entry: { date: 'asc' } }, { entry: { number: 'asc' } }],
     });
     let balance = toCents(opening._sum.credit) - toCents(opening._sum.debit);
@@ -344,4 +395,3 @@ export function settlement(total: number, paid: number) {
   if (paid >= total) return 'PAID' as const;
   return 'PARTIAL' as const;
 }
-
