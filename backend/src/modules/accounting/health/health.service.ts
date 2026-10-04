@@ -140,6 +140,26 @@ export class AccountingHealthService {
       })),
     });
 
+    // A posted sale whose listing is back on the lot: the vehicle could be
+    // sold twice, and inventory reports would disagree with the listing.
+    const relisted = await this.prisma.vehicleSale.findMany({
+      where: { dealerId: ctx.dealerId, status: 'POSTED', vehicle: { status: { not: 'SOLD' } } },
+      select: { id: true, number: true, vehicle: { select: { year: true, make: true, model: true } } },
+      take: 50,
+    });
+    add({
+      code: 'SOLD_VEHICLE_LISTED',
+      severity: 'WARNING',
+      title: 'Sold vehicles still listed',
+      detail:
+        'These vehicles have a posted sale but their listing is not marked sold. Mark the listing sold, or reverse the sale if it fell through.',
+      count: relisted.length,
+      links: relisted.map((row) => ({
+        label: `Deal #${row.number} · ${row.vehicle.year} ${row.vehicle.make} ${row.vehicle.model}`,
+        href: `/dealer/accounting/sales/${row.id}`,
+      })),
+    });
+
     // 5. Missing accounting: vehicles marked sold, since accounting began,
     //    without a posted sale; costs entered only on the Costs page.
     const since = settings.createdAt;

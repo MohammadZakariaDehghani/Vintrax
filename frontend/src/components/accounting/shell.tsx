@@ -430,12 +430,12 @@ function Frame({ children }: { children: ReactNode }) {
             ))}
           </div>
         </nav>
-        <main className="min-w-0">
+        <div className="min-w-0">
           {children}
           <p className="mt-10 border-t border-border pt-4 text-xs text-muted-foreground">
             {TAX_DISCLAIMER}
           </p>
-        </main>
+        </div>
       </div>
     </div>
   );

@@ -900,8 +900,21 @@ async function main(): Promise<void> {
       viewCount: status === ListingStatus.ACTIVE ? 40 + index * 17 : 0,
     };
 
+    // A vehicle the demo books have sold stays sold: re-running the seed must
+    // not put it back on the lot under a posted sale.
+    const soldInBooks = existing
+      ? await prisma.vehicleSale.findFirst({
+          where: { vehicleId: existing.id, status: 'POSTED' },
+          select: { id: true },
+        })
+      : null;
+    const { status: _status, soldAt: _soldAt, ...unchangedStatus } = data;
     const vehicle = existing
-      ? await prisma.vehicle.update({ where: { id: existing.id }, data, select: { id: true } })
+      ? await prisma.vehicle.update({
+          where: { id: existing.id },
+          data: soldInBooks ? unchangedStatus : data,
+          select: { id: true },
+        })
       : await prisma.vehicle.create({ data, select: { id: true } });
 
     vehicleIds.push(vehicle.id);

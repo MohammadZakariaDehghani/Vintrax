@@ -8,7 +8,7 @@ import {
 } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
-import { addDays, fromDbDate, toDbDate, type DateRange, type IsoDate } from '../core/dates';
+import { addDays, fromDbDate, toDbDate, todayIso, type DateRange, type IsoDate } from '../core/dates';
 import { sumCents, toCents } from '../core/money';
 import { accountTotals, debitBalance, normalBalance, type AccountTotals } from './ledger';
 import { comparisonRange, resolveRange, type ResolvedRange } from './date-ranges';
@@ -291,7 +291,10 @@ export class StatementsService {
 
   async balanceSheet(ctx: AccountingContext, query: ReportQuery) {
     const range = await resolveRange(this.prisma, ctx.dealerId, query, 'YEAR_TO_DATE');
-    const asOf = range.to;
+    // A balance sheet is a position on a day: a period that ends in the
+    // future (the current fiscal year) is shown as of today.
+    const today = todayIso();
+    const asOf = range.to > today ? today : range.to;
     const compareAsOf = query.compare !== 'NONE' ? comparisonRange(range, query.compare).to : null;
     const accounts = await this.accounts(ctx.dealerId);
     const sheet = await this.sheetAt(ctx.dealerId, accounts, asOf);
