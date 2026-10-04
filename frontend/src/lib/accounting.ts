@@ -217,3 +217,9 @@ export function sourceHref(sourceType: string | null, sourceId: string | null): 
       return null;
   }
 }
+
+/** A YYYY-MM-DD date moved by whole days, in UTC so no time zone shifts it. */
+export function addDaysIso(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
