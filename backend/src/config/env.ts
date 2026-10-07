@@ -155,6 +155,49 @@ const baseEnvSchema = z.object({
   // clear message rather than storing an unoptimised original.
   FFMPEG_PATH: z.string().default('ffmpeg'),
 
+  // --- CRM (documentation/crm.md) ---
+  /**
+   * Runs the CRM scheduler in this process: the email outbox, automation
+   * steps, reminders and time-based triggers. Every API instance may run it;
+   * rows are claimed with row locks, so two instances never take the same one.
+   */
+  CRM_SCHEDULER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  CRM_SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(1000).max(600_000).default(15_000),
+  /** Attempts before a CRM email is marked failed (exponential backoff between). */
+  CRM_EMAIL_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
+  /**
+   * Open (pixel) and click (redirect) tracking in CRM email. Opens are
+   * approximate: mail apps that block or pre-load images skew them.
+   */
+  CRM_EMAIL_TRACKING: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  /**
+   * Shared secret for an email provider's delivery webhook (bounces,
+   * deliveries, complaints) at POST /api/crm/webhooks/email. Unset disables it.
+   */
+  CRM_WEBHOOK_SECRET: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine(
+      (value) => !value || value.length >= 16,
+      'CRM_WEBHOOK_SECRET must be at least 16 characters',
+    ),
+  /** Reply-To for support emails; MAIL_FROM when unset. */
+  SUPPORT_REPLY_TO: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine(
+      (value) => !value || z.string().email().safeParse(value).success,
+      'SUPPORT_REPLY_TO must be an email address',
+    ),
+
   // --- Rate limiting ---
   RATE_LIMIT_TTL_MS: z.coerce.number().int().min(1000).default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),

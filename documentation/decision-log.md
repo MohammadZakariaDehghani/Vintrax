@@ -1228,3 +1228,84 @@ adding infrastructure.
   accounts, created once per database.
 
 Details: [accounting.md](./accounting.md).
+
+## D-066 — Two CRMs in One Module: a Dealer CRM and Vintrax's Support Desk
+
+**Status:** Accepted, at the owner's request (issue #102).
+
+**Decision:**
+
+- **One domain module, two CRMs.** `backend/src/modules/crm` sits beside
+  the other modules on the same database, users, dealers, vehicles,
+  customers and sales. There is no new service and no second copy of those
+  records.
+  - The **Dealer CRM** is under `/api/crm` and **Dealer → CRM**.
+  - The **support desk** is under `/api/admin/crm` and **Admin → CRM**.
+  - Users reach the support desk through `/api/support` and **Dashboard → Support**.
+
+  The two CRMs share templates, the email outbox, suppression and the
+  automation engine, and never each other's data.
+
+- **The same staff model as accounting.** `CrmGuard` resolves the dealership
+  and `DealerMember` role on the server and maps it to `crm.*` permissions.
+  - Salespeople see their own and unassigned leads.
+  - Accountants read and change nothing.
+  - Platform administrators have no access to a dealer's leads.
+  - The support desk needs `support:manage`.
+- **Email is a database outbox.** Every email is a `CrmEmail` row, written
+  with an idempotency key and dispatched by a scheduler that claims rows
+  with `FOR UPDATE SKIP LOCKED`.
+  - It is sent through the platform's existing mail driver.
+  - Temporary failures retry with exponential back-off.
+  - A 5xx bounce suppresses the address platform-wide.
+- **Consent is checked twice.** `ComplianceService` decides whether an email
+  may go when it is queued and again just before it is sent.
+  - Marketing needs current express or implied consent (implied lasts 6
+    months after an inquiry, 2 years after a purchase).
+  - Marketing also needs no unsubscribe and the dealer's business address
+    for identification.
+  - One-click unsubscribe follows RFC 8058, and the unsubscribe page asks
+    for confirmation.
+- **Automations are persistent enrollments.** Each lead or ticket in a
+  sequence is an `CrmAutomationEnrollment` with a current step and a due
+  time.
+  - The engine checks stop conditions before every step and retries
+    failures.
+  - It refuses graphs that loop or point nowhere.
+  - The dealer defaults ship **switched off**. The three support defaults
+    are on.
+- **Other modules report events and do not call the CRM.** Messaging,
+  finance, accounting (deposits, sales) and the contact form call the
+  optional, global `CrmEvents`. It enqueues a job; the CRM's worker turns
+  the job into leads, consent, triggers and tickets. A CRM failure never
+  fails the action that caused it.
+- **Internal notes stay internal.** Ticket messages are `PUBLIC` or
+  `INTERNAL`. The user portal selects public messages only, and a test
+  proves the note never appears in its responses.
+- **The audit log is append-only**, enforced by a trigger.
+
+**Rationale:**
+
+- The issue asked for a CRM inside the existing system, not beside it.
+- Leads, customers and sales must stay one set of records, so a lead can
+  become the accounting customer its sale posts to.
+- An outbox in Postgres survives restarts, is visible to the dealer, and
+  needs no new infrastructure.
+- Checking consent at send time as well as queue time means a withdrawal,
+  bounce or unsubscribe after queueing still stops the email.
+
+**Consequences:**
+
+- **Migration.** One migration adds the CRM and support tables, partial
+  unique indexes for platform rows, and the audit trigger.
+- **Scheduler.** The scheduler runs in the API process; every instance may
+  run it safely. `CRM_SCHEDULER_ENABLED=false` turns it off for an instance.
+- **Replies.** Inbound email is not parsed. Replies are recorded by hand,
+  from Vintrax messages or from logged calls. SMS is logged only.
+- **Delivery and opens.** Delivery confirmations beyond SMTP acceptance
+  need a provider webhook (`CRM_WEBHOOK_SECRET`). Open tracking is
+  approximate.
+- **Demo seed.** The seed gives North Shore Motors six leads and Jordan Lee
+  a support ticket, once per database, and sends no email.
+
+Details: [crm.md](./crm.md).

@@ -959,6 +959,191 @@ Paths are under `/dealer/accounting` unless shown in full. See
 | `POST`   | `/saved-filters`                     | `view`           | Save a view: `{ name, report, filters }`                                        |
 | `DELETE` | `/saved-filters/:filterId`           | `view`           | Delete a saved view                                                             |
 
+## CRM
+
+See [crm.md](./crm.md) for the model behind these routes.
+
+- **Dealer CRM.** Paths under `/crm` run behind `CrmGuard`. It resolves the caller's dealership and staff role on the server and checks the `crm.*` permission shown. Someone on several dealerships' staff sends `x-dealer-id`, and the guard accepts only one of their own.
+- **Lead scope.** Without `all_leads`, a lead outside the caller's own and unassigned leads answers `404`.
+- **Platform administrators** get `403` in the dealer CRM.
+- **The support desk** (`/admin/crm`) needs `support:manage`. Dealers and users get `403`.
+- **The user portal** (`/support`) is the caller's own tickets and public messages only.
+
+### Dealer CRM: leads
+
+Paths under `/crm`.
+
+| Method   | Path                    | Permission           | Purpose                                                                                                            |
+| -------- | ----------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `GET`    | `/me`                   | `view`               | The dealership, your role and permissions, statuses, sources, tags, staff, settings                                |
+| `GET`    | `/dashboard`            | `view`               | Overview for a range (`preset`, or `CUSTOM` with `from`/`to`)                                                      |
+| `GET`    | `/search`               | `view`               | Search leads, customers, tasks, campaigns and vehicles (`q`)                                                       |
+| `GET`    | `/vehicles`             | `view`               | The dealership's inventory, for the vehicle-interest picker                                                        |
+| `GET`    | `/activities`           | `view`               | Recent activity across your leads                                                                                  |
+| `GET`    | `/customers`            | `view`               | Customers with their CRM lead                                                                                      |
+| `GET`    | `/leads`                | `view`               | Leads: `view`, `q`, `statusId`, `sourceId`, `assignedToId`, `temperature`, `tag`, `province`, `from`, `to`, paging |
+| `GET`    | `/leads/export`         | `view` + `all_leads` | The filtered list as CSV (audited)                                                                                 |
+| `GET`    | `/pipeline`             | `view`               | Leads by pipeline status (the board)                                                                               |
+| `POST`   | `/leads`                | `work`               | Create a lead, optionally with consent; assigned by the dealer's rules when no one is chosen                       |
+| `GET`    | `/leads/:id`            | `view`               | A lead with tasks, appointments, automations, consent and journey                                                  |
+| `PUT`    | `/leads/:id`            | `work`               | Update a lead                                                                                                      |
+| `DELETE` | `/leads/:id`            | `manage`             | Delete a lead (audited)                                                                                            |
+| `POST`   | `/leads/:id/status`     | `work`               | Change status (`{ statusId, lostReason }`; a reason is required for lost)                                          |
+| `POST`   | `/leads/:id/assign`     | `work`               | Assign (a salesperson may only claim an unassigned lead)                                                           |
+| `PUT`    | `/leads/:id/tags`       | `work`               | Replace tags                                                                                                       |
+| `GET`    | `/leads/:id/timeline`   | `view`               | The unified timeline, newest first (`type`, `cursor`, `limit`)                                                     |
+| `POST`   | `/leads/:id/activities` | `work`               | Log a call, note, meeting, text, test drive …                                                                      |
+| `GET`    | `/leads/:id/duplicates` | `view`               | Possible duplicates with `reasons` (`EMAIL`, `PHONE`, `NAME`, `VIN`)                                               |
+| `POST`   | `/leads/:id/merge`      | `manage`             | Merge `{ duplicateId }` into this lead, keeping all history                                                        |
+| `POST`   | `/leads/:id/convert`    | `work`               | Make the lead an accounting customer                                                                               |
+| `POST`   | `/leads/bulk`           | `manage`             | Assign, change status, tag or delete many leads                                                                    |
+| `POST`   | `/leads/import/preview` | `manage`             | Validate a CSV import and show what it would do                                                                    |
+| `POST`   | `/leads/import`         | `manage`             | Import leads (up to 2,000 rows)                                                                                    |
+| `GET`    | `/leads/imports`        | `manage`             | Import history with error reports                                                                                  |
+
+### Dealer CRM: tasks, appointments, calendar
+
+| Method   | Path                       | Permission | Purpose                                                                |
+| -------- | -------------------------- | ---------- | ---------------------------------------------------------------------- |
+| `GET`    | `/tasks`                   | `view`     | Tasks by view (open, today, overdue, upcoming, completed)              |
+| `POST`   | `/tasks`                   | `work`     | Create a task (optional reminder and repeat)                           |
+| `PUT`    | `/tasks/:id`               | `work`     | Update a task                                                          |
+| `POST`   | `/tasks/:id/status`        | `work`     | Start, complete or cancel (completing a repeating task opens the next) |
+| `DELETE` | `/tasks/:id`               | `work`     | Delete a task                                                          |
+| `GET`    | `/appointments`            | `view`     | Appointments between `from` and `to`                                   |
+| `POST`   | `/appointments`            | `work`     | Book an appointment                                                    |
+| `PUT`    | `/appointments/:id`        | `work`     | Update an appointment                                                  |
+| `POST`   | `/appointments/:id/status` | `work`     | Confirm, complete, cancel or mark a no-show                            |
+| `DELETE` | `/appointments/:id`        | `work`     | Delete an appointment                                                  |
+| `GET`    | `/calendar`                | `view`     | Appointments and dated tasks for a day, week or month                  |
+
+### Dealer CRM: email, templates, campaigns, consent
+
+| Method             | Path                      | Permission  | Purpose                                                                                                   |
+| ------------------ | ------------------------- | ----------- | --------------------------------------------------------------------------------------------------------- |
+| `GET`              | `/emails`                 | `view`      | Sent, scheduled and failed emails (`leadId`, `status`, paging)                                            |
+| `GET`              | `/emails/:id`             | `view`      | One email with its delivery events                                                                        |
+| `POST`             | `/emails`                 | `email`     | Send or schedule an email to a lead (queued; `400` with the reason when consent or suppression blocks it) |
+| `POST`             | `/emails/:id/cancel`      | `email`     | Cancel an unsent email                                                                                    |
+| `POST`             | `/emails/:id/retry`       | `email`     | Queue a failed email again                                                                                |
+| `POST`             | `/emails/:id/replied`     | `email`     | Record that the customer replied                                                                          |
+| `POST`             | `/email/preview`          | `view`      | Render a subject and body with a lead's (or sample) values, sanitised                                     |
+| `GET`              | `/templates`              | `view`      | Templates                                                                                                 |
+| `GET`              | `/templates/:id`          | `view`      | One template with its versions                                                                            |
+| `POST`             | `/templates`              | `templates` | Create a template (unknown variables are refused)                                                         |
+| `PUT`              | `/templates/:id`          | `templates` | Update a template (keeps the previous version)                                                            |
+| `POST`             | `/templates/:id/restore`  | `templates` | Restore a version                                                                                         |
+| `DELETE`           | `/templates/:id`          | `templates` | Delete a custom template                                                                                  |
+| `POST`             | `/templates/test`         | `templates` | Send a test to your own address                                                                           |
+| `GET`              | `/campaigns`              | `marketing` | Campaigns with results                                                                                    |
+| `POST`             | `/campaigns/audience`     | `marketing` | Who a filter reaches and who is skipped, and why                                                          |
+| `POST`             | `/campaigns`              | `marketing` | Create a draft campaign                                                                                   |
+| `GET, PUT, DELETE` | `/campaigns/:id`          | `marketing` | Read, change or delete a draft                                                                            |
+| `POST`             | `/campaigns/:id/schedule` | `marketing` | Send now or at `scheduledAt` (consented leads only)                                                       |
+| `POST`             | `/campaigns/:id/cancel`   | `marketing` | Cancel a scheduled campaign                                                                               |
+| `GET`              | `/leads/:id/consents`     | `view`      | A lead's consent records                                                                                  |
+| `POST`             | `/consents`               | `work`      | Record consent with its source (audited)                                                                  |
+| `POST`             | `/consents/:id/withdraw`  | `work`      | Withdraw consent (audited)                                                                                |
+| `GET`              | `/suppressions`           | `view`      | The dealer's and the platform's suppressions                                                              |
+| `POST`             | `/suppressions`           | `manage`    | Block an address                                                                                          |
+| `DELETE`           | `/suppressions/:id`       | `manage`    | Remove a dealer suppression                                                                               |
+
+### Dealer CRM: automations, reports, settings
+
+| Method        | Path                           | Permission          | Purpose                                                                                  |
+| ------------- | ------------------------------ | ------------------- | ---------------------------------------------------------------------------------------- |
+| `GET`         | `/automations`                 | `view`              | Automations with results                                                                 |
+| `GET`         | `/automations/:id`             | `view`              | One automation                                                                           |
+| `POST`        | `/automations`                 | `automations`       | Create (the graph is validated: no loops, no missing steps)                              |
+| `PUT`         | `/automations/:id`             | `automations`       | Update                                                                                   |
+| `POST`        | `/automations/:id/active`      | `automations`       | Turn on or off (`{ isActive }`; off stops running enrollments)                           |
+| `DELETE`      | `/automations/:id`             | `automations`       | Delete                                                                                   |
+| `GET`         | `/automations/:id/enrollments` | `view`              | Leads in the automation, with step, next run and errors                                  |
+| `POST`        | `/automations/:id/enroll`      | `email`             | Start the automation for `{ leadId }`                                                    |
+| `POST`        | `/enrollments/:id/stop`        | `email`             | Stop one lead's run                                                                      |
+| `POST`        | `/enrollments/:id/retry`       | `automations`       | Retry a failed run                                                                       |
+| `GET`         | `/reports`                     | `reports`           | Reports for a range                                                                      |
+| `GET`         | `/audit`                       | `manage`            | The CRM audit log                                                                        |
+| `PUT`         | `/settings`                    | `settings`          | Time zone, send window, follow-up targets, assignment, sender identity, consent defaults |
+| `GET, POST`   | `/statuses`                    | `view` / `settings` | Statuses; add one                                                                        |
+| `PUT`         | `/statuses/order`              | `settings`          | Reorder statuses                                                                         |
+| `PUT, DELETE` | `/statuses/:id`                | `settings`          | Change or remove a status                                                                |
+| `GET, POST`   | `/sources`                     | `view` / `settings` | Lead sources; add one (with a monthly cost)                                              |
+| `PUT`         | `/sources/:id`                 | `settings`          | Change a source                                                                          |
+| `GET, POST`   | `/tags`                        | `view` / `manage`   | Tags; add one                                                                            |
+| `PUT, DELETE` | `/tags/:id`                    | `manage`            | Rename or delete a tag                                                                   |
+| `GET, PUT`    | `/scoring`                     | `view` / `settings` | Points per signal and the hot/warm thresholds                                            |
+| `GET`         | `/assignment`                  | `view`              | The assignment mode, rules and teams                                                     |
+| `POST`        | `/assignment/rules`            | `settings`          | Add a rule                                                                               |
+| `PUT, DELETE` | `/assignment/rules/:id`        | `settings`          | Change or remove a rule                                                                  |
+| `PUT`         | `/teams/:userId`               | `settings`          | Put a salesperson on a team                                                              |
+| `GET, PUT`    | `/notification-preferences`    | `view`              | Your own CRM notifications                                                               |
+
+### CRM public routes
+
+Paths in full, under `/api`.
+
+| Method | Path                             | Access                 | Purpose                                                                                                                          |
+| ------ | -------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/crm/dealerships`               | signed in              | Dealerships whose CRM the caller can open                                                                                        |
+| `GET`  | `/crm/t/o/:token.gif`            | public                 | Open pixel                                                                                                                       |
+| `GET`  | `/crm/t/c/:token?u=&s=`          | public                 | Click redirect; a forged or altered link goes to the home page                                                                   |
+| `GET`  | `/crm/public/unsubscribe/:token` | public                 | What a link unsubscribes (dealer, masked address)                                                                                |
+| `POST` | `/crm/public/unsubscribe/:token` | public                 | Unsubscribe from that dealer's marketing (also RFC 8058 one-click)                                                               |
+| `POST` | `/crm/webhooks/email`            | `X-CRM-Webhook-Secret` | Provider events by `messageId`: delivered, bounced, complained, opened, clicked, replied (only when `CRM_WEBHOOK_SECRET` is set) |
+
+### Support desk
+
+Paths under `/admin/crm`.
+
+| Method        | Path                                | Permission       | Purpose                                                                                                                                     |
+| ------------- | ----------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`         | `/overview`                         | `support:manage` | Queues, SLA and workload                                                                                                                    |
+| `GET`         | `/reports`                          | `support:manage` | Support reports for a range                                                                                                                 |
+| `GET`         | `/tickets`                          | `support:manage` | Tickets: `view` (`OPEN`, `MINE`, `UNASSIGNED`, `OVERDUE`, `WAITING`, `ESCALATED`, `RESOLVED`, `ALL`), `q`, `priority`, `categoryId`, paging |
+| `POST`        | `/tickets`                          | `support:manage` | Open a ticket on someone's behalf                                                                                                           |
+| `POST`        | `/tickets/from-chat/:chatId`        | `support:manage` | Turn a site-chat conversation into a ticket                                                                                                 |
+| `GET`         | `/tickets/:id`                      | `support:manage` | A ticket with public messages, internal notes, events, tasks and emails                                                                     |
+| `PUT`         | `/tickets/:id`                      | `support:manage` | Status, priority, category, assignee, team, due date, tags                                                                                  |
+| `POST`        | `/tickets/:id/messages`             | `support:manage` | `{ body, visibility: PUBLIC \| INTERNAL }`: a public reply is emailed to the requester; a note never leaves the desk                        |
+| `POST`        | `/tickets/:id/assign-automatically` | `support:manage` | Assign by team round robin, else the least busy admin                                                                                       |
+| `GET, POST`   | `/tasks`                            | `support:manage` | Admin tasks (`view`, `ticketId`, `dealerId`, `subjectUserId`); create one                                                                   |
+| `PUT, DELETE` | `/tasks/:id`                        | `support:manage` | Change or delete an admin task                                                                                                              |
+| `GET`         | `/dealers`                          | `support:manage` | Dealers (`q`)                                                                                                                               |
+| `GET`         | `/dealers/:id`                      | `support:manage` | Dealer 360                                                                                                                                  |
+| `GET`         | `/users`                            | `support:manage` | Users (`q`)                                                                                                                                 |
+| `GET`         | `/users/:id`                        | `support:manage` | User 360                                                                                                                                    |
+| `POST`        | `/messages`                         | `support:manage` | Message a user or a dealer's owner by email and/or in the app                                                                               |
+| `GET`         | `/communication`                    | `support:manage` | Every email the desk has sent                                                                                                               |
+| `GET`         | `/audit`                            | `support:manage` | The support audit log                                                                                                                       |
+| `GET, PUT`    | `/settings`                         | `support:manage` | SLA hours by priority, waiting reminder, auto-close, default team (GET also lists categories, teams, admins)                                |
+| `POST`        | `/categories`                       | `support:manage` | Add a category                                                                                                                              |
+| `PUT`         | `/categories/:id`                   | `support:manage` | Rename or switch off a category                                                                                                             |
+| `POST`        | `/teams`                            | `support:manage` | Add a team                                                                                                                                  |
+| `PUT`         | `/teams/:id`                        | `support:manage` | Change a team's name, members or state                                                                                                      |
+| `GET, POST`   | `/templates`                        | `support:manage` | Support templates; create one                                                                                                               |
+| `GET, PUT`    | `/templates/:id`                    | `support:manage` | Read or change a template                                                                                                                   |
+| `POST`        | `/templates/preview`                | `support:manage` | Render with sample values                                                                                                                   |
+| `POST`        | `/templates/test`                   | `support:manage` | Send a test to yourself                                                                                                                     |
+| `GET, POST`   | `/automations`                      | `support:manage` | Support automations; create one                                                                                                             |
+| `GET, PUT`    | `/automations/:id`                  | `support:manage` | Read or change an automation                                                                                                                |
+| `POST`        | `/automations/:id/active`           | `support:manage` | Turn on or off                                                                                                                              |
+| `GET`         | `/automations/:id/enrollments`      | `support:manage` | Tickets in the automation                                                                                                                   |
+| `POST`        | `/automations/:id/enroll`           | `support:manage` | Start it for `{ ticketId }`                                                                                                                 |
+| `POST`        | `/enrollments/:id/stop`             | `support:manage` | Stop one ticket's run                                                                                                                       |
+
+### Support portal
+
+Paths under `/support`.
+
+| Method | Path                   | Access    | Purpose                                                                   |
+| ------ | ---------------------- | --------- | ------------------------------------------------------------------------- |
+| `GET`  | `/categories`          | signed in | Active ticket categories                                                  |
+| `GET`  | `/tickets`             | signed in | Your tickets                                                              |
+| `POST` | `/tickets`             | signed in | Ask for help: `{ subject, description, categoryId }`                      |
+| `GET`  | `/tickets/:id`         | signed in | One of your tickets and its public conversation (`404` for anyone else's) |
+| `POST` | `/tickets/:id/replies` | signed in | Reply; reopens a resolved ticket (not one closed over 30 days ago)        |
+
 ## Uploads, admin, health
 
 | Method | Path                         | Auth             | Purpose                          |

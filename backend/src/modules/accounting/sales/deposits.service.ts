@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { centsToDecimalString, type DepositInput, type DepositRefundInput } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import type { AccountingContext } from '../core/context';
@@ -8,6 +8,7 @@ import { nextNumber, requireCustomer, requireDealerVehicle } from '../core/docum
 import { fromCents, toCents } from '../core/money';
 import { bankGlAccount } from '../banking/bank-accounts';
 import { PostingService } from '../journal/posting.service';
+import { CrmEvents } from '../../crm/events/crm-events.service';
 
 /**
  * Customer deposits. A deposit is the customer's money held by the dealer —
@@ -19,6 +20,7 @@ export class DepositsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly posting: PostingService,
+    @Optional() private readonly crmEvents?: CrmEvents,
   ) {}
 
   async list(ctx: AccountingContext, query: { customerId?: string; status?: string }) {
@@ -65,6 +67,13 @@ export class DepositsService {
 
   /** Deposit received: debit the bank, credit Customer Deposits Liability. */
   async receive(ctx: AccountingContext, input: DepositInput) {
+    const result = await this.receiveInTransaction(ctx, input);
+    // The customer's CRM journey gets its deposit stage.
+    this.crmEvents?.depositReceived(result.id);
+    return result;
+  }
+
+  private async receiveInTransaction(ctx: AccountingContext, input: DepositInput) {
     return this.prisma.$transaction(async (tx) => {
       const customer = await requireCustomer(tx, ctx, input.customerId);
       if (input.vehicleId) await requireDealerVehicle(tx, ctx, input.vehicleId);

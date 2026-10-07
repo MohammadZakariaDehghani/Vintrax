@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
@@ -27,6 +28,7 @@ import { MailService } from '../../common/mail/mail.service';
 import { AuditService } from '../../common/audit/audit.service';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CrmEvents } from '../crm/events/crm-events.service';
 
 /** Only a car on sale can be financed through its listing. */
 const FINANCEABLE_STATUSES = ['ACTIVE'] as const;
@@ -105,6 +107,7 @@ export class FinanceService {
     private readonly mail: MailService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    @Optional() private readonly crmEvents?: CrmEvents,
   ) {}
 
   // --- The buyer's side ---------------------------------------------------------
@@ -203,6 +206,8 @@ export class FinanceService {
       });
     }
 
+    // A dealership's CRM records that this lead asked for financing.
+    this.crmEvents?.financeApplicationSubmitted(created.id);
     return created;
   }
 

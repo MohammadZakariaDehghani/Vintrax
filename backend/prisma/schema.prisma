@@ -188,6 +188,10 @@ enum NotificationType {
   MESSAGE_RECEIVED
   DEALER_VERIFIED
   SYSTEM
+  CRM_LEAD
+  CRM_TASK
+  CRM_APPOINTMENT
+  SUPPORT_TICKET
 }
 
 enum NotificationChannel {
@@ -311,6 +315,17 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  crmLeadsAssigned        CrmLead[]                   @relation("CrmLeadAssignee")
+  crmLeadAccounts         CrmLead[]                   @relation("CrmLeadAccount")
+  crmActivities           CrmActivity[]               @relation("CrmActivityUser")
+  crmTasksAssigned        CrmTask[]                   @relation("CrmTaskAssignee")
+  crmAppointments         CrmAppointment[]            @relation("CrmAppointmentSalesperson")
+  crmNotificationPrefs    CrmNotificationPreference[] @relation("CrmNotificationPrefs")
+  supportTicketsRequested SupportTicket[]             @relation("SupportTicketRequester")
+  supportTicketsAssigned  SupportTicket[]             @relation("SupportTicketAssignee")
+  supportTicketMessages   SupportTicketMessage[]      @relation("SupportTicketMessageAuthor")
+  adminTasksAssigned      AdminTask[]                 @relation("AdminTaskAssignee")
+
   @@index([role, status])
   @@index([status, createdAt])
 }
@@ -371,6 +386,26 @@ model Dealer {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  crmSettings        CrmSettings?
+  crmLeadStatuses    CrmLeadStatus[]
+  crmLeadSources     CrmLeadSource[]
+  crmTags            CrmTag[]
+  crmLeads           CrmLead[]
+  crmActivities      CrmActivity[]
+  crmTasks           CrmTask[]
+  crmAppointments    CrmAppointment[]
+  crmScoringRules    CrmScoringRule[]
+  crmAssignmentRules CrmAssignmentRule[]
+  crmTeamMembers     CrmTeamMember[]
+  crmLeadImports     CrmLeadImport[]
+  crmEmailTemplates  CrmEmailTemplate[]
+  crmEmails          CrmEmail[]
+  crmSuppressions    CrmSuppression[]
+  crmConsents        CrmConsent[]
+  crmCampaigns       CrmCampaign[]
+  crmAutomations     CrmAutomation[]
+  supportTickets     SupportTicket[]
 
   @@index([status])
   @@index([verified, province])
@@ -582,6 +617,9 @@ model Vehicle {
   // unique constraint is what stops an import creating a second row for a stock
   // number the seller already uses. NULLs do not collide in Postgres, so the
   // many vehicles with no stock number are unaffected.
+  crmLeads        CrmLead[]        @relation("CrmLeadVehicle")
+  crmAppointments CrmAppointment[] @relation("CrmAppointmentVehicle")
+
   @@unique([sellerId, stockNumber])
   // Search almost always constrains status first, so it leads the composite
   // indexes backing the common browse-and-sort paths.
@@ -2284,6 +2322,8 @@ model Customer {
   invoices     CustomerInvoice[]
   payments     Payment[]
 
+  crmLeads CrmLead[]
+
   @@index([dealerId, name])
   @@index([dealerId, email])
 }
@@ -2838,4 +2878,993 @@ model AccountingAuditLog {
 
   @@index([dealerId, createdAt])
   @@index([dealerId, entityType, entityId])
+}
+
+// =============================================================================
+// CRM (D-066): the Dealer CRM (leads, follow-up, email automation) and the
+// Admin support CRM (tickets), on one email, automation and timeline core.
+// Every Dealer CRM row carries dealerId; support rows are platform-wide and
+// only reach administrators — a requester sees only PUBLIC messages.
+// =============================================================================
+
+enum LeadStatusKind {
+  OPEN
+  WON
+  LOST
+  NURTURE
+  UNRESPONSIVE
+}
+
+enum LeadTemperature {
+  HOT
+  WARM
+  COLD
+}
+
+enum CrmTimelineType {
+  // Activities people log
+  CALL
+  EMAIL
+  SMS
+  MEETING
+  APPOINTMENT
+  NOTE
+  TASK
+  TEST_DRIVE
+  FOLLOW_UP
+  QUOTE
+  FINANCE
+  TRADE_IN
+  OTHER
+  // Events the system records
+  LEAD_CREATED
+  LEAD_ASSIGNED
+  STATUS_CHANGED
+  FIRST_CONTACT
+  VEHICLE_VIEWED
+  VEHICLE_INQUIRY
+  CUSTOMER_REPLIED
+  EMAIL_SENT
+  EMAIL_OPENED
+  EMAIL_CLICKED
+  EMAIL_BOUNCED
+  EMAIL_FAILED
+  UNSUBSCRIBED
+  CONSENT_CHANGED
+  APPOINTMENT_BOOKED
+  APPOINTMENT_UPDATED
+  TASK_CREATED
+  TASK_COMPLETED
+  TRADE_IN_APPRAISAL
+  FINANCING_REQUESTED
+  DEPOSIT
+  SALE
+  DELIVERY
+  POST_SALE
+  CONVERTED
+  MERGED
+  TAG_ADDED
+  TAG_REMOVED
+  SCORE_CHANGED
+  AUTOMATION_STARTED
+  AUTOMATION_STEP
+  AUTOMATION_STOPPED
+}
+
+enum CrmTaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CrmPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CrmRecurrence {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum AppointmentType {
+  TEST_DRIVE
+  VEHICLE_VIEWING
+  SALES_MEETING
+  TRADE_IN_APPRAISAL
+  FINANCE_MEETING
+  DELIVERY
+  OTHER
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum CrmScope {
+  DEALER
+  SUPPORT
+}
+
+enum EmailPurpose {
+  TRANSACTIONAL
+  MARKETING
+}
+
+enum CrmEmailStatus {
+  SCHEDULED
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  SUPPRESSED
+  CANCELLED
+}
+
+enum EmailEventType {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+  FAILED
+  UNSUBSCRIBED
+  COMPLAINED
+  SUPPRESSED
+  CANCELLED
+  RETRY
+}
+
+enum SuppressionReason {
+  UNSUBSCRIBED
+  HARD_BOUNCE
+  INVALID
+  COMPLAINT
+  MANUAL
+}
+
+enum ConsentType {
+  EXPRESS
+  IMPLIED_INQUIRY
+  IMPLIED_PURCHASE
+}
+
+enum CampaignType {
+  LEAD_NURTURE
+  RE_ENGAGEMENT
+  NEW_INVENTORY
+  VEHICLE_PROMOTION
+  CUSTOMER_FOLLOW_UP
+  SOLD_CUSTOMER
+  SERVICE_REMINDER
+  SEASONAL
+  CUSTOM
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  WAITING
+  COMPLETED
+  STOPPED
+  FAILED
+}
+
+enum TicketStatus {
+  NEW
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_USER
+  WAITING_FOR_DEALER
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum TicketSource {
+  ADMIN
+  USER_PORTAL
+  CONTACT_FORM
+  SUPPORT_CHAT
+  EMAIL
+}
+
+enum TicketVisibility {
+  PUBLIC
+  INTERNAL
+}
+
+enum AdminTaskType {
+  FOLLOW_UP_DEALER
+  CALL_USER
+  INVESTIGATE
+  VERIFY_ACCOUNT
+  BILLING_FOLLOW_UP
+  REVIEW_FEATURE_REQUEST
+  ESCALATE
+  OTHER
+}
+
+/// One per dealership: how its CRM behaves.
+model CrmSettings {
+  dealerId String @id @db.Uuid
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  /// IANA zone the dealership works in; schedules and send windows use it.
+  timezone              String  @default("America/Toronto")
+  /// Automated emails go out only between these local hours.
+  sendWindowStartHour   Int     @default(9)
+  sendWindowEndHour     Int     @default(19)
+  /// 0 = Sunday … 6 = Saturday.
+  sendDays              Int[]   @default([1, 2, 3, 4, 5, 6])
+  /// First-response target for new leads, in minutes.
+  responseTargetMinutes Int     @default(5)
+  hotThreshold          Int     @default(50)
+  warmThreshold         Int     @default(20)
+  noResponseDays        Int     @default(3)
+  inactiveDays          Int     @default(30)
+  /// MANUAL, ROUND_ROBIN or RULES (rules, then round-robin).
+  assignmentMode        String  @default("ROUND_ROBIN")
+  roundRobinCursor      Int     @default(0)
+  /// Create a "first contact" task on assignment.
+  createFollowUpTask    Boolean @default(true)
+
+  senderName      String?
+  replyToEmail    String?
+  /// CASL sender identification: mailing address and contact for every CEM.
+  businessAddress String?
+  businessPhone   String?
+  businessEmail   String?
+
+  /// Treat an inquiry as implied consent to marketing (CASL: 6 months).
+  impliedConsentFromInquiry  Boolean @default(true)
+  /// Treat a purchase as implied consent to marketing (CASL: 2 years).
+  impliedConsentFromPurchase Boolean @default(true)
+
+  postSaleEnabled Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CrmLeadStatus {
+  id         String         @id @default(uuid()) @db.Uuid
+  dealerId   String         @db.Uuid
+  dealer     Dealer         @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  key        String
+  label      String
+  kind       LeadStatusKind
+  position   Int
+  /// Shown as a pipeline column.
+  inPipeline Boolean        @default(true)
+  isActive   Boolean        @default(true)
+  leads      CrmLead[]
+
+  @@unique([dealerId, key])
+  @@index([dealerId, position])
+}
+
+model CrmLeadSource {
+  id               String    @id @default(uuid()) @db.Uuid
+  dealerId         String    @db.Uuid
+  dealer           Dealer    @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  key              String
+  label            String
+  /// Monthly spend on the source, for cost per lead.
+  monthlyCostCents Int?
+  isActive         Boolean   @default(true)
+  leads            CrmLead[]
+
+  @@unique([dealerId, key])
+}
+
+/// Tags: a dealer's (dealerId set) or the support team's (dealerId null).
+model CrmTag {
+  id       String             @id @default(uuid()) @db.Uuid
+  scope    CrmScope
+  dealerId String?            @db.Uuid
+  dealer   Dealer?            @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  name     String
+  color    String?
+  leads    CrmLeadTag[]
+  tickets  SupportTicketTag[]
+
+  @@unique([scope, dealerId, name])
+}
+
+model CrmLead {
+  id       String @id @default(uuid()) @db.Uuid
+  dealerId String @db.Uuid
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  number   Int
+
+  firstName        String
+  lastName         String?
+  email            String?
+  /// Lower-cased, for matching and suppression.
+  emailNormalized  String?
+  phone            String?
+  /// Digits only, for duplicate matching.
+  phoneNormalized  String?
+  preferredContact PreferredContact?
+  address          String?
+  city             String?
+  province         Province?
+  postalCode       String?
+
+  sourceId String?        @db.Uuid
+  source   CrmLeadSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  campaign String?
+
+  vehicleId              String?   @db.Uuid
+  vehicle                Vehicle?  @relation("CrmLeadVehicle", fields: [vehicleId], references: [id], onDelete: SetNull)
+  interestedVin          String?
+  vehicleUrl             String?
+  budgetCents            Int?
+  financingInterest      Boolean   @default(false)
+  tradeInInterest        Boolean   @default(false)
+  tradeInVehicle         String?
+  preferredAppointmentAt DateTime?
+  notes                  String?   @db.Text
+
+  score       Int             @default(0)
+  temperature LeadTemperature @default(COLD)
+  statusId    String          @db.Uuid
+  status      CrmLeadStatus   @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  lostReason  String?
+
+  assignedToId String?   @db.Uuid
+  assignedTo   User?     @relation("CrmLeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  team         String?
+  assignedAt   DateTime?
+
+  /// The marketplace account the lead came from, when there is one.
+  userId               String?   @db.Uuid
+  user                 User?     @relation("CrmLeadAccount", fields: [userId], references: [id], onDelete: SetNull)
+  /// The accounting customer once converted (the dealership's one customer record).
+  customerId           String?   @db.Uuid
+  customer             Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  conversationId       String?   @db.Uuid
+  financeApplicationId String?   @db.Uuid
+
+  firstContactAt DateTime?
+  lastContactAt  DateTime?
+  lastActivityAt DateTime?
+  nextFollowUpAt DateTime?
+  lastRepliedAt  DateTime?
+  convertedAt    DateTime?
+  wonAt          DateTime?
+  lostAt         DateTime?
+
+  /// A merged lead points at the one it was merged into and is hidden.
+  mergedIntoId String?   @db.Uuid
+  mergedInto   CrmLead?  @relation("CrmLeadMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom   CrmLead[] @relation("CrmLeadMerge")
+
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tags         CrmLeadTag[]
+  activities   CrmActivity[]
+  tasks        CrmTask[]
+  appointments CrmAppointment[]
+  emails       CrmEmail[]
+  enrollments  CrmAutomationEnrollment[]
+  scoreEvents  CrmLeadScoreEvent[]
+  consents     CrmConsent[]
+
+  @@unique([dealerId, number])
+  @@index([dealerId, statusId, createdAt])
+  @@index([dealerId, assignedToId, nextFollowUpAt])
+  @@index([dealerId, emailNormalized])
+  @@index([dealerId, phoneNormalized])
+  @@index([dealerId, createdAt])
+  @@index([dealerId, temperature])
+  @@index([dealerId, vehicleId])
+  @@index([dealerId, userId])
+  @@index([dealerId, customerId])
+  @@index([mergedIntoId])
+}
+
+model CrmLeadTag {
+  leadId String  @db.Uuid
+  lead   CrmLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tagId  String  @db.Uuid
+  tag    CrmTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([leadId, tagId])
+  @@index([tagId])
+}
+
+/// The unified timeline: activities people log and events the system records.
+model CrmActivity {
+  id         String          @id @default(uuid()) @db.Uuid
+  dealerId   String          @db.Uuid
+  dealer     Dealer          @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  leadId     String          @db.Uuid
+  lead       CrmLead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId     String?         @db.Uuid
+  user       User?           @relation("CrmActivityUser", fields: [userId], references: [id], onDelete: SetNull)
+  type       CrmTimelineType
+  isSystem   Boolean         @default(false)
+  occurredAt DateTime        @default(now())
+  title      String
+  status     String?
+  notes      String?         @db.Text
+  outcome    String?
+  nextAction String?
+  vehicleId  String?         @db.Uuid
+  saleId     String?         @db.Uuid
+  emailId    String?         @db.Uuid
+  metadata   Json?
+  createdAt  DateTime        @default(now())
+
+  @@index([leadId, occurredAt])
+  @@index([dealerId, type, occurredAt])
+  @@index([dealerId, userId, occurredAt])
+}
+
+model CrmTask {
+  id                String        @id @default(uuid()) @db.Uuid
+  dealerId          String        @db.Uuid
+  dealer            Dealer        @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  leadId            String?       @db.Uuid
+  lead              CrmLead?      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?       @db.Text
+  assignedToId      String?       @db.Uuid
+  assignedTo        User?         @relation("CrmTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  vehicleId         String?       @db.Uuid
+  dueAt             DateTime?
+  priority          CrmPriority   @default(MEDIUM)
+  status            CrmTaskStatus @default(OPEN)
+  reminderAt        DateTime?
+  reminderSentAt    DateTime?
+  overdueNotifiedAt DateTime?
+  recurrence        CrmRecurrence @default(NONE)
+  completedAt       DateTime?
+  createdById       String?       @db.Uuid
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([dealerId, status, dueAt])
+  @@index([dealerId, assignedToId, status, dueAt])
+  @@index([leadId])
+}
+
+model CrmAppointment {
+  id              String            @id @default(uuid()) @db.Uuid
+  dealerId        String            @db.Uuid
+  dealer          Dealer            @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  leadId          String            @db.Uuid
+  lead            CrmLead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  vehicleId       String?           @db.Uuid
+  vehicle         Vehicle?          @relation("CrmAppointmentVehicle", fields: [vehicleId], references: [id], onDelete: SetNull)
+  salespersonId   String?           @db.Uuid
+  salesperson     User?             @relation("CrmAppointmentSalesperson", fields: [salespersonId], references: [id], onDelete: SetNull)
+  type            AppointmentType
+  startsAt        DateTime
+  endsAt          DateTime
+  location        String?
+  notes           String?           @db.Text
+  status          AppointmentStatus @default(SCHEDULED)
+  /// Minutes before the start to remind the salesperson and customer.
+  reminderMinutes Int?              @default(60)
+  reminderSentAt  DateTime?
+  createdById     String?           @db.Uuid
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([dealerId, startsAt])
+  @@index([dealerId, salespersonId, startsAt])
+  @@index([leadId])
+}
+
+model CrmLeadScoreEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  leadId     String   @db.Uuid
+  lead       CrmLead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  signal     String
+  points     Int
+  scoreAfter Int
+  createdAt  DateTime @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+/// A dealer's points for each scoring signal.
+model CrmScoringRule {
+  dealerId String  @db.Uuid
+  dealer   Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  signal   String
+  points   Int
+  isActive Boolean @default(true)
+
+  @@id([dealerId, signal])
+}
+
+/// Automatic assignment: the first matching rule (lowest position) wins.
+model CrmAssignmentRule {
+  id             String  @id @default(uuid()) @db.Uuid
+  dealerId       String  @db.Uuid
+  dealer         Dealer  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  position       Int
+  /// SOURCE, VEHICLE_MAKE, PROVINCE or ANY.
+  matchField     String
+  matchValue     String?
+  /// A user, or a team handled round-robin.
+  assignToUserId String? @db.Uuid
+  assignToTeam   String?
+  isActive       Boolean @default(true)
+
+  @@index([dealerId, position])
+}
+
+model CrmTeamMember {
+  dealerId String @db.Uuid
+  dealer   Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  userId   String @db.Uuid
+  team     String
+
+  @@id([dealerId, userId])
+}
+
+model CrmLeadImport {
+  id             String   @id @default(uuid()) @db.Uuid
+  dealerId       String   @db.Uuid
+  dealer         Dealer   @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  fileName       String
+  totalRows      Int
+  createdCount   Int
+  duplicateCount Int
+  errorCount     Int
+  errors         Json?
+  mapping        Json?
+  createdById    String?  @db.Uuid
+  createdAt      DateTime @default(now())
+
+  @@index([dealerId, createdAt])
+}
+
+/// Email templates, a dealer's or the support team's.
+model CrmEmailTemplate {
+  id          String       @id @default(uuid()) @db.Uuid
+  scope       CrmScope
+  dealerId    String?      @db.Uuid
+  dealer      Dealer?      @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  key         String?
+  name        String
+  category    String
+  purpose     EmailPurpose @default(TRANSACTIONAL)
+  subject     String
+  /// Sanitised HTML.
+  bodyHtml    String       @db.Text
+  bodyText    String       @db.Text
+  isActive    Boolean      @default(true)
+  version     Int          @default(1)
+  /// The earlier versions, newest first: [{ version, subject, bodyHtml, bodyText, savedAt }].
+  history     Json?
+  updatedById String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  emails    CrmEmail[]
+  campaigns CrmCampaign[]
+
+  @@unique([scope, dealerId, key])
+  @@index([scope, dealerId, category])
+}
+
+/// The email outbox and sent log. Every email the CRM sends is a row here
+/// first; the dispatcher claims due rows, sends them once, and records the
+/// provider's answer.
+model CrmEmail {
+  id       String         @id @default(uuid()) @db.Uuid
+  scope    CrmScope
+  dealerId String?        @db.Uuid
+  dealer   Dealer?        @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  leadId   String?        @db.Uuid
+  lead     CrmLead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  ticketId String?        @db.Uuid
+  ticket   SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  userId   String?        @db.Uuid
+
+  toEmail  String
+  toName   String?
+  fromName String?
+  replyTo  String?
+  subject  String
+  bodyHtml String       @db.Text
+  bodyText String       @db.Text
+  purpose  EmailPurpose
+
+  templateId       String?           @db.Uuid
+  template         CrmEmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  campaignId       String?           @db.Uuid
+  campaign         CrmCampaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  enrollmentId     String?           @db.Uuid
+  automationStepId String?
+
+  status            CrmEmailStatus @default(QUEUED)
+  scheduledAt       DateTime       @default(now())
+  /// When the dispatcher may try again after a failure.
+  nextAttemptAt     DateTime       @default(now())
+  attempts          Int            @default(0)
+  lastError         String?
+  /// Claimed by a dispatcher run until this time.
+  lockedUntil       DateTime?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  repliedAt         DateTime?
+  bouncedAt         DateTime?
+  unsubscribedAt    DateTime?
+  provider          String?
+  providerMessageId String?
+  /// One logical email, one row: a retried automation step cannot send twice.
+  idempotencyKey    String         @unique
+  /// Opaque token in tracking and unsubscribe links.
+  trackingToken     String         @unique
+  createdById       String?        @db.Uuid
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  events CrmEmailEvent[]
+
+  @@index([status, nextAttemptAt])
+  @@index([dealerId, createdAt])
+  @@index([dealerId, status, createdAt])
+  @@index([leadId, createdAt])
+  @@index([ticketId, createdAt])
+  @@index([campaignId])
+  @@index([providerMessageId])
+}
+
+model CrmEmailEvent {
+  id        String         @id @default(uuid()) @db.Uuid
+  emailId   String         @db.Uuid
+  email     CrmEmail       @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  type      EmailEventType
+  detail    String?
+  createdAt DateTime       @default(now())
+
+  @@index([emailId, createdAt])
+  @@index([type, createdAt])
+}
+
+/// Addresses not to send to. dealerId set: that dealer's list (unsubscribes
+/// from its marketing); dealerId null: platform-wide (bounces, invalid).
+model CrmSuppression {
+  id          String            @id @default(uuid()) @db.Uuid
+  dealerId    String?           @db.Uuid
+  dealer      Dealer?           @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  email       String
+  reason      SuppressionReason
+  source      String?
+  note        String?
+  createdById String?           @db.Uuid
+  createdAt   DateTime          @default(now())
+
+  @@unique([dealerId, email, reason])
+  @@index([email])
+}
+
+/// CASL consent records: what kind, from where, when, until when.
+model CrmConsent {
+  id           String      @id @default(uuid()) @db.Uuid
+  dealerId     String      @db.Uuid
+  dealer       Dealer      @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  leadId       String?     @db.Uuid
+  lead         CrmLead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  email        String
+  type         ConsentType
+  source       String
+  /// What the person agreed to, in the words they saw.
+  evidence     String?     @db.Text
+  grantedAt    DateTime    @default(now())
+  expiresAt    DateTime?
+  withdrawnAt  DateTime?
+  recordedById String?     @db.Uuid
+  createdAt    DateTime    @default(now())
+
+  @@index([dealerId, email])
+  @@index([leadId])
+}
+
+model CrmCampaign {
+  id             String            @id @default(uuid()) @db.Uuid
+  dealerId       String            @db.Uuid
+  dealer         Dealer            @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  name           String
+  type           CampaignType
+  status         CampaignStatus    @default(DRAFT)
+  templateId     String?           @db.Uuid
+  template       CrmEmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  subject        String?
+  /// Audience filter: statuses, sources, tags, provinces, makes, price range, activity dates.
+  audience       Json
+  scheduledAt    DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  costCents      Int?
+  recipientCount Int               @default(0)
+  skippedCount   Int               @default(0)
+  createdById    String?           @db.Uuid
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  emails CrmEmail[]
+
+  @@index([dealerId, status, scheduledAt])
+}
+
+/// A follow-up sequence or a support workflow. Steps are a small graph held
+/// as JSON (validated by the API): WAIT, CONDITION with yes/no branches, and
+/// actions, each pointing at the next step.
+model CrmAutomation {
+  id                String   @id @default(uuid()) @db.Uuid
+  scope             CrmScope
+  dealerId          String?  @db.Uuid
+  dealer            Dealer?  @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  key               String?
+  name              String
+  description       String?
+  trigger           String
+  /// Conditions the trigger must meet to enrol, and trigger options (days).
+  triggerConfig     Json?
+  steps             Json
+  /// Stop when any of these happens: REPLIED, WON, LOST, …
+  stopConditions    String[]
+  /// Only within the dealer's send window.
+  respectSendWindow Boolean  @default(true)
+  isActive          Boolean  @default(false)
+  version           Int      @default(1)
+  createdById       String?  @db.Uuid
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  enrollments CrmAutomationEnrollment[]
+
+  @@unique([scope, dealerId, key])
+  @@index([scope, dealerId, trigger, isActive])
+}
+
+/// One lead's (or ticket's) progress through an automation. The scheduler
+/// resumes it at `nextRunAt`, so a sequence survives restarts and closed
+/// browsers.
+model CrmAutomationEnrollment {
+  id            String           @id @default(uuid()) @db.Uuid
+  automationId  String           @db.Uuid
+  automation    CrmAutomation    @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  dealerId      String?          @db.Uuid
+  leadId        String?          @db.Uuid
+  lead          CrmLead?         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  ticketId      String?          @db.Uuid
+  ticket        SupportTicket?   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  status        EnrollmentStatus @default(ACTIVE)
+  currentStepId String?
+  nextRunAt     DateTime?
+  lockedUntil   DateTime?
+  attempts      Int              @default(0)
+  lastError     String?
+  stopReason    String?
+  /// Steps run so far: [{ stepId, type, at, result }].
+  history       Json             @default("[]")
+  startedAt     DateTime         @default(now())
+  finishedAt    DateTime?
+
+  @@index([status, nextRunAt])
+  @@index([automationId, status])
+  @@index([leadId, status])
+  @@index([ticketId, status])
+}
+
+model CrmNotificationPreference {
+  userId String  @db.Uuid
+  user   User    @relation("CrmNotificationPrefs", fields: [userId], references: [id], onDelete: Cascade)
+  event  String
+  inApp  Boolean @default(true)
+  email  Boolean @default(false)
+
+  @@id([userId, event])
+}
+
+/// The CRM's own audit trail (append-only), for both CRMs.
+model CrmAuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  scope      CrmScope
+  dealerId   String?  @db.Uuid
+  actorId    String?  @db.Uuid
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  @@index([scope, dealerId, createdAt])
+  @@index([entityType, entityId])
+}
+
+// --- Admin support CRM -----------------------------------------------------------
+
+model SupportCategory {
+  id       String          @id @default(uuid()) @db.Uuid
+  key      String          @unique
+  label    String
+  position Int
+  isActive Boolean         @default(true)
+  tickets  SupportTicket[]
+}
+
+model SupportTeam {
+  id        String          @id @default(uuid()) @db.Uuid
+  name      String          @unique
+  /// Admin user ids on the team, assigned round-robin.
+  memberIds String[]        @db.Uuid
+  cursor    Int             @default(0)
+  isActive  Boolean         @default(true)
+  tickets   SupportTicket[]
+}
+
+/// Platform-wide support settings (one row, id = 1).
+model SupportSettings {
+  id                  Int      @id @default(1)
+  /// Hours to first response, by priority.
+  firstResponseHours  Json     @default("{\"URGENT\":1,\"HIGH\":4,\"MEDIUM\":24,\"LOW\":72}")
+  /// Hours to resolution, by priority.
+  resolutionHours     Json     @default("{\"URGENT\":8,\"HIGH\":24,\"MEDIUM\":72,\"LOW\":168}")
+  /// Remind the requester after this many days waiting on them.
+  waitingReminderDays Int      @default(3)
+  /// Close resolved tickets after this many days without a reply.
+  autoCloseDays       Int      @default(7)
+  defaultTeamId       String?  @db.Uuid
+  updatedAt           DateTime @updatedAt
+}
+
+model SupportTicket {
+  id     String @id @default(uuid()) @db.Uuid
+  number Int    @unique @default(autoincrement())
+
+  requesterId    String? @db.Uuid
+  requester      User?   @relation("SupportTicketRequester", fields: [requesterId], references: [id], onDelete: SetNull)
+  requesterEmail String
+  requesterName  String?
+  dealerId       String? @db.Uuid
+  dealer         Dealer? @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+
+  subject            String
+  description        String           @db.Text
+  categoryId         String?          @db.Uuid
+  category           SupportCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  priority           CrmPriority      @default(MEDIUM)
+  status             TicketStatus     @default(NEW)
+  source             TicketSource     @default(ADMIN)
+  assignedToId       String?          @db.Uuid
+  assignedTo         User?            @relation("SupportTicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  teamId             String?          @db.Uuid
+  team               SupportTeam?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  dueAt              DateTime?
+  firstResponseDueAt DateTime?
+  firstResponseAt    DateTime?
+  lastPublicReplyAt  DateTime?
+  /// Who wrote last in public: REQUESTER or ADMIN.
+  lastPublicReplyBy  String?
+  waitingSince       DateTime?
+  resolvedAt         DateTime?
+  closedAt           DateTime?
+  reopenedCount      Int              @default(0)
+  resolution         String?          @db.Text
+  contactMessageId   String?          @unique @db.Uuid
+  supportChatId      String?          @db.Uuid
+  createdById        String?          @db.Uuid
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  messages    SupportTicketMessage[]
+  events      SupportTicketEvent[]
+  tags        SupportTicketTag[]
+  tasks       AdminTask[]
+  emails      CrmEmail[]
+  enrollments CrmAutomationEnrollment[]
+
+  @@index([status, priority, createdAt])
+  @@index([assignedToId, status])
+  @@index([requesterId, createdAt])
+  @@index([dealerId, createdAt])
+  @@index([categoryId, createdAt])
+  @@index([createdAt])
+}
+
+model SupportTicketTag {
+  ticketId String        @db.Uuid
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  tagId    String        @db.Uuid
+  tag      CrmTag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([ticketId, tagId])
+}
+
+/// A message on a ticket. INTERNAL notes are never returned to requesters.
+model SupportTicketMessage {
+  id          String           @id @default(uuid()) @db.Uuid
+  ticketId    String           @db.Uuid
+  ticket      SupportTicket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId    String?          @db.Uuid
+  author      User?            @relation("SupportTicketMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  /// REQUESTER, ADMIN or SYSTEM.
+  authorRole  String
+  visibility  TicketVisibility
+  body        String           @db.Text
+  emailId     String?          @db.Uuid
+  attachments Json?
+  createdAt   DateTime         @default(now())
+
+  @@index([ticketId, createdAt])
+  @@index([ticketId, visibility, createdAt])
+}
+
+/// Status changes, assignments, escalations, resolutions: the audit timeline.
+model SupportTicketEvent {
+  id        String        @id @default(uuid()) @db.Uuid
+  ticketId  String        @db.Uuid
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorId   String?       @db.Uuid
+  type      String
+  fromValue String?
+  toValue   String?
+  detail    String?
+  createdAt DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+model AdminTask {
+  id             String         @id @default(uuid()) @db.Uuid
+  type           AdminTaskType  @default(OTHER)
+  title          String
+  description    String?        @db.Text
+  assignedToId   String?        @db.Uuid
+  assignedTo     User?          @relation("AdminTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  ticketId       String?        @db.Uuid
+  ticket         SupportTicket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  dealerId       String?        @db.Uuid
+  subjectUserId  String?        @db.Uuid
+  dueAt          DateTime?
+  reminderAt     DateTime?
+  reminderSentAt DateTime?
+  priority       CrmPriority    @default(MEDIUM)
+  status         CrmTaskStatus  @default(OPEN)
+  completedAt    DateTime?
+  createdById    String?        @db.Uuid
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([assignedToId, status, dueAt])
+  @@index([status, dueAt])
+  @@index([dealerId])
+  @@index([subjectUserId])
 }

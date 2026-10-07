@@ -29,6 +29,7 @@ import {
 } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { ACCOUNTING_DEMO_STAFF, seedAccounting } from './seed-accounting';
+import { seedCrm } from './seed-crm';
 
 const prisma = new PrismaClient();
 
@@ -1193,6 +1194,9 @@ async function main(): Promise<void> {
 
   console.log('Seeding demo dealer accounting...');
   console.log(`  ${await seedAccounting(prisma, passwordHash)}`);
+
+  console.log('Seeding demo CRM (leads, tasks, a support ticket)...');
+  console.log(`  ${await seedCrm(prisma)}`);
 
   const counts = {
     users: await prisma.user.count(),

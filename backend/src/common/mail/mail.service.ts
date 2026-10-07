@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env';
@@ -9,6 +10,40 @@ export interface MailMessage {
   text: string;
   /** Where a reply goes, when not back to `from` — the sender of a Contact-page message. */
   replyTo?: string;
+}
+
+/** A full message for `deliver`: HTML with a text fallback, a display name, headers. */
+export interface RichMailMessage {
+  to: string;
+  toName?: string | null;
+  /** Display name shown with the platform's sending address. */
+  fromName?: string | null;
+  replyTo?: string | null;
+  subject: string;
+  text: string;
+  html?: string;
+  headers?: Record<string, string>;
+}
+
+export interface MailReceipt {
+  /** Which driver sent it: `smtp`, or `log` when nothing left the server. */
+  provider: string;
+  /** The provider's id for the message, for matching delivery events. */
+  messageId: string | null;
+}
+
+/**
+ * A delivery that did not happen. `permanent` failures (the server refused
+ * the address) are not worth retrying; anything else may succeed later.
+ */
+export class MailDeliveryError extends Error {
+  constructor(
+    message: string,
+    readonly permanent: boolean,
+  ) {
+    super(message);
+    this.name = 'MailDeliveryError';
+  }
 }
 
 /**
@@ -66,6 +101,60 @@ export class MailService {
       await transport.sendMail({ from: this.from, ...message });
     } catch (error) {
       this.logger.error(`Failed to send email "${message.subject}": ${String(error)}`);
+    }
+  }
+
+  /**
+   * Sends one message and reports what happened, for callers that track
+   * delivery themselves (the CRM outbox). Unlike `send`, a failure throws a
+   * `MailDeliveryError`, so the caller can retry or record a bounce.
+   */
+  async deliver(message: RichMailMessage): Promise<MailReceipt> {
+    const fromAddress = /<([^>]+)>/.exec(this.from)?.[1] ?? this.from;
+    const from = message.fromName
+      ? `"${message.fromName.replace(/["\\\r\n]/g, '')}" <${fromAddress}>`
+      : this.from;
+    const to = message.toName
+      ? `"${message.toName.replace(/["\\\r\n]/g, '')}" <${message.to}>`
+      : message.to;
+
+    if (this.driver === 'log') {
+      if (this.logBodies) {
+        this.logger.log(
+          `\n--- email (${from} -> ${to}) ---\n` +
+            (message.replyTo ? `Reply-To: ${message.replyTo}\n` : '') +
+            `Subject: ${message.subject}\n\n${message.text}\n--- end ---`,
+        );
+      } else {
+        this.logger.warn(`Email not sent (MAIL_DRIVER=log): "${message.subject}"`);
+      }
+      return { provider: 'log', messageId: `log-${randomUUID()}` };
+    }
+
+    try {
+      const transport = await this.transport();
+      const info = (await transport.sendMail({
+        from,
+        to,
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
+        replyTo: message.replyTo ?? undefined,
+        headers: message.headers,
+      })) as { messageId?: string; rejected?: unknown[] };
+      if (Array.isArray(info.rejected) && info.rejected.length > 0) {
+        throw new MailDeliveryError('The mail server rejected the recipient', true);
+      }
+      return { provider: 'smtp', messageId: info.messageId ?? null };
+    } catch (error) {
+      if (error instanceof MailDeliveryError) throw error;
+      const code = (error as { responseCode?: number }).responseCode;
+      // 5xx is the server's final answer about this address; 4xx and network
+      // errors are worth another try.
+      throw new MailDeliveryError(
+        String((error as Error).message ?? error).slice(0, 500),
+        typeof code === 'number' && code >= 500 && code < 600,
+      );
     }
   }
 

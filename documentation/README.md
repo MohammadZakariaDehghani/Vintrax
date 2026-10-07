@@ -16,6 +16,7 @@ how to work on it, and where it goes next.
 | Working on the mobile app                  | [Mobile](./mobile.md)                                |
 | Uploading or serving vehicle photos        | [Vehicle images](./images.md)                        |
 | Keeping a dealership's books               | [Dealer accounting](./accounting.md)                 |
+| Leads, follow-up and the support desk      | [CRM](./crm.md)                                      |
 | Deploying to a server                      | [Docker and production deployment](./docker.md)      |
 | Surveying the deployment options           | [Deployment](./deployment.md)                        |
 | Wondering why something is the way it is   | [Decision Log](./decision-log.md)                    |
@@ -38,6 +39,9 @@ how to work on it, and where it goes next.
   frontend's `srcset`/`<picture>`.
 - **[Dealer accounting](./accounting.md)** — the double-entry ledger, Canadian
   sales tax, dealer workflows, reports and roles.
+- **[CRM](./crm.md)** — the Dealer CRM (leads, follow-up, email, consent,
+  automations, campaigns) and Vintrax's support desk (tickets, Dealer 360,
+  User 360).
 - **[Brand](./brand.md)** — the mark, the palette, and why red is not a brand
   colour here.
 - **[Roles and transaction flows](./transaction-flow.md)** — the permission

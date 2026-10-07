@@ -49,3 +49,27 @@ describe('production secrets', () => {
     );
   });
 });
+
+describe('CRM settings', () => {
+  it('treats the empty values in the example env files as unset', () => {
+    const env = validateEnv({
+      ...base,
+      NODE_ENV: 'development',
+      CRM_WEBHOOK_SECRET: '',
+      SUPPORT_REPLY_TO: ' ',
+    });
+    expect(env.CRM_WEBHOOK_SECRET).toBeUndefined();
+    expect(env.SUPPORT_REPLY_TO).toBeUndefined();
+    expect(env.CRM_SCHEDULER_ENABLED).toBe(true);
+    expect(env.CRM_EMAIL_MAX_ATTEMPTS).toBe(5);
+  });
+
+  it('refuses a short webhook secret and a reply-to that is not an address', () => {
+    expect(() =>
+      validateEnv({ ...base, NODE_ENV: 'development', CRM_WEBHOOK_SECRET: 'short' }),
+    ).toThrow(/CRM_WEBHOOK_SECRET/);
+    expect(() =>
+      validateEnv({ ...base, NODE_ENV: 'development', SUPPORT_REPLY_TO: 'support' }),
+    ).toThrow(/SUPPORT_REPLY_TO/);
+  });
+});

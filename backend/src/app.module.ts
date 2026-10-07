@@ -46,6 +46,8 @@ import { SupportChatModule } from './modules/support-chat/support-chat.module';
 import { DealerHelpModule } from './modules/dealer-help/dealer-help.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { CrmModule } from './modules/crm/crm.module';
+import { CrmEventsModule } from './modules/crm/events/crm-events.service';
 
 @Module({
   imports: [
@@ -84,6 +86,8 @@ import { AccountingModule } from './modules/accounting/accounting.module';
     InventoryModule,
     VehicleCostsModule,
     AccountingModule,
+    CrmEventsModule,
+    CrmModule,
     FinanceModule,
     SupportChatModule,
     DealerHelpModule,

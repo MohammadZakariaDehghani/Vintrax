@@ -13,3 +13,5 @@ export * from './support-chat';
 export * from './media';
 export * from './accounting';
 export * from './accounting-schemas';
+export * from './crm';
+export * from './crm-schemas';

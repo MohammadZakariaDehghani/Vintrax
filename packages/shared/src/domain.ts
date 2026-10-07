@@ -54,6 +54,9 @@ export const PERMISSIONS = [
   'content:manage',
   'settings:manage',
   'audit:read',
+  // Working the support desk: tickets, internal notes, admin tasks, the
+  // dealer/user 360 views and the support CRM settings.
+  'support:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -101,6 +104,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'report:read',
     'audit:read',
     'content:manage',
+    'support:manage',
   ],
   SUPER_ADMIN: PERMISSIONS,
 };
@@ -543,6 +547,10 @@ export const NOTIFICATION_TYPES = [
   'MESSAGE_RECEIVED',
   'DEALER_VERIFIED',
   'SYSTEM',
+  'CRM_LEAD',
+  'CRM_TASK',
+  'CRM_APPOINTMENT',
+  'SUPPORT_TICKET',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

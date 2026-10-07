@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import type {
   ConversationDetail,
@@ -18,6 +19,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type { AuthUser } from '../../common/auth/auth-user';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CrmEvents } from '../crm/events/crm-events.service';
 import { MessagingGateway } from './messaging.gateway';
 
 /** How much of a message a notification quotes. */
@@ -128,6 +130,7 @@ export class MessagingService {
     private readonly prisma: PrismaService,
     private readonly gateway: MessagingGateway,
     private readonly notifications: NotificationsService,
+    @Optional() private readonly crmEvents?: CrmEvents,
   ) {}
 
   /**
@@ -328,6 +331,8 @@ export class MessagingService {
     void this.notifyRecipient(conversationId, message.id, senderId, body, conversation).catch(
       (error: unknown) => this.logger.warn(`Message notification failed: ${String(error)}`),
     );
+    // A buyer writing to a dealership is a lead; the dealer answering is contact.
+    this.crmEvents?.messageSent(message.id);
     return message;
   }
 
