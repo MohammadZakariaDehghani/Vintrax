@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma, type Province } from '@prisma/client';
 import {
@@ -32,6 +33,7 @@ import type { TaxCalculation } from '../tax/tax-engine';
 import { accountTotals, debitBalance } from '../reports/ledger';
 import { resolveRange } from '../reports/date-ranges';
 import { depositStatus } from './deposits.service';
+import { CrmEvents } from '../../crm/events/crm-events.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -73,6 +75,7 @@ export class SalesService {
     private readonly prisma: PrismaService,
     private readonly posting: PostingService,
     private readonly tax: TaxService,
+    @Optional() private readonly crmEvents?: CrmEvents,
   ) {}
 
   /**
@@ -360,6 +363,13 @@ export class SalesService {
 
   /** Posts a sale (creating it, or completing the given draft). */
   async post(ctx: AccountingContext, input: SaleInput, draftId?: string) {
+    const result = await this.postInTransaction(ctx, input, draftId);
+    // The CRM marks the customer's lead won and starts the post-sale lifecycle.
+    this.crmEvents?.salePosted(result.id);
+    return result;
+  }
+
+  private async postInTransaction(ctx: AccountingContext, input: SaleInput, draftId?: string) {
     return this.prisma.$transaction(
       async (tx) => {
         const vehicle = await lockDealerVehicle(tx, ctx, input.vehicleId);

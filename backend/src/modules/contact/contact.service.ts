@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type {
   ContactMessage,
   ContactMessageInput,
@@ -7,6 +7,7 @@ import type {
 } from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MailService } from '../../common/mail/mail.service';
+import { CrmEvents } from '../crm/events/crm-events.service';
 
 /** Header fields come from a visitor; a line break in one must not start a new header. */
 function singleLine(value: string): string {
@@ -20,6 +21,7 @@ export class ContactService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
+    @Optional() private readonly crmEvents?: CrmEvents,
   ) {}
 
   /**
@@ -49,6 +51,8 @@ export class ContactService {
         message: input.message,
       },
     });
+    // Every message also opens a support ticket in the Admin CRM.
+    this.crmEvents?.contactMessageReceived(saved.id);
 
     const settings = await this.prisma.siteSettings.findUnique({
       where: { id: 1 },

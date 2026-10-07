@@ -9,6 +9,8 @@ export const QUEUE_NAMES = {
   search: 'search-indexing',
   auctions: 'auction-lifecycle',
   email: 'email',
+  /** Platform events the CRM turns into leads, timeline entries and tickets. */
+  crm: 'crm',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
