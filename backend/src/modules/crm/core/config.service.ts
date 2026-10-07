@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   CRM_NOTIFICATION_EVENTS,
   DEALER_STAFF_ROLE_LABELS,
@@ -60,12 +65,20 @@ export class CrmConfigService {
     const members = await this.prisma.dealerMember.findMany({
       where: { dealerId: ctx.dealerId },
       orderBy: { createdAt: 'asc' },
-      select: { role: true, user: { select: { id: true, firstName: true, lastName: true, email: true } } },
+      select: {
+        role: true,
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      },
     });
     const teams = await this.prisma.crmTeamMember.findMany({ where: { dealerId: ctx.dealerId } });
     const teamOf = new Map(teams.map((row) => [row.userId, row.team]));
     return [
-      { ...dealer.owner, role: 'OWNER' as const, roleLabel: DEALER_STAFF_ROLE_LABELS.OWNER, team: teamOf.get(dealer.owner.id) ?? null },
+      {
+        ...dealer.owner,
+        role: 'OWNER' as const,
+        roleLabel: DEALER_STAFF_ROLE_LABELS.OWNER,
+        team: teamOf.get(dealer.owner.id) ?? null,
+      },
       ...members
         .filter((member) => member.user.id !== dealer.owner.id)
         .map((member) => ({
@@ -78,10 +91,18 @@ export class CrmConfigService {
   }
 
   async updateSettings(ctx: CrmContext, input: CrmSettingsInput) {
-    const before = await this.prisma.crmSettings.findUniqueOrThrow({ where: { dealerId: ctx.dealerId } });
+    const before = await this.prisma.crmSettings.findUniqueOrThrow({
+      where: { dealerId: ctx.dealerId },
+    });
     return this.prisma.$transaction(async (tx) => {
       const after = await tx.crmSettings.update({ where: { dealerId: ctx.dealerId }, data: input });
-      await crmAudit(tx, ctx, { action: 'settings.updated', entityType: 'CrmSettings', entityId: ctx.dealerId, before, after: input });
+      await crmAudit(tx, ctx, {
+        action: 'settings.updated',
+        entityType: 'CrmSettings',
+        entityId: ctx.dealerId,
+        before,
+        after: input,
+      });
       return after;
     });
   }
@@ -98,7 +119,10 @@ export class CrmConfigService {
 
   async createStatus(ctx: CrmContext, input: LeadStatusConfigInput) {
     const key = input.key ?? keyOf(input.label);
-    const last = await this.prisma.crmLeadStatus.aggregate({ where: { dealerId: ctx.dealerId }, _max: { position: true } });
+    const last = await this.prisma.crmLeadStatus.aggregate({
+      where: { dealerId: ctx.dealerId },
+      _max: { position: true },
+    });
     try {
       return await this.prisma.crmLeadStatus.create({
         data: {
@@ -117,7 +141,9 @@ export class CrmConfigService {
   }
 
   async updateStatus(ctx: CrmContext, id: string, input: LeadStatusConfigInput) {
-    const status = await this.prisma.crmLeadStatus.findFirst({ where: { id, dealerId: ctx.dealerId } });
+    const status = await this.prisma.crmLeadStatus.findFirst({
+      where: { id, dealerId: ctx.dealerId },
+    });
     if (!status) throw new NotFoundException('Status not found');
     // The engine relies on these keys; their meaning cannot change.
     if (['NEW', 'WON', 'LOST'].includes(status.key) && input.kind !== status.kind) {
@@ -125,18 +151,28 @@ export class CrmConfigService {
     }
     return this.prisma.crmLeadStatus.update({
       where: { id },
-      data: { label: input.label, kind: input.kind, inPipeline: input.inPipeline, isActive: input.isActive },
+      data: {
+        label: input.label,
+        kind: input.kind,
+        inPipeline: input.inPipeline,
+        isActive: input.isActive,
+      },
     });
   }
 
   async reorderStatuses(ctx: CrmContext, ids: string[]) {
-    const statuses = await this.prisma.crmLeadStatus.findMany({ where: { dealerId: ctx.dealerId }, select: { id: true } });
+    const statuses = await this.prisma.crmLeadStatus.findMany({
+      where: { dealerId: ctx.dealerId },
+      select: { id: true },
+    });
     const known = new Set(statuses.map((row) => row.id));
     if (ids.length !== known.size || ids.some((id) => !known.has(id))) {
       throw new BadRequestException('List every status exactly once');
     }
     await this.prisma.$transaction(
-      ids.map((id, position) => this.prisma.crmLeadStatus.update({ where: { id }, data: { position } })),
+      ids.map((id, position) =>
+        this.prisma.crmLeadStatus.update({ where: { id }, data: { position } }),
+      ),
     );
     return this.statuses(ctx);
   }
@@ -148,10 +184,14 @@ export class CrmConfigService {
     });
     if (!status) throw new NotFoundException('Status not found');
     if (['NEW', 'CONTACTED', 'WON', 'LOST', 'NURTURE'].includes(status.key)) {
-      throw new BadRequestException(`${status.label} is used by automations; switch it off instead`);
+      throw new BadRequestException(
+        `${status.label} is used by automations; switch it off instead`,
+      );
     }
     if (status._count.leads > 0) {
-      throw new ConflictException(`${status._count.leads} lead(s) have this status; move them first or switch it off`);
+      throw new ConflictException(
+        `${status._count.leads} lead(s) have this status; move them first or switch it off`,
+      );
     }
     await this.prisma.crmLeadStatus.delete({ where: { id } });
   }
@@ -183,7 +223,9 @@ export class CrmConfigService {
   }
 
   async updateSource(ctx: CrmContext, id: string, input: LeadSourceInput) {
-    const source = await this.prisma.crmLeadSource.findFirst({ where: { id, dealerId: ctx.dealerId } });
+    const source = await this.prisma.crmLeadSource.findFirst({
+      where: { id, dealerId: ctx.dealerId },
+    });
     if (!source) throw new NotFoundException('Source not found');
     return this.prisma.crmLeadSource.update({
       where: { id },
@@ -203,20 +245,30 @@ export class CrmConfigService {
 
   async createTag(ctx: CrmContext, input: TagInput) {
     const existing = await this.prisma.crmTag.findFirst({
-      where: { scope: 'DEALER', dealerId: ctx.dealerId, name: { equals: input.name, mode: 'insensitive' } },
+      where: {
+        scope: 'DEALER',
+        dealerId: ctx.dealerId,
+        name: { equals: input.name, mode: 'insensitive' },
+      },
     });
     if (existing) throw new ConflictException('That tag already exists');
-    return this.prisma.crmTag.create({ data: { scope: 'DEALER', dealerId: ctx.dealerId, ...input } });
+    return this.prisma.crmTag.create({
+      data: { scope: 'DEALER', dealerId: ctx.dealerId, ...input },
+    });
   }
 
   async updateTag(ctx: CrmContext, id: string, input: TagInput) {
-    const tag = await this.prisma.crmTag.findFirst({ where: { id, scope: 'DEALER', dealerId: ctx.dealerId } });
+    const tag = await this.prisma.crmTag.findFirst({
+      where: { id, scope: 'DEALER', dealerId: ctx.dealerId },
+    });
     if (!tag) throw new NotFoundException('Tag not found');
     return this.prisma.crmTag.update({ where: { id }, data: input });
   }
 
   async deleteTag(ctx: CrmContext, id: string) {
-    const tag = await this.prisma.crmTag.findFirst({ where: { id, scope: 'DEALER', dealerId: ctx.dealerId } });
+    const tag = await this.prisma.crmTag.findFirst({
+      where: { id, scope: 'DEALER', dealerId: ctx.dealerId },
+    });
     if (!tag) throw new NotFoundException('Tag not found');
     await this.prisma.crmTag.delete({ where: { id } });
   }
@@ -254,9 +306,17 @@ export class CrmConfigService {
         where: { dealerId: ctx.dealerId },
         data: { hotThreshold: input.hotThreshold, warmThreshold: input.warmThreshold },
       });
-      await crmAudit(tx, ctx, { action: 'scoring.updated', entityType: 'CrmScoringRule', before, after: input });
+      await crmAudit(tx, ctx, {
+        action: 'scoring.updated',
+        entityType: 'CrmScoringRule',
+        before,
+        after: input,
+      });
     });
-    if (before.hotThreshold !== input.hotThreshold || before.warmThreshold !== input.warmThreshold) {
+    if (
+      before.hotThreshold !== input.hotThreshold ||
+      before.warmThreshold !== input.warmThreshold
+    ) {
       await this.scoring.retemper(ctx.dealerId, input.hotThreshold, input.warmThreshold);
     }
     return this.scoringRules(ctx);
@@ -266,37 +326,56 @@ export class CrmConfigService {
 
   async assignment(ctx: CrmContext) {
     const [rules, teams, settings] = await Promise.all([
-      this.prisma.crmAssignmentRule.findMany({ where: { dealerId: ctx.dealerId }, orderBy: { position: 'asc' } }),
+      this.prisma.crmAssignmentRule.findMany({
+        where: { dealerId: ctx.dealerId },
+        orderBy: { position: 'asc' },
+      }),
       this.prisma.crmTeamMember.findMany({ where: { dealerId: ctx.dealerId } }),
-      this.prisma.crmSettings.findUniqueOrThrow({ where: { dealerId: ctx.dealerId }, select: { assignmentMode: true } }),
+      this.prisma.crmSettings.findUniqueOrThrow({
+        where: { dealerId: ctx.dealerId },
+        select: { assignmentMode: true },
+      }),
     ]);
     return { mode: settings.assignmentMode, rules, teams };
   }
 
   async createRule(ctx: CrmContext, input: AssignmentRuleInput) {
-    const last = await this.prisma.crmAssignmentRule.aggregate({ where: { dealerId: ctx.dealerId }, _max: { position: true } });
+    const last = await this.prisma.crmAssignmentRule.aggregate({
+      where: { dealerId: ctx.dealerId },
+      _max: { position: true },
+    });
     const rule = await this.prisma.crmAssignmentRule.create({
       data: { dealerId: ctx.dealerId, position: (last._max.position ?? -1) + 1, ...input },
     });
-    await crmAudit(this.prisma, ctx, { action: 'assignment_rule.created', entityType: 'CrmAssignmentRule', entityId: rule.id, after: input });
+    await crmAudit(this.prisma, ctx, {
+      action: 'assignment_rule.created',
+      entityType: 'CrmAssignmentRule',
+      entityId: rule.id,
+      after: input,
+    });
     return rule;
   }
 
   async updateRule(ctx: CrmContext, id: string, input: AssignmentRuleInput) {
-    const rule = await this.prisma.crmAssignmentRule.findFirst({ where: { id, dealerId: ctx.dealerId } });
+    const rule = await this.prisma.crmAssignmentRule.findFirst({
+      where: { id, dealerId: ctx.dealerId },
+    });
     if (!rule) throw new NotFoundException('Rule not found');
     return this.prisma.crmAssignmentRule.update({ where: { id }, data: input });
   }
 
   async deleteRule(ctx: CrmContext, id: string) {
-    const rule = await this.prisma.crmAssignmentRule.findFirst({ where: { id, dealerId: ctx.dealerId } });
+    const rule = await this.prisma.crmAssignmentRule.findFirst({
+      where: { id, dealerId: ctx.dealerId },
+    });
     if (!rule) throw new NotFoundException('Rule not found');
     await this.prisma.crmAssignmentRule.delete({ where: { id } });
   }
 
   async setTeam(ctx: CrmContext, userId: string, team: string | null) {
     const staff = await this.staff(ctx);
-    if (!staff.some((member) => member.id === userId)) throw new BadRequestException('Not on this dealership’s staff');
+    if (!staff.some((member) => member.id === userId))
+      throw new BadRequestException('Not on this dealership’s staff');
     if (!team) {
       await this.prisma.crmTeamMember.deleteMany({ where: { dealerId: ctx.dealerId, userId } });
       return null;

@@ -23,11 +23,14 @@ export function verifyLink(secret: string, token: string, url: string, signature
 
 /** Routes every http(s) link in the HTML through the click tracker. */
 export function trackLinks(html: string, base: string, secret: string, token: string): string {
-  return html.replace(/<a\s([^>]*?)href="(https?:\/\/[^"]+)"/gi, (_match, before: string, href: string) => {
-    const url = href.replace(/&amp;/g, '&');
-    const tracked = `${base}/api/crm/t/c/${token}?u=${encodeURIComponent(url)}&s=${signLink(secret, token, url)}`;
-    return `<a ${before}href="${tracked.replace(/&/g, '&amp;')}"`;
-  });
+  return html.replace(
+    /<a\s([^>]*?)href="(https?:\/\/[^"]+)"/gi,
+    (_match, before: string, href: string) => {
+      const url = href.replace(/&amp;/g, '&');
+      const tracked = `${base}/api/crm/t/c/${token}?u=${encodeURIComponent(url)}&s=${signLink(secret, token, url)}`;
+      return `<a ${before}href="${tracked.replace(/&/g, '&amp;')}"`;
+    },
+  );
 }
 
 export function openPixel(base: string, token: string): string {
@@ -39,4 +42,7 @@ export function unsubscribeUrl(appUrl: string, token: string): string {
 }
 
 /** A transparent 1×1 GIF. */
-export const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+export const PIXEL = Buffer.from(
+  'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+  'base64',
+);

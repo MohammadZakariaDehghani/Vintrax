@@ -50,10 +50,17 @@ const pageSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 });
-const enrollmentQuerySchema = z.object({ status: z.enum(['ACTIVE', 'WAITING', 'COMPLETED', 'STOPPED', 'FAILED']).optional() });
+const enrollmentQuerySchema = z.object({
+  status: z.enum(['ACTIVE', 'WAITING', 'COMPLETED', 'STOPPED', 'FAILED']).optional(),
+});
 
 function owner(ctx: CrmContext): AutomationOwner {
-  return { scope: 'DEALER', dealerId: ctx.dealerId, actor: { id: ctx.userId, email: ctx.actorEmail }, ctx };
+  return {
+    scope: 'DEALER',
+    dealerId: ctx.dealerId,
+    actor: { id: ctx.userId, email: ctx.actorEmail },
+    ctx,
+  };
 }
 
 /** Dealer CRM: automations, reports, settings, notification preferences and the audit log. */
@@ -85,20 +92,31 @@ export class CrmSettingsController {
   @Post('automations')
   @RequireCrm('crm.automations')
   @ApiOperation({ summary: 'Create an automation' })
-  createAutomation(@Crm() ctx: CrmContext, @Body(zodBody(automationSchema)) input: AutomationInput) {
+  createAutomation(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(automationSchema)) input: AutomationInput,
+  ) {
     return this.automations.create(owner(ctx), input);
   }
 
   @Put('automations/:id')
   @RequireCrm('crm.automations')
-  updateAutomation(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(automationSchema)) input: AutomationInput) {
+  updateAutomation(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(automationSchema)) input: AutomationInput,
+  ) {
     return this.automations.update(owner(ctx), id, input);
   }
 
   @Post('automations/:id/active')
   @RequireCrm('crm.automations')
   @ApiOperation({ summary: 'Turn an automation on or off (off stops running enrollments)' })
-  setActive(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(activeSchema)) input: { isActive: boolean }) {
+  setActive(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(activeSchema)) input: { isActive: boolean },
+  ) {
     return this.automations.setActive(owner(ctx), id, input.isActive);
   }
 
@@ -115,7 +133,11 @@ export class CrmSettingsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query(zodQuery(enrollmentQuerySchema)) query: { status?: string },
   ) {
-    return this.automations.enrollments({ scope: 'DEALER', dealerId: ctx.dealerId }, id, query.status);
+    return this.automations.enrollments(
+      { scope: 'DEALER', dealerId: ctx.dealerId },
+      id,
+      query.status,
+    );
   }
 
   @Post('automations/:id/enroll')
@@ -167,7 +189,9 @@ export class CrmSettingsController {
 
   @Put('settings')
   @RequireCrm('crm.settings')
-  @ApiOperation({ summary: 'Business hours, follow-up targets, assignment, sender identity and consent defaults' })
+  @ApiOperation({
+    summary: 'Business hours, follow-up targets, assignment, sender identity and consent defaults',
+  })
   settings(@Crm() ctx: CrmContext, @Body(zodBody(crmSettingsSchema)) input: CrmSettingsInput) {
     return this.config.updateSettings(ctx, input);
   }
@@ -179,7 +203,10 @@ export class CrmSettingsController {
 
   @Post('statuses')
   @RequireCrm('crm.settings')
-  createStatus(@Crm() ctx: CrmContext, @Body(zodBody(leadStatusConfigSchema)) input: LeadStatusConfigInput) {
+  createStatus(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(leadStatusConfigSchema)) input: LeadStatusConfigInput,
+  ) {
     return this.config.createStatus(ctx, input);
   }
 
@@ -191,7 +218,11 @@ export class CrmSettingsController {
 
   @Put('statuses/:id')
   @RequireCrm('crm.settings')
-  updateStatus(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(leadStatusConfigSchema)) input: LeadStatusConfigInput) {
+  updateStatus(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(leadStatusConfigSchema)) input: LeadStatusConfigInput,
+  ) {
     return this.config.updateStatus(ctx, id, input);
   }
 
@@ -215,7 +246,11 @@ export class CrmSettingsController {
 
   @Put('sources/:id')
   @RequireCrm('crm.settings')
-  updateSource(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(leadSourceSchema)) input: LeadSourceInput) {
+  updateSource(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(leadSourceSchema)) input: LeadSourceInput,
+  ) {
     return this.config.updateSource(ctx, id, input);
   }
 
@@ -232,7 +267,11 @@ export class CrmSettingsController {
 
   @Put('tags/:id')
   @RequireCrm('crm.manage')
-  updateTag(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(tagSchema)) input: TagInput) {
+  updateTag(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(tagSchema)) input: TagInput,
+  ) {
     return this.config.updateTag(ctx, id, input);
   }
 
@@ -262,13 +301,20 @@ export class CrmSettingsController {
 
   @Post('assignment/rules')
   @RequireCrm('crm.settings')
-  createRule(@Crm() ctx: CrmContext, @Body(zodBody(assignmentRuleSchema)) input: AssignmentRuleInput) {
+  createRule(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(assignmentRuleSchema)) input: AssignmentRuleInput,
+  ) {
     return this.config.createRule(ctx, input);
   }
 
   @Put('assignment/rules/:id')
   @RequireCrm('crm.settings')
-  updateRule(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(assignmentRuleSchema)) input: AssignmentRuleInput) {
+  updateRule(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(assignmentRuleSchema)) input: AssignmentRuleInput,
+  ) {
     return this.config.updateRule(ctx, id, input);
   }
 
@@ -282,7 +328,11 @@ export class CrmSettingsController {
   @Put('teams/:userId')
   @RequireCrm('crm.settings')
   @ApiOperation({ summary: 'Put a salesperson on a team (or none)' })
-  setTeam(@Crm() ctx: CrmContext, @Param('userId', ParseUUIDPipe) userId: string, @Body(zodBody(teamSchema)) input: { team: string | null }) {
+  setTeam(
+    @Crm() ctx: CrmContext,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body(zodBody(teamSchema)) input: { team: string | null },
+  ) {
     return this.config.setTeam(ctx, userId, input.team);
   }
 
@@ -293,7 +343,10 @@ export class CrmSettingsController {
 
   @Put('notification-preferences')
   @ApiOperation({ summary: 'Your own CRM notification preferences' })
-  setNotificationPrefs(@Crm() ctx: CrmContext, @Body(zodBody(notificationPrefsSchema)) input: NotificationPrefsInput) {
+  setNotificationPrefs(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(notificationPrefsSchema)) input: NotificationPrefsInput,
+  ) {
     return this.config.setNotificationPrefs(ctx.userId, input);
   }
 }

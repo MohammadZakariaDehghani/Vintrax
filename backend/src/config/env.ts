@@ -180,9 +180,23 @@ const baseEnvSchema = z.object({
    * Shared secret for an email provider's delivery webhook (bounces,
    * deliveries, complaints) at POST /api/crm/webhooks/email. Unset disables it.
    */
-  CRM_WEBHOOK_SECRET: z.string().min(16).optional(),
+  CRM_WEBHOOK_SECRET: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine(
+      (value) => !value || value.length >= 16,
+      'CRM_WEBHOOK_SECRET must be at least 16 characters',
+    ),
   /** Reply-To for support emails; MAIL_FROM when unset. */
-  SUPPORT_REPLY_TO: z.string().email().optional(),
+  SUPPORT_REPLY_TO: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine(
+      (value) => !value || z.string().email().safeParse(value).success,
+      'SUPPORT_REPLY_TO must be an email address',
+    ),
 
   // --- Rate limiting ---
   RATE_LIMIT_TTL_MS: z.coerce.number().int().min(1000).default(60_000),

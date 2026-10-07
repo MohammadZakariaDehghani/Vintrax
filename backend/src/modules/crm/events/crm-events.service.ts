@@ -47,7 +47,9 @@ export class CrmEvents {
   private emit(job: CrmEventJob, jobId: string): void {
     this.queue
       .enqueue(QUEUE_NAMES.crm, job.name, job.data, { jobId, attempts: 5 })
-      .catch((error: unknown) => this.logger.warn(`Could not enqueue CRM ${job.name} event: ${String(error)}`));
+      .catch((error: unknown) =>
+        this.logger.warn(`Could not enqueue CRM ${job.name} event: ${String(error)}`),
+      );
   }
 }
 

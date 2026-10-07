@@ -34,7 +34,12 @@ const STOP_FOR: Partial<Record<CrmSignalType, StopCondition>> = {
 
 const TRIGGERS = new Set<string>([...DEALER_TRIGGERS, ...SUPPORT_TRIGGERS]);
 /** Triggers about one appointment: the same lead can be enrolled once per appointment. */
-const PER_APPOINTMENT = new Set<string>(['APPOINTMENT_CREATED', 'APPOINTMENT_CONFIRMED', 'APPOINTMENT_CANCELLED', 'APPOINTMENT_COMPLETED']);
+const PER_APPOINTMENT = new Set<string>([
+  'APPOINTMENT_CREATED',
+  'APPOINTMENT_CONFIRMED',
+  'APPOINTMENT_CANCELLED',
+  'APPOINTMENT_COMPLETED',
+]);
 const MAX_STEPS_PER_RUN = 25;
 const MAX_ATTEMPTS = 5;
 
@@ -120,8 +125,14 @@ export class AutomationEngine implements OnModuleInit {
     return enrolled;
   }
 
-  private async matchesTrigger(automation: CrmAutomation, signal: Omit<CrmSignal, 'type'>): Promise<boolean> {
-    const config = (automation.triggerConfig ?? {}) as { statusKey?: string; conditions?: AutomationStep['config']['conditions'] };
+  private async matchesTrigger(
+    automation: CrmAutomation,
+    signal: Omit<CrmSignal, 'type'>,
+  ): Promise<boolean> {
+    const config = (automation.triggerConfig ?? {}) as {
+      statusKey?: string;
+      conditions?: AutomationStep['config']['conditions'];
+    };
     if (config.statusKey && signal.statusKey !== config.statusKey) return false;
     if (!config.conditions?.length) return true;
     const facts = signal.leadId
@@ -170,7 +181,13 @@ export class AutomationEngine implements OnModuleInit {
           currentStepId: steps[0]!.id,
           nextRunAt: now,
           history: [
-            { type: 'ENROLLED', at: now.toISOString(), result: note, appointmentId: target.appointmentId ?? null, version: automation.version },
+            {
+              type: 'ENROLLED',
+              at: now.toISOString(),
+              result: note,
+              appointmentId: target.appointmentId ?? null,
+              version: automation.version,
+            },
           ] as unknown as Prisma.InputJsonValue,
         },
       });
@@ -202,12 +219,19 @@ export class AutomationEngine implements OnModuleInit {
     if (signal.leadId) where.leadId = signal.leadId;
     else if (signal.ticketId) where.ticketId = signal.ticketId;
     else return;
-    const enrollments = await this.prisma.crmAutomationEnrollment.findMany({ where, select: { id: true } });
+    const enrollments = await this.prisma.crmAutomationEnrollment.findMany({
+      where,
+      select: { id: true },
+    });
     for (const { id } of enrollments) await this.stop(id, condition);
   }
 
   /** Stops an enrollment and cancels anything it queued that has not gone yet. */
-  async stop(enrollmentId: string, reason: string, status: 'STOPPED' | 'COMPLETED' | 'FAILED' = 'STOPPED') {
+  async stop(
+    enrollmentId: string,
+    reason: string,
+    status: 'STOPPED' | 'COMPLETED' | 'FAILED' = 'STOPPED',
+  ) {
     const now = new Date();
     const enrollment = await this.prisma.crmAutomationEnrollment.findUnique({
       where: { id: enrollmentId },
@@ -236,7 +260,11 @@ export class AutomationEngine implements OnModuleInit {
       }
       if (enrollment.ticketId) {
         await tx.supportTicketEvent.create({
-          data: { ticketId: enrollment.ticketId, type: 'AUTOMATION_STOPPED', detail: `${enrollment.automation.name}: ${reason}` },
+          data: {
+            ticketId: enrollment.ticketId,
+            type: 'AUTOMATION_STOPPED',
+            detail: `${enrollment.automation.name}: ${reason}`,
+          },
         });
       }
     });
@@ -249,25 +277,44 @@ export class AutomationEngine implements OnModuleInit {
     if (enrollment.leadId) {
       const lead = await this.prisma.crmLead.findUnique({
         where: { id: enrollment.leadId },
-        select: { mergedIntoId: true, lastRepliedAt: true, emailNormalized: true, dealerId: true, status: { select: { kind: true } } },
+        select: {
+          mergedIntoId: true,
+          lastRepliedAt: true,
+          emailNormalized: true,
+          dealerId: true,
+          status: { select: { kind: true } },
+        },
       });
       if (!lead || lead.mergedIntoId) return 'LEAD_REMOVED';
       if (stops.has('WON') && lead.status.kind === 'WON') return 'WON';
       if (stops.has('LOST') && lead.status.kind === 'LOST') return 'LOST';
-      if (stops.has('REPLIED') && lead.lastRepliedAt && lead.lastRepliedAt > enrollment.startedAt) return 'REPLIED';
+      if (stops.has('REPLIED') && lead.lastRepliedAt && lead.lastRepliedAt > enrollment.startedAt)
+        return 'REPLIED';
       if (stops.has('APPOINTMENT_COMPLETED')) {
         const done = await this.prisma.crmAppointment.count({
-          where: { leadId: enrollment.leadId, status: 'COMPLETED', updatedAt: { gt: enrollment.startedAt } },
+          where: {
+            leadId: enrollment.leadId,
+            status: 'COMPLETED',
+            updatedAt: { gt: enrollment.startedAt },
+          },
         });
         if (done > 0) return 'APPOINTMENT_COMPLETED';
       }
       if (lead.emailNormalized && (stops.has('UNSUBSCRIBED') || stops.has('EMAIL_INVALID'))) {
         const suppressions = await this.prisma.crmSuppression.findMany({
-          where: { email: lead.emailNormalized, OR: [{ dealerId: lead.dealerId }, { dealerId: null }] },
+          where: {
+            email: lead.emailNormalized,
+            OR: [{ dealerId: lead.dealerId }, { dealerId: null }],
+          },
           select: { reason: true },
         });
-        if (stops.has('UNSUBSCRIBED') && suppressions.some((row) => row.reason === 'UNSUBSCRIBED')) return 'UNSUBSCRIBED';
-        if (stops.has('EMAIL_INVALID') && suppressions.some((row) => HARD_SUPPRESSIONS.includes(row.reason))) return 'EMAIL_INVALID';
+        if (stops.has('UNSUBSCRIBED') && suppressions.some((row) => row.reason === 'UNSUBSCRIBED'))
+          return 'UNSUBSCRIBED';
+        if (
+          stops.has('EMAIL_INVALID') &&
+          suppressions.some((row) => HARD_SUPPRESSIONS.includes(row.reason))
+        )
+          return 'EMAIL_INVALID';
       }
     }
     if (enrollment.ticketId) {
@@ -325,11 +372,19 @@ export class AutomationEngine implements OnModuleInit {
         if (!step) return await this.stop(enrollmentId, 'FINISHED', 'COMPLETED');
 
         const result = await this.execute(step, enrollment, history, now);
-        history.push({ stepId: step.id, type: step.type, at: now.toISOString(), result: result.note });
+        history.push({
+          stepId: step.id,
+          type: step.type,
+          at: now.toISOString(),
+          result: result.note,
+        });
         const trimmed = history.slice(-200) as unknown as Prisma.InputJsonValue;
 
         if (result.end) {
-          await this.prisma.crmAutomationEnrollment.update({ where: { id: enrollmentId }, data: { history: trimmed } });
+          await this.prisma.crmAutomationEnrollment.update({
+            where: { id: enrollmentId },
+            data: { history: trimmed },
+          });
           return await this.stop(enrollmentId, 'STOP_STEP', 'COMPLETED');
         }
         if (result.wait) {
@@ -350,7 +405,13 @@ export class AutomationEngine implements OnModuleInit {
         }
         enrollment = await this.prisma.crmAutomationEnrollment.update({
           where: { id: enrollmentId },
-          data: { currentStepId: result.next ?? null, status: 'ACTIVE', attempts: 0, lastError: null, history: trimmed },
+          data: {
+            currentStepId: result.next ?? null,
+            status: 'ACTIVE',
+            attempts: 0,
+            lastError: null,
+            history: trimmed,
+          },
           include: { automation: true },
         });
         if (!result.next) return await this.stop(enrollmentId, 'FINISHED', 'COMPLETED');
@@ -363,7 +424,9 @@ export class AutomationEngine implements OnModuleInit {
     } catch (error) {
       const attempts = enrollment.attempts + 1;
       const message = String((error as Error).message ?? error).slice(0, 500);
-      this.logger.warn(`Automation enrollment ${enrollmentId} step ${enrollment.currentStepId} failed (attempt ${attempts}): ${message}`);
+      this.logger.warn(
+        `Automation enrollment ${enrollmentId} step ${enrollment.currentStepId} failed (attempt ${attempts}): ${message}`,
+      );
       if (attempts >= MAX_ATTEMPTS) {
         await this.prisma.crmAutomationEnrollment.update({
           where: { id: enrollmentId },
@@ -384,7 +447,12 @@ export class AutomationEngine implements OnModuleInit {
     }
   }
 
-  private async execute(step: AutomationStep, enrollment: Enrollment, history: HistoryEntry[], now: Date): Promise<StepResult> {
+  private async execute(
+    step: AutomationStep,
+    enrollment: Enrollment,
+    history: HistoryEntry[],
+    now: Date,
+  ): Promise<StepResult> {
     const automation = enrollment.automation;
     const config = step.config ?? {};
     const ctx = automation.dealerId ? await this.dealerContext(automation.dealerId) : null;
@@ -393,20 +461,32 @@ export class AutomationEngine implements OnModuleInit {
 
     switch (step.type) {
       case 'WAIT':
-        return { next: step.next, wait: new Date(now.getTime() + (config.minutes ?? 0) * 60_000), note: `Waiting ${config.minutes} min` };
+        return {
+          next: step.next,
+          wait: new Date(now.getTime() + (config.minutes ?? 0) * 60_000),
+          note: `Waiting ${config.minutes} min`,
+        };
 
       case 'CONDITION': {
-        const facts = leadId ? await leadFacts(this.prisma, leadId, now) : ticketId ? await ticketFacts(this.prisma, ticketId) : null;
+        const facts = leadId
+          ? await leadFacts(this.prisma, leadId, now)
+          : ticketId
+            ? await ticketFacts(this.prisma, ticketId)
+            : null;
         const yes = !!facts && evaluateAll(config.conditions, facts);
         return { next: yes ? step.yes : step.no, note: yes ? 'yes' : 'no' };
       }
 
       case 'SEND_EMAIL': {
         const template = await this.template(automation, config);
-        if (!template) return { next: step.next, note: 'Skipped: template missing or switched off' };
+        if (!template)
+          return { next: step.next, note: 'Skipped: template missing or switched off' };
         const key = `auto:${enrollment.id}:${step.id}`;
         if (ctx && leadId) {
-          const lead = await this.prisma.crmLead.findUnique({ where: { id: leadId }, select: { email: true, assignedToId: true } });
+          const lead = await this.prisma.crmLead.findUnique({
+            where: { id: leadId },
+            select: { email: true, assignedToId: true },
+          });
           if (config.toSalesperson ? !lead?.assignedToId : !lead?.email) {
             return { next: step.next, note: 'Skipped: no email address' };
           }
@@ -423,7 +503,13 @@ export class AutomationEngine implements OnModuleInit {
             toSalesperson: config.toSalesperson,
             idempotencyKey: key,
           });
-          return { next: step.next, note: result.status === 'SUPPRESSED' ? `Not sent: ${result.reason}` : `Email ${result.status.toLowerCase()}` };
+          return {
+            next: step.next,
+            note:
+              result.status === 'SUPPRESSED'
+                ? `Not sent: ${result.reason}`
+                : `Email ${result.status.toLowerCase()}`,
+          };
         }
         if (ticketId) {
           const result = await this.outbox.queueTicketEmail({
@@ -441,13 +527,20 @@ export class AutomationEngine implements OnModuleInit {
       }
 
       case 'CREATE_TASK': {
-        const due = config.dueInMinutes !== undefined ? new Date(now.getTime() + config.dueInMinutes * 60_000) : null;
+        const due =
+          config.dueInMinutes !== undefined
+            ? new Date(now.getTime() + config.dueInMinutes * 60_000)
+            : null;
         if (ctx && leadId) {
           const lead = await this.prisma.crmLead.findUniqueOrThrow({
             where: { id: leadId },
             select: { firstName: true, lastName: true, assignedToId: true },
           });
-          const title = `${config.title}: ${[lead.firstName, lead.lastName].filter(Boolean).join(' ')}`.slice(0, 160);
+          const title =
+            `${config.title}: ${[lead.firstName, lead.lastName].filter(Boolean).join(' ')}`.slice(
+              0,
+              160,
+            );
           // A retried step finds the task it already made.
           const existing = await this.prisma.crmTask.findFirst({
             where: { leadId, title, createdById: null, createdAt: { gte: enrollment.startedAt } },
@@ -456,7 +549,9 @@ export class AutomationEngine implements OnModuleInit {
           if (!existing) {
             await this.work.createTask(ctx, {
               title,
-              description: [config.body, `Created by the “${automation.name}” automation.`].filter(Boolean).join('\n\n'),
+              description: [config.body, `Created by the “${automation.name}” automation.`]
+                .filter(Boolean)
+                .join('\n\n'),
               leadId,
               assignedToId: lead.assignedToId,
               vehicleId: null,
@@ -470,9 +565,17 @@ export class AutomationEngine implements OnModuleInit {
           return { next: step.next, note: existing ? 'Task already created' : 'Task created' };
         }
         if (ticketId) {
-          const ticket = await this.prisma.supportTicket.findUniqueOrThrow({ where: { id: ticketId }, select: { assignedToId: true, dealerId: true, requesterId: true } });
+          const ticket = await this.prisma.supportTicket.findUniqueOrThrow({
+            where: { id: ticketId },
+            select: { assignedToId: true, dealerId: true, requesterId: true },
+          });
           const existing = await this.prisma.adminTask.findFirst({
-            where: { ticketId, title: config.title!, createdById: null, createdAt: { gte: enrollment.startedAt } },
+            where: {
+              ticketId,
+              title: config.title!,
+              createdById: null,
+              createdAt: { gte: enrollment.startedAt },
+            },
           });
           if (!existing) {
             await this.prisma.adminTask.create({
@@ -497,11 +600,17 @@ export class AutomationEngine implements OnModuleInit {
         if (ctx && leadId) {
           const lead = await this.prisma.crmLead.findUniqueOrThrow({
             where: { id: leadId },
-            select: { assignedToId: true, sourceId: true, province: true, vehicle: { select: { make: true } } },
+            select: {
+              assignedToId: true,
+              sourceId: true,
+              province: true,
+              vehicle: { select: { make: true } },
+            },
           });
           let userId = config.userId ?? null;
           if (!userId) {
-            if (lead.assignedToId && !config.team) return { next: step.next, note: 'Already assigned' };
+            if (lead.assignedToId && !config.team)
+              return { next: step.next, note: 'Already assigned' };
             const picked = await this.assignment.pick({
               dealerId: ctx.dealerId,
               sourceId: lead.sourceId,
@@ -515,7 +624,8 @@ export class AutomationEngine implements OnModuleInit {
           return { next: step.next, note: 'Assigned' };
         }
         if (ticketId) {
-          if (config.userId) await this.tickets.update(SYSTEM_ACTOR, ticketId, { assignedToId: config.userId });
+          if (config.userId)
+            await this.tickets.update(SYSTEM_ACTOR, ticketId, { assignedToId: config.userId });
           else await this.tickets.autoAssign(ticketId);
           return { next: step.next, note: 'Assigned' };
         }
@@ -525,7 +635,10 @@ export class AutomationEngine implements OnModuleInit {
       case 'SET_STATUS':
         if (ctx && leadId && config.statusKey) {
           const result = await this.leads.setStatusByKey(ctx, leadId, config.statusKey);
-          return { next: step.next, note: result.changed ? `Status ${config.statusKey}` : 'Status unchanged' };
+          return {
+            next: step.next,
+            note: result.changed ? `Status ${config.statusKey}` : 'Status unchanged',
+          };
         }
         if (ticketId && config.ticketStatus) {
           await this.tickets.setStatus(SYSTEM_ACTOR, ticketId, config.ticketStatus);
@@ -541,15 +654,27 @@ export class AutomationEngine implements OnModuleInit {
       case 'REMOVE_TAG': {
         if (!ctx || !leadId || !config.tag) return { next: step.next };
         if (step.type === 'ADD_TAG') {
-          await this.prisma.$transaction((tx) => this.leads.applyTags(tx, ctx, leadId, [config.tag!], false));
+          await this.prisma.$transaction((tx) =>
+            this.leads.applyTags(tx, ctx, leadId, [config.tag!], false),
+          );
         } else {
-          const current = await this.prisma.crmLeadTag.findMany({ where: { leadId }, include: { tag: true } });
-          const keep = current.filter((row) => row.tag.name.toLowerCase() !== config.tag!.toLowerCase()).map((row) => row.tag.name);
+          const current = await this.prisma.crmLeadTag.findMany({
+            where: { leadId },
+            include: { tag: true },
+          });
+          const keep = current
+            .filter((row) => row.tag.name.toLowerCase() !== config.tag!.toLowerCase())
+            .map((row) => row.tag.name);
           if (keep.length !== current.length) {
-            await this.prisma.$transaction((tx) => this.leads.applyTags(tx, ctx, leadId, keep, true));
+            await this.prisma.$transaction((tx) =>
+              this.leads.applyTags(tx, ctx, leadId, keep, true),
+            );
           }
         }
-        return { next: step.next, note: `${step.type === 'ADD_TAG' ? 'Tagged' : 'Untagged'} ${config.tag}` };
+        return {
+          next: step.next,
+          note: `${step.type === 'ADD_TAG' ? 'Tagged' : 'Untagged'} ${config.tag}`,
+        };
       }
 
       case 'APPOINTMENT_REMINDER': {
@@ -561,7 +686,11 @@ export class AutomationEngine implements OnModuleInit {
               where: { leadId, startsAt: { gt: now }, status: { in: ['SCHEDULED', 'CONFIRMED'] } },
               orderBy: { startsAt: 'asc' },
             });
-        if (!appointment || !['SCHEDULED', 'CONFIRMED'].includes(appointment.status) || appointment.startsAt <= now) {
+        if (
+          !appointment ||
+          !['SCHEDULED', 'CONFIRMED'].includes(appointment.status) ||
+          appointment.startsAt <= now
+        ) {
           return { next: step.next, note: 'No upcoming appointment' };
         }
         const minutes = config.minutes ?? appointment.reminderMinutes ?? 60;
@@ -570,19 +699,24 @@ export class AutomationEngine implements OnModuleInit {
         if (remindAt.getTime() - now.getTime() > 60_000) {
           return { next: step.id, wait: remindAt, note: `Reminder at ${remindAt.toISOString()}` };
         }
-        const template = await this.template(automation, { ...config, templateKey: config.templateKey ?? 'APPOINTMENT_REMINDER' });
+        const template = await this.template(automation, {
+          ...config,
+          templateKey: config.templateKey ?? 'APPOINTMENT_REMINDER',
+        });
         if (template) {
-          await this.outbox.queueLeadEmail(ctx, {
-            leadId,
-            subject: template.subject,
-            bodyHtml: template.bodyHtml,
-            purpose: 'TRANSACTIONAL',
-            templateId: template.id,
-            enrollmentId: enrollment.id,
-            automationStepId: step.id,
-            appointmentId: appointment.id,
-            idempotencyKey: `auto:${enrollment.id}:${step.id}:${appointment.id}:${appointment.startsAt.getTime()}`,
-          }).catch(() => undefined);
+          await this.outbox
+            .queueLeadEmail(ctx, {
+              leadId,
+              subject: template.subject,
+              bodyHtml: template.bodyHtml,
+              purpose: 'TRANSACTIONAL',
+              templateId: template.id,
+              enrollmentId: enrollment.id,
+              automationStepId: step.id,
+              appointmentId: appointment.id,
+              idempotencyKey: `auto:${enrollment.id}:${step.id}:${appointment.id}:${appointment.startsAt.getTime()}`,
+            })
+            .catch(() => undefined);
         }
         await this.notify.notify(appointment.salespersonId, 'APPOINTMENT_UPCOMING', {
           title: 'Appointment coming up',
@@ -593,8 +727,17 @@ export class AutomationEngine implements OnModuleInit {
       }
 
       case 'NOTIFY': {
-        const recipients = await this.recipients(config.recipients ?? 'ASSIGNEE', ctx, leadId, ticketId);
-        const link = leadId ? `/dealer/crm/leads/${leadId}` : ticketId ? `/admin/crm/tickets/${ticketId}` : null;
+        const recipients = await this.recipients(
+          config.recipients ?? 'ASSIGNEE',
+          ctx,
+          leadId,
+          ticketId,
+        );
+        const link = leadId
+          ? `/dealer/crm/leads/${leadId}`
+          : ticketId
+            ? `/admin/crm/tickets/${ticketId}`
+            : null;
         for (const userId of recipients) {
           await this.notify.notify(userId, ticketId ? 'TICKET_UPDATED' : 'LEAD_ASSIGNED', {
             title: config.title ?? automation.name,
@@ -617,8 +760,16 @@ export class AutomationEngine implements OnModuleInit {
             ],
           },
         });
-        if (other) await this.enroll(other, { leadId, ticketId, appointmentId: this.appointmentOf(history) }, `Started by ${automation.name}`);
-        return { next: step.next, note: other ? `Started ${other.name}` : 'Automation not found or off' };
+        if (other)
+          await this.enroll(
+            other,
+            { leadId, ticketId, appointmentId: this.appointmentOf(history) },
+            `Started by ${automation.name}`,
+          );
+        return {
+          next: step.next,
+          note: other ? `Started ${other.name}` : 'Automation not found or off',
+        };
       }
 
       case 'STOP':
@@ -656,7 +807,12 @@ export class AutomationEngine implements OnModuleInit {
   private async dealerContext(dealerId: string): Promise<CrmContext> {
     let owner = this.owners.get(dealerId);
     if (!owner) {
-      owner = (await this.prisma.dealer.findUniqueOrThrow({ where: { id: dealerId }, select: { ownerId: true } })).ownerId;
+      owner = (
+        await this.prisma.dealer.findUniqueOrThrow({
+          where: { id: dealerId },
+          select: { ownerId: true },
+        })
+      ).ownerId;
       this.owners.set(dealerId, owner);
     }
     return systemContext(dealerId, owner);
@@ -670,7 +826,10 @@ export class AutomationEngine implements OnModuleInit {
   ): Promise<string[]> {
     if (leadId && ctx) {
       if (who === 'ASSIGNEE') {
-        const lead = await this.prisma.crmLead.findUnique({ where: { id: leadId }, select: { assignedToId: true } });
+        const lead = await this.prisma.crmLead.findUnique({
+          where: { id: leadId },
+          select: { assignedToId: true },
+        });
         if (lead?.assignedToId) return [lead.assignedToId];
       }
       const managers = await this.prisma.dealerMember.findMany({
@@ -680,7 +839,10 @@ export class AutomationEngine implements OnModuleInit {
       return [ctx.ownerUserId, ...managers.map((row) => row.userId)];
     }
     if (ticketId) {
-      const ticket = await this.prisma.supportTicket.findUnique({ where: { id: ticketId }, select: { assignedToId: true, teamId: true } });
+      const ticket = await this.prisma.supportTicket.findUnique({
+        where: { id: ticketId },
+        select: { assignedToId: true, teamId: true },
+      });
       if (who === 'ASSIGNEE' && ticket?.assignedToId) return [ticket.assignedToId];
       return this.tickets.teamOrAdmins(ticket?.teamId ?? null);
     }
@@ -689,16 +851,32 @@ export class AutomationEngine implements OnModuleInit {
 
   // --- Manual control --------------------------------------------------------------------
 
-  async enrollManually(automationId: string, target: { dealerId: string | null; leadId?: string | null; ticketId?: string | null }) {
-    const automation = await this.prisma.crmAutomation.findFirst({ where: { id: automationId, dealerId: target.dealerId } });
+  async enrollManually(
+    automationId: string,
+    target: { dealerId: string | null; leadId?: string | null; ticketId?: string | null },
+  ) {
+    const automation = await this.prisma.crmAutomation.findFirst({
+      where: { id: automationId, dealerId: target.dealerId },
+    });
     if (!automation) return null;
-    return this.enroll(automation, { leadId: target.leadId, ticketId: target.ticketId }, 'Started by hand');
+    return this.enroll(
+      automation,
+      { leadId: target.leadId, ticketId: target.ticketId },
+      'Started by hand',
+    );
   }
 
   async retry(enrollmentId: string) {
     await this.prisma.crmAutomationEnrollment.updateMany({
       where: { id: enrollmentId, status: 'FAILED' },
-      data: { status: 'ACTIVE', attempts: 0, lastError: null, nextRunAt: new Date(), finishedAt: null, stopReason: null },
+      data: {
+        status: 'ACTIVE',
+        attempts: 0,
+        lastError: null,
+        nextRunAt: new Date(),
+        finishedAt: null,
+        stopReason: null,
+      },
     });
   }
 }

@@ -51,7 +51,11 @@ export class CrmSetupService {
       skipDuplicates: true,
     });
     await db.crmLeadSource.createMany({
-      data: DEFAULT_LEAD_SOURCES.map((source) => ({ dealerId, key: source.key, label: source.label })),
+      data: DEFAULT_LEAD_SOURCES.map((source) => ({
+        dealerId,
+        key: source.key,
+        label: source.label,
+      })),
       skipDuplicates: true,
     });
     await db.crmScoringRule.createMany({
@@ -107,7 +111,9 @@ export class CrmSetupService {
       select: { key: true },
     });
     const haveAutomations = new Set(automations.map((row) => row.key));
-    const missingAutomations = DEFAULT_SUPPORT_AUTOMATIONS.filter((a) => !haveAutomations.has(a.key));
+    const missingAutomations = DEFAULT_SUPPORT_AUTOMATIONS.filter(
+      (a) => !haveAutomations.has(a.key),
+    );
     if (missingAutomations.length) {
       await db.crmAutomation.createMany({
         data: missingAutomations.map((automation) => automationRow(automation, 'SUPPORT', null)),

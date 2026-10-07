@@ -75,7 +75,10 @@ export async function recordTimeline(db: Db, entry: TimelineEntry) {
   });
   if (countsAsActivity(entry.type, !!entry.userId)) {
     await db.crmLead.updateMany({
-      where: { id: entry.leadId, OR: [{ lastActivityAt: null }, { lastActivityAt: { lt: occurredAt } }] },
+      where: {
+        id: entry.leadId,
+        OR: [{ lastActivityAt: null }, { lastActivityAt: { lt: occurredAt } }],
+      },
       data: { lastActivityAt: occurredAt },
     });
   }

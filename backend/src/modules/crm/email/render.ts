@@ -40,7 +40,11 @@ function valueOf(values: TemplateValues, name: string): string {
 }
 
 /** Fills `{{ variable }}`s. In HTML every value is escaped, so data cannot become markup. */
-export function renderTemplate(text: string, values: TemplateValues, mode: 'html' | 'text'): string {
+export function renderTemplate(
+  text: string,
+  values: TemplateValues,
+  mode: 'html' | 'text',
+): string {
   return text.replace(/\{\{\s*([^{}]*?)\s*\}\}/g, (_match, name: string) => {
     const value = valueOf(values, name);
     return mode === 'html' ? escapeHtml(value) : value;

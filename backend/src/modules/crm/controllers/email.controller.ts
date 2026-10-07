@@ -51,7 +51,12 @@ const restoreSchema = z.object({ version: z.coerce.number().int().min(1) });
 const suppressionQuerySchema = z.object({ q: z.string().trim().max(100).optional() });
 
 function owner(ctx: CrmContext): TemplateOwner {
-  return { scope: 'DEALER', dealerId: ctx.dealerId, actor: { id: ctx.userId, email: ctx.actorEmail }, ctx };
+  return {
+    scope: 'DEALER',
+    dealerId: ctx.dealerId,
+    actor: { id: ctx.userId, email: ctx.actorEmail },
+    ctx,
+  };
 }
 
 /** Dealer CRM email: compose and schedule, the sent log, templates, campaigns, consent and suppression. */
@@ -84,7 +89,10 @@ export class CrmEmailController {
   @Post('emails')
   @RequireCrm('crm.email')
   @ApiOperation({ summary: 'Send or schedule an email to a lead (queued; sent in the background)' })
-  async compose(@Crm() ctx: CrmContext, @Body(zodBody(emailComposeSchema)) input: EmailComposeInput) {
+  async compose(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(emailComposeSchema)) input: EmailComposeInput,
+  ) {
     const result = await this.emails.compose(ctx, input);
     this.scheduler.kick();
     return result;
@@ -136,7 +144,10 @@ export class CrmEmailController {
   @Post('templates')
   @RequireCrm('crm.templates')
   @ApiOperation({ summary: 'Create a template (HTML sanitised, variables checked)' })
-  createTemplate(@Crm() ctx: CrmContext, @Body(zodBody(emailTemplateSchema)) input: EmailTemplateInput) {
+  createTemplate(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(emailTemplateSchema)) input: EmailTemplateInput,
+  ) {
     return this.templates.create(owner(ctx), input);
   }
 
@@ -154,7 +165,11 @@ export class CrmEmailController {
   @Post('templates/:id/restore')
   @RequireCrm('crm.templates')
   @ApiOperation({ summary: 'Restore an earlier version' })
-  restore(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(restoreSchema)) input: { version: number }) {
+  restore(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(restoreSchema)) input: { version: number },
+  ) {
     return this.templates.restore(owner(ctx), id, input.version);
   }
 
@@ -169,7 +184,10 @@ export class CrmEmailController {
   @Post('templates/test')
   @RequireCrm('crm.templates')
   @ApiOperation({ summary: 'Send a test to your own address, with sample values' })
-  test(@Crm() ctx: CrmContext, @Body(zodBody(testEmailSchema)) input: z.infer<typeof testEmailSchema>) {
+  test(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(testEmailSchema)) input: z.infer<typeof testEmailSchema>,
+  ) {
     return this.templates.sendTest(owner(ctx), input);
   }
 
@@ -184,7 +202,9 @@ export class CrmEmailController {
 
   @Post('campaigns/audience')
   @RequireCrm('crm.marketing')
-  @ApiOperation({ summary: 'Who an audience filter reaches, and who is skipped (no consent, suppressed)' })
+  @ApiOperation({
+    summary: 'Who an audience filter reaches, and who is skipped (no consent, suppressed)',
+  })
   audience(@Crm() ctx: CrmContext, @Body(zodBody(campaignAudienceSchema)) input: CampaignAudience) {
     return this.campaigns.preview(ctx, input);
   }
@@ -204,14 +224,22 @@ export class CrmEmailController {
 
   @Put('campaigns/:id')
   @RequireCrm('crm.marketing')
-  updateCampaign(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(campaignSchema)) input: CampaignInput) {
+  updateCampaign(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(campaignSchema)) input: CampaignInput,
+  ) {
     return this.campaigns.update(ctx, id, input);
   }
 
   @Post('campaigns/:id/schedule')
   @RequireCrm('crm.marketing')
   @ApiOperation({ summary: 'Send now or at a time (queued; consented leads only)' })
-  async schedule(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(scheduleSchema)) input: { scheduledAt: Date | null }) {
+  async schedule(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(scheduleSchema)) input: { scheduledAt: Date | null },
+  ) {
     const result = await this.campaigns.schedule(ctx, id, input.scheduledAt);
     this.scheduler.kick();
     return result;
@@ -239,12 +267,14 @@ export class CrmEmailController {
   }
 
   @Post('consents')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Record consent with its source (audited)' })
   recordConsent(@Crm() ctx: CrmContext, @Body(zodBody(consentSchema)) input: ConsentInput) {
     return this.emails.recordConsent(ctx, input);
   }
 
   @Post('consents/:id/withdraw')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Withdraw a consent (audited)' })
   withdraw(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.emails.withdrawConsent(ctx, id);
@@ -252,14 +282,20 @@ export class CrmEmailController {
 
   @Get('suppressions')
   @ApiOperation({ summary: 'The suppression list: your dealership’s and the platform’s' })
-  suppressions(@Crm() ctx: CrmContext, @Query(zodQuery(suppressionQuerySchema)) query: { q?: string }) {
+  suppressions(
+    @Crm() ctx: CrmContext,
+    @Query(zodQuery(suppressionQuerySchema)) query: { q?: string },
+  ) {
     return this.emails.suppressions(ctx, query.q);
   }
 
   @Post('suppressions')
   @RequireCrm('crm.manage')
   @ApiOperation({ summary: 'Block an address from all email' })
-  suppress(@Crm() ctx: CrmContext, @Body(zodBody(suppressionSchema)) input: z.infer<typeof suppressionSchema>) {
+  suppress(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(suppressionSchema)) input: z.infer<typeof suppressionSchema>,
+  ) {
     return this.emails.suppress(ctx, input.email, input.note);
   }
 

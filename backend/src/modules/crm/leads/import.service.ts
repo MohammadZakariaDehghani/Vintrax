@@ -88,7 +88,12 @@ export class LeadImportService {
         action: 'lead.imported',
         entityType: 'CrmLeadImport',
         entityId: history.id,
-        after: { fileName: input.fileName, created, duplicates: duplicateCount, errors: errors.length },
+        after: {
+          fileName: input.fileName,
+          created,
+          duplicates: duplicateCount,
+          errors: errors.length,
+        },
       });
       return history;
     });
@@ -108,10 +113,13 @@ export class LeadImportService {
     try {
       table = parseCsv(input.csv).filter((cells) => !isBlankRow(cells));
     } catch (error) {
-      throw new BadRequestException(error instanceof CsvParseError ? error.message : 'The file is not valid CSV');
+      throw new BadRequestException(
+        error instanceof CsvParseError ? error.message : 'The file is not valid CSV',
+      );
     }
     if (table.length < 2) throw new BadRequestException('The file has a header row but no leads');
-    if (table.length - 1 > MAX_ROWS) throw new BadRequestException(`Import at most ${MAX_ROWS} leads at a time`);
+    if (table.length - 1 > MAX_ROWS)
+      throw new BadRequestException(`Import at most ${MAX_ROWS} leads at a time`);
     const header = table[0]!.map((cell) => cell.trim());
     const columns = new Map<LeadImportField, number>();
     for (const [column, field] of Object.entries(input.mapping)) {
@@ -131,11 +139,17 @@ export class LeadImportService {
     ]);
     const findSource = (value: string) => {
       const needle = value.trim().toLowerCase();
-      return sources.find((s) => s.key.toLowerCase() === needle || s.label.toLowerCase() === needle)?.id ?? null;
+      return (
+        sources.find((s) => s.key.toLowerCase() === needle || s.label.toLowerCase() === needle)
+          ?.id ?? null
+      );
     };
     const findStatus = (value: string) => {
       const needle = value.trim().toLowerCase();
-      return statuses.find((s) => s.key.toLowerCase() === needle || s.label.toLowerCase() === needle)?.id ?? null;
+      return (
+        statuses.find((s) => s.key.toLowerCase() === needle || s.label.toLowerCase() === needle)
+          ?.id ?? null
+      );
     };
 
     // Existing leads with any email or phone in the file, fetched once.
@@ -159,8 +173,12 @@ export class LeadImportService {
       },
       select: { id: true, number: true, emailNormalized: true, phoneNormalized: true },
     });
-    const byEmail = new Map(existing.filter((l) => l.emailNormalized).map((l) => [l.emailNormalized!, l]));
-    const byPhone = new Map(existing.filter((l) => l.phoneNormalized).map((l) => [l.phoneNormalized!, l]));
+    const byEmail = new Map(
+      existing.filter((l) => l.emailNormalized).map((l) => [l.emailNormalized!, l]),
+    );
+    const byPhone = new Map(
+      existing.filter((l) => l.phoneNormalized).map((l) => [l.phoneNormalized!, l]),
+    );
     const seenEmail = new Map<string, number>();
     const seenPhone = new Map<string, number>();
 
@@ -208,7 +226,8 @@ export class LeadImportService {
         consent: input.consent ?? null,
       });
       if (!parsed.success) {
-        for (const issue of parsed.error.issues) errors.push(`${issue.path.join('.') || 'row'}: ${issue.message}`);
+        for (const issue of parsed.error.issues)
+          errors.push(`${issue.path.join('.') || 'row'}: ${issue.message}`);
       }
       const email = normalizeEmail(cell(cells, 'email'));
       const phone = normalizePhone(cell(cells, 'phone'));
@@ -227,8 +246,14 @@ export class LeadImportService {
           name,
           email,
           phone,
-          errors: [existingMatch ? `Matches lead #${existingMatch.number}` : `Same person as row ${inFile}`],
-          duplicateOf: existingMatch ? { id: existingMatch.id, number: existingMatch.number } : null,
+          errors: [
+            existingMatch
+              ? `Matches lead #${existingMatch.number}`
+              : `Same person as row ${inFile}`,
+          ],
+          duplicateOf: existingMatch
+            ? { id: existingMatch.id, number: existingMatch.number }
+            : null,
           input: parsed.data,
         };
       }

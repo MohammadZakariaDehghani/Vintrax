@@ -105,7 +105,10 @@ export class SupportController {
   // --- Tickets ----------------------------------------------------------------------------
 
   @Get('tickets')
-  list(@CurrentUser() user: AuthUser, @Query(zodQuery(ticketListQuerySchema)) query: TicketListQuery) {
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query(zodQuery(ticketListQuerySchema)) query: TicketListQuery,
+  ) {
     return this.tickets.list(query, user.id);
   }
 
@@ -124,20 +127,33 @@ export class SupportController {
   }
 
   @Get('tickets/:id')
-  @ApiOperation({ summary: 'A ticket with its public messages, internal notes, events, tasks and emails' })
+  @ApiOperation({
+    summary: 'A ticket with its public messages, internal notes, events, tasks and emails',
+  })
   get(@Param('id', ParseUUIDPipe) id: string) {
     return this.tickets.get(id);
   }
 
   @Put('tickets/:id')
   @ApiOperation({ summary: 'Change status, priority, category, assignee, team, due date or tags' })
-  update(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(ticketUpdateSchema)) input: TicketUpdateInput) {
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(ticketUpdateSchema)) input: TicketUpdateInput,
+  ) {
     return this.tickets.update(actor(user), id, input);
   }
 
   @Post('tickets/:id/messages')
-  @ApiOperation({ summary: 'Reply to the requester (PUBLIC, emailed) or add an internal note (INTERNAL, never shown to them)' })
-  async message(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(ticketMessageSchema)) input: TicketMessageInput) {
+  @ApiOperation({
+    summary:
+      'Reply to the requester (PUBLIC, emailed) or add an internal note (INTERNAL, never shown to them)',
+  })
+  async message(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(ticketMessageSchema)) input: TicketMessageInput,
+  ) {
     const message = await this.tickets.addMessage(actor(user), id, input);
     this.scheduler.kick();
     return message;
@@ -151,7 +167,10 @@ export class SupportController {
   // --- Admin tasks ---------------------------------------------------------------------------
 
   @Get('tasks')
-  tasks(@CurrentUser() user: AuthUser, @Query(zodQuery(adminTaskListQuerySchema)) query: z.infer<typeof adminTaskListQuerySchema>) {
+  tasks(
+    @CurrentUser() user: AuthUser,
+    @Query(zodQuery(adminTaskListQuerySchema)) query: z.infer<typeof adminTaskListQuerySchema>,
+  ) {
     return this.admin.listTasks(query, user.id);
   }
 
@@ -161,7 +180,11 @@ export class SupportController {
   }
 
   @Put('tasks/:id')
-  updateTask(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(adminTaskSchema)) input: AdminTaskInput) {
+  updateTask(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(adminTaskSchema)) input: AdminTaskInput,
+  ) {
     return this.admin.updateTask(actor(user), id, input);
   }
 
@@ -199,7 +222,10 @@ export class SupportController {
 
   @Post('messages')
   @ApiOperation({ summary: 'Message a user or a dealer by email and/or in the app' })
-  async directMessage(@CurrentUser() user: AuthUser, @Body(zodBody(directMessageSchema)) input: DirectMessageInput) {
+  async directMessage(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(directMessageSchema)) input: DirectMessageInput,
+  ) {
     const result = await this.insights.directMessage(actor(user), input);
     this.scheduler.kick();
     return result;
@@ -224,12 +250,18 @@ export class SupportController {
 
   @Put('settings')
   @ApiOperation({ summary: 'SLA targets, waiting reminders, auto-close and the default team' })
-  updateSettings(@CurrentUser() user: AuthUser, @Body(zodBody(supportSettingsSchema)) input: SupportSettingsInput) {
+  updateSettings(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(supportSettingsSchema)) input: SupportSettingsInput,
+  ) {
     return this.admin.updateSettings(actor(user), input);
   }
 
   @Post('categories')
-  createCategory(@CurrentUser() user: AuthUser, @Body(zodBody(supportCategorySchema)) input: z.infer<typeof supportCategorySchema>) {
+  createCategory(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(supportCategorySchema)) input: z.infer<typeof supportCategorySchema>,
+  ) {
     return this.admin.createCategory(actor(user), input);
   }
 
@@ -243,12 +275,19 @@ export class SupportController {
   }
 
   @Post('teams')
-  createTeam(@CurrentUser() user: AuthUser, @Body(zodBody(supportTeamSchema)) input: z.infer<typeof supportTeamSchema>) {
+  createTeam(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(supportTeamSchema)) input: z.infer<typeof supportTeamSchema>,
+  ) {
     return this.admin.createTeam(actor(user), input);
   }
 
   @Put('teams/:id')
-  updateTeam(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(supportTeamSchema)) input: z.infer<typeof supportTeamSchema>) {
+  updateTeam(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(supportTeamSchema)) input: z.infer<typeof supportTeamSchema>,
+  ) {
     return this.admin.updateTeam(actor(user), id, input);
   }
 
@@ -266,12 +305,19 @@ export class SupportController {
   }
 
   @Post('templates')
-  createTemplate(@CurrentUser() user: AuthUser, @Body(zodBody(emailTemplateSchema)) input: EmailTemplateInput) {
+  createTemplate(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(emailTemplateSchema)) input: EmailTemplateInput,
+  ) {
     return this.templates.create(templateOwner(user), input);
   }
 
   @Put('templates/:id')
-  updateTemplate(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(emailTemplateSchema)) input: EmailTemplateInput) {
+  updateTemplate(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(emailTemplateSchema)) input: EmailTemplateInput,
+  ) {
     return this.templates.update(templateOwner(user), id, input);
   }
 
@@ -281,7 +327,10 @@ export class SupportController {
   }
 
   @Post('templates/test')
-  test(@CurrentUser() user: AuthUser, @Body(zodBody(testEmailSchema)) input: z.infer<typeof testEmailSchema>) {
+  test(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(testEmailSchema)) input: z.infer<typeof testEmailSchema>,
+  ) {
     return this.templates.sendTest(templateOwner(user), input);
   }
 
@@ -297,17 +346,28 @@ export class SupportController {
   }
 
   @Post('automations')
-  createAutomation(@CurrentUser() user: AuthUser, @Body(zodBody(automationSchema)) input: AutomationInput) {
+  createAutomation(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(automationSchema)) input: AutomationInput,
+  ) {
     return this.automations.create(automationOwner(user), input);
   }
 
   @Put('automations/:id')
-  updateAutomation(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(automationSchema)) input: AutomationInput) {
+  updateAutomation(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(automationSchema)) input: AutomationInput,
+  ) {
     return this.automations.update(automationOwner(user), id, input);
   }
 
   @Post('automations/:id/active')
-  setActive(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(activeSchema)) input: { isActive: boolean }) {
+  setActive(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(activeSchema)) input: { isActive: boolean },
+  ) {
     return this.automations.setActive(automationOwner(user), id, input.isActive);
   }
 
@@ -317,8 +377,14 @@ export class SupportController {
   }
 
   @Post('automations/:id/enroll')
-  async enroll(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(automationEnrollSchema)) input: z.infer<typeof automationEnrollSchema>) {
-    const result = await this.automations.enroll(automationOwner(user), id, { ticketId: input.ticketId });
+  async enroll(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(automationEnrollSchema)) input: z.infer<typeof automationEnrollSchema>,
+  ) {
+    const result = await this.automations.enroll(automationOwner(user), id, {
+      ticketId: input.ticketId,
+    });
     this.scheduler.kick();
     return result;
   }

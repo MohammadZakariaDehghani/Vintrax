@@ -4,11 +4,7 @@ import {
   SetMetadata,
   type ExecutionContext,
 } from '@nestjs/common';
-import {
-  CRM_ROLE_PERMISSIONS,
-  type CrmPermission,
-  type DealerStaffRole,
-} from '@vintrax/shared';
+import { CRM_ROLE_PERMISSIONS, type CrmPermission, type DealerStaffRole } from '@vintrax/shared';
 import type { Prisma } from '@prisma/client';
 import type { Request } from 'express';
 

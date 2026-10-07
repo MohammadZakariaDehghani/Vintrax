@@ -2,7 +2,16 @@
 
 import { useState, type ReactNode } from 'react';
 import { Card, CardContent, ErrorAlert, Spinner } from '@/components/ui';
-import { Bar, PageHeader, RangePicker, Section, StatCard, rangeQuery, useSupportQuery, type RangeValue } from '@/components/crm/ui';
+import {
+  Bar,
+  PageHeader,
+  RangePicker,
+  Section,
+  StatCard,
+  rangeQuery,
+  useSupportQuery,
+  type RangeValue,
+} from '@/components/crm/ui';
 import { humanize, support } from '@/lib/crm';
 
 interface SupportReports {
@@ -21,7 +30,12 @@ interface SupportReports {
   bySource: Array<{ label: string; count: number }>;
   byDealer: Array<{ label: string; id: string | null; count: number }>;
   byAdmin: Array<{ label: string; count: number }>;
-  communication: { emails: number; publicReplies: number; requesterMessages: number; internalNotes: number };
+  communication: {
+    emails: number;
+    publicReplies: number;
+    requesterMessages: number;
+    internalNotes: number;
+  };
 }
 
 function hours(value: number | null): string {
@@ -29,16 +43,27 @@ function hours(value: number | null): string {
   return value < 1 ? `${Math.round(value * 60)} min` : `${value.toFixed(1)} h`;
 }
 
-function Bars({ title, rows }: { title: string; rows: Array<{ label: ReactNode; count: number }> }) {
+function Bars({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ label: ReactNode; count: number }>;
+}) {
   const max = Math.max(1, ...rows.map((row) => row.count));
   return (
     <Card>
       <CardContent className="space-y-2 pt-4">
         <h3 className="text-sm font-semibold">{title}</h3>
-        {rows.length === 0 ? <p className="text-sm text-muted-foreground">No tickets in this period.</p> : null}
+        {rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No tickets in this period.</p>
+        ) : null}
         {rows.map((row, index) => (
           <div key={index} className="text-sm">
-            <div className="flex justify-between gap-2"><span>{row.label}</span><span className="tabular text-muted-foreground">{row.count}</span></div>
+            <div className="flex justify-between gap-2">
+              <span>{row.label}</span>
+              <span className="tabular text-muted-foreground">{row.count}</span>
+            </div>
             <Bar value={row.count} max={max} />
           </div>
         ))}
@@ -49,11 +74,20 @@ function Bars({ title, rows }: { title: string; rows: Array<{ label: ReactNode; 
 
 export default function AdminCrmReportsPage() {
   const [range, setRange] = useState<RangeValue>({ preset: 'THIS_MONTH', from: '', to: '' });
-  const { data, error, isPending } = useSupportQuery<SupportReports>(support, ['reports', range], `/reports${rangeQuery(range)}`);
+  const { data, error, isPending } = useSupportQuery<SupportReports>(
+    support,
+    ['reports', range],
+    `/reports${rangeQuery(range)}`,
+  );
   return (
     <>
-      <PageHeader title="Support reports" description="Ticket volume, response and resolution times, and where issues come from. Times are in Toronto time." />
-      <div className="mb-6"><RangePicker value={range} onChange={setRange} /></div>
+      <PageHeader
+        title="Support reports"
+        description="Ticket volume, response and resolution times, and where issues come from. Times are in Toronto time."
+      />
+      <div className="mb-6">
+        <RangePicker value={range} onChange={setRange} />
+      </div>
       <ErrorAlert error={error} />
       {isPending && !data ? <Spinner /> : null}
       {data ? (
@@ -63,8 +97,15 @@ export default function AdminCrmReportsPage() {
               <StatCard label="Created" value={data.created} />
               <StatCard label="Resolved" value={data.resolved} />
               <StatCard label="Open now" value={data.openNow} />
-              <StatCard label="Overdue now" value={data.overdueNow} tone={data.overdueNow ? 'warning' : undefined} />
-              <StatCard label="Average first response" value={hours(data.averageFirstResponseHours)} />
+              <StatCard
+                label="Overdue now"
+                value={data.overdueNow}
+                tone={data.overdueNow ? 'warning' : undefined}
+              />
+              <StatCard
+                label="Average first response"
+                value={hours(data.averageFirstResponseHours)}
+              />
               <StatCard label="Average resolution" value={hours(data.averageResolutionHours)} />
               <StatCard label="Reopened" value={data.reopened} />
               <StatCard label="Feature requests" value={data.featureRequests} />
@@ -75,8 +116,14 @@ export default function AdminCrmReportsPage() {
           <Section title="Breakdown" className="mt-6">
             <div className="grid gap-4 md:grid-cols-2">
               <Bars title="By category" rows={data.byCategory} />
-              <Bars title="By priority" rows={data.byPriority.map((row) => ({ ...row, label: humanize(row.label) }))} />
-              <Bars title="By source" rows={data.bySource.map((row) => ({ ...row, label: humanize(row.label) }))} />
+              <Bars
+                title="By priority"
+                rows={data.byPriority.map((row) => ({ ...row, label: humanize(row.label) }))}
+              />
+              <Bars
+                title="By source"
+                rows={data.bySource.map((row) => ({ ...row, label: humanize(row.label) }))}
+              />
               <Bars title="By admin" rows={data.byAdmin} />
               <Bars title="Dealers with the most tickets" rows={data.byDealer} />
             </div>

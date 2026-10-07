@@ -46,7 +46,9 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
     private readonly bus: CrmBus,
     config: ConfigService<Env, true>,
   ) {
-    this.enabled = config.get('CRM_SCHEDULER_ENABLED', { infer: true }) && config.get('NODE_ENV', { infer: true }) !== 'test';
+    this.enabled =
+      config.get('CRM_SCHEDULER_ENABLED', { infer: true }) &&
+      config.get('NODE_ENV', { infer: true }) !== 'test';
     this.interval = config.get('CRM_SCHEDULER_INTERVAL_MS', { infer: true });
   }
 
@@ -77,7 +79,10 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
     this.kickTimer.unref();
   }
 
-  async tick(now = new Date(), options: { forceTimeChecks?: boolean } = {}): Promise<{ emails: number; steps: number; campaigns: number }> {
+  async tick(
+    now = new Date(),
+    options: { forceTimeChecks?: boolean } = {},
+  ): Promise<{ emails: number; steps: number; campaigns: number }> {
     if (this.running) return { emails: 0, steps: 0, campaigns: 0 };
     this.running = true;
     try {
@@ -125,12 +130,24 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
    * NO_RESPONSE automations.
    */
   private async noResponse(now: Date) {
-    const settings = await this.prisma.crmSettings.findMany({ select: { dealerId: true, noResponseDays: true } });
+    const settings = await this.prisma.crmSettings.findMany({
+      select: { dealerId: true, noResponseDays: true },
+    });
     for (const setting of settings) {
       const automations = await this.prisma.crmAutomation.findMany({
-        where: { scope: 'DEALER', dealerId: setting.dealerId, trigger: 'NO_RESPONSE', isActive: true },
+        where: {
+          scope: 'DEALER',
+          dealerId: setting.dealerId,
+          trigger: 'NO_RESPONSE',
+          isActive: true,
+        },
       });
-      const days = Math.min(setting.noResponseDays, ...automations.map((a) => (a.triggerConfig as { days?: number })?.days ?? setting.noResponseDays));
+      const days = Math.min(
+        setting.noResponseDays,
+        ...automations.map(
+          (a) => (a.triggerConfig as { days?: number })?.days ?? setting.noResponseDays,
+        ),
+      );
       const leads = await this.prisma.crmLead.findMany({
         where: {
           dealerId: setting.dealerId,
@@ -146,17 +163,31 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
         const silentDays = (now.getTime() - lead.lastContactAt!.getTime()) / DAY;
         if (silentDays >= setting.noResponseDays) {
           const scored = await this.prisma.crmLeadScoreEvent.count({
-            where: { leadId: lead.id, signal: 'NO_RESPONSE', createdAt: { gte: lead.lastContactAt! } },
+            where: {
+              leadId: lead.id,
+              signal: 'NO_RESPONSE',
+              createdAt: { gte: lead.lastContactAt! },
+            },
           });
           if (!scored) await this.scoring.apply(lead.id, 'NO_RESPONSE');
         }
         for (const automation of automations) {
-          const wanted = (automation.triggerConfig as { days?: number })?.days ?? setting.noResponseDays;
+          const wanted =
+            (automation.triggerConfig as { days?: number })?.days ?? setting.noResponseDays;
           if (silentDays < wanted) continue;
           const already = await this.prisma.crmAutomationEnrollment.count({
-            where: { automationId: automation.id, leadId: lead.id, startedAt: { gte: lead.lastContactAt! } },
+            where: {
+              automationId: automation.id,
+              leadId: lead.id,
+              startedAt: { gte: lead.lastContactAt! },
+            },
           });
-          if (!already) await this.engine.enroll(automation, { leadId: lead.id }, `No response for ${wanted} days`);
+          if (!already)
+            await this.engine.enroll(
+              automation,
+              { leadId: lead.id },
+              `No response for ${wanted} days`,
+            );
         }
       }
     }
@@ -164,12 +195,24 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
 
   /** Leads gone quiet for the dealer's "inactive" days: score down once, CUSTOMER_INACTIVE automations. */
   private async inactivity(now: Date) {
-    const settings = await this.prisma.crmSettings.findMany({ select: { dealerId: true, inactiveDays: true } });
+    const settings = await this.prisma.crmSettings.findMany({
+      select: { dealerId: true, inactiveDays: true },
+    });
     for (const setting of settings) {
       const automations = await this.prisma.crmAutomation.findMany({
-        where: { scope: 'DEALER', dealerId: setting.dealerId, trigger: 'CUSTOMER_INACTIVE', isActive: true },
+        where: {
+          scope: 'DEALER',
+          dealerId: setting.dealerId,
+          trigger: 'CUSTOMER_INACTIVE',
+          isActive: true,
+        },
       });
-      const days = Math.min(setting.inactiveDays, ...automations.map((a) => (a.triggerConfig as { days?: number })?.days ?? setting.inactiveDays));
+      const days = Math.min(
+        setting.inactiveDays,
+        ...automations.map(
+          (a) => (a.triggerConfig as { days?: number })?.days ?? setting.inactiveDays,
+        ),
+      );
       const leads = await this.prisma.crmLead.findMany({
         where: {
           dealerId: setting.dealerId,
@@ -184,17 +227,31 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
         const quietDays = (now.getTime() - lead.lastActivityAt!.getTime()) / DAY;
         if (quietDays >= setting.inactiveDays && lead.status.kind !== 'WON') {
           const scored = await this.prisma.crmLeadScoreEvent.count({
-            where: { leadId: lead.id, signal: 'LONG_INACTIVITY', createdAt: { gte: lead.lastActivityAt! } },
+            where: {
+              leadId: lead.id,
+              signal: 'LONG_INACTIVITY',
+              createdAt: { gte: lead.lastActivityAt! },
+            },
           });
           if (!scored) await this.scoring.apply(lead.id, 'LONG_INACTIVITY');
         }
         for (const automation of automations) {
-          const wanted = (automation.triggerConfig as { days?: number })?.days ?? setting.inactiveDays;
+          const wanted =
+            (automation.triggerConfig as { days?: number })?.days ?? setting.inactiveDays;
           if (quietDays < wanted) continue;
           const already = await this.prisma.crmAutomationEnrollment.count({
-            where: { automationId: automation.id, leadId: lead.id, startedAt: { gte: lead.lastActivityAt! } },
+            where: {
+              automationId: automation.id,
+              leadId: lead.id,
+              startedAt: { gte: lead.lastActivityAt! },
+            },
           });
-          if (!already) await this.engine.enroll(automation, { leadId: lead.id }, `Inactive for ${wanted} days`);
+          if (!already)
+            await this.engine.enroll(
+              automation,
+              { leadId: lead.id },
+              `Inactive for ${wanted} days`,
+            );
         }
       }
     }
@@ -202,7 +259,11 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
 
   private async overdueTasks(now: Date) {
     const tasks = await this.prisma.crmTask.findMany({
-      where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, dueAt: { lt: now }, overdueNotifiedAt: null },
+      where: {
+        status: { in: ['OPEN', 'IN_PROGRESS'] },
+        dueAt: { lt: now },
+        overdueNotifiedAt: null,
+      },
       select: { id: true, title: true, dealerId: true, leadId: true, assignedToId: true },
       take: 500,
     });
@@ -218,23 +279,36 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
         link: task.leadId ? `/dealer/crm/leads/${task.leadId}` : '/dealer/crm/tasks',
       });
       if (task.leadId) {
-        await this.engine.trigger('TASK_OVERDUE', { scope: 'DEALER', dealerId: task.dealerId, leadId: task.leadId });
+        await this.engine.trigger('TASK_OVERDUE', {
+          scope: 'DEALER',
+          dealerId: task.dealerId,
+          leadId: task.leadId,
+        });
       }
     }
   }
 
   private async taskReminders(now: Date) {
     const tasks = await this.prisma.crmTask.findMany({
-      where: { status: { in: ['OPEN', 'IN_PROGRESS'] }, reminderAt: { lte: now }, reminderSentAt: null },
+      where: {
+        status: { in: ['OPEN', 'IN_PROGRESS'] },
+        reminderAt: { lte: now },
+        reminderSentAt: null,
+      },
       select: { id: true, title: true, leadId: true, assignedToId: true, dueAt: true },
       take: 500,
     });
     for (const task of tasks) {
-      const claimed = await this.prisma.crmTask.updateMany({ where: { id: task.id, reminderSentAt: null }, data: { reminderSentAt: now } });
+      const claimed = await this.prisma.crmTask.updateMany({
+        where: { id: task.id, reminderSentAt: null },
+        data: { reminderSentAt: now },
+      });
       if (!claimed.count) continue;
       await this.notify.notify(task.assignedToId, 'TASK_ASSIGNED', {
         title: `Reminder: ${task.title}`,
-        body: task.dueAt ? `Due ${task.dueAt.toISOString().slice(0, 16).replace('T', ' ')} UTC.` : 'Reminder.',
+        body: task.dueAt
+          ? `Due ${task.dueAt.toISOString().slice(0, 16).replace('T', ' ')} UTC.`
+          : 'Reminder.',
         link: task.leadId ? `/dealer/crm/leads/${task.leadId}` : '/dealer/crm/tasks',
       });
     }
@@ -249,11 +323,22 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
         reminderMinutes: { not: null },
         startsAt: { gt: now, lte: new Date(now.getTime() + 7 * DAY) },
       },
-      select: { id: true, leadId: true, salespersonId: true, startsAt: true, reminderMinutes: true, type: true },
+      select: {
+        id: true,
+        leadId: true,
+        salespersonId: true,
+        startsAt: true,
+        reminderMinutes: true,
+        type: true,
+      },
       take: 500,
     });
     for (const appointment of upcoming) {
-      if (appointment.startsAt.getTime() - (appointment.reminderMinutes ?? 0) * 60_000 > now.getTime()) continue;
+      if (
+        appointment.startsAt.getTime() - (appointment.reminderMinutes ?? 0) * 60_000 >
+        now.getTime()
+      )
+        continue;
       const claimed = await this.prisma.crmAppointment.updateMany({
         where: { id: appointment.id, reminderSentAt: null },
         data: { reminderSentAt: now },
@@ -275,20 +360,33 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
       where: { scope: 'SUPPORT', dealerId: null, trigger: 'TICKET_WAITING', isActive: true },
     });
     if (!automations.length) return;
-    const days = Math.min(...automations.map((a) => (a.triggerConfig as { days?: number })?.days ?? settings.waitingReminderDays));
+    const days = Math.min(
+      ...automations.map(
+        (a) => (a.triggerConfig as { days?: number })?.days ?? settings.waitingReminderDays,
+      ),
+    );
     const tickets = await this.prisma.supportTicket.findMany({
-      where: { status: 'WAITING_FOR_USER', waitingSince: { lte: new Date(now.getTime() - days * DAY) } },
+      where: {
+        status: 'WAITING_FOR_USER',
+        waitingSince: { lte: new Date(now.getTime() - days * DAY) },
+      },
       select: { id: true, waitingSince: true },
       take: 500,
     });
     for (const ticket of tickets) {
       for (const automation of automations) {
-        const wanted = (automation.triggerConfig as { days?: number })?.days ?? settings.waitingReminderDays;
+        const wanted =
+          (automation.triggerConfig as { days?: number })?.days ?? settings.waitingReminderDays;
         if (now.getTime() - ticket.waitingSince!.getTime() < wanted * DAY) continue;
         const already = await this.prisma.crmAutomationEnrollment.count({
-          where: { automationId: automation.id, ticketId: ticket.id, startedAt: { gte: ticket.waitingSince! } },
+          where: {
+            automationId: automation.id,
+            ticketId: ticket.id,
+            startedAt: { gte: ticket.waitingSince! },
+          },
         });
-        if (!already) await this.engine.enroll(automation, { ticketId: ticket.id }, `Waiting ${wanted} days`);
+        if (!already)
+          await this.engine.enroll(automation, { ticketId: ticket.id }, `Waiting ${wanted} days`);
       }
     }
   }
@@ -297,7 +395,10 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
     const settings = await this.prisma.supportSettings.findUnique({ where: { id: 1 } });
     if (!settings) return;
     const tickets = await this.prisma.supportTicket.findMany({
-      where: { status: 'RESOLVED', resolvedAt: { lte: new Date(now.getTime() - settings.autoCloseDays * DAY) } },
+      where: {
+        status: 'RESOLVED',
+        resolvedAt: { lte: new Date(now.getTime() - settings.autoCloseDays * DAY) },
+      },
       select: { id: true },
       take: 200,
     });
@@ -315,7 +416,10 @@ export class CrmScheduler implements OnModuleInit, OnModuleDestroy {
       take: 200,
     });
     for (const task of tasks) {
-      const claimed = await this.prisma.adminTask.updateMany({ where: { id: task.id, reminderSentAt: null }, data: { reminderSentAt: now } });
+      const claimed = await this.prisma.adminTask.updateMany({
+        where: { id: task.id, reminderSentAt: null },
+        data: { reminderSentAt: now },
+      });
       if (!claimed.count) continue;
       await this.notify.notify(task.assignedToId, 'TICKET_UPDATED', {
         title: `Task reminder: ${task.title}`,

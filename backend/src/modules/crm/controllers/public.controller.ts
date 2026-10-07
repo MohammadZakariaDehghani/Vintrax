@@ -69,7 +69,11 @@ export class CrmPublicController {
     const token = file.replace(/\.gif$/, '');
     if (TOKEN.test(token)) await this.dispatcher.recordOpen(token).catch(() => undefined);
     response
-      .set({ 'Content-Type': 'image/gif', 'Cache-Control': 'no-store, max-age=0', 'Content-Length': String(PIXEL.length) })
+      .set({
+        'Content-Type': 'image/gif',
+        'Cache-Control': 'no-store, max-age=0',
+        'Content-Length': String(PIXEL.length),
+      })
       .status(200)
       .end(PIXEL);
   }
@@ -82,7 +86,9 @@ export class CrmPublicController {
     @Query(zodQuery(clickQuerySchema)) query: z.infer<typeof clickQuerySchema>,
     @Res() response: Response,
   ) {
-    const target = TOKEN.test(token) ? await this.dispatcher.recordClick(token, query.u, query.s).catch(() => null) : null;
+    const target = TOKEN.test(token)
+      ? await this.dispatcher.recordClick(token, query.u, query.s).catch(() => null)
+      : null;
     // A forged or altered link goes to the home page, never to the URL it names.
     response.redirect(HttpStatus.FOUND, target ?? this.appUrl);
   }
@@ -99,7 +105,9 @@ export class CrmPublicController {
   @Public()
   @Post('public/unsubscribe/:token')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Unsubscribe from the dealership’s marketing email (also RFC 8058 one-click)' })
+  @ApiOperation({
+    summary: 'Unsubscribe from the dealership’s marketing email (also RFC 8058 one-click)',
+  })
   async unsubscribe(@Param('token') token: string) {
     const result = TOKEN.test(token) ? await this.dispatcher.unsubscribe(token) : { ok: false };
     if (!result.ok) throw new NotFoundException('This link is not valid');
@@ -109,7 +117,9 @@ export class CrmPublicController {
   @Public()
   @Post('webhooks/email')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delivery events from an email provider (shared secret in X-CRM-Webhook-Secret)' })
+  @ApiOperation({
+    summary: 'Delivery events from an email provider (shared secret in X-CRM-Webhook-Secret)',
+  })
   async webhook(
     @Headers('x-crm-webhook-secret') secret: string | undefined,
     @Body(zodBody(webhookSchema)) event: z.infer<typeof webhookSchema>,

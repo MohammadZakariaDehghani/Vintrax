@@ -14,7 +14,12 @@ export { DataTable, Facts, PageHeader, Section, type Column } from '@/components
 
 // --- Data ---------------------------------------------------------------------------------
 
-export function useCrmQuery<T>(key: unknown[], path: string, enabled = true, refetchInterval?: number) {
+export function useCrmQuery<T>(
+  key: unknown[],
+  path: string,
+  enabled = true,
+  refetchInterval?: number,
+) {
   const { dealerId } = useCrm();
   return useQuery({
     queryKey: ['crm', dealerId, ...key],
@@ -42,7 +47,13 @@ export function useCrmMutation<TInput, TResult = unknown>(
 }
 
 /** Admin CRM queries (no dealership). */
-export function useSupportQuery<T>(api: CrmClient, key: unknown[], path: string, enabled = true, refetchInterval?: number) {
+export function useSupportQuery<T>(
+  api: CrmClient,
+  key: unknown[],
+  path: string,
+  enabled = true,
+  refetchInterval?: number,
+) {
   return useQuery({
     queryKey: ['support', ...key],
     queryFn: ({ signal }) => api.get<T>(path, signal),
@@ -99,8 +110,15 @@ export function StatCard({
   );
 }
 
-export function TemperatureBadge({ temperature, score }: { temperature: 'HOT' | 'WARM' | 'COLD'; score?: number }) {
-  const variant = temperature === 'HOT' ? 'destructive' : temperature === 'WARM' ? 'warning' : 'outline';
+export function TemperatureBadge({
+  temperature,
+  score,
+}: {
+  temperature: 'HOT' | 'WARM' | 'COLD';
+  score?: number;
+}) {
+  const variant =
+    temperature === 'HOT' ? 'destructive' : temperature === 'WARM' ? 'warning' : 'outline';
   return (
     <Badge variant={variant}>
       {humanize(temperature)}
@@ -109,13 +127,22 @@ export function TemperatureBadge({ temperature, score }: { temperature: 'HOT' | 
   );
 }
 
-const KIND_VARIANT = { OPEN: 'primary', WON: 'success', LOST: 'destructive', NURTURE: 'warning', UNRESPONSIVE: 'outline' } as const;
+const KIND_VARIANT = {
+  OPEN: 'primary',
+  WON: 'success',
+  LOST: 'destructive',
+  NURTURE: 'warning',
+  UNRESPONSIVE: 'outline',
+} as const;
 
 export function LeadStatusBadge({ status }: { status: Pick<LeadStatus, 'label' | 'kind'> }) {
   return <Badge variant={KIND_VARIANT[status.kind]}>{status.label}</Badge>;
 }
 
-const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'outline' | 'primary' | 'destructive' | 'default'> = {
+const STATUS_VARIANT: Record<
+  string,
+  'success' | 'warning' | 'outline' | 'primary' | 'destructive' | 'default'
+> = {
   SENT: 'success',
   DELIVERED: 'success',
   QUEUED: 'primary',
@@ -162,7 +189,11 @@ export function Tabs<T extends string>({
   label: string;
 }) {
   return (
-    <div className="mb-4 flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label={label}>
+    <div
+      className="relative mb-4 flex gap-1 overflow-x-auto border-b border-border"
+      role="tablist"
+      aria-label={label}
+    >
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -178,7 +209,9 @@ export function Tabs<T extends string>({
           )}
         >
           {tab.label}
-          {tab.count !== undefined ? <span className="ml-1 text-xs text-muted-foreground">({tab.count})</span> : null}
+          {tab.count !== undefined ? (
+            <span className="ml-1 text-xs text-muted-foreground">({tab.count})</span>
+          ) : null}
         </button>
       ))}
     </div>
@@ -192,10 +225,20 @@ export interface RangeValue {
 }
 
 export function rangeQuery(range: RangeValue): string {
-  return qs({ preset: range.preset, from: range.preset === 'CUSTOM' ? range.from : undefined, to: range.preset === 'CUSTOM' ? range.to : undefined });
+  return qs({
+    preset: range.preset,
+    from: range.preset === 'CUSTOM' ? range.from : undefined,
+    to: range.preset === 'CUSTOM' ? range.to : undefined,
+  });
 }
 
-export function RangePicker({ value, onChange }: { value: RangeValue; onChange: (next: RangeValue) => void }) {
+export function RangePicker({
+  value,
+  onChange,
+}: {
+  value: RangeValue;
+  onChange: (next: RangeValue) => void;
+}) {
   const today = new Date().toISOString().slice(0, 10);
   return (
     <div className="flex flex-wrap items-end gap-2">
@@ -209,7 +252,11 @@ export function RangePicker({ value, onChange }: { value: RangeValue; onChange: 
           value={value.preset}
           onChange={(event) => {
             const preset = event.target.value as CrmRangePreset;
-            onChange(preset === 'CUSTOM' ? { preset, from: value.from || `${today.slice(0, 8)}01`, to: value.to || today } : { ...value, preset });
+            onChange(
+              preset === 'CUSTOM'
+                ? { preset, from: value.from || `${today.slice(0, 8)}01`, to: value.to || today }
+                : { ...value, preset },
+            );
           }}
         >
           {CRM_RANGE_PRESETS.map((preset) => (
@@ -221,8 +268,20 @@ export function RangePicker({ value, onChange }: { value: RangeValue; onChange: 
       </div>
       {value.preset === 'CUSTOM' ? (
         <>
-          <Input aria-label="From" type="date" className="h-9 w-40" value={value.from} onChange={(event) => onChange({ ...value, from: event.target.value })} />
-          <Input aria-label="To" type="date" className="h-9 w-40" value={value.to} onChange={(event) => onChange({ ...value, to: event.target.value })} />
+          <Input
+            aria-label="From"
+            type="date"
+            className="h-9 w-40"
+            value={value.from}
+            onChange={(event) => onChange({ ...value, from: event.target.value })}
+          />
+          <Input
+            aria-label="To"
+            type="date"
+            className="h-9 w-40"
+            value={value.to}
+            onChange={(event) => onChange({ ...value, to: event.target.value })}
+          />
         </>
       ) : null}
     </div>
@@ -262,13 +321,22 @@ export function Bar({ value, max, className }: { value: number; max: number; cla
   const width = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
   return (
     <div className="h-2 w-full rounded-full bg-secondary" aria-hidden>
-      <div className={cn('h-2 rounded-full bg-primary', className)} style={{ width: `${width}%` }} />
+      <div
+        className={cn('h-2 rounded-full bg-primary', className)}
+        style={{ width: `${width}%` }}
+      />
     </div>
   );
 }
 
 /** Shows its children only when the caller holds the permission. The API checks regardless. */
-export function CanCrm({ permission, children }: { permission: Parameters<ReturnType<typeof useCrm>['can']>[0]; children: ReactNode }) {
+export function CanCrm({
+  permission,
+  children,
+}: {
+  permission: Parameters<ReturnType<typeof useCrm>['can']>[0];
+  children: ReactNode;
+}) {
   const { can } = useCrm();
   return can(permission) ? <>{children}</> : null;
 }

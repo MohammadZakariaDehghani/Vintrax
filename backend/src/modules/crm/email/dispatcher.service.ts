@@ -93,7 +93,9 @@ export class DispatcherService {
         where: { id },
         data: { status: 'SUPPRESSED', lastError: decision.reason, lockedUntil: null },
       });
-      await this.prisma.crmEmailEvent.create({ data: { emailId: id, type: 'SUPPRESSED', detail: decision.reason } });
+      await this.prisma.crmEmailEvent.create({
+        data: { emailId: id, type: 'SUPPRESSED', detail: decision.reason },
+      });
       return;
     }
     const attempt = email.attempts + 1;
@@ -122,7 +124,9 @@ export class DispatcherService {
             providerMessageId: receipt.messageId,
           },
         });
-        await tx.crmEmailEvent.create({ data: { emailId: id, type: 'SENT', detail: receipt.provider } });
+        await tx.crmEmailEvent.create({
+          data: { emailId: id, type: 'SENT', detail: receipt.provider },
+        });
         if (email.leadId && email.dealerId) {
           await recordTimeline(tx, {
             dealerId: email.dealerId,
@@ -132,11 +136,18 @@ export class DispatcherService {
             userId: email.createdById,
             emailId: id,
             occurredAt: now,
-            metadata: { purpose: email.purpose, automated: !!email.enrollmentId, campaign: !!email.campaignId },
+            metadata: {
+              purpose: email.purpose,
+              automated: !!email.enrollmentId,
+              campaign: !!email.campaignId,
+            },
           });
           // A salesperson's own email is contact; an automated one is not.
           if (email.createdById && !email.enrollmentId && !email.campaignId) {
-            const lead = await tx.crmLead.findUnique({ where: { id: email.leadId }, select: { firstContactAt: true } });
+            const lead = await tx.crmLead.findUnique({
+              where: { id: email.leadId },
+              select: { firstContactAt: true },
+            });
             if (lead) {
               await this.leads.markContactedIf(
                 tx,
@@ -174,7 +185,11 @@ export class DispatcherService {
         },
       });
       await this.prisma.crmEmailEvent.create({
-        data: { emailId: id, type: giveUp ? 'FAILED' : 'RETRY', detail: `Attempt ${attempt}: ${detail}` },
+        data: {
+          emailId: id,
+          type: giveUp ? 'FAILED' : 'RETRY',
+          detail: `Attempt ${attempt}: ${detail}`,
+        },
       });
       if (giveUp && email.leadId && email.dealerId) {
         await recordTimeline(this.prisma, {
@@ -194,10 +209,17 @@ export class DispatcherService {
     let html = email.bodyHtml;
     let text = email.bodyText;
     const headers: Record<string, string> = { 'X-Vintrax-Email': email.id };
+    // Links in the message are tracked; the unsubscribe link added below is
+    // not, so it always works and reads as what it is.
+    const tracked = this.tracking && email.scope === 'DEALER';
+    if (tracked) html = trackLinks(html, this.appUrl, this.secret, email.trackingToken);
     if (email.scope === 'DEALER' && email.dealerId) {
       const [settings, dealer] = await Promise.all([
         this.prisma.crmSettings.findUnique({ where: { dealerId: email.dealerId } }),
-        this.prisma.dealer.findUniqueOrThrow({ where: { id: email.dealerId }, select: { name: true, phone: true } }),
+        this.prisma.dealer.findUniqueOrThrow({
+          where: { id: email.dealerId },
+          select: { name: true, phone: true },
+        }),
       ]);
       const identity = [
         settings?.senderName ?? dealer.name,
@@ -212,13 +234,12 @@ export class DispatcherService {
         html += `\n<p style="font-size:12px;color:#666">You receive this because you were in touch with ${escapeHtml(dealer.name)}. <a href="${escapeHtml(link)}">Unsubscribe</a> from marketing email.</p>`;
         text += `\nUnsubscribe from marketing email: ${link}`;
         // RFC 8058 one-click unsubscribe, honoured by the major mailbox providers.
-        headers['List-Unsubscribe'] = `<${this.appUrl}/api/crm/public/unsubscribe/${email.trackingToken}>`;
+        headers['List-Unsubscribe'] =
+          `<${this.appUrl}/api/crm/public/unsubscribe/${email.trackingToken}>`;
         headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
       }
     }
-    if (this.tracking && email.scope === 'DEALER') {
-      html = trackLinks(html, this.appUrl, this.secret, email.trackingToken) + openPixel(this.appUrl, email.trackingToken);
-    }
+    if (tracked) html += openPixel(this.appUrl, email.trackingToken);
     return { html, text, headers };
   }
 
@@ -226,7 +247,13 @@ export class DispatcherService {
     await this.prisma.$transaction(async (tx) => {
       await tx.crmEmail.update({
         where: { id: email.id },
-        data: { status: 'BOUNCED', bouncedAt: now, attempts: attempt, lastError: detail, lockedUntil: null },
+        data: {
+          status: 'BOUNCED',
+          bouncedAt: now,
+          attempts: attempt,
+          lastError: detail,
+          lockedUntil: null,
+        },
       });
       await tx.crmEmailEvent.create({ data: { emailId: email.id, type: 'BOUNCED', detail } });
     });
@@ -267,7 +294,9 @@ export class DispatcherService {
     if (!/^https?:\/\//i.test(url) || !verifyLink(this.secret, token, url, signature)) return null;
     const email = await this.prisma.crmEmail.findUnique({ where: { trackingToken: token } });
     if (!email) return url;
-    await this.prisma.crmEmailEvent.create({ data: { emailId: email.id, type: 'CLICKED', detail: url.slice(0, 500) } });
+    await this.prisma.crmEmailEvent.create({
+      data: { emailId: email.id, type: 'CLICKED', detail: url.slice(0, 500) },
+    });
     const first = await this.prisma.crmEmail.updateMany({
       where: { id: email.id, clickedAt: null },
       data: { clickedAt: new Date(), openedAt: email.openedAt ?? new Date() },
@@ -299,7 +328,9 @@ export class DispatcherService {
     detail?: string | null;
     permanent?: boolean;
   }): Promise<boolean> {
-    const email = await this.prisma.crmEmail.findFirst({ where: { providerMessageId: event.messageId } });
+    const email = await this.prisma.crmEmail.findFirst({
+      where: { providerMessageId: event.messageId },
+    });
     if (!email) return false;
     const now = new Date();
     switch (event.type) {
@@ -308,11 +339,15 @@ export class DispatcherService {
           where: { id: email.id, status: 'SENT' },
           data: { status: 'DELIVERED', deliveredAt: now },
         });
-        await this.prisma.crmEmailEvent.create({ data: { emailId: email.id, type: 'DELIVERED', detail: event.detail } });
+        await this.prisma.crmEmailEvent.create({
+          data: { emailId: email.id, type: 'DELIVERED', detail: event.detail },
+        });
         break;
       case 'BOUNCED':
         if (event.permanent === false) {
-          await this.prisma.crmEmailEvent.create({ data: { emailId: email.id, type: 'BOUNCED', detail: `Soft: ${event.detail ?? ''}` } });
+          await this.prisma.crmEmailEvent.create({
+            data: { emailId: email.id, type: 'BOUNCED', detail: `Soft: ${event.detail ?? ''}` },
+          });
         } else {
           await this.recordBounce(email, event.detail ?? 'Bounced', now, email.attempts);
           if (email.leadId && email.dealerId) {
@@ -327,15 +362,27 @@ export class DispatcherService {
         }
         break;
       case 'COMPLAINED':
-        await this.prisma.crmEmailEvent.create({ data: { emailId: email.id, type: 'COMPLAINED', detail: event.detail } });
-        await this.compliance.suppress({ dealerId: null, email: email.toEmail, reason: 'COMPLAINT', source: 'Spam complaint' });
+        await this.prisma.crmEmailEvent.create({
+          data: { emailId: email.id, type: 'COMPLAINED', detail: event.detail },
+        });
+        await this.compliance.suppress({
+          dealerId: null,
+          email: email.toEmail,
+          reason: 'COMPLAINT',
+          source: 'Spam complaint',
+        });
         break;
       case 'OPENED':
         await this.recordOpen(email.trackingToken);
         break;
       case 'CLICKED':
-        await this.prisma.crmEmailEvent.create({ data: { emailId: email.id, type: 'CLICKED', detail: event.detail } });
-        await this.prisma.crmEmail.updateMany({ where: { id: email.id, clickedAt: null }, data: { clickedAt: now } });
+        await this.prisma.crmEmailEvent.create({
+          data: { emailId: email.id, type: 'CLICKED', detail: event.detail },
+        });
+        await this.prisma.crmEmail.updateMany({
+          where: { id: email.id, clickedAt: null },
+          data: { clickedAt: now },
+        });
         break;
       case 'REPLIED':
         await this.recordReply(email.id, 'provider');
@@ -349,22 +396,36 @@ export class DispatcherService {
     const email = await this.prisma.crmEmail.findUnique({ where: { id: emailId } });
     if (!email) return;
     const now = new Date();
-    await this.prisma.crmEmail.update({ where: { id: emailId }, data: { repliedAt: email.repliedAt ?? now } });
+    await this.prisma.crmEmail.update({
+      where: { id: emailId },
+      data: { repliedAt: email.repliedAt ?? now },
+    });
     await this.prisma.crmEmailEvent.create({ data: { emailId, type: 'REPLIED', detail: source } });
-    if (email.leadId && email.dealerId) await this.leadReplied(email.dealerId, email.leadId, `Replied to: ${email.subject}`);
+    if (email.leadId && email.dealerId)
+      await this.leadReplied(email.dealerId, email.leadId, `Replied to: ${email.subject}`);
   }
 
   /** A reply from the customer, by any channel: score it, stop sequences, tell the salesperson. */
-  async leadReplied(dealerId: string, leadId: string, title: string, notes?: string | null): Promise<void> {
+  async leadReplied(
+    dealerId: string,
+    leadId: string,
+    title: string,
+    notes?: string | null,
+  ): Promise<void> {
     const lead = await this.prisma.$transaction(async (tx) => {
       await tx.crmLead.update({ where: { id: leadId }, data: { lastRepliedAt: new Date() } });
       await recordTimeline(tx, { dealerId, leadId, type: 'CUSTOMER_REPLIED', title, notes });
       await this.scoring.apply(leadId, 'CUSTOMER_REPLIED', tx);
       // A reply means they are engaged.
-      const engaged = await tx.crmLeadStatus.findUnique({ where: { dealerId_key: { dealerId, key: 'ENGAGED' } } });
+      const engaged = await tx.crmLeadStatus.findUnique({
+        where: { dealerId_key: { dealerId, key: 'ENGAGED' } },
+      });
       if (engaged) {
         await tx.crmLead.updateMany({
-          where: { id: leadId, status: { key: { in: ['NEW', 'CONTACTED', 'UNRESPONSIVE', 'NURTURE'] } } },
+          where: {
+            id: leadId,
+            status: { key: { in: ['NEW', 'CONTACTED', 'UNRESPONSIVE', 'NURTURE'] } },
+          },
           data: { statusId: engaged.id },
         });
       }
@@ -382,7 +443,9 @@ export class DispatcherService {
   }
 
   /** One-click and page unsubscribe. Returns the dealer's name for the confirmation. */
-  async unsubscribe(token: string): Promise<{ ok: boolean; dealerName: string | null; email: string | null }> {
+  async unsubscribe(
+    token: string,
+  ): Promise<{ ok: boolean; dealerName: string | null; email: string | null }> {
     const email = await this.prisma.crmEmail.findUnique({
       where: { trackingToken: token },
       select: { id: true, toEmail: true, dealerId: true, dealer: { select: { name: true } } },
@@ -394,7 +457,10 @@ export class DispatcherService {
       reason: 'UNSUBSCRIBED',
       source: 'Unsubscribe link',
     });
-    await this.prisma.crmEmail.update({ where: { id: email.id }, data: { unsubscribedAt: new Date() } });
+    await this.prisma.crmEmail.update({
+      where: { id: email.id },
+      data: { unsubscribedAt: new Date() },
+    });
     await this.prisma.crmEmailEvent.create({ data: { emailId: email.id, type: 'UNSUBSCRIBED' } });
     return { ok: true, dealerName: email.dealer?.name ?? null, email: maskEmail(email.toEmail) };
   }
@@ -405,7 +471,11 @@ export class DispatcherService {
       select: { toEmail: true, unsubscribedAt: true, dealer: { select: { name: true } } },
     });
     if (!email) return null;
-    return { dealerName: email.dealer?.name ?? 'Vintrax', email: maskEmail(email.toEmail), unsubscribed: !!email.unsubscribedAt };
+    return {
+      dealerName: email.dealer?.name ?? 'Vintrax',
+      email: maskEmail(email.toEmail),
+      unsubscribed: !!email.unsubscribedAt,
+    };
   }
 }
 

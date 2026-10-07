@@ -83,7 +83,9 @@ export class CrmLeadsController {
   ) {}
 
   @Get('me')
-  @ApiOperation({ summary: 'The dealership, the caller’s role and permissions, statuses, sources, tags and staff' })
+  @ApiOperation({
+    summary: 'The dealership, the caller’s role and permissions, statuses, sources, tags and staff',
+  })
   me(@Crm() ctx: CrmContext) {
     return this.config.overview(ctx);
   }
@@ -126,13 +128,19 @@ export class CrmLeadsController {
 
   @Get('activities')
   @ApiOperation({ summary: 'Recent activity across your leads' })
-  activities(@Crm() ctx: CrmContext, @Query(zodQuery(activityQuerySchema)) query: z.infer<typeof activityQuerySchema>) {
+  activities(
+    @Crm() ctx: CrmContext,
+    @Query(zodQuery(activityQuerySchema)) query: z.infer<typeof activityQuerySchema>,
+  ) {
     return this.leads.activities(ctx, query);
   }
 
   @Get('customers')
   @ApiOperation({ summary: 'The dealership’s customers with their CRM lead' })
-  customers(@Crm() ctx: CrmContext, @Query(zodQuery(pageQuerySchema)) query: z.infer<typeof pageQuerySchema>) {
+  customers(
+    @Crm() ctx: CrmContext,
+    @Query(zodQuery(pageQuerySchema)) query: z.infer<typeof pageQuerySchema>,
+  ) {
     return this.reports.customers(ctx, query.q, query.page, query.pageSize);
   }
 
@@ -189,7 +197,10 @@ export class CrmLeadsController {
   }
 
   @Post('leads')
-  @ApiOperation({ summary: 'Create a lead (assigned by the dealership’s rules when no one is chosen)' })
+  @RequireCrm('crm.work')
+  @ApiOperation({
+    summary: 'Create a lead (assigned by the dealership’s rules when no one is chosen)',
+  })
   create(@Crm() ctx: CrmContext, @Body(zodBody(leadSchema)) input: LeadInput) {
     return this.leads.create(ctx, input, { sourceKey: input.sourceId ? undefined : 'MANUAL' });
   }
@@ -223,14 +234,21 @@ export class CrmLeadsController {
   }
 
   @Get('leads/:id')
-  @ApiOperation({ summary: 'A lead with its tasks, appointments, automations, consent and journey' })
+  @ApiOperation({
+    summary: 'A lead with its tasks, appointments, automations, consent and journey',
+  })
   get(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.leads.get(ctx, id);
   }
 
   @Put('leads/:id')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Update a lead' })
-  update(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(leadSchema)) input: LeadInput) {
+  update(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(leadSchema)) input: LeadInput,
+  ) {
     return this.leads.update(ctx, id, input);
   }
 
@@ -243,20 +261,35 @@ export class CrmLeadsController {
   }
 
   @Post('leads/:id/status')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Move a lead to another status (records the change on the timeline)' })
-  status(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(leadStatusChangeSchema)) input: LeadStatusChangeInput) {
+  status(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(leadStatusChangeSchema)) input: LeadStatusChangeInput,
+  ) {
     return this.leads.changeStatus(ctx, id, input);
   }
 
   @Post('leads/:id/assign')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Assign a lead (a salesperson may claim an unassigned one)' })
-  assign(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(leadAssignSchema)) input: LeadAssignInput) {
+  assign(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(leadAssignSchema)) input: LeadAssignInput,
+  ) {
     return this.leads.assign(ctx, id, input);
   }
 
   @Put('leads/:id/tags')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Replace a lead’s tags' })
-  tags(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(leadTagsSchema)) input: { tags: string[] }) {
+  tags(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(leadTagsSchema)) input: { tags: string[] },
+  ) {
     return this.leads.setTags(ctx, id, input.tags);
   }
 
@@ -271,8 +304,13 @@ export class CrmLeadsController {
   }
 
   @Post('leads/:id/activities')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Log a call, note, meeting, test drive or other activity' })
-  activity(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(activitySchema)) input: ActivityInput) {
+  activity(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(activitySchema)) input: ActivityInput,
+  ) {
     return this.leads.logActivity(ctx, id, input);
   }
 
@@ -285,11 +323,16 @@ export class CrmLeadsController {
   @Post('leads/:id/merge')
   @RequireCrm('crm.manage')
   @ApiOperation({ summary: 'Merge a duplicate into this lead, keeping all of its history' })
-  merge(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(leadMergeSchema)) input: { duplicateId: string }) {
+  merge(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(leadMergeSchema)) input: { duplicateId: string },
+  ) {
     return this.leads.merge(ctx, id, input.duplicateId);
   }
 
   @Post('leads/:id/convert')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Make the lead a customer (the dealership’s Customer record)' })
   convert(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.leads.convert(ctx, id);

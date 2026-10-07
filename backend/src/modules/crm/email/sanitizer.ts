@@ -129,7 +129,8 @@ function cleanAttributes(tag: string, raw: string): string {
   return kept.length ? ' ' + kept.join(' ') : '';
 }
 
-const TOKEN = /<!--[\s\S]*?(?:-->|$)|<!\[CDATA\[[\s\S]*?(?:\]\]>|$)|<![^>]*>?|<\?[^>]*>?|<\/?([a-zA-Z][a-zA-Z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+const TOKEN =
+  /<!--[\s\S]*?(?:-->|$)|<!\[CDATA\[[\s\S]*?(?:\]\]>|$)|<![^>]*>?|<\?[^>]*>?|<\/?([a-zA-Z][a-zA-Z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
 
 export function sanitizeHtml(input: string): string {
   let output = '';
@@ -185,11 +186,14 @@ export function htmlToText(html: string): string {
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<\/(p|div|h[1-4]|blockquote|tr|table|ul|ol)>/gi, '\n\n')
       .replace(/<li[^>]*>/gi, '\n- ')
-      .replace(/<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href: string, label: string) => {
-        const text = label.replace(/<[^>]+>/g, '').trim();
-        const url = decodeEntities(href);
-        return text && text !== url ? `${text} (${url})` : url;
-      })
+      .replace(
+        /<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,
+        (_m, href: string, label: string) => {
+          const text = label.replace(/<[^>]+>/g, '').trim();
+          const url = decodeEntities(href);
+          return text && text !== url ? `${text} (${url})` : url;
+        },
+      )
       .replace(/<[^>]+>/g, ''),
   )
     .replace(/[ \t]+\n/g, '\n')

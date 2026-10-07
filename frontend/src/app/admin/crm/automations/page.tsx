@@ -8,7 +8,12 @@ import { support, type AutomationRow } from '@/lib/crm';
 
 export default function AdminCrmAutomationsPage() {
   const list = useSupportQuery<AutomationRow[]>(support, ['automations'], '/automations');
-  const toggle = useCrmMutation((automation: AutomationRow) => support.post(`/automations/${automation.id}/active`, { isActive: !automation.isActive }), undefined, 'support');
+  const toggle = useCrmMutation(
+    (automation: AutomationRow) =>
+      support.post(`/automations/${automation.id}/active`, { isActive: !automation.isActive }),
+    undefined,
+    'support',
+  );
   return (
     <>
       <PageHeader

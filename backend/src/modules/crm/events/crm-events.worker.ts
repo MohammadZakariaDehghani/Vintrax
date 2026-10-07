@@ -42,7 +42,9 @@ export class CrmEventsWorker implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.queue.registerWorker(QUEUE_NAMES.crm, async (job: Job) => this.handle(job.name, job.data as Record<string, string>));
+    this.queue.registerWorker(QUEUE_NAMES.crm, async (job: Job) =>
+      this.handle(job.name, job.data as Record<string, string>),
+    );
   }
 
   async handle(name: string, data: Record<string, string>): Promise<void> {
@@ -64,14 +66,25 @@ export class CrmEventsWorker implements OnModuleInit {
   }
 
   private async dealerContext(ownerUserId: string): Promise<CrmContext | null> {
-    const dealer = await this.prisma.dealer.findUnique({ where: { ownerId: ownerUserId }, select: { id: true } });
+    const dealer = await this.prisma.dealer.findUnique({
+      where: { ownerId: ownerUserId },
+      select: { id: true },
+    });
     if (!dealer) return null;
     await this.setup.ensure(dealer.id);
     return systemContext(dealer.id, ownerUserId);
   }
 
   /** The dealer's lead for this person: by account first, then email, then phone. */
-  private async findLead(dealerId: string, who: { userId?: string | null; email?: string | null; phone?: string | null; customerId?: string | null }) {
+  private async findLead(
+    dealerId: string,
+    who: {
+      userId?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      customerId?: string | null;
+    },
+  ) {
     const or = [
       ...(who.customerId ? [{ customerId: who.customerId }] : []),
       ...(who.userId ? [{ userId: who.userId }] : []),
@@ -82,13 +95,23 @@ export class CrmEventsWorker implements OnModuleInit {
     return this.prisma.crmLead.findFirst({
       where: { dealerId, mergedIntoId: null, OR: or },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, conversationId: true, customerId: true, userId: true, emailNormalized: true, firstContactAt: true },
+      select: {
+        id: true,
+        conversationId: true,
+        customerId: true,
+        userId: true,
+        emailNormalized: true,
+        firstContactAt: true,
+      },
     });
   }
 
   private async impliedConsent(dealerId: string, type: ConsentType) {
     const settings = await this.prisma.crmSettings.findUnique({ where: { dealerId } });
-    const allowed = type === 'IMPLIED_PURCHASE' ? settings?.impliedConsentFromPurchase : settings?.impliedConsentFromInquiry;
+    const allowed =
+      type === 'IMPLIED_PURCHASE'
+        ? settings?.impliedConsentFromPurchase
+        : settings?.impliedConsentFromInquiry;
     return allowed ?? false;
   }
 
@@ -101,7 +124,9 @@ export class CrmEventsWorker implements OnModuleInit {
         conversation: {
           include: {
             vehicle: { select: { id: true, title: true, vin: true } },
-            buyer: { select: { id: true, email: true, firstName: true, lastName: true, phone: true } },
+            buyer: {
+              select: { id: true, email: true, firstName: true, lastName: true, phone: true },
+            },
           },
         },
       },
@@ -111,7 +136,9 @@ export class CrmEventsWorker implements OnModuleInit {
     const ctx = await this.dealerContext(conversation.sellerId);
     if (!ctx) return;
     // Already recorded (a retried job)?
-    const seen = await this.prisma.crmActivity.count({ where: { dealerId: ctx.dealerId, metadata: { path: ['messageId'], equals: messageId } } });
+    const seen = await this.prisma.crmActivity.count({
+      where: { dealerId: ctx.dealerId, metadata: { path: ['messageId'], equals: messageId } },
+    });
     if (seen) return;
 
     const buyer = conversation.buyer;
@@ -130,14 +157,25 @@ export class CrmEventsWorker implements OnModuleInit {
           vehicleId: conversation.vehicleId,
           metadata: { messageId, conversationId: conversation.id, channel: 'MESSENGER' },
         });
-        await this.leads.markContactedIf(tx, { ...ctx, system: false, userId: conversation.sellerId }, lead.id, 'FOLLOW_UP', message.createdAt, lead.firstContactAt);
+        await this.leads.markContactedIf(
+          tx,
+          { ...ctx, system: false, userId: conversation.sellerId },
+          lead.id,
+          'FOLLOW_UP',
+          message.createdAt,
+          lead.firstContactAt,
+        );
       });
       return;
     }
 
     const lead = await this.findLead(ctx.dealerId, { userId: buyer.id, email: buyer.email });
     const consent = (await this.impliedConsent(ctx.dealerId, 'IMPLIED_INQUIRY'))
-      ? { type: 'IMPLIED_INQUIRY' as const, source: 'Vehicle inquiry in Vintrax messages', evidence: `Asked about ${conversation.vehicle.title}` }
+      ? {
+          type: 'IMPLIED_INQUIRY' as const,
+          source: 'Vehicle inquiry in Vintrax messages',
+          evidence: `Asked about ${conversation.vehicle.title}`,
+        }
       : null;
     if (!lead) {
       await this.leads.create(
@@ -177,7 +215,12 @@ export class CrmEventsWorker implements OnModuleInit {
           signals: ['VEHICLE_INQUIRY'],
           triggers: ['VEHICLE_INQUIRY'],
           events: [
-            { type: 'VEHICLE_INQUIRY', title: `Asked about ${conversation.vehicle.title}`, notes: message.body.slice(0, 2000), vehicleId: conversation.vehicleId },
+            {
+              type: 'VEHICLE_INQUIRY',
+              title: `Asked about ${conversation.vehicle.title}`,
+              notes: message.body.slice(0, 2000),
+              vehicleId: conversation.vehicleId,
+            },
           ],
           impliedConsent: consent,
         },
@@ -188,14 +231,22 @@ export class CrmEventsWorker implements OnModuleInit {
     }
 
     const sellerSpoke = await this.prisma.message.count({
-      where: { conversationId: conversation.id, senderId: conversation.sellerId, createdAt: { lt: message.createdAt } },
+      where: {
+        conversationId: conversation.id,
+        senderId: conversation.sellerId,
+        createdAt: { lt: message.createdAt },
+      },
     });
     if (lead.conversationId !== conversation.id && !sellerSpoke) {
       // A new inquiry (another vehicle) from someone already a lead.
       await this.prisma.$transaction(async (tx) => {
         await tx.crmLead.update({
           where: { id: lead.id },
-          data: { conversationId: conversation.id, userId: lead.userId ?? buyer.id, vehicleId: conversation.vehicleId },
+          data: {
+            conversationId: conversation.id,
+            userId: lead.userId ?? buyer.id,
+            vehicleId: conversation.vehicleId,
+          },
         });
         await recordTimeline(tx, {
           dealerId: ctx.dealerId,
@@ -207,13 +258,24 @@ export class CrmEventsWorker implements OnModuleInit {
           metadata: { messageId, conversationId: conversation.id },
         });
         await this.scoring.apply(lead.id, 'VEHICLE_INQUIRY', tx);
-        if (consent && lead.emailNormalized) await this.leads.recordConsent(tx, ctx, lead.id, lead.emailNormalized, consent);
+        if (consent && lead.emailNormalized)
+          await this.leads.recordConsent(tx, ctx, lead.id, lead.emailNormalized, consent);
       });
-      await this.bus.publish({ type: 'VEHICLE_INQUIRY', scope: 'DEALER', dealerId: ctx.dealerId, leadId: lead.id });
+      await this.bus.publish({
+        type: 'VEHICLE_INQUIRY',
+        scope: 'DEALER',
+        dealerId: ctx.dealerId,
+        leadId: lead.id,
+      });
       return;
     }
     if (sellerSpoke) {
-      await this.dispatcher.leadReplied(ctx.dealerId, lead.id, 'Replied in Vintrax messages', message.body.slice(0, 2000));
+      await this.dispatcher.leadReplied(
+        ctx.dealerId,
+        lead.id,
+        'Replied in Vintrax messages',
+        message.body.slice(0, 2000),
+      );
       await this.markMessage(ctx.dealerId, messageId, lead.id);
     }
   }
@@ -221,7 +283,11 @@ export class CrmEventsWorker implements OnModuleInit {
   /** Stamps the newest timeline entry for a message so a retried job skips it. */
   private async markMessage(dealerId: string, messageId: string, leadId?: string) {
     const latest = await this.prisma.crmActivity.findFirst({
-      where: { dealerId, ...(leadId ? { leadId } : {}), type: { in: ['VEHICLE_INQUIRY', 'CUSTOMER_REPLIED'] } },
+      where: {
+        dealerId,
+        ...(leadId ? { leadId } : {}),
+        type: { in: ['VEHICLE_INQUIRY', 'CUSTOMER_REPLIED'] },
+      },
       orderBy: { createdAt: 'desc' },
       select: { id: true, metadata: true },
     });
@@ -243,20 +309,44 @@ export class CrmEventsWorker implements OnModuleInit {
     if (!application) return;
     const ctx = await this.dealerContext(application.sellerId);
     if (!ctx) return;
-    const seen = await this.prisma.crmLead.count({ where: { dealerId: ctx.dealerId, financeApplicationId: applicationId } });
+    const seen = await this.prisma.crmLead.count({
+      where: { dealerId: ctx.dealerId, financeApplicationId: applicationId },
+    });
     if (seen) return;
     const consent = (await this.impliedConsent(ctx.dealerId, 'IMPLIED_INQUIRY'))
-      ? { type: 'IMPLIED_INQUIRY' as const, source: 'Finance application on Vintrax', evidence: `Applied for financing on ${application.vehicle.title}` }
+      ? {
+          type: 'IMPLIED_INQUIRY' as const,
+          source: 'Finance application on Vintrax',
+          evidence: `Applied for financing on ${application.vehicle.title}`,
+        }
       : null;
     const tradeIn = application.hasTradeIn
-      ? [application.tradeInYear, application.tradeInMake, application.tradeInModel].filter(Boolean).join(' ') || 'Trade-in'
+      ? [application.tradeInYear, application.tradeInMake, application.tradeInModel]
+          .filter(Boolean)
+          .join(' ') || 'Trade-in'
       : null;
     // Only that they applied, never the application's contents (income, date of birth).
     const events = [
-      { type: 'FINANCING_REQUESTED' as const, title: `Applied for financing on ${application.vehicle.title}`, vehicleId: application.vehicleId },
-      ...(tradeIn ? [{ type: 'TRADE_IN_APPRAISAL' as const, title: `Trade-in offered: ${tradeIn}`, vehicleId: application.vehicleId }] : []),
+      {
+        type: 'FINANCING_REQUESTED' as const,
+        title: `Applied for financing on ${application.vehicle.title}`,
+        vehicleId: application.vehicleId,
+      },
+      ...(tradeIn
+        ? [
+            {
+              type: 'TRADE_IN_APPRAISAL' as const,
+              title: `Trade-in offered: ${tradeIn}`,
+              vehicleId: application.vehicleId,
+            },
+          ]
+        : []),
     ];
-    const lead = await this.findLead(ctx.dealerId, { userId: application.applicantId, email: application.email, phone: application.phone });
+    const lead = await this.findLead(ctx.dealerId, {
+      userId: application.applicantId,
+      email: application.email,
+      phone: application.phone,
+    });
     if (!lead) {
       await this.leads.create(
         ctx,
@@ -309,10 +399,12 @@ export class CrmEventsWorker implements OnModuleInit {
           ...(tradeIn ? { tradeInInterest: true, tradeInVehicle: tradeIn } : {}),
         },
       });
-      for (const event of events) await recordTimeline(tx, { dealerId: ctx.dealerId, leadId: lead.id, ...event });
+      for (const event of events)
+        await recordTimeline(tx, { dealerId: ctx.dealerId, leadId: lead.id, ...event });
       await this.scoring.apply(lead.id, 'FINANCING_REQUEST', tx);
       if (tradeIn) await this.scoring.apply(lead.id, 'TRADE_IN_SUBMITTED', tx);
-      if (consent && lead.emailNormalized) await this.leads.recordConsent(tx, ctx, lead.id, lead.emailNormalized, consent);
+      if (consent && lead.emailNormalized)
+        await this.leads.recordConsent(tx, ctx, lead.id, lead.emailNormalized, consent);
     });
     const signal = { scope: 'DEALER' as const, dealerId: ctx.dealerId, leadId: lead.id };
     await this.bus.publish({ ...signal, type: 'FINANCING_REQUESTED' });
@@ -335,10 +427,20 @@ export class CrmEventsWorker implements OnModuleInit {
       phone: deposit.customer.phone,
     });
     if (!lead) return;
-    const seen = await this.prisma.crmActivity.count({ where: { leadId: lead.id, type: 'DEPOSIT', metadata: { path: ['depositId'], equals: depositId } } });
+    const seen = await this.prisma.crmActivity.count({
+      where: {
+        leadId: lead.id,
+        type: 'DEPOSIT',
+        metadata: { path: ['depositId'], equals: depositId },
+      },
+    });
     if (seen) return;
     await this.prisma.$transaction(async (tx) => {
-      if (!lead.customerId) await tx.crmLead.update({ where: { id: lead.id }, data: { customerId: deposit.customerId, convertedAt: new Date() } });
+      if (!lead.customerId)
+        await tx.crmLead.update({
+          where: { id: lead.id },
+          data: { customerId: deposit.customerId, convertedAt: new Date() },
+        });
       await recordTimeline(tx, {
         dealerId: deposit.dealerId,
         leadId: lead.id,
@@ -362,7 +464,9 @@ export class CrmEventsWorker implements OnModuleInit {
     if (!sale || sale.status !== 'POSTED') return;
     await this.setup.ensure(sale.dealerId);
     const ctx = systemContext(sale.dealerId, sale.dealer.ownerId);
-    const seen = await this.prisma.crmActivity.count({ where: { dealerId: sale.dealerId, type: 'SALE', saleId } });
+    const seen = await this.prisma.crmActivity.count({
+      where: { dealerId: sale.dealerId, type: 'SALE', saleId },
+    });
     if (seen) return;
     const customer = sale.customer;
     let lead = await this.findLead(sale.dealerId, {
@@ -416,14 +520,25 @@ export class CrmEventsWorker implements OnModuleInit {
       }
       lead = await this.prisma.crmLead.findUniqueOrThrow({
         where: { id: created.id },
-        select: { id: true, conversationId: true, customerId: true, userId: true, emailNormalized: true, firstContactAt: true },
+        select: {
+          id: true,
+          conversationId: true,
+          customerId: true,
+          userId: true,
+          emailNormalized: true,
+          firstContactAt: true,
+        },
       });
     }
     const leadId = lead.id;
     await this.prisma.$transaction(async (tx) => {
       await tx.crmLead.update({
         where: { id: leadId },
-        data: { customerId: customer.id, convertedAt: lead!.customerId ? undefined : new Date(), vehicleId: sale.vehicleId },
+        data: {
+          customerId: customer.id,
+          convertedAt: lead!.customerId ? undefined : new Date(),
+          vehicleId: sale.vehicleId,
+        },
       });
       await recordTimeline(tx, {
         dealerId: sale.dealerId,
@@ -444,9 +559,17 @@ export class CrmEventsWorker implements OnModuleInit {
       }
     });
     await this.leads.setStatusByKey(ctx, leadId, 'WON');
-    const settings = await this.prisma.crmSettings.findUnique({ where: { dealerId: sale.dealerId }, select: { postSaleEnabled: true } });
+    const settings = await this.prisma.crmSettings.findUnique({
+      where: { dealerId: sale.dealerId },
+      select: { postSaleEnabled: true },
+    });
     if (settings?.postSaleEnabled ?? true) {
-      await this.bus.publish({ type: 'VEHICLE_SOLD', scope: 'DEALER', dealerId: sale.dealerId, leadId });
+      await this.bus.publish({
+        type: 'VEHICLE_SOLD',
+        scope: 'DEALER',
+        dealerId: sale.dealerId,
+        leadId,
+      });
     }
   }
 }

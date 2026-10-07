@@ -6,7 +6,11 @@ export type Facts = Partial<Record<ConditionField, string | number | boolean | s
 const DAY = 86_400_000;
 
 /** What the conditions can ask about a lead, read fresh each time a step runs. */
-export async function leadFacts(prisma: PrismaService, leadId: string, now = new Date()): Promise<Facts | null> {
+export async function leadFacts(
+  prisma: PrismaService,
+  leadId: string,
+  now = new Date(),
+): Promise<Facts | null> {
   const lead = await prisma.crmLead.findUnique({
     where: { id: leadId },
     select: {
@@ -29,7 +33,11 @@ export async function leadFacts(prisma: PrismaService, leadId: string, now = new
   const [opened, clicked, appointment] = await Promise.all([
     prisma.crmEmail.count({ where: { leadId, openedAt: { not: null } } }),
     prisma.crmEmail.count({ where: { leadId, clickedAt: { not: null } } }),
-    prisma.crmAppointment.findFirst({ where: { leadId }, orderBy: { startsAt: 'desc' }, select: { status: true } }),
+    prisma.crmAppointment.findFirst({
+      where: { leadId },
+      orderBy: { startsAt: 'desc' },
+      select: { status: true },
+    }),
   ]);
   const since = lead.lastContactAt ?? lead.createdAt;
   return {
@@ -56,7 +64,12 @@ export async function leadFacts(prisma: PrismaService, leadId: string, now = new
 export async function ticketFacts(prisma: PrismaService, ticketId: string): Promise<Facts | null> {
   const ticket = await prisma.supportTicket.findUnique({
     where: { id: ticketId },
-    select: { status: true, priority: true, lastPublicReplyBy: true, category: { select: { key: true } } },
+    select: {
+      status: true,
+      priority: true,
+      lastPublicReplyBy: true,
+      category: { select: { key: true } },
+    },
   });
   if (!ticket) return null;
   return {
@@ -79,22 +92,42 @@ export function evaluate(condition: AutomationCondition, facts: Facts): boolean 
     case 'is_false':
       return actual === false || actual === null || actual === undefined;
     case 'eq':
-      return Array.isArray(actual) ? actual.some((item) => lower(item) === lower(expected)) : lower(actual) === lower(expected);
+      return Array.isArray(actual)
+        ? actual.some((item) => lower(item) === lower(expected))
+        : lower(actual) === lower(expected);
     case 'neq':
-      return Array.isArray(actual) ? !actual.some((item) => lower(item) === lower(expected)) : lower(actual) !== lower(expected);
+      return Array.isArray(actual)
+        ? !actual.some((item) => lower(item) === lower(expected))
+        : lower(actual) !== lower(expected);
     case 'gt':
     case 'gte':
     case 'lt':
     case 'lte': {
-      if (actual === null || actual === undefined || typeof actual === 'boolean' || Array.isArray(actual)) return false;
+      if (
+        actual === null ||
+        actual === undefined ||
+        typeof actual === 'boolean' ||
+        Array.isArray(actual)
+      )
+        return false;
       const a = Number(actual);
       const b = Number(expected);
       if (Number.isNaN(a) || Number.isNaN(b)) return false;
-      return condition.op === 'gt' ? a > b : condition.op === 'gte' ? a >= b : condition.op === 'lt' ? a < b : a <= b;
+      return condition.op === 'gt'
+        ? a > b
+        : condition.op === 'gte'
+          ? a >= b
+          : condition.op === 'lt'
+            ? a < b
+            : a <= b;
     }
     case 'in': {
-      const options = (Array.isArray(expected) ? expected : String(expected ?? '').split(',')).map(lower);
-      return Array.isArray(actual) ? actual.some((item) => options.includes(lower(item))) : options.includes(lower(actual));
+      const options = (Array.isArray(expected) ? expected : String(expected ?? '').split(',')).map(
+        lower,
+      );
+      return Array.isArray(actual)
+        ? actual.some((item) => options.includes(lower(item)))
+        : options.includes(lower(actual));
     }
     case 'contains':
       return Array.isArray(actual)

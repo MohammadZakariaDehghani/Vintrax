@@ -63,13 +63,29 @@ export const leadListSelect = {
   source: { select: { id: true, key: true, label: true } },
   assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
   vehicle: {
-    select: { id: true, title: true, year: true, make: true, model: true, trim: true, priceCad: true, vin: true },
+    select: {
+      id: true,
+      title: true,
+      year: true,
+      make: true,
+      model: true,
+      trim: true,
+      priceCad: true,
+      vin: true,
+    },
   },
   tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
 } satisfies Prisma.CrmLeadSelect;
 
 /** Activity types that count as the dealership reaching the customer. */
-const CONTACT_TYPES = new Set<CrmTimelineType>(['CALL', 'EMAIL', 'SMS', 'MEETING', 'FOLLOW_UP', 'EMAIL_SENT']);
+const CONTACT_TYPES = new Set<CrmTimelineType>([
+  'CALL',
+  'EMAIL',
+  'SMS',
+  'MEETING',
+  'FOLLOW_UP',
+  'EMAIL_SENT',
+]);
 
 export interface CreateLeadOptions {
   /** Look the source up by key when no id was given (inbound events). */
@@ -83,7 +99,12 @@ export interface CreateLeadOptions {
   /** Extra triggers to publish after LEAD_CREATED. */
   triggers?: CrmSignal['type'][];
   /** Timeline entries to add after "Lead created". */
-  events?: Array<{ type: CrmTimelineType; title: string; notes?: string | null; vehicleId?: string | null }>;
+  events?: Array<{
+    type: CrmTimelineType;
+    title: string;
+    notes?: string | null;
+    vehicleId?: string | null;
+  }>;
   /** Consent implied by how the lead arrived (an inquiry). */
   impliedConsent?: { type: ConsentType; source: string; evidence: string } | null;
 }
@@ -131,7 +152,10 @@ export class LeadsService {
     };
   }
 
-  async listWhere(ctx: CrmContext, query: Partial<LeadListQuery>): Promise<Prisma.CrmLeadWhereInput> {
+  async listWhere(
+    ctx: CrmContext,
+    query: Partial<LeadListQuery>,
+  ): Promise<Prisma.CrmLeadWhereInput> {
     const and: Prisma.CrmLeadWhereInput[] = [leadScope(ctx)];
     const now = new Date();
     const timezone = await this.timezone(ctx.dealerId);
@@ -177,9 +201,13 @@ export class LeadsService {
     else if (query.assignedToId) and.push({ assignedToId: query.assignedToId });
     if (query.temperature) and.push({ temperature: query.temperature });
     if (query.province) and.push({ province: query.province });
-    if (query.tag) and.push({ tags: { some: { tag: { name: { equals: query.tag, mode: 'insensitive' } } } } });
+    if (query.tag)
+      and.push({ tags: { some: { tag: { name: { equals: query.tag, mode: 'insensitive' } } } } });
     if (query.from) and.push({ createdAt: { gte: new Date(`${query.from}T00:00:00Z`) } });
-    if (query.to) and.push({ createdAt: { lt: new Date(new Date(`${query.to}T00:00:00Z`).getTime() + 86_400_000) } });
+    if (query.to)
+      and.push({
+        createdAt: { lt: new Date(new Date(`${query.to}T00:00:00Z`).getTime() + 86_400_000) },
+      });
     if (query.q) and.push(searchFilter(query.q));
     return { AND: and };
   }
@@ -218,63 +246,76 @@ export class LeadsService {
         mergedFrom: { select: { id: true, number: true, firstName: true, lastName: true } },
       },
     });
-    const [tasks, appointments, enrollments, consents, suppressed, journey, sales, deposits, emailStats] =
-      await Promise.all([
-        this.prisma.crmTask.findMany({
-          where: { leadId: id, status: { in: ['OPEN', 'IN_PROGRESS'] } },
-          orderBy: [{ dueAt: { sort: 'asc', nulls: 'last' } }],
-          take: 20,
-          include: { assignedTo: { select: { id: true, firstName: true, lastName: true } } },
-        }),
-        this.prisma.crmAppointment.findMany({
-          where: { leadId: id },
-          orderBy: { startsAt: 'desc' },
-          take: 20,
-          include: {
-            salesperson: { select: { id: true, firstName: true, lastName: true } },
-            vehicle: { select: { id: true, title: true } },
-          },
-        }),
-        this.prisma.crmAutomationEnrollment.findMany({
-          where: { leadId: id },
-          orderBy: { startedAt: 'desc' },
-          take: 20,
-          include: { automation: { select: { id: true, name: true, key: true } } },
-        }),
-        this.prisma.crmConsent.findMany({ where: { leadId: id }, orderBy: { grantedAt: 'desc' } }),
-        lead.emailNormalized
-          ? this.prisma.crmSuppression.findMany({
-              where: {
-                email: lead.emailNormalized,
-                OR: [{ dealerId: ctx.dealerId }, { dealerId: null }],
-              },
-              select: { reason: true, dealerId: true, createdAt: true },
-            })
-          : Promise.resolve([]),
-        this.journey(id),
-        lead.customerId
-          ? this.prisma.vehicleSale.findMany({
-              where: { dealerId: ctx.dealerId, customerId: lead.customerId },
-              orderBy: { createdAt: 'desc' },
-              select: {
-                id: true,
-                number: true,
-                status: true,
-                saleDate: true,
-                totalAmount: true,
-                vehicle: { select: { id: true, title: true } },
-              },
-            })
-          : Promise.resolve([]),
-        lead.customerId
-          ? this.prisma.customerDeposit.findMany({
-              where: { dealerId: ctx.dealerId, customerId: lead.customerId },
-              orderBy: { createdAt: 'desc' },
-              select: { id: true, number: true, status: true, date: true, amount: true },
-            })
-          : Promise.resolve([]),
-        this.prisma.crmEmail.groupBy({ by: ['status'], where: { leadId: id }, _count: { _all: true } }),
-      ]);
+    const [
+      tasks,
+      appointments,
+      enrollments,
+      consents,
+      suppressed,
+      journey,
+      sales,
+      deposits,
+      emailStats,
+    ] = await Promise.all([
+      this.prisma.crmTask.findMany({
+        where: { leadId: id, status: { in: ['OPEN', 'IN_PROGRESS'] } },
+        orderBy: [{ dueAt: { sort: 'asc', nulls: 'last' } }],
+        take: 20,
+        include: { assignedTo: { select: { id: true, firstName: true, lastName: true } } },
+      }),
+      this.prisma.crmAppointment.findMany({
+        where: { leadId: id },
+        orderBy: { startsAt: 'desc' },
+        take: 20,
+        include: {
+          salesperson: { select: { id: true, firstName: true, lastName: true } },
+          vehicle: { select: { id: true, title: true } },
+        },
+      }),
+      this.prisma.crmAutomationEnrollment.findMany({
+        where: { leadId: id },
+        orderBy: { startedAt: 'desc' },
+        take: 20,
+        include: { automation: { select: { id: true, name: true, key: true } } },
+      }),
+      this.prisma.crmConsent.findMany({ where: { leadId: id }, orderBy: { grantedAt: 'desc' } }),
+      lead.emailNormalized
+        ? this.prisma.crmSuppression.findMany({
+            where: {
+              email: lead.emailNormalized,
+              OR: [{ dealerId: ctx.dealerId }, { dealerId: null }],
+            },
+            select: { reason: true, dealerId: true, createdAt: true },
+          })
+        : Promise.resolve([]),
+      this.journey(id),
+      lead.customerId
+        ? this.prisma.vehicleSale.findMany({
+            where: { dealerId: ctx.dealerId, customerId: lead.customerId },
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              number: true,
+              status: true,
+              saleDate: true,
+              totalAmount: true,
+              vehicle: { select: { id: true, title: true } },
+            },
+          })
+        : Promise.resolve([]),
+      lead.customerId
+        ? this.prisma.customerDeposit.findMany({
+            where: { dealerId: ctx.dealerId, customerId: lead.customerId },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, number: true, status: true, date: true, amount: true },
+          })
+        : Promise.resolve([]),
+      this.prisma.crmEmail.groupBy({
+        by: ['status'],
+        where: { leadId: id },
+        _count: { _all: true },
+      }),
+    ]);
     return {
       ...flattenTags(lead),
       tasks,
@@ -292,7 +333,9 @@ export class LeadsService {
 
   /** Where the customer is in the purchase journey: each stage and when it was first reached. */
   async journey(leadId: string) {
-    const types = [...new Set(JOURNEY_STAGES.flatMap((stage) => stage.events))] as CrmTimelineType[];
+    const types = [
+      ...new Set(JOURNEY_STAGES.flatMap((stage) => stage.events)),
+    ] as CrmTimelineType[];
     const firsts = await this.prisma.crmActivity.groupBy({
       by: ['type'],
       where: { leadId, type: { in: types } },
@@ -354,7 +397,13 @@ export class LeadsService {
         },
       }),
     ]);
-    return { items, page: query.page, pageSize: query.pageSize, total, totalPages: Math.max(1, Math.ceil(total / query.pageSize)) };
+    return {
+      items,
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
   }
 
   // --- Writing -------------------------------------------------------------------
@@ -380,7 +429,10 @@ export class LeadsService {
     const created = await this.prisma.$transaction(async (tx) => {
       // One number at a time per dealership.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'crm-lead-' + ctx.dealerId}))`;
-      const last = await tx.crmLead.aggregate({ where: { dealerId: ctx.dealerId }, _max: { number: true } });
+      const last = await tx.crmLead.aggregate({
+        where: { dealerId: ctx.dealerId },
+        _max: { number: true },
+      });
       const statusId = input.statusId ?? refs.defaultStatusId;
 
       let assignedToId = input.assignedToId;
@@ -480,12 +532,27 @@ export class LeadsService {
     });
 
     if (created.assignedToId) await this.afterAssignment(ctx, created.id, created.assignedToId);
-    await this.bus.publish({ type: 'LEAD_CREATED', scope: 'DEALER', dealerId: ctx.dealerId, leadId: created.id });
+    await this.bus.publish({
+      type: 'LEAD_CREATED',
+      scope: 'DEALER',
+      dealerId: ctx.dealerId,
+      leadId: created.id,
+    });
     if (created.assignedToId) {
-      await this.bus.publish({ type: 'LEAD_ASSIGNED', scope: 'DEALER', dealerId: ctx.dealerId, leadId: created.id });
+      await this.bus.publish({
+        type: 'LEAD_ASSIGNED',
+        scope: 'DEALER',
+        dealerId: ctx.dealerId,
+        leadId: created.id,
+      });
     }
     for (const trigger of options.triggers ?? []) {
-      await this.bus.publish({ type: trigger, scope: 'DEALER', dealerId: ctx.dealerId, leadId: created.id });
+      await this.bus.publish({
+        type: trigger,
+        scope: 'DEALER',
+        dealerId: ctx.dealerId,
+        leadId: created.id,
+      });
     }
     return created;
   }
@@ -536,7 +603,11 @@ export class LeadsService {
     if (input.statusId && input.statusId !== current.statusId) {
       await this.changeStatus(ctx, id, { statusId: input.statusId, lostReason: null });
     }
-    if (input.assignedToId !== undefined && input.assignedToId !== current.assignedToId && can(ctx, 'crm.manage')) {
+    if (
+      input.assignedToId !== undefined &&
+      input.assignedToId !== current.assignedToId &&
+      can(ctx, 'crm.manage')
+    ) {
       await this.assign(ctx, id, { assignedToId: input.assignedToId, team: input.team });
     }
     return this.get(ctx, id);
@@ -555,7 +626,9 @@ export class LeadsService {
       });
     }
     if (lead.statusId === status.id) return { id, changed: false };
-    const previous = await this.prisma.crmLeadStatus.findUniqueOrThrow({ where: { id: lead.statusId } });
+    const previous = await this.prisma.crmLeadStatus.findUniqueOrThrow({
+      where: { id: lead.statusId },
+    });
 
     await this.prisma.$transaction(async (tx) => {
       await tx.crmLead.update({
@@ -598,17 +671,24 @@ export class LeadsService {
       where: { dealerId_key: { dealerId: ctx.dealerId, key } },
     });
     if (!status) return { id, changed: false };
-    return this.changeStatus(ctx, id, { statusId: status.id, lostReason: lostReason ?? (status.kind === 'LOST' ? 'Closed automatically' : null) });
+    return this.changeStatus(ctx, id, {
+      statusId: status.id,
+      lostReason: lostReason ?? (status.kind === 'LOST' ? 'Closed automatically' : null),
+    });
   }
 
   async assign(ctx: CrmContext, id: string, input: LeadAssignInput) {
     const lead = await this.findVisible(ctx, id);
     const claimingForSelf =
-      input.assignedToId === ctx.userId && (lead.assignedToId === null || lead.assignedToId === ctx.userId);
+      input.assignedToId === ctx.userId &&
+      (lead.assignedToId === null || lead.assignedToId === ctx.userId);
     if (!can(ctx, 'crm.manage') && !claimingForSelf) {
       throw new ForbiddenException('Only a manager can reassign leads');
     }
-    if (input.assignedToId && !(await this.assignment.isSalesStaff(this.prisma, ctx.dealerId, input.assignedToId))) {
+    if (
+      input.assignedToId &&
+      !(await this.assignment.isSalesStaff(this.prisma, ctx.dealerId, input.assignedToId))
+    ) {
       throw new BadRequestException('That person is not on this dealership’s sales staff');
     }
     if (lead.assignedToId === input.assignedToId) return { id, changed: false };
@@ -616,13 +696,19 @@ export class LeadsService {
     await this.prisma.$transaction(async (tx) => {
       await tx.crmLead.update({
         where: { id },
-        data: { assignedToId: input.assignedToId, team: input.team, assignedAt: input.assignedToId ? new Date() : null },
+        data: {
+          assignedToId: input.assignedToId,
+          team: input.team,
+          assignedAt: input.assignedToId ? new Date() : null,
+        },
       });
       await recordTimeline(tx, {
         dealerId: ctx.dealerId,
         leadId: id,
         type: 'LEAD_ASSIGNED',
-        title: input.assignedToId ? `Assigned to ${await this.userName(tx, input.assignedToId)}` : 'Unassigned',
+        title: input.assignedToId
+          ? `Assigned to ${await this.userName(tx, input.assignedToId)}`
+          : 'Unassigned',
         userId: ctx.system ? null : ctx.userId,
       });
       await crmAudit(tx, ctx, {
@@ -635,7 +721,12 @@ export class LeadsService {
     });
     if (input.assignedToId) {
       await this.afterAssignment(ctx, id, input.assignedToId);
-      await this.bus.publish({ type: 'LEAD_ASSIGNED', scope: 'DEALER', dealerId: ctx.dealerId, leadId: id });
+      await this.bus.publish({
+        type: 'LEAD_ASSIGNED',
+        scope: 'DEALER',
+        dealerId: ctx.dealerId,
+        leadId: id,
+      });
     }
     return { id, changed: true };
   }
@@ -647,10 +738,17 @@ export class LeadsService {
       select: { number: true, firstName: true, lastName: true, firstContactAt: true },
     });
     const name = [lead.firstName, lead.lastName].filter(Boolean).join(' ');
-    const settings = await this.prisma.crmSettings.findUnique({ where: { dealerId: ctx.dealerId } });
+    const settings = await this.prisma.crmSettings.findUnique({
+      where: { dealerId: ctx.dealerId },
+    });
     if ((settings?.createFollowUpTask ?? true) && !lead.firstContactAt) {
       const existing = await this.prisma.crmTask.findFirst({
-        where: { leadId, assignedToId: userId, status: { in: ['OPEN', 'IN_PROGRESS'] }, title: { startsWith: 'First contact' } },
+        where: {
+          leadId,
+          assignedToId: userId,
+          status: { in: ['OPEN', 'IN_PROGRESS'] },
+          title: { startsWith: 'First contact' },
+        },
         select: { id: true },
       });
       if (!existing) {
@@ -662,7 +760,8 @@ export class LeadsService {
               leadId,
               assignedToId: userId,
               title: `First contact: ${name}`,
-              description: 'Reach the customer by their preferred method and log the call or email.',
+              description:
+                'Reach the customer by their preferred method and log the call or email.',
               dueAt: new Date(Date.now() + minutes * 60_000),
               priority: 'HIGH',
               createdById: ctx.system ? null : ctx.userId,
@@ -735,7 +834,10 @@ export class LeadsService {
       });
       await this.markContactedIf(tx, ctx, leadId, input.type, at, lead.firstContactAt);
       if (input.nextFollowUpAt) {
-        await tx.crmLead.update({ where: { id: leadId }, data: { nextFollowUpAt: input.nextFollowUpAt } });
+        await tx.crmLead.update({
+          where: { id: leadId },
+          data: { nextFollowUpAt: input.nextFollowUpAt },
+        });
       }
       if (input.type === 'TEST_DRIVE') await this.scoring.apply(leadId, 'TEST_DRIVE', tx);
       if (input.type === 'TRADE_IN') await this.scoring.apply(leadId, 'TRADE_IN_SUBMITTED', tx);
@@ -743,10 +845,13 @@ export class LeadsService {
       return row;
     });
     const signal = { scope: 'DEALER' as const, dealerId: ctx.dealerId, leadId };
-    if (input.type === 'TEST_DRIVE') await this.bus.publish({ ...signal, type: 'TEST_DRIVE_COMPLETED' });
+    if (input.type === 'TEST_DRIVE')
+      await this.bus.publish({ ...signal, type: 'TEST_DRIVE_COMPLETED' });
     if (input.type === 'QUOTE') await this.bus.publish({ ...signal, type: 'QUOTE_CREATED' });
-    if (input.type === 'TRADE_IN') await this.bus.publish({ ...signal, type: 'TRADE_IN_SUBMITTED' });
-    if (input.type === 'FINANCE') await this.bus.publish({ ...signal, type: 'FINANCING_REQUESTED' });
+    if (input.type === 'TRADE_IN')
+      await this.bus.publish({ ...signal, type: 'TRADE_IN_SUBMITTED' });
+    if (input.type === 'FINANCE')
+      await this.bus.publish({ ...signal, type: 'FINANCING_REQUESTED' });
     return activity;
   }
 
@@ -823,7 +928,11 @@ export class LeadsService {
     if (probe.vin) or.push({ interestedVin: probe.vin.toUpperCase() });
     if (!or.length) return [];
     const rows = await this.prisma.crmLead.findMany({
-      where: { ...leadScope(ctx), OR: or, ...(probe.excludeId ? { id: { not: probe.excludeId } } : {}) },
+      where: {
+        ...leadScope(ctx),
+        OR: or,
+        ...(probe.excludeId ? { id: { not: probe.excludeId } } : {}),
+      },
       select: leadListSelect,
       take: 20,
       orderBy: { createdAt: 'desc' },
@@ -831,8 +940,10 @@ export class LeadsService {
     return rows
       .map((row) => {
         const reasons: string[] = [];
-        if (probe.emailNormalized && normalizeEmail(row.email) === probe.emailNormalized) reasons.push('EMAIL');
-        if (probe.phoneNormalized && normalizePhone(row.phone) === probe.phoneNormalized) reasons.push('PHONE');
+        if (probe.emailNormalized && normalizeEmail(row.email) === probe.emailNormalized)
+          reasons.push('EMAIL');
+        if (probe.phoneNormalized && normalizePhone(row.phone) === probe.phoneNormalized)
+          reasons.push('PHONE');
         if (
           probe.firstName &&
           probe.lastName &&
@@ -855,12 +966,16 @@ export class LeadsService {
    */
   async merge(ctx: CrmContext, targetId: string, duplicateId: string) {
     assertCrm(ctx, 'crm.manage');
-    if (targetId === duplicateId) throw new BadRequestException('A lead cannot be merged into itself');
+    if (targetId === duplicateId)
+      throw new BadRequestException('A lead cannot be merged into itself');
     await this.findVisible(ctx, targetId);
     await this.findVisible(ctx, duplicateId);
     const [target, duplicate] = await Promise.all([
       this.prisma.crmLead.findUniqueOrThrow({ where: { id: targetId }, include: { tags: true } }),
-      this.prisma.crmLead.findUniqueOrThrow({ where: { id: duplicateId }, include: { tags: true } }),
+      this.prisma.crmLead.findUniqueOrThrow({
+        where: { id: duplicateId },
+        include: { tags: true },
+      }),
     ]);
     if (target.customerId && duplicate.customerId && target.customerId !== duplicate.customerId) {
       throw new ConflictException(
@@ -868,7 +983,8 @@ export class LeadsService {
       );
     }
     const fill = <K extends keyof typeof target>(key: K) =>
-      (target[key] === null || target[key] === undefined || target[key] === '') && duplicate[key] !== null
+      (target[key] === null || target[key] === undefined || target[key] === '') &&
+      duplicate[key] !== null
         ? duplicate[key]
         : target[key];
 
@@ -959,7 +1075,10 @@ export class LeadsService {
     const customerId = await this.prisma.$transaction(async (tx) => {
       const existing = lead.emailNormalized
         ? await tx.customer.findFirst({
-            where: { dealerId: ctx.dealerId, email: { equals: lead.emailNormalized, mode: 'insensitive' } },
+            where: {
+              dealerId: ctx.dealerId,
+              email: { equals: lead.emailNormalized, mode: 'insensitive' },
+            },
             select: { id: true },
           })
         : null;
@@ -979,7 +1098,10 @@ export class LeadsService {
           },
           select: { id: true },
         }));
-      await tx.crmLead.update({ where: { id }, data: { customerId: customer.id, convertedAt: new Date() } });
+      await tx.crmLead.update({
+        where: { id },
+        data: { customerId: customer.id, convertedAt: new Date() },
+      });
       await recordTimeline(tx, {
         dealerId: ctx.dealerId,
         leadId: id,
@@ -996,7 +1118,12 @@ export class LeadsService {
       });
       return customer.id;
     });
-    await this.bus.publish({ type: 'CUSTOMER_CREATED', scope: 'DEALER', dealerId: ctx.dealerId, leadId: id });
+    await this.bus.publish({
+      type: 'CUSTOMER_CREATED',
+      scope: 'DEALER',
+      dealerId: ctx.dealerId,
+      leadId: id,
+    });
     return { id, customerId, created: true };
   }
 
@@ -1008,7 +1135,8 @@ export class LeadsService {
     });
     let done = 0;
     for (const { id } of leads) {
-      if (input.action === 'ASSIGN') await this.assign(ctx, id, { assignedToId: input.assignedToId ?? null, team: null });
+      if (input.action === 'ASSIGN')
+        await this.assign(ctx, id, { assignedToId: input.assignedToId ?? null, team: null });
       else if (input.action === 'SET_STATUS' && input.statusId) {
         await this.changeStatus(ctx, id, { statusId: input.statusId, lostReason: 'Bulk update' });
       } else if (input.action === 'ADD_TAG' && input.tag) {
@@ -1094,11 +1222,17 @@ export class LeadsService {
   private async validateRefs(ctx: CrmContext, input: LeadInput) {
     const [status, defaultStatus, source, vehicle, assignee] = await Promise.all([
       input.statusId
-        ? this.prisma.crmLeadStatus.findFirst({ where: { id: input.statusId, dealerId: ctx.dealerId } })
+        ? this.prisma.crmLeadStatus.findFirst({
+            where: { id: input.statusId, dealerId: ctx.dealerId },
+          })
         : null,
-      this.prisma.crmLeadStatus.findUnique({ where: { dealerId_key: { dealerId: ctx.dealerId, key: 'NEW' } } }),
+      this.prisma.crmLeadStatus.findUnique({
+        where: { dealerId_key: { dealerId: ctx.dealerId, key: 'NEW' } },
+      }),
       input.sourceId
-        ? this.prisma.crmLeadSource.findFirst({ where: { id: input.sourceId, dealerId: ctx.dealerId } })
+        ? this.prisma.crmLeadSource.findFirst({
+            where: { id: input.sourceId, dealerId: ctx.dealerId },
+          })
         : null,
       input.vehicleId
         ? this.prisma.vehicle.findFirst({
@@ -1106,15 +1240,31 @@ export class LeadsService {
             select: { id: true, make: true, vin: true },
           })
         : null,
-      input.assignedToId ? this.assignment.isSalesStaff(this.prisma, ctx.dealerId, input.assignedToId) : true,
+      input.assignedToId
+        ? this.assignment.isSalesStaff(this.prisma, ctx.dealerId, input.assignedToId)
+        : true,
     ]);
-    if (input.statusId && !status) throw new BadRequestException({ message: 'Unknown status', details: { statusId: ['Unknown status'] } });
-    if (input.sourceId && !source) throw new BadRequestException({ message: 'Unknown source', details: { sourceId: ['Unknown source'] } });
+    if (input.statusId && !status)
+      throw new BadRequestException({
+        message: 'Unknown status',
+        details: { statusId: ['Unknown status'] },
+      });
+    if (input.sourceId && !source)
+      throw new BadRequestException({
+        message: 'Unknown source',
+        details: { sourceId: ['Unknown source'] },
+      });
     if (input.vehicleId && !vehicle) {
-      throw new BadRequestException({ message: 'That vehicle is not in your inventory', details: { vehicleId: ['Not in your inventory'] } });
+      throw new BadRequestException({
+        message: 'That vehicle is not in your inventory',
+        details: { vehicleId: ['Not in your inventory'] },
+      });
     }
     if (!assignee) {
-      throw new BadRequestException({ message: 'That person is not on your sales staff', details: { assignedToId: ['Not on your sales staff'] } });
+      throw new BadRequestException({
+        message: 'That person is not on your sales staff',
+        details: { assignedToId: ['Not on your sales staff'] },
+      });
     }
     let defaultStatusId = defaultStatus?.id;
     if (!defaultStatusId) {
@@ -1133,14 +1283,27 @@ export class LeadsService {
     };
   }
 
-  async applyTags(db: Db, ctx: Pick<CrmContext, 'dealerId' | 'userId' | 'system'>, leadId: string, names: string[], replace: boolean) {
+  async applyTags(
+    db: Db,
+    ctx: Pick<CrmContext, 'dealerId' | 'userId' | 'system'>,
+    leadId: string,
+    names: string[],
+    replace: boolean,
+  ) {
     const wanted = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
     const tags = [];
     for (const name of wanted) {
       const existing = await db.crmTag.findFirst({
-        where: { scope: 'DEALER', dealerId: ctx.dealerId, name: { equals: name, mode: 'insensitive' } },
+        where: {
+          scope: 'DEALER',
+          dealerId: ctx.dealerId,
+          name: { equals: name, mode: 'insensitive' },
+        },
       });
-      tags.push(existing ?? (await db.crmTag.create({ data: { scope: 'DEALER', dealerId: ctx.dealerId, name } })));
+      tags.push(
+        existing ??
+          (await db.crmTag.create({ data: { scope: 'DEALER', dealerId: ctx.dealerId, name } })),
+      );
     }
     const current = await db.crmLeadTag.findMany({ where: { leadId }, include: { tag: true } });
     const currentIds = new Set(current.map((row) => row.tagId));
@@ -1154,30 +1317,55 @@ export class LeadsService {
       });
     }
     if (removed.length) {
-      await db.crmLeadTag.deleteMany({ where: { leadId, tagId: { in: removed.map((row) => row.tagId) } } });
+      await db.crmLeadTag.deleteMany({
+        where: { leadId, tagId: { in: removed.map((row) => row.tagId) } },
+      });
     }
     const userId = ctx.system ? null : ctx.userId;
     for (const tag of added) {
-      await recordTimeline(db, { dealerId: ctx.dealerId, leadId, type: 'TAG_ADDED', title: `Tagged ${tag.name}`, userId });
+      await recordTimeline(db, {
+        dealerId: ctx.dealerId,
+        leadId,
+        type: 'TAG_ADDED',
+        title: `Tagged ${tag.name}`,
+        userId,
+      });
     }
     for (const row of removed) {
-      await recordTimeline(db, { dealerId: ctx.dealerId, leadId, type: 'TAG_REMOVED', title: `Untagged ${row.tag.name}`, userId });
+      await recordTimeline(db, {
+        dealerId: ctx.dealerId,
+        leadId,
+        type: 'TAG_REMOVED',
+        title: `Untagged ${row.tag.name}`,
+        userId,
+      });
     }
   }
 
   async timezone(dealerId: string): Promise<string> {
-    const settings = await this.prisma.crmSettings.findUnique({ where: { dealerId }, select: { timezone: true } });
+    const settings = await this.prisma.crmSettings.findUnique({
+      where: { dealerId },
+      select: { timezone: true },
+    });
     return settings?.timezone ?? 'America/Toronto';
   }
 
   private async userName(db: Db, userId: string): Promise<string> {
-    const user = await db.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
     return user ? `${user.firstName} ${user.lastName}`.trim() : 'a salesperson';
   }
 }
 
 function rank(reasons: string[]): number {
-  return (reasons.includes('EMAIL') ? 8 : 0) + (reasons.includes('PHONE') ? 4 : 0) + (reasons.includes('NAME') ? 2 : 0) + (reasons.includes('VIN') ? 1 : 0);
+  return (
+    (reasons.includes('EMAIL') ? 8 : 0) +
+    (reasons.includes('PHONE') ? 4 : 0) +
+    (reasons.includes('NAME') ? 2 : 0) +
+    (reasons.includes('VIN') ? 1 : 0)
+  );
 }
 
 export function searchFilter(q: string): Prisma.CrmLeadWhereInput {
@@ -1203,9 +1391,9 @@ export function searchFilter(q: string): Prisma.CrmLeadWhereInput {
   return { OR: or };
 }
 
-export function flattenTags<T extends { tags: Array<{ tag: { id: string; name: string; color: string | null } }> }>(
-  row: T,
-): Omit<T, 'tags'> & { tags: Array<{ id: string; name: string; color: string | null }> } {
+export function flattenTags<
+  T extends { tags: Array<{ tag: { id: string; name: string; color: string | null } }> },
+>(row: T): Omit<T, 'tags'> & { tags: Array<{ id: string; name: string; color: string | null }> } {
   return { ...row, tags: row.tags.map((entry) => entry.tag) };
 }
 

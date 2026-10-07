@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   DEALER_TEMPLATE_VARIABLES,
   SUPPORT_TEMPLATE_VARIABLES,
@@ -36,7 +42,11 @@ export class TemplatesService {
 
   list(owner: Pick<TemplateOwner, 'scope' | 'dealerId'>, includeInactive = true) {
     return this.prisma.crmEmailTemplate.findMany({
-      where: { scope: owner.scope, dealerId: owner.dealerId, ...(includeInactive ? {} : { isActive: true }) },
+      where: {
+        scope: owner.scope,
+        dealerId: owner.dealerId,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
       select: {
         id: true,
@@ -85,7 +95,9 @@ export class TemplatesService {
     const body = this.clean(owner.scope, input);
     const history = (Array.isArray(current.history) ? current.history : []) as Prisma.JsonArray;
     const changedContent =
-      current.subject !== input.subject || current.bodyHtml !== body.bodyHtml || current.bodyText !== body.bodyText;
+      current.subject !== input.subject ||
+      current.bodyHtml !== body.bodyHtml ||
+      current.bodyText !== body.bodyText;
     const template = await this.prisma.crmEmailTemplate.update({
       where: { id },
       data: {
@@ -113,7 +125,13 @@ export class TemplatesService {
           : {}),
       },
     });
-    await this.audit(owner, 'template.updated', id, { version: current.version }, { version: template.version, name: input.name });
+    await this.audit(
+      owner,
+      'template.updated',
+      id,
+      { version: current.version },
+      { version: template.version, name: input.name },
+    );
     return template;
   }
 
@@ -141,14 +159,17 @@ export class TemplatesService {
   async remove(owner: TemplateOwner, id: string) {
     const template = await this.get(owner, id);
     if (template.key) {
-      throw new BadRequestException('A starting template is used by automations; switch it off instead of deleting it');
+      throw new BadRequestException(
+        'A starting template is used by automations; switch it off instead of deleting it',
+      );
     }
     const [usage] = await this.prisma.$queryRaw<Array<{ count: bigint }>>`
       SELECT count(*) AS count FROM "CrmAutomation"
       WHERE scope = ${owner.scope}::"CrmScope"
         AND "dealerId" IS NOT DISTINCT FROM ${owner.dealerId}::uuid
         AND steps::text LIKE ${'%' + id + '%'}`;
-    if (Number(usage?.count ?? 0) > 0) throw new ConflictException('An automation uses this template');
+    if (Number(usage?.count ?? 0) > 0)
+      throw new ConflictException('An automation uses this template');
     await this.prisma.crmEmailTemplate.delete({ where: { id } });
     await this.audit(owner, 'template.deleted', id, { name: template.name });
   }
@@ -160,7 +181,9 @@ export class TemplatesService {
   ) {
     let values = this.outbox.sampleValues();
     if (owner.scope === 'DEALER' && input.leadId) {
-      const lead = await this.prisma.crmLead.findFirst({ where: { id: input.leadId, dealerId: owner.dealerId! } });
+      const lead = await this.prisma.crmLead.findFirst({
+        where: { id: input.leadId, dealerId: owner.dealerId! },
+      });
       if (!lead) throw new NotFoundException('Lead not found');
       values = await this.outbox.leadValues(lead.id);
     } else if (owner.scope === 'SUPPORT' && input.ticketId) {
@@ -177,7 +200,12 @@ export class TemplatesService {
     if (input.to.toLowerCase() !== owner.actor.email.toLowerCase()) {
       throw new ForbiddenException('Test emails go to your own address');
     }
-    const rendered = this.outbox.render(input.subject, input.bodyHtml, this.outbox.sampleValues(), owner.scope);
+    const rendered = this.outbox.render(
+      input.subject,
+      input.bodyHtml,
+      this.outbox.sampleValues(),
+      owner.scope,
+    );
     const receipt = await this.mail.deliver({
       to: input.to,
       subject: `[Test] ${rendered.subject}`,
@@ -191,11 +219,18 @@ export class TemplatesService {
     const allowed = scope === 'DEALER' ? DEALER_TEMPLATE_VARIABLES : SUPPORT_TEMPLATE_VARIABLES;
     assertKnownVariables(allowed, input.subject, input.bodyHtml, input.bodyText ?? '');
     const bodyHtml = sanitizeHtml(input.bodyHtml);
-    if (!bodyHtml.replace(/<[^>]+>/g, '').trim()) throw new BadRequestException('The email body is empty');
+    if (!bodyHtml.replace(/<[^>]+>/g, '').trim())
+      throw new BadRequestException('The email body is empty');
     return { bodyHtml, bodyText: input.bodyText?.trim() || htmlToText(bodyHtml) };
   }
 
-  private async audit(owner: TemplateOwner, action: string, id: string, before?: unknown, after?: unknown) {
+  private async audit(
+    owner: TemplateOwner,
+    action: string,
+    id: string,
+    before?: unknown,
+    after?: unknown,
+  ) {
     const entry = { action, entityType: 'CrmEmailTemplate', entityId: id, before, after };
     if (owner.scope === 'DEALER' && owner.ctx) await crmAudit(this.prisma, owner.ctx, entry);
     else await supportAudit(this.prisma, owner.actor, entry);

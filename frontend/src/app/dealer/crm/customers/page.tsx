@@ -14,7 +14,12 @@ interface CustomerRow {
   city: string | null;
   province: string | null;
   createdAt: string;
-  crmLeads: Array<{ id: string; number: number; lastActivityAt: string | null; status: { label: string } }>;
+  crmLeads: Array<{
+    id: string;
+    number: number;
+    lastActivityAt: string | null;
+    status: { label: string };
+  }>;
   _count: { sales: number; deposits: number };
 }
 
@@ -25,7 +30,10 @@ interface CustomerRow {
 export default function CustomersPage() {
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
-  const list = useCrmQuery<Paged<CustomerRow>>(['customers', q, page], `/customers${qs({ q, page, pageSize: 25 })}`);
+  const list = useCrmQuery<Paged<CustomerRow>>(
+    ['customers', q, page],
+    `/customers${qs({ q, page, pageSize: 25 })}`,
+  );
   return (
     <>
       <PageHeader
@@ -54,18 +62,37 @@ export default function CustomersPage() {
             label: 'Customer',
             render: (row) =>
               row.crmLeads[0] ? (
-                <Link href={`/dealer/crm/leads/${row.crmLeads[0].id}`} className="font-medium hover:underline">
+                <Link
+                  href={`/dealer/crm/leads/${row.crmLeads[0].id}`}
+                  className="font-medium hover:underline"
+                >
                   {row.name}
                 </Link>
               ) : (
                 <span className="font-medium">{row.name}</span>
               ),
           },
-          { key: 'contact', label: 'Email / phone', render: (row) => [row.email, row.phone].filter(Boolean).join(' · ') || '—' },
-          { key: 'place', label: 'City', render: (row) => [row.city, row.province].filter(Boolean).join(', ') || '—' },
-          { key: 'lead', label: 'CRM status', render: (row) => row.crmLeads[0]?.status.label ?? 'No lead' },
+          {
+            key: 'contact',
+            label: 'Email / phone',
+            render: (row) => [row.email, row.phone].filter(Boolean).join(' · ') || '—',
+          },
+          {
+            key: 'place',
+            label: 'City',
+            render: (row) => [row.city, row.province].filter(Boolean).join(', ') || '—',
+          },
+          {
+            key: 'lead',
+            label: 'CRM status',
+            render: (row) => row.crmLeads[0]?.status.label ?? 'No lead',
+          },
           { key: 'sales', label: 'Purchases', align: 'right', render: (row) => row._count.sales },
-          { key: 'activity', label: 'Last activity', render: (row) => dateTime(row.crmLeads[0]?.lastActivityAt) },
+          {
+            key: 'activity',
+            label: 'Last activity',
+            render: (row) => dateTime(row.crmLeads[0]?.lastActivityAt),
+          },
         ]}
       />
       <Pagination page={page} totalPages={list.data?.totalPages ?? 1} onChange={setPage} />

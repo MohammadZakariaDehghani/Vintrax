@@ -14,7 +14,9 @@ export default function AdminCrmTemplatePage() {
   return (
     <>
       <p className="mb-1 text-sm text-muted-foreground">
-        <Link href="/admin/crm/templates" className="hover:underline">Templates</Link>
+        <Link href="/admin/crm/templates" className="hover:underline">
+          Templates
+        </Link>
       </p>
       <PageHeader title={id === 'new' ? 'New support template' : 'Edit support template'} />
       <TemplateEditor

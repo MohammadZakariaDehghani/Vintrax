@@ -33,7 +33,11 @@ export class ComplianceService {
     private readonly bus: CrmBus,
   ) {}
 
-  async canSend(dealerId: string | null, email: string, purpose: EmailPurpose): Promise<SendDecision> {
+  async canSend(
+    dealerId: string | null,
+    email: string,
+    purpose: EmailPurpose,
+  ): Promise<SendDecision> {
     const address = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
       return { allowed: false, reason: 'The email address is not valid' };
@@ -60,7 +64,8 @@ export class ComplianceService {
       },
       select: { id: true },
     });
-    if (!consent) return { allowed: false, reason: 'No current marketing consent for this address' };
+    if (!consent)
+      return { allowed: false, reason: 'No current marketing consent for this address' };
     const settings = await this.prisma.crmSettings.findUnique({
       where: { dealerId },
       select: { businessAddress: true },
@@ -150,7 +155,12 @@ export class ComplianceService {
       if (input.dealerId) {
         await crmAudit(
           tx,
-          { dealerId: input.dealerId, userId: input.actor?.id ?? '', actorEmail: input.actor?.email ?? 'system', system: !input.actor?.id },
+          {
+            dealerId: input.dealerId,
+            userId: input.actor?.id ?? '',
+            actorEmail: input.actor?.email ?? 'system',
+            system: !input.actor?.id,
+          },
           audit,
         );
       } else {
@@ -174,12 +184,16 @@ export class ComplianceService {
     if (!row) return false;
     await this.prisma.$transaction(async (tx) => {
       await tx.crmSuppression.delete({ where: { id } });
-      await crmAudit(tx, { dealerId, userId: actor.id, actorEmail: actor.email }, {
-        action: 'suppression.removed',
-        entityType: 'CrmSuppression',
-        entityId: id,
-        before: { email: row.email, reason: row.reason },
-      });
+      await crmAudit(
+        tx,
+        { dealerId, userId: actor.id, actorEmail: actor.email },
+        {
+          action: 'suppression.removed',
+          entityType: 'CrmSuppression',
+          entityId: id,
+          before: { email: row.email, reason: row.reason },
+        },
+      );
     });
     return true;
   }
@@ -189,7 +203,11 @@ export class ComplianceService {
       OR: [{ dealerId }, { dealerId: null }],
       ...(q ? { email: { contains: q.toLowerCase() } } : {}),
     };
-    return this.prisma.crmSuppression.findMany({ where, orderBy: { createdAt: 'desc' }, take: 500 });
+    return this.prisma.crmSuppression.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
   }
 }
 

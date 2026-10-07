@@ -24,7 +24,10 @@ export default function PipelinePage() {
   const [reason, setReason] = useState('');
   const board = useCrmQuery<Pipeline>(['pipeline', q], `/pipeline${qs({ q })}`);
   const move = useCrmMutation((input: { leadId: string; statusId: string; lostReason?: string }) =>
-    crm.post(`/leads/${input.leadId}/status`, { statusId: input.statusId, lostReason: input.lostReason ?? null }),
+    crm.post(`/leads/${input.leadId}/status`, {
+      statusId: input.statusId,
+      lostReason: input.lostReason ?? null,
+    }),
   );
   const lostStatus = me.statuses.find((status) => status.kind === 'LOST');
 
@@ -42,9 +45,19 @@ export default function PipelinePage() {
 
   return (
     <>
-      <PageHeader title="Pipeline" description="Drag a lead to move it along. Lost, nurture and unresponsive leads live in the list view." />
+      <PageHeader
+        title="Pipeline"
+        description="Drag a lead to move it along. Lost, nurture and unresponsive leads live in the list view."
+      />
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Input type="search" aria-label="Filter the board" placeholder="Filter by name, email, phone…" className="max-w-sm" value={q} onChange={(event) => setQ(event.target.value)} />
+        <Input
+          type="search"
+          aria-label="Filter the board"
+          placeholder="Filter by name, email, phone…"
+          className="max-w-sm"
+          value={q}
+          onChange={(event) => setQ(event.target.value)}
+        />
         {lostStatus ? (
           <div
             onDragOver={(event) => {
@@ -61,7 +74,7 @@ export default function PipelinePage() {
       </div>
       <ErrorAlert error={board.error ?? move.error} className="mb-3" />
       {board.isPending && !board.data ? <Spinner /> : null}
-      <div className="flex gap-3 overflow-x-auto pb-4">
+      <div className="relative flex gap-3 overflow-x-auto pb-4">
         {board.data?.columns.map((column) => (
           <section
             key={column.status.id}
@@ -86,20 +99,31 @@ export default function PipelinePage() {
                   onDragStart={(event) => event.dataTransfer.setData('text/plain', lead.id)}
                   className="cursor-grab rounded-md border border-border bg-card p-2 text-sm shadow-sm active:cursor-grabbing"
                 >
-                  <Link href={`/dealer/crm/leads/${lead.id}`} className="font-medium hover:underline">
+                  <Link
+                    href={`/dealer/crm/leads/${lead.id}`}
+                    className="font-medium hover:underline"
+                  >
                     {personName(lead)}
                   </Link>
-                  <p className="truncate text-xs text-muted-foreground">{lead.vehicle?.title ?? lead.source?.label ?? '—'}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {lead.vehicle?.title ?? lead.source?.label ?? '—'}
+                  </p>
                   <div className="mt-1 flex items-center justify-between gap-1">
                     <TemperatureBadge temperature={lead.temperature} score={lead.score} />
-                    <span className="text-[11px] text-muted-foreground">{lead.assignedTo ? personName(lead.assignedTo) : 'Unassigned'}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {lead.assignedTo ? personName(lead.assignedTo) : 'Unassigned'}
+                    </span>
                   </div>
                   {lead.nextFollowUpAt ? (
-                    <p className={`mt-1 text-[11px] ${new Date(lead.nextFollowUpAt) < new Date() ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    <p
+                      className={`mt-1 text-[11px] ${new Date(lead.nextFollowUpAt) < new Date() ? 'text-destructive' : 'text-muted-foreground'}`}
+                    >
                       Follow up {dateTime(lead.nextFollowUpAt)}
                     </p>
                   ) : null}
-                  <label className="sr-only" htmlFor={`move-${lead.id}`}>Move {personName(lead)}</label>
+                  <label className="sr-only" htmlFor={`move-${lead.id}`}>
+                    Move {personName(lead)}
+                  </label>
                   <Select
                     id={`move-${lead.id}`}
                     className="mt-2 h-8 text-xs lg:hidden"
@@ -107,13 +131,17 @@ export default function PipelinePage() {
                     onChange={(event) => request(lead.id, event.target.value)}
                   >
                     {me.statuses.map((status) => (
-                      <option key={status.id} value={status.id}>{status.label}</option>
+                      <option key={status.id} value={status.id}>
+                        {status.label}
+                      </option>
                     ))}
                   </Select>
                 </li>
               ))}
               {column.count > column.leads.length ? (
-                <li className="px-1 text-xs text-muted-foreground">+{column.count - column.leads.length} more in the list view</li>
+                <li className="px-1 text-xs text-muted-foreground">
+                  +{column.count - column.leads.length} more in the list view
+                </li>
               ) : null}
             </ul>
           </section>
@@ -138,7 +166,12 @@ export default function PipelinePage() {
           </Button>
         }
       >
-        <Input aria-label="Reason" placeholder="Bought elsewhere, price, financing…" value={reason} onChange={(event) => setReason(event.target.value)} />
+        <Input
+          aria-label="Reason"
+          placeholder="Bought elsewhere, price, financing…"
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        />
       </Dialog>
     </>
   );

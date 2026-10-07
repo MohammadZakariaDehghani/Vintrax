@@ -43,7 +43,8 @@ function client(base: string, withDealer: boolean) {
       apiRequest<T>(`${base}${path}`, { method: 'POST', body: body ?? {}, headers: h() }),
     put: <T>(path: string, body: unknown) =>
       apiRequest<T>(`${base}${path}`, { method: 'PUT', body, headers: h() }),
-    delete: <T>(path: string) => apiRequest<T>(`${base}${path}`, { method: 'DELETE', headers: h() }),
+    delete: <T>(path: string) =>
+      apiRequest<T>(`${base}${path}`, { method: 'DELETE', headers: h() }),
     save: async (path: string, fileName: string) => {
       const blob = await api.download(`${base}${path}`, undefined, h());
       saveBlob(blob, fileName);
@@ -73,7 +74,9 @@ export function qs(params: Record<string, string | number | boolean | null | und
 
 // --- Formatting ------------------------------------------------------------------------
 
-export function personName(person: { firstName: string; lastName?: string | null } | null | undefined): string {
+export function personName(
+  person: { firstName: string; lastName?: string | null } | null | undefined,
+): string {
   if (!person) return 'Unassigned';
   return [person.firstName, person.lastName].filter(Boolean).join(' ');
 }
@@ -91,7 +94,11 @@ export function dateTime(value: string | Date | null | undefined): string {
 
 export function shortDate(value: string | Date | null | undefined): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(value).toLocaleDateString('en-CA', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 export function time(value: string | Date): string {
@@ -113,7 +120,11 @@ export function fromLocalInput(value: string): string | null {
 
 export function dollars(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return '—';
-  return (cents / 100).toLocaleString('en-CA', { style: 'currency', currency: 'CAD', maximumFractionDigits: 0 });
+  return (cents / 100).toLocaleString('en-CA', {
+    style: 'currency',
+    currency: 'CAD',
+    maximumFractionDigits: 0,
+  });
 }
 
 export function percent(value: number | null | undefined): string {
@@ -203,7 +214,13 @@ export interface CrmSettings {
 }
 
 export interface CrmMe {
-  dealer: { id: string; name: string; phone: string | null; city: string | null; province: string | null };
+  dealer: {
+    id: string;
+    name: string;
+    phone: string | null;
+    city: string | null;
+    province: string | null;
+  };
   settings: CrmSettings;
   statuses: LeadStatus[];
   sources: LeadSource[];
@@ -248,7 +265,16 @@ export interface LeadRow {
   status: LeadStatus;
   source: LeadSource | null;
   assignedTo: Person | null;
-  vehicle: { id: string; title: string; year: number; make: string; model: string; trim: string | null; priceCad: number; vin: string | null } | null;
+  vehicle: {
+    id: string;
+    title: string;
+    year: number;
+    make: string;
+    model: string;
+    trim: string | null;
+    priceCad: number;
+    vin: string | null;
+  } | null;
   tags: Tag[];
 }
 
@@ -267,7 +293,14 @@ export interface TaskRow {
   completedAt: string | null;
   overdue?: boolean;
   assignedTo: Person | null;
-  lead?: { id: string; number: number; firstName: string; lastName: string | null; phone?: string | null; email?: string | null } | null;
+  lead?: {
+    id: string;
+    number: number;
+    firstName: string;
+    lastName: string | null;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
 }
 
 export interface AppointmentRow {
@@ -284,7 +317,13 @@ export interface AppointmentRow {
   reminderMinutes: number | null;
   salesperson: Person | null;
   vehicle: { id: string; title: string } | null;
-  lead?: { id: string; number: number; firstName: string; lastName: string | null; phone?: string | null };
+  lead?: {
+    id: string;
+    number: number;
+    firstName: string;
+    lastName: string | null;
+    phone?: string | null;
+  };
 }
 
 export interface TimelineItem {
@@ -343,7 +382,13 @@ export interface TemplateRow {
 export interface Template extends Omit<TemplateRow, '_count'> {
   bodyHtml: string;
   bodyText: string;
-  history: Array<{ version: number; subject: string; bodyHtml: string; bodyText: string; savedAt: string }> | null;
+  history: Array<{
+    version: number;
+    subject: string;
+    bodyHtml: string;
+    bodyText: string;
+    savedAt: string;
+  }> | null;
 }
 
 export interface AutomationStepView {
@@ -361,7 +406,11 @@ export interface AutomationRow {
   name: string;
   description: string | null;
   trigger: string;
-  triggerConfig: { days?: number; statusKey?: string; conditions?: Array<{ field: string; op: string; value?: unknown }> } | null;
+  triggerConfig: {
+    days?: number;
+    statusKey?: string;
+    conditions?: Array<{ field: string; op: string; value?: unknown }>;
+  } | null;
   steps: AutomationStepView[];
   stopConditions: string[];
   respectSendWindow: boolean;
@@ -406,5 +455,11 @@ export interface SupportSettingsView {
   categories: Array<{ id: string; key: string; label: string; isActive: boolean }>;
   teams: Array<{ id: string; name: string; memberIds: string[]; isActive: boolean }>;
   admins: Array<{ id: string; firstName: string; lastName: string; email: string }>;
-  settings: { firstResponseHours: Record<string, number>; resolutionHours: Record<string, number>; waitingReminderDays: number; autoCloseDays: number; defaultTeamId: string | null };
+  settings: {
+    firstResponseHours: Record<string, number>;
+    resolutionHours: Record<string, number>;
+    waitingReminderDays: number;
+    autoCloseDays: number;
+    defaultTeamId: string | null;
+  };
 }

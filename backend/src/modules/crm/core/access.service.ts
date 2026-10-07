@@ -28,7 +28,9 @@ export class CrmAccessService {
       orderBy: { createdAt: 'asc' },
     });
     return [
-      ...(owned ? [{ dealerId: owned.id, name: owned.name, role: 'OWNER' as DealerStaffRole }] : []),
+      ...(owned
+        ? [{ dealerId: owned.id, name: owned.name, role: 'OWNER' as DealerStaffRole }]
+        : []),
       ...staff
         .filter((row) => row.dealer.id !== owned?.id)
         .map((row) => ({ dealerId: row.dealer.id, name: row.dealer.name, role: row.role })),

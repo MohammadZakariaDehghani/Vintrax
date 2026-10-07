@@ -22,7 +22,12 @@ interface UnsubscribeInfo {
 function Unsubscribe() {
   const token = useSearchParams()?.get('t') ?? '';
   const path = `/crm/public/unsubscribe/${encodeURIComponent(token)}`;
-  const info = useQuery({ queryKey: ['unsubscribe', token], queryFn: () => api.get<UnsubscribeInfo>(path), enabled: !!token, retry: false });
+  const info = useQuery({
+    queryKey: ['unsubscribe', token],
+    queryFn: () => api.get<UnsubscribeInfo>(path),
+    enabled: !!token,
+    retry: false,
+  });
   const confirm = useMutation({ mutationFn: () => api.post<{ ok: boolean }>(path) });
   const done = confirm.isSuccess || info.data?.unsubscribed;
   return (
@@ -31,25 +36,42 @@ function Unsubscribe() {
         <CardContent className="space-y-4 pt-6 text-center">
           <MailX className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden />
           <h1 className="text-2xl font-bold tracking-tight">Unsubscribe</h1>
-          {!token ? <p className="text-muted-foreground">This link is missing its code. Use the link from the email.</p> : null}
+          {!token ? (
+            <p className="text-muted-foreground">
+              This link is missing its code. Use the link from the email.
+            </p>
+          ) : null}
           {info.isPending && token ? <Spinner /> : null}
-          {info.error ? <p className="text-muted-foreground">This link is not valid or has expired.</p> : null}
+          {info.error ? (
+            <p className="text-muted-foreground">This link is not valid or has expired.</p>
+          ) : null}
           {info.data && !done ? (
             <>
               <p>
-                Stop marketing email from <strong>{info.data.dealerName}</strong> to <strong>{info.data.email}</strong>?
+                Stop marketing email from <strong>{info.data.dealerName}</strong> to{' '}
+                <strong>{info.data.email}</strong>?
               </p>
-              <p className="text-sm text-muted-foreground">You will still get messages about things you asked for, like replies and appointment confirmations.</p>
-              <Button loading={confirm.isPending} onClick={() => confirm.mutate()}>Unsubscribe</Button>
+              <p className="text-sm text-muted-foreground">
+                You will still get messages about things you asked for, like replies and appointment
+                confirmations.
+              </p>
+              <Button loading={confirm.isPending} onClick={() => confirm.mutate()}>
+                Unsubscribe
+              </Button>
               <ErrorAlert error={confirm.error} />
             </>
           ) : null}
           {info.data && done ? (
             <p>
-              You are unsubscribed. <strong>{info.data.dealerName}</strong> will not send marketing email to {info.data.email}.
+              You are unsubscribed. <strong>{info.data.dealerName}</strong> will not send marketing
+              email to {info.data.email}.
             </p>
           ) : null}
-          <p className="text-sm"><Link href="/" className="text-primary hover:underline">Go to Vintrax</Link></p>
+          <p className="text-sm">
+            <Link href="/" className="text-primary hover:underline">
+              Go to Vintrax
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

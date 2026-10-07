@@ -61,7 +61,11 @@ const optionalDateTime = () =>
     .optional()
     .nullable()
     .transform((value) => (value ? new Date(value) : null));
-const dateTime = () => z.string().datetime({ offset: true }).transform((value) => new Date(value));
+const dateTime = () =>
+  z
+    .string()
+    .datetime({ offset: true })
+    .transform((value) => new Date(value));
 const flag = () =>
   z
     .union([z.boolean(), z.enum(['true', 'false'])])
@@ -161,7 +165,10 @@ export const leadSchema = z
     vehicleId: optionalId(),
     interestedVin: optionalText(17),
     vehicleUrl: z
-      .union([z.literal(''), z.string().trim().url('Enter a full link, starting https://').max(500)])
+      .union([
+        z.literal(''),
+        z.string().trim().url('Enter a full link, starting https://').max(500),
+      ])
       .optional()
       .nullable()
       .transform((value) => (value ? value : null)),
@@ -615,7 +622,9 @@ export type CampaignInput = z.infer<typeof campaignSchema>;
 export const conditionSchema = z.object({
   field: z.enum(CONDITION_FIELDS),
   op: z.enum(CONDITION_OPERATORS),
-  value: z.union([z.string().max(200), z.number(), z.boolean(), z.array(z.string().max(100)).max(50)]).optional(),
+  value: z
+    .union([z.string().max(200), z.number(), z.boolean(), z.array(z.string().max(100)).max(50)])
+    .optional(),
 });
 export type AutomationCondition = z.infer<typeof conditionSchema>;
 
@@ -692,7 +701,11 @@ export const automationSchema = z
     const ids = new Set<string>();
     value.steps.forEach((step, index) => {
       if (ids.has(step.id)) {
-        ctx.addIssue({ code: 'custom', message: `Step id "${step.id}" is used twice`, path: ['steps', index, 'id'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: `Step id "${step.id}" is used twice`,
+          path: ['steps', index, 'id'],
+        });
       }
       ids.add(step.id);
     });
@@ -700,30 +713,62 @@ export const automationSchema = z
       for (const key of ['next', 'yes', 'no'] as const) {
         const target = step[key];
         if (target && !ids.has(target)) {
-          ctx.addIssue({ code: 'custom', message: `Step "${step.id}" points at a step that does not exist`, path: ['steps', index, key] });
+          ctx.addIssue({
+            code: 'custom',
+            message: `Step "${step.id}" points at a step that does not exist`,
+            path: ['steps', index, key],
+          });
         }
       }
       const config = step.config;
       if (step.type === 'WAIT' && !(config.minutes && config.minutes > 0)) {
-        ctx.addIssue({ code: 'custom', message: 'A wait needs a length', path: ['steps', index, 'config', 'minutes'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'A wait needs a length',
+          path: ['steps', index, 'config', 'minutes'],
+        });
       }
       if (step.type === 'CONDITION' && !config.conditions?.length) {
-        ctx.addIssue({ code: 'custom', message: 'A condition needs at least one rule', path: ['steps', index, 'config', 'conditions'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'A condition needs at least one rule',
+          path: ['steps', index, 'config', 'conditions'],
+        });
       }
       if (step.type === 'SEND_EMAIL' && !config.templateKey && !config.templateId) {
-        ctx.addIssue({ code: 'custom', message: 'Choose a template', path: ['steps', index, 'config', 'templateId'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Choose a template',
+          path: ['steps', index, 'config', 'templateId'],
+        });
       }
       if ((step.type === 'CREATE_TASK' || step.type === 'NOTIFY') && !config.title) {
-        ctx.addIssue({ code: 'custom', message: 'Enter a title', path: ['steps', index, 'config', 'title'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Enter a title',
+          path: ['steps', index, 'config', 'title'],
+        });
       }
       if ((step.type === 'ADD_TAG' || step.type === 'REMOVE_TAG') && !config.tag) {
-        ctx.addIssue({ code: 'custom', message: 'Enter a tag', path: ['steps', index, 'config', 'tag'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Enter a tag',
+          path: ['steps', index, 'config', 'tag'],
+        });
       }
       if (step.type === 'SET_STATUS' && !config.statusKey && !config.ticketStatus) {
-        ctx.addIssue({ code: 'custom', message: 'Choose a status', path: ['steps', index, 'config', 'statusKey'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Choose a status',
+          path: ['steps', index, 'config', 'statusKey'],
+        });
       }
       if (step.type === 'START_AUTOMATION' && !config.automationKey && !config.automationId) {
-        ctx.addIssue({ code: 'custom', message: 'Choose an automation', path: ['steps', index, 'config', 'automationId'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Choose an automation',
+          path: ['steps', index, 'config', 'automationId'],
+        });
       }
     });
     // No loops: a sequence that can revisit a step could email someone forever.
@@ -734,13 +779,19 @@ export const automationSchema = z
       if (state.get(stepId) === 'visiting') return true;
       state.set(stepId, 'visiting');
       const step = byId.get(stepId);
-      const targets = step ? [step.next, step.yes, step.no].filter((t): t is string => !!t && byId.has(t)) : [];
+      const targets = step
+        ? [step.next, step.yes, step.no].filter((t): t is string => !!t && byId.has(t))
+        : [];
       const cyclic = targets.some(visit);
       state.set(stepId, 'done');
       return cyclic;
     };
     if (value.steps.some((step) => visit(step.id))) {
-      ctx.addIssue({ code: 'custom', message: 'The steps loop back on themselves', path: ['steps'] });
+      ctx.addIssue({
+        code: 'custom',
+        message: 'The steps loop back on themselves',
+        path: ['steps'],
+      });
     }
   });
 export type AutomationInput = z.infer<typeof automationSchema>;
@@ -773,9 +824,18 @@ export const ticketUpdateSchema = z
     status: z.enum(TICKET_STATUSES).optional(),
     priority: z.enum(CRM_PRIORITIES).optional(),
     categoryId: optionalId().optional(),
-    assignedToId: z.union([z.literal(''), z.string().uuid()]).nullable().optional(),
-    teamId: z.union([z.literal(''), z.string().uuid()]).nullable().optional(),
-    dueAt: z.union([z.literal(''), z.string().datetime({ offset: true })]).nullable().optional(),
+    assignedToId: z
+      .union([z.literal(''), z.string().uuid()])
+      .nullable()
+      .optional(),
+    teamId: z
+      .union([z.literal(''), z.string().uuid()])
+      .nullable()
+      .optional(),
+    dueAt: z
+      .union([z.literal(''), z.string().datetime({ offset: true })])
+      .nullable()
+      .optional(),
     resolution: z.string().trim().max(5000).optional(),
     tags: z.array(text(40)).max(20).optional(),
   })
@@ -792,7 +852,9 @@ export type TicketMessageInput = z.infer<typeof ticketMessageSchema>;
 
 export const ticketListQuerySchema = z.object({
   q: text(100).optional(),
-  view: z.enum(['OPEN', 'MINE', 'UNASSIGNED', 'OVERDUE', 'WAITING', 'ESCALATED', 'RESOLVED', 'ALL']).default('OPEN'),
+  view: z
+    .enum(['OPEN', 'MINE', 'UNASSIGNED', 'OVERDUE', 'WAITING', 'ESCALATED', 'RESOLVED', 'ALL'])
+    .default('OPEN'),
   status: z.enum(TICKET_STATUSES).optional(),
   priority: z.enum(CRM_PRIORITIES).optional(),
   categoryId: optionalId(),
@@ -869,7 +931,10 @@ export const directMessageSchema = z.object({
   dealerId: optionalId(),
   subject: requiredText(200),
   body: requiredText(20_000),
-  channels: z.array(z.enum(['EMAIL', 'IN_APP'])).min(1).max(2),
+  channels: z
+    .array(z.enum(['EMAIL', 'IN_APP']))
+    .min(1)
+    .max(2),
   ticketId: optionalId(),
 });
 export type DirectMessageInput = z.infer<typeof directMessageSchema>;

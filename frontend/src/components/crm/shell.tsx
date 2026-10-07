@@ -26,7 +26,15 @@ import { COMPLIANCE_NOTE, DEALER_STAFF_ROLE_LABELS, type CrmPermission } from '@
 import { Card, CardContent, ErrorAlert, Input, Select, Spinner } from '@/components/ui';
 import { RequireAuth } from '@/components/require-auth';
 import { DashboardNav } from '@/components/dashboard-nav';
-import { crm, personName, qs, selectCrmDealer, selectedCrmDealer, type CrmDealership, type CrmMe } from '@/lib/crm';
+import {
+  crm,
+  personName,
+  qs,
+  selectCrmDealer,
+  selectedCrmDealer,
+  type CrmDealership,
+  type CrmMe,
+} from '@/lib/crm';
 import { CrmContext, useCrm } from './context';
 
 interface NavItem {
@@ -39,17 +47,33 @@ interface NavItem {
 
 /** The sidebar the issue asks for, in its order. */
 const NAV: NavItem[] = [
-  { href: '/dealer/crm', label: 'Overview', icon: LayoutDashboard, permission: 'crm.view', exact: true },
+  {
+    href: '/dealer/crm',
+    label: 'Overview',
+    icon: LayoutDashboard,
+    permission: 'crm.view',
+    exact: true,
+  },
   { href: '/dealer/crm/leads', label: 'Leads', icon: UserRound, permission: 'crm.view' },
   { href: '/dealer/crm/customers', label: 'Customers', icon: Users, permission: 'crm.view' },
   { href: '/dealer/crm/pipeline', label: 'Pipeline', icon: Columns3, permission: 'crm.view' },
   { href: '/dealer/crm/activities', label: 'Activities', icon: Activity, permission: 'crm.view' },
   { href: '/dealer/crm/tasks', label: 'Tasks', icon: ListChecks, permission: 'crm.view' },
-  { href: '/dealer/crm/appointments', label: 'Appointments', icon: CalendarClock, permission: 'crm.view' },
+  {
+    href: '/dealer/crm/appointments',
+    label: 'Appointments',
+    icon: CalendarClock,
+    permission: 'crm.view',
+  },
   { href: '/dealer/crm/emails', label: 'Emails', icon: Mail, permission: 'crm.view' },
   { href: '/dealer/crm/templates', label: 'Templates', icon: FileText, permission: 'crm.view' },
   { href: '/dealer/crm/automations', label: 'Automations', icon: Workflow, permission: 'crm.view' },
-  { href: '/dealer/crm/campaigns', label: 'Campaigns', icon: Megaphone, permission: 'crm.marketing' },
+  {
+    href: '/dealer/crm/campaigns',
+    label: 'Campaigns',
+    icon: Megaphone,
+    permission: 'crm.marketing',
+  },
   { href: '/dealer/crm/calendar', label: 'Calendar', icon: CalendarDays, permission: 'crm.view' },
   { href: '/dealer/crm/reports', label: 'Reports', icon: BarChart3, permission: 'crm.reports' },
   { href: '/dealer/crm/settings', label: 'Settings', icon: Settings, permission: 'crm.view' },
@@ -98,7 +122,12 @@ function CrmGate({ children }: { children: ReactNode }) {
   if (dealerships.isPending || (dealerships.data?.length && (!dealerId || me.isPending))) {
     return <Spinner label="Opening the CRM" />;
   }
-  if (dealerships.error) return <Container><ErrorAlert error={dealerships.error} /></Container>;
+  if (dealerships.error)
+    return (
+      <Container>
+        <ErrorAlert error={dealerships.error} />
+      </Container>
+    );
   if (!dealerships.data?.length) {
     return (
       <Container>
@@ -106,15 +135,20 @@ function CrmGate({ children }: { children: ReactNode }) {
           <CardContent className="py-10 text-center">
             <h1 className="text-xl font-semibold">The CRM is for dealerships</h1>
             <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-              Dealership owners and the staff they add work their leads here. If you work at a dealership, ask the
-              owner to add you under Accounting → Settings &amp; team.
+              Dealership owners and the staff they add work their leads here. If you work at a
+              dealership, ask the owner to add you under Accounting → Settings &amp; team.
             </p>
           </CardContent>
         </Card>
       </Container>
     );
   }
-  if (me.error || !me.data) return <Container><ErrorAlert error={me.error} /></Container>;
+  if (me.error || !me.data)
+    return (
+      <Container>
+        <ErrorAlert error={me.error} />
+      </Container>
+    );
 
   const value = {
     me: me.data,
@@ -158,12 +192,19 @@ function Frame({ children }: { children: ReactNode }) {
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">CRM</p>
           <p className="truncate font-semibold">
             {me.dealer.name}{' '}
-            <span className="text-sm font-normal text-muted-foreground">· {DEALER_STAFF_ROLE_LABELS[me.me.role]}</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              · {DEALER_STAFF_ROLE_LABELS[me.me.role]}
+            </span>
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {dealerships.length > 1 ? (
-            <Select aria-label="Dealership" className="h-9 w-56" value={dealerId} onChange={(event) => switchDealer(event.target.value)}>
+            <Select
+              aria-label="Dealership"
+              className="h-9 w-56"
+              value={dealerId}
+              onChange={(event) => switchDealer(event.target.value)}
+            >
               {dealerships.map((entry) => (
                 <option key={entry.dealerId} value={entry.dealerId}>
                   {entry.name}
@@ -181,7 +222,11 @@ function Frame({ children }: { children: ReactNode }) {
             <label htmlFor="crm-section" className="sr-only">
               Section
             </label>
-            <Select id="crm-section" value={current?.href ?? ''} onChange={(event) => router.push(event.target.value)}>
+            <Select
+              id="crm-section"
+              value={current?.href ?? ''}
+              onChange={(event) => router.push(event.target.value)}
+            >
               {current ? null : <option value="">Choose a section</option>}
               {items.map((item) => (
                 <option key={item.href} value={item.href}>
@@ -199,7 +244,9 @@ function Frame({ children }: { children: ReactNode }) {
                     href={item.href}
                     aria-current={active ? 'page' : undefined}
                     className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                      active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                      active
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                     }`}
                   >
                     <item.icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -212,7 +259,9 @@ function Frame({ children }: { children: ReactNode }) {
         </nav>
         <div className="min-w-0">
           {children}
-          <p className="mt-10 border-t border-border pt-4 text-xs text-muted-foreground">{COMPLIANCE_NOTE}</p>
+          <p className="mt-10 border-t border-border pt-4 text-xs text-muted-foreground">
+            {COMPLIANCE_NOTE}
+          </p>
         </div>
       </div>
     </div>
@@ -220,11 +269,30 @@ function Frame({ children }: { children: ReactNode }) {
 }
 
 interface SearchResult {
-  leads: Array<{ id: string; number: number; firstName: string; lastName: string | null; email: string | null; phone: string | null; status: { label: string } }>;
-  customers: Array<{ id: string; name: string; email: string | null; crmLeads: Array<{ id: string }> }>;
+  leads: Array<{
+    id: string;
+    number: number;
+    firstName: string;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+    status: { label: string };
+  }>;
+  customers: Array<{
+    id: string;
+    name: string;
+    email: string | null;
+    crmLeads: Array<{ id: string }>;
+  }>;
   tasks: Array<{ id: string; title: string; status: string; leadId: string | null }>;
   campaigns: Array<{ id: string; name: string; status: string }>;
-  vehicles: Array<{ id: string; title: string; vin: string | null; stockNumber: string | null; _count: { crmLeads: number } }>;
+  vehicles: Array<{
+    id: string;
+    title: string;
+    vin: string | null;
+    stockNumber: string | null;
+    _count: { crmLeads: number };
+  }>;
 }
 
 function CrmSearch() {
@@ -285,7 +353,10 @@ function CrmSearch() {
     : [];
   return (
     <div className="relative w-full sm:w-72">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden
+      />
       <Input
         type="search"
         aria-label="Search the CRM"
@@ -307,10 +378,18 @@ function CrmSearch() {
             <ul>
               {hits.map((hit) => (
                 <li key={hit.key}>
-                  <Link href={hit.href} className="block px-3 py-2 text-sm hover:bg-secondary" onClick={() => setOpen(false)}>
-                    <span className="mr-2 text-xs font-semibold uppercase text-muted-foreground">{hit.kind}</span>
+                  <Link
+                    href={hit.href}
+                    className="block px-3 py-2 text-sm hover:bg-secondary"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="mr-2 text-xs font-semibold uppercase text-muted-foreground">
+                      {hit.kind}
+                    </span>
                     {hit.title}
-                    {hit.subtitle ? <span className="block text-xs text-muted-foreground">{hit.subtitle}</span> : null}
+                    {hit.subtitle ? (
+                      <span className="block text-xs text-muted-foreground">{hit.subtitle}</span>
+                    ) : null}
                   </Link>
                 </li>
               ))}

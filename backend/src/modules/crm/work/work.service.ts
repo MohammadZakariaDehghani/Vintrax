@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   APPOINTMENT_TYPES,
   type AppointmentInput,
@@ -51,7 +56,10 @@ export class WorkService {
 
   private taskScope(ctx: CrmContext): Prisma.CrmTaskWhereInput {
     if (can(ctx, 'crm.all_leads')) return { dealerId: ctx.dealerId };
-    return { dealerId: ctx.dealerId, OR: [{ assignedToId: ctx.userId }, { createdById: ctx.userId }] };
+    return {
+      dealerId: ctx.dealerId,
+      OR: [{ assignedToId: ctx.userId }, { createdById: ctx.userId }],
+    };
   }
 
   async listTasks(ctx: CrmContext, query: TaskListQuery) {
@@ -98,7 +106,16 @@ export class WorkService {
         take: query.pageSize,
         include: {
           assignedTo: person,
-          lead: { select: { id: true, number: true, firstName: true, lastName: true, phone: true, email: true } },
+          lead: {
+            select: {
+              id: true,
+              number: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              email: true,
+            },
+          },
         },
       }),
     ]);
@@ -148,7 +165,9 @@ export class WorkService {
     if (assignedToId && assignedToId !== ctx.userId) {
       await this.notify.notify(assignedToId, 'TASK_ASSIGNED', {
         title: `New task: ${task.title}`,
-        body: task.dueAt ? `Due ${task.dueAt.toISOString().slice(0, 16).replace('T', ' ')} UTC.` : 'No due date.',
+        body: task.dueAt
+          ? `Due ${task.dueAt.toISOString().slice(0, 16).replace('T', ' ')} UTC.`
+          : 'No due date.',
         link: '/dealer/crm/tasks',
       });
     }
@@ -157,7 +176,8 @@ export class WorkService {
 
   async updateTask(ctx: CrmContext, id: string, input: TaskInput) {
     const task = await this.findTask(ctx, id);
-    if (input.leadId && input.leadId !== task.leadId) await this.leads.findVisible(ctx, input.leadId);
+    if (input.leadId && input.leadId !== task.leadId)
+      await this.leads.findVisible(ctx, input.leadId);
     const assignedToId =
       input.assignedToId && input.assignedToId !== task.assignedToId
         ? await this.resolveAssignee(ctx, input.assignedToId)
@@ -173,7 +193,8 @@ export class WorkService {
         dueAt: input.dueAt,
         priority: input.priority,
         reminderAt: input.reminderAt,
-        reminderSentAt: input.reminderAt?.getTime() !== task.reminderAt?.getTime() ? null : undefined,
+        reminderSentAt:
+          input.reminderAt?.getTime() !== task.reminderAt?.getTime() ? null : undefined,
         overdueNotifiedAt: input.dueAt?.getTime() !== task.dueAt?.getTime() ? null : undefined,
         recurrence: input.recurrence,
       },
@@ -234,7 +255,12 @@ export class WorkService {
     const task = await this.findTask(ctx, id);
     await this.prisma.$transaction(async (tx) => {
       await tx.crmTask.delete({ where: { id } });
-      await crmAudit(tx, ctx, { action: 'task.deleted', entityType: 'CrmTask', entityId: id, before: { title: task.title } });
+      await crmAudit(tx, ctx, {
+        action: 'task.deleted',
+        entityType: 'CrmTask',
+        entityId: id,
+        before: { title: task.title },
+      });
       if (task.leadId) await this.pullFollowUp(tx, task.leadId);
     });
   }
@@ -258,7 +284,10 @@ export class WorkService {
       orderBy: { dueAt: 'asc' },
       select: { dueAt: true },
     });
-    await db.crmLead.update({ where: { id: leadId }, data: { nextFollowUpAt: next?.dueAt ?? null } });
+    await db.crmLead.update({
+      where: { id: leadId },
+      data: { nextFollowUpAt: next?.dueAt ?? null },
+    });
   }
 
   private async resolveAssignee(ctx: CrmContext, userId: string | null): Promise<string | null> {
@@ -266,7 +295,10 @@ export class WorkService {
     if (userId !== ctx.userId && !can(ctx, 'crm.manage') && !ctx.system) {
       throw new ForbiddenException('Only a manager can give tasks to someone else');
     }
-    if (!(await this.assignment.isSalesStaff(this.prisma, ctx.dealerId, userId)) && userId !== ctx.userId) {
+    if (
+      !(await this.assignment.isSalesStaff(this.prisma, ctx.dealerId, userId)) &&
+      userId !== ctx.userId
+    ) {
       throw new BadRequestException('That person is not on this dealership’s staff');
     }
     return userId;
@@ -282,7 +314,10 @@ export class WorkService {
     };
   }
 
-  async listAppointments(ctx: CrmContext, range: { from: Date; to: Date; salespersonId?: string | null }) {
+  async listAppointments(
+    ctx: CrmContext,
+    range: { from: Date; to: Date; salespersonId?: string | null },
+  ) {
     return this.prisma.crmAppointment.findMany({
       where: {
         ...this.appointmentScope(ctx),
@@ -337,7 +372,10 @@ export class WorkService {
       });
       if (set) {
         await tx.crmLead.updateMany({
-          where: { id: input.leadId, status: { key: { in: ['NEW', 'CONTACTED', 'ENGAGED', 'QUALIFIED'] } } },
+          where: {
+            id: input.leadId,
+            status: { key: { in: ['NEW', 'CONTACTED', 'ENGAGED', 'QUALIFIED'] } },
+          },
           data: { statusId: set.id },
         });
       }
@@ -426,7 +464,9 @@ export class WorkService {
           await tx.crmLead.updateMany({
             where: {
               id: appointment.leadId,
-              status: { key: { in: ['NEW', 'CONTACTED', 'ENGAGED', 'QUALIFIED', 'APPOINTMENT_SET'] } },
+              status: {
+                key: { in: ['NEW', 'CONTACTED', 'ENGAGED', 'QUALIFIED', 'APPOINTMENT_SET'] },
+              },
             },
             data: { statusId: testDrive.id },
           });
@@ -443,12 +483,20 @@ export class WorkService {
         );
       }
     });
-    const signal = { scope: 'DEALER' as const, dealerId: ctx.dealerId, leadId: appointment.leadId, appointmentId: id };
-    if (status === 'CONFIRMED') await this.bus.publish({ ...signal, type: 'APPOINTMENT_CONFIRMED' });
-    if (status === 'CANCELLED') await this.bus.publish({ ...signal, type: 'APPOINTMENT_CANCELLED' });
+    const signal = {
+      scope: 'DEALER' as const,
+      dealerId: ctx.dealerId,
+      leadId: appointment.leadId,
+      appointmentId: id,
+    };
+    if (status === 'CONFIRMED')
+      await this.bus.publish({ ...signal, type: 'APPOINTMENT_CONFIRMED' });
+    if (status === 'CANCELLED')
+      await this.bus.publish({ ...signal, type: 'APPOINTMENT_CANCELLED' });
     if (status === 'COMPLETED') {
       await this.bus.publish({ ...signal, type: 'APPOINTMENT_COMPLETED' });
-      if (appointment.type === 'TEST_DRIVE') await this.bus.publish({ ...signal, type: 'TEST_DRIVE_COMPLETED' });
+      if (appointment.type === 'TEST_DRIVE')
+        await this.bus.publish({ ...signal, type: 'TEST_DRIVE_COMPLETED' });
     }
     return this.findAppointment(ctx, id);
   }
@@ -472,7 +520,9 @@ export class WorkService {
       include: {
         salesperson: person,
         vehicle: { select: { id: true, title: true } },
-        lead: { select: { id: true, number: true, firstName: true, lastName: true, firstContactAt: true } },
+        lead: {
+          select: { id: true, number: true, firstName: true, lastName: true, firstContactAt: true },
+        },
       },
     });
     if (!row) throw new NotFoundException('Appointment not found');
@@ -503,7 +553,10 @@ export class WorkService {
         },
         orderBy: { dueAt: 'asc' },
         take: 500,
-        include: { assignedTo: person, lead: { select: { id: true, number: true, firstName: true, lastName: true } } },
+        include: {
+          assignedTo: person,
+          lead: { select: { id: true, number: true, firstName: true, lastName: true } },
+        },
       }),
     ]);
     return {
@@ -538,7 +591,9 @@ export class WorkService {
 }
 
 export function isOverdue(task: { status: string; dueAt: Date | null }, now = new Date()): boolean {
-  return (task.status === 'OPEN' || task.status === 'IN_PROGRESS') && !!task.dueAt && task.dueAt < now;
+  return (
+    (task.status === 'OPEN' || task.status === 'IN_PROGRESS') && !!task.dueAt && task.dueAt < now
+  );
 }
 
 export function nextOccurrence(due: Date, recurrence: CrmRecurrence): Date {

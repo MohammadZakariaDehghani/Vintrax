@@ -10,7 +10,9 @@ import { crm, type AutomationRow } from '@/lib/crm';
 export default function AutomationsPage() {
   const { can } = useCrm();
   const list = useCrmQuery<AutomationRow[]>(['automations'], '/automations');
-  const toggle = useCrmMutation((automation: AutomationRow) => crm.post(`/automations/${automation.id}/active`, { isActive: !automation.isActive }));
+  const toggle = useCrmMutation((automation: AutomationRow) =>
+    crm.post(`/automations/${automation.id}/active`, { isActive: !automation.isActive }),
+  );
   return (
     <>
       <PageHeader

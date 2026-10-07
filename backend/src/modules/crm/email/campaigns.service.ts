@@ -28,7 +28,10 @@ export class CampaignsService {
       include: { template: { select: { id: true, name: true } } },
     });
     const stats = await this.stats(campaigns.map((campaign) => campaign.id));
-    return campaigns.map((campaign) => ({ ...campaign, stats: stats.get(campaign.id) ?? emptyStats() }));
+    return campaigns.map((campaign) => ({
+      ...campaign,
+      stats: stats.get(campaign.id) ?? emptyStats(),
+    }));
   }
 
   async get(ctx: CrmContext, id: string) {
@@ -55,7 +58,12 @@ export class CampaignsService {
         createdById: ctx.userId,
       },
     });
-    await crmAudit(this.prisma, ctx, { action: 'campaign.created', entityType: 'CrmCampaign', entityId: campaign.id, after: input });
+    await crmAudit(this.prisma, ctx, {
+      action: 'campaign.created',
+      entityType: 'CrmCampaign',
+      entityId: campaign.id,
+      after: input,
+    });
     return campaign;
   }
 
@@ -76,7 +84,12 @@ export class CampaignsService {
         costCents: input.cost,
       },
     });
-    await crmAudit(this.prisma, ctx, { action: 'campaign.updated', entityType: 'CrmCampaign', entityId: id, after: input });
+    await crmAudit(this.prisma, ctx, {
+      action: 'campaign.updated',
+      entityType: 'CrmCampaign',
+      entityId: id,
+      after: input,
+    });
     return updated;
   }
 
@@ -86,12 +99,17 @@ export class CampaignsService {
     if (campaign.status !== 'DRAFT' && campaign.status !== 'SCHEDULED') {
       throw new BadRequestException('This campaign has already been sent');
     }
-    const settings = await this.prisma.crmSettings.findUnique({ where: { dealerId: ctx.dealerId } });
+    const settings = await this.prisma.crmSettings.findUnique({
+      where: { dealerId: ctx.dealerId },
+    });
     if (!settings?.businessAddress?.trim()) {
-      throw new BadRequestException('Add your business mailing address in CRM settings before sending marketing email');
+      throw new BadRequestException(
+        'Add your business mailing address in CRM settings before sending marketing email',
+      );
     }
     const preview = await this.audience(ctx.dealerId, campaign.audience as CampaignAudience);
-    if (preview.eligible === 0) throw new BadRequestException('No one in this audience can receive marketing email');
+    if (preview.eligible === 0)
+      throw new BadRequestException('No one in this audience can receive marketing email');
     const updated = await this.prisma.crmCampaign.update({
       where: { id },
       data: { status: 'SCHEDULED', scheduledAt: at ?? new Date() },
@@ -111,12 +129,19 @@ export class CampaignsService {
       throw new BadRequestException('This campaign can no longer be cancelled');
     }
     await this.prisma.$transaction(async (tx) => {
-      await tx.crmCampaign.update({ where: { id }, data: { status: 'CANCELLED', completedAt: new Date() } });
+      await tx.crmCampaign.update({
+        where: { id },
+        data: { status: 'CANCELLED', completedAt: new Date() },
+      });
       await tx.crmEmail.updateMany({
         where: { campaignId: id, status: { in: ['SCHEDULED', 'QUEUED'] } },
         data: { status: 'CANCELLED' },
       });
-      await crmAudit(tx, ctx, { action: 'campaign.cancelled', entityType: 'CrmCampaign', entityId: id });
+      await crmAudit(tx, ctx, {
+        action: 'campaign.cancelled',
+        entityType: 'CrmCampaign',
+        entityId: id,
+      });
     });
     return { id, status: 'CANCELLED' };
   }
@@ -125,7 +150,12 @@ export class CampaignsService {
     const campaign = await this.get(ctx, id);
     if (campaign.status !== 'DRAFT') throw new BadRequestException('Only a draft can be deleted');
     await this.prisma.crmCampaign.delete({ where: { id } });
-    await crmAudit(this.prisma, ctx, { action: 'campaign.deleted', entityType: 'CrmCampaign', entityId: id, before: { name: campaign.name } });
+    await crmAudit(this.prisma, ctx, {
+      action: 'campaign.deleted',
+      entityType: 'CrmCampaign',
+      entityId: id,
+      before: { name: campaign.name },
+    });
   }
 
   /** Who the audience is, and who of them may receive marketing. */
@@ -135,11 +165,18 @@ export class CampaignsService {
       select: { id: true, number: true, firstName: true, lastName: true, emailNormalized: true },
       take: 20_000,
     });
-    const emails = [...new Set(leads.map((lead) => lead.emailNormalized).filter((e): e is string => !!e))];
+    const emails = [
+      ...new Set(leads.map((lead) => lead.emailNormalized).filter((e): e is string => !!e)),
+    ];
     const now = new Date();
     const [consents, suppressions] = await Promise.all([
       this.prisma.crmConsent.findMany({
-        where: { dealerId, email: { in: emails }, withdrawnAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+        where: {
+          dealerId,
+          email: { in: emails },
+          withdrawnAt: null,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
         select: { email: true },
       }),
       this.prisma.crmSuppression.findMany({
@@ -200,7 +237,10 @@ export class CampaignsService {
         launched += 1;
       } catch (error) {
         this.logger.error(`Campaign ${id} failed to launch: ${String(error)}`);
-        await this.prisma.crmCampaign.update({ where: { id }, data: { status: 'SCHEDULED', scheduledAt: new Date(now.getTime() + 5 * 60_000) } });
+        await this.prisma.crmCampaign.update({
+          where: { id },
+          data: { status: 'SCHEDULED', scheduledAt: new Date(now.getTime() + 5 * 60_000) },
+        });
       }
     }
     return launched;
@@ -230,7 +270,12 @@ export class CampaignsService {
     const skipped = audience.matched - queued;
     await this.prisma.crmCampaign.update({
       where: { id },
-      data: { status: 'SENT', completedAt: new Date(), recipientCount: queued, skippedCount: skipped },
+      data: {
+        status: 'SENT',
+        completedAt: new Date(),
+        recipientCount: queued,
+        skippedCount: skipped,
+      },
     });
   }
 
@@ -239,14 +284,29 @@ export class CampaignsService {
       where: { id: templateId, scope: 'DEALER', dealerId: ctx.dealerId, isActive: true },
       select: { id: true },
     });
-    if (!template) throw new BadRequestException({ message: 'Choose an active template', details: { templateId: ['Choose an active template'] } });
+    if (!template)
+      throw new BadRequestException({
+        message: 'Choose an active template',
+        details: { templateId: ['Choose an active template'] },
+      });
   }
 
   private async stats(ids: string[]) {
     const map = new Map<string, ReturnType<typeof emptyStats>>();
     if (!ids.length) return map;
     const rows = await this.prisma.$queryRaw<
-      Array<{ campaignId: string; total: bigint; sent: bigint; delivered: bigint; opened: bigint; clicked: bigint; replied: bigint; bounced: bigint; unsubscribed: bigint; failed: bigint }>
+      Array<{
+        campaignId: string;
+        total: bigint;
+        sent: bigint;
+        delivered: bigint;
+        opened: bigint;
+        clicked: bigint;
+        replied: bigint;
+        bounced: bigint;
+        unsubscribed: bigint;
+        failed: bigint;
+      }>
     >`
       SELECT "campaignId",
         count(*) AS total,
@@ -278,11 +338,26 @@ export class CampaignsService {
 }
 
 function emptyStats() {
-  return { total: 0, sent: 0, delivered: 0, opened: 0, clicked: 0, replied: 0, bounced: 0, unsubscribed: 0, failed: 0 };
+  return {
+    total: 0,
+    sent: 0,
+    delivered: 0,
+    opened: 0,
+    clicked: 0,
+    replied: 0,
+    bounced: 0,
+    unsubscribed: 0,
+    failed: 0,
+  };
 }
 
-export function audienceWhere(dealerId: string, audience: CampaignAudience): Prisma.CrmLeadWhereInput {
-  const and: Prisma.CrmLeadWhereInput[] = [{ dealerId, mergedIntoId: null, emailNormalized: { not: null } }];
+export function audienceWhere(
+  dealerId: string,
+  audience: CampaignAudience,
+): Prisma.CrmLeadWhereInput {
+  const and: Prisma.CrmLeadWhereInput[] = [
+    { dealerId, mergedIntoId: null, emailNormalized: { not: null } },
+  ];
   if (audience.statusIds.length) and.push({ statusId: { in: audience.statusIds } });
   if (audience.sourceIds.length) and.push({ sourceId: { in: audience.sourceIds } });
   if (audience.tags.length) {
@@ -291,15 +366,27 @@ export function audienceWhere(dealerId: string, audience: CampaignAudience): Pri
   if (audience.provinces.length) and.push({ province: { in: audience.provinces } });
   if (audience.temperatures.length) and.push({ temperature: { in: audience.temperatures } });
   if (audience.makes.length) {
-    and.push({ OR: audience.makes.map((make) => ({ vehicle: { make: { equals: make, mode: 'insensitive' as const } } })) });
+    and.push({
+      OR: audience.makes.map((make) => ({
+        vehicle: { make: { equals: make, mode: 'insensitive' as const } },
+      })),
+    });
   }
-  if (audience.minBudget !== null && audience.minBudget !== undefined) and.push({ budgetCents: { gte: audience.minBudget } });
-  if (audience.maxBudget !== null && audience.maxBudget !== undefined) and.push({ budgetCents: { lte: audience.maxBudget } });
+  if (audience.minBudget !== null && audience.minBudget !== undefined)
+    and.push({ budgetCents: { gte: audience.minBudget } });
+  if (audience.maxBudget !== null && audience.maxBudget !== undefined)
+    and.push({ budgetCents: { lte: audience.maxBudget } });
   if (audience.customers === 'ONLY') and.push({ customerId: { not: null } });
   if (audience.customers === 'EXCLUDE') and.push({ customerId: null });
-  if (audience.activeAfter) and.push({ lastActivityAt: { gte: new Date(`${audience.activeAfter}T00:00:00Z`) } });
+  if (audience.activeAfter)
+    and.push({ lastActivityAt: { gte: new Date(`${audience.activeAfter}T00:00:00Z`) } });
   if (audience.inactiveSince) {
-    and.push({ OR: [{ lastActivityAt: null }, { lastActivityAt: { lt: new Date(`${audience.inactiveSince}T00:00:00Z`) } }] });
+    and.push({
+      OR: [
+        { lastActivityAt: null },
+        { lastActivityAt: { lt: new Date(`${audience.inactiveSince}T00:00:00Z`) } },
+      ],
+    });
   }
   return { AND: and };
 }

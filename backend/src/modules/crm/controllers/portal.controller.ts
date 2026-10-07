@@ -1,10 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import {
-  portalReplySchema,
-  portalTicketSchema,
-  type PortalTicketInput,
-} from '@vintrax/shared';
+import { portalReplySchema, portalTicketSchema, type PortalTicketInput } from '@vintrax/shared';
 import type { AuthUser } from '../../../common/auth/auth-user';
 import { CurrentUser } from '../../../common/decorators';
 import { zodBody } from '../../../common/pipes/zod-validation.pipe';
@@ -46,7 +42,10 @@ export class SupportPortalController {
 
   @Post('tickets')
   @ApiOperation({ summary: 'Ask Vintrax support for help' })
-  async create(@CurrentUser() user: AuthUser, @Body(zodBody(portalTicketSchema)) input: PortalTicketInput) {
+  async create(
+    @CurrentUser() user: AuthUser,
+    @Body(zodBody(portalTicketSchema)) input: PortalTicketInput,
+  ) {
     const ticket = await this.tickets.createFromPortal(user, input);
     this.scheduler.kick();
     return ticket;
@@ -60,7 +59,11 @@ export class SupportPortalController {
 
   @Post('tickets/:id/replies')
   @ApiOperation({ summary: 'Reply on your ticket (reopens it if it was resolved)' })
-  async reply(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(portalReplySchema)) input: { body: string }) {
+  async reply(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(portalReplySchema)) input: { body: string },
+  ) {
     const result = await this.tickets.replyAsRequester(user, id, input.body);
     this.scheduler.kick();
     return result;

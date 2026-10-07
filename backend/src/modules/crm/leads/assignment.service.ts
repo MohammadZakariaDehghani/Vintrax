@@ -21,7 +21,10 @@ export interface AssignableLead {
 export class AssignmentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async pick(lead: AssignableLead, db: Db = this.prisma): Promise<{ userId: string | null; team: string | null }> {
+  async pick(
+    lead: AssignableLead,
+    db: Db = this.prisma,
+  ): Promise<{ userId: string | null; team: string | null }> {
     const settings = await db.crmSettings.findUnique({ where: { dealerId: lead.dealerId } });
     const mode = settings?.assignmentMode ?? 'ROUND_ROBIN';
     if (mode === 'MANUAL') return { userId: null, team: null };
@@ -32,7 +35,10 @@ export class AssignmentService {
         orderBy: { position: 'asc' },
       });
       const source = lead.sourceId
-        ? await db.crmLeadSource.findUnique({ where: { id: lead.sourceId }, select: { key: true, label: true } })
+        ? await db.crmLeadSource.findUnique({
+            where: { id: lead.sourceId },
+            select: { key: true, label: true },
+          })
         : null;
       for (const rule of rules) {
         const value = rule.matchValue?.trim().toLowerCase() ?? '';
@@ -44,7 +50,10 @@ export class AssignmentService {
           (rule.matchField === 'VEHICLE_MAKE' && lead.vehicleMake?.toLowerCase() === value) ||
           (rule.matchField === 'PROVINCE' && lead.province?.toLowerCase() === value);
         if (!matches) continue;
-        if (rule.assignToUserId && (await this.isSalesStaff(db, lead.dealerId, rule.assignToUserId))) {
+        if (
+          rule.assignToUserId &&
+          (await this.isSalesStaff(db, lead.dealerId, rule.assignToUserId))
+        ) {
           return { userId: rule.assignToUserId, team: rule.assignToTeam };
         }
         if (rule.assignToTeam) {
@@ -58,13 +67,18 @@ export class AssignmentService {
 
   /** The people leads can go to: the owner and staff who sell. */
   async salesStaff(dealerId: string, db: Db = this.prisma): Promise<string[]> {
-    const dealer = await db.dealer.findUnique({ where: { id: dealerId }, select: { ownerId: true } });
+    const dealer = await db.dealer.findUnique({
+      where: { id: dealerId },
+      select: { ownerId: true },
+    });
     const members = await db.dealerMember.findMany({
       where: { dealerId, role: { in: ['MANAGER', 'SALES_MANAGER', 'SALES_USER'] } },
       orderBy: { createdAt: 'asc' },
       select: { userId: true, role: true },
     });
-    const sellers = members.filter((member) => member.role === 'SALES_USER').map((member) => member.userId);
+    const sellers = members
+      .filter((member) => member.role === 'SALES_USER')
+      .map((member) => member.userId);
     // With salespeople on staff, leads go to them; otherwise to the managers and the owner.
     if (sellers.length) return sellers;
     const others = members.map((member) => member.userId);
@@ -72,7 +86,10 @@ export class AssignmentService {
   }
 
   async isSalesStaff(db: Db, dealerId: string, userId: string): Promise<boolean> {
-    const dealer = await db.dealer.findUnique({ where: { id: dealerId }, select: { ownerId: true } });
+    const dealer = await db.dealer.findUnique({
+      where: { id: dealerId },
+      select: { ownerId: true },
+    });
     if (dealer?.ownerId === userId) return true;
     const member = await db.dealerMember.findUnique({
       where: { dealerId_userId: { dealerId, userId } },

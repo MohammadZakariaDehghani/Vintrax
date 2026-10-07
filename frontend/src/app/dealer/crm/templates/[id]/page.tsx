@@ -16,7 +16,9 @@ export default function TemplatePage() {
   return (
     <>
       <p className="mb-1 text-sm text-muted-foreground">
-        <Link href="/dealer/crm/templates" className="hover:underline">Templates</Link>
+        <Link href="/dealer/crm/templates" className="hover:underline">
+          Templates
+        </Link>
       </p>
       <PageHeader title={id === 'new' ? 'New template' : 'Edit template'} />
       <TemplateEditor

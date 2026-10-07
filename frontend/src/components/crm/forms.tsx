@@ -106,9 +106,15 @@ export function LeadDialog({
 }) {
   const { me, can } = useCrm();
   const [form, setForm] = useState<LeadFormValue>({ ...EMPTY_LEAD, ...initial });
-  const [budget, setBudget] = useState(initial?.budgetCents ? String(initial.budgetCents / 100) : '');
+  const [budget, setBudget] = useState(
+    initial?.budgetCents ? String(initial.budgetCents / 100) : '',
+  );
   const [tags, setTags] = useState((initial?.tags ?? []).join(', '));
-  const [consent, setConsent] = useState<{ type: ConsentType | ''; source: string; evidence: string }>({ type: '', source: '', evidence: '' });
+  const [consent, setConsent] = useState<{
+    type: ConsentType | '';
+    source: string;
+    evidence: string;
+  }>({ type: '', source: '', evidence: '' });
   useEffect(() => {
     if (open) {
       setForm({ ...EMPTY_LEAD, ...initial });
@@ -123,10 +129,15 @@ export function LeadDialog({
     enabled: open,
     staleTime: 60_000,
   });
-  const set = <K extends keyof LeadFormValue>(key: K) => (value: LeadFormValue[K]) => setForm((previous) => ({ ...previous, [key]: value }));
+  const set =
+    <K extends keyof LeadFormValue>(key: K) =>
+    (value: LeadFormValue[K]) =>
+      setForm((previous) => ({ ...previous, [key]: value }));
   const save = useCrmMutation(
     (payload: Record<string, unknown>) =>
-      form.id ? crm.put<{ id: string }>(`/leads/${form.id}`, payload) : crm.post<{ id: string }>('/leads', payload),
+      form.id
+        ? crm.put<{ id: string }>(`/leads/${form.id}`, payload)
+        : crm.post<{ id: string }>('/leads', payload),
     (result) => {
       onSaved?.(result.id ?? form.id!);
       onClose();
@@ -140,14 +151,25 @@ export function LeadDialog({
     save.mutate({
       ...rest,
       budget: budget || null,
-      tags: tags.split(',').map((tag) => tag.trim()).filter(Boolean),
-      consent: !form.id && consent.type ? { type: consent.type, source: consent.source || 'Recorded by staff', evidence: consent.evidence || null } : null,
+      tags: tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      consent:
+        !form.id && consent.type
+          ? {
+              type: consent.type,
+              source: consent.source || 'Recorded by staff',
+              evidence: consent.evidence || null,
+            }
+          : null,
     });
   };
   const error = save.error;
   const text = (key: keyof LeadFormValue) => ({
     value: (form[key] as string | null) ?? '',
-    onChange: (event: { target: { value: string } }) => set(key)((event.target.value || null) as never),
+    onChange: (event: { target: { value: string } }) =>
+      set(key)((event.target.value || null) as never),
   });
 
   return (
@@ -171,7 +193,12 @@ export function LeadDialog({
         <fieldset className="grid gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold">Contact</legend>
           <Field label="First name" htmlFor="lf-first" error={fieldError(error, 'firstName')}>
-            <Input id="lf-first" required value={form.firstName} onChange={(event) => set('firstName')(event.target.value)} />
+            <Input
+              id="lf-first"
+              required
+              value={form.firstName}
+              onChange={(event) => set('firstName')(event.target.value)}
+            />
           </Field>
           <Field label="Last name" htmlFor="lf-last">
             <Input id="lf-last" {...text('lastName')} />
@@ -183,7 +210,15 @@ export function LeadDialog({
             <Input id="lf-phone" type="tel" {...text('phone')} />
           </Field>
           <Field label="Preferred contact" htmlFor="lf-pref">
-            <Select id="lf-pref" value={form.preferredContact ?? ''} onChange={(event) => set('preferredContact')((event.target.value || null) as LeadFormValue['preferredContact'])}>
+            <Select
+              id="lf-pref"
+              value={form.preferredContact ?? ''}
+              onChange={(event) =>
+                set('preferredContact')(
+                  (event.target.value || null) as LeadFormValue['preferredContact'],
+                )
+              }
+            >
               <option value="">No preference</option>
               <option value="PHONE">Phone</option>
               <option value="EMAIL">Email</option>
@@ -194,7 +229,11 @@ export function LeadDialog({
             <Input id="lf-city" {...text('city')} />
           </Field>
           <Field label="Province" htmlFor="lf-prov">
-            <Select id="lf-prov" value={form.province ?? ''} onChange={(event) => set('province')(event.target.value || null)}>
+            <Select
+              id="lf-prov"
+              value={form.province ?? ''}
+              onChange={(event) => set('province')(event.target.value || null)}
+            >
               <option value="">—</option>
               {PROVINCES.map((province) => (
                 <option key={province} value={province}>
@@ -214,43 +253,76 @@ export function LeadDialog({
         <fieldset className="grid gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold">Lead</legend>
           <Field label="Source" htmlFor="lf-source">
-            <Select id="lf-source" value={form.sourceId ?? ''} onChange={(event) => set('sourceId')(event.target.value || null)}>
+            <Select
+              id="lf-source"
+              value={form.sourceId ?? ''}
+              onChange={(event) => set('sourceId')(event.target.value || null)}
+            >
               <option value="">—</option>
-              {me.sources.filter((source) => source.isActive !== false).map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.label}
-                </option>
-              ))}
+              {me.sources
+                .filter((source) => source.isActive !== false)
+                .map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.label}
+                  </option>
+                ))}
             </Select>
           </Field>
           <Field label="Campaign" htmlFor="lf-campaign">
             <Input id="lf-campaign" {...text('campaign')} />
           </Field>
           <Field label="Status" htmlFor="lf-status">
-            <Select id="lf-status" value={form.statusId ?? ''} onChange={(event) => set('statusId')(event.target.value || null)}>
+            <Select
+              id="lf-status"
+              value={form.statusId ?? ''}
+              onChange={(event) => set('statusId')(event.target.value || null)}
+            >
               <option value="">New</option>
-              {me.statuses.filter((status) => status.isActive !== false).map((status) => (
-                <option key={status.id} value={status.id}>
-                  {status.label}
-                </option>
-              ))}
+              {me.statuses
+                .filter((status) => status.isActive !== false)
+                .map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.label}
+                  </option>
+                ))}
             </Select>
           </Field>
-          <Field label="Assigned salesperson" htmlFor="lf-assignee" hint={can('crm.manage') ? 'Empty: your assignment rules decide.' : undefined}>
-            <Select id="lf-assignee" value={form.assignedToId ?? ''} disabled={!can('crm.manage')} onChange={(event) => set('assignedToId')(event.target.value || null)}>
+          <Field
+            label="Assigned salesperson"
+            htmlFor="lf-assignee"
+            hint={can('crm.manage') ? 'Empty: your assignment rules decide.' : undefined}
+          >
+            <Select
+              id="lf-assignee"
+              value={form.assignedToId ?? ''}
+              disabled={!can('crm.manage')}
+              onChange={(event) => set('assignedToId')(event.target.value || null)}
+            >
               <option value="">{can('crm.manage') ? 'Automatic' : 'Me'}</option>
-              {me.staff.filter((person) => person.role !== 'ACCOUNTANT').map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.firstName} {person.lastName}
-                </option>
-              ))}
+              {me.staff
+                .filter((person) => person.role !== 'ACCOUNTANT')
+                .map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.firstName} {person.lastName}
+                  </option>
+                ))}
             </Select>
           </Field>
           <Field label="Next follow-up" htmlFor="lf-follow">
-            <Input id="lf-follow" type="datetime-local" value={toLocalInput(form.nextFollowUpAt)} onChange={(event) => set('nextFollowUpAt')(fromLocalInput(event.target.value))} />
+            <Input
+              id="lf-follow"
+              type="datetime-local"
+              value={toLocalInput(form.nextFollowUpAt)}
+              onChange={(event) => set('nextFollowUpAt')(fromLocalInput(event.target.value))}
+            />
           </Field>
           <Field label="Tags" htmlFor="lf-tags" hint="Separate with commas.">
-            <Input id="lf-tags" value={tags} onChange={(event) => setTags(event.target.value)} list="lf-tag-list" />
+            <Input
+              id="lf-tags"
+              value={tags}
+              onChange={(event) => setTags(event.target.value)}
+              list="lf-tag-list"
+            />
           </Field>
           <datalist id="lf-tag-list">
             {me.tags.map((tag) => (
@@ -260,14 +332,24 @@ export function LeadDialog({
         </fieldset>
 
         <fieldset className="grid gap-3 sm:grid-cols-2">
-          <legend className="mb-2 text-sm font-semibold">Vehicle interest, trade-in and financing</legend>
+          <legend className="mb-2 text-sm font-semibold">
+            Vehicle interest, trade-in and financing
+          </legend>
           <Field label="Vehicle from your inventory" htmlFor="lf-vehicle" className="sm:col-span-2">
-            <Select id="lf-vehicle" value={form.vehicleId ?? ''} onChange={(event) => set('vehicleId')(event.target.value || null)}>
+            <Select
+              id="lf-vehicle"
+              value={form.vehicleId ?? ''}
+              onChange={(event) => set('vehicleId')(event.target.value || null)}
+            >
               <option value="">—</option>
               {(vehicles.data ?? []).map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
                   {vehicle.title}
-                  {vehicle.stockNumber ? ` · #${vehicle.stockNumber}` : vehicle.vin ? ` · …${vehicle.vin.slice(-6)}` : ''}
+                  {vehicle.stockNumber
+                    ? ` · #${vehicle.stockNumber}`
+                    : vehicle.vin
+                      ? ` · …${vehicle.vin.slice(-6)}`
+                      : ''}
                 </option>
               ))}
             </Select>
@@ -279,20 +361,46 @@ export function LeadDialog({
             <Input id="lf-url" type="url" {...text('vehicleUrl')} />
           </Field>
           <Field label="Budget ($)" htmlFor="lf-budget" error={fieldError(error, 'budget')}>
-            <Input id="lf-budget" inputMode="decimal" value={budget} onChange={(event) => setBudget(event.target.value)} />
+            <Input
+              id="lf-budget"
+              inputMode="decimal"
+              value={budget}
+              onChange={(event) => setBudget(event.target.value)}
+            />
           </Field>
           <Field label="Preferred appointment" htmlFor="lf-appt">
-            <Input id="lf-appt" type="datetime-local" value={toLocalInput(form.preferredAppointmentAt)} onChange={(event) => set('preferredAppointmentAt')(fromLocalInput(event.target.value))} />
+            <Input
+              id="lf-appt"
+              type="datetime-local"
+              value={toLocalInput(form.preferredAppointmentAt)}
+              onChange={(event) =>
+                set('preferredAppointmentAt')(fromLocalInput(event.target.value))
+              }
+            />
           </Field>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.financingInterest} onChange={(event) => set('financingInterest')(event.target.checked)} /> Interested in financing
+            <input
+              type="checkbox"
+              checked={form.financingInterest}
+              onChange={(event) => set('financingInterest')(event.target.checked)}
+            />{' '}
+            Interested in financing
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.tradeInInterest} onChange={(event) => set('tradeInInterest')(event.target.checked)} /> Has a trade-in
+            <input
+              type="checkbox"
+              checked={form.tradeInInterest}
+              onChange={(event) => set('tradeInInterest')(event.target.checked)}
+            />{' '}
+            Has a trade-in
           </label>
           {form.tradeInInterest ? (
             <Field label="Trade-in vehicle" htmlFor="lf-trade" className="sm:col-span-2">
-              <Input id="lf-trade" placeholder="2016 Mazda CX-5, 140,000 km" {...text('tradeInVehicle')} />
+              <Input
+                id="lf-trade"
+                placeholder="2016 Mazda CX-5, 140,000 km"
+                {...text('tradeInVehicle')}
+              />
             </Field>
           ) : null}
           <Field label="Notes" htmlFor="lf-notes" className="sm:col-span-2">
@@ -304,11 +412,17 @@ export function LeadDialog({
           <fieldset className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2">
             <legend className="px-1 text-sm font-semibold">Marketing consent (CASL)</legend>
             <p className="text-xs text-muted-foreground sm:col-span-2">
-              Record consent only if the customer gave it. A lead is not consent: without a record, this lead receives
-              no marketing email — only replies to their own request.
+              Record consent only if the customer gave it. A lead is not consent: without a record,
+              this lead receives no marketing email — only replies to their own request.
             </p>
             <Field label="Consent" htmlFor="lf-consent">
-              <Select id="lf-consent" value={consent.type} onChange={(event) => setConsent({ ...consent, type: event.target.value as ConsentType | '' })}>
+              <Select
+                id="lf-consent"
+                value={consent.type}
+                onChange={(event) =>
+                  setConsent({ ...consent, type: event.target.value as ConsentType | '' })
+                }
+              >
                 <option value="">None recorded</option>
                 {CONSENT_TYPES.map((type) => (
                   <option key={type} value={type}>
@@ -320,10 +434,21 @@ export function LeadDialog({
             {consent.type ? (
               <>
                 <Field label="Where it was given" htmlFor="lf-csource">
-                  <Input id="lf-csource" required placeholder="Showroom sign-up form" value={consent.source} onChange={(event) => setConsent({ ...consent, source: event.target.value })} />
+                  <Input
+                    id="lf-csource"
+                    required
+                    placeholder="Showroom sign-up form"
+                    value={consent.source}
+                    onChange={(event) => setConsent({ ...consent, source: event.target.value })}
+                  />
                 </Field>
                 <Field label="What they agreed to" htmlFor="lf-cevidence" className="sm:col-span-2">
-                  <Input id="lf-cevidence" placeholder="Ticked “Email me offers from North Shore Motors”" value={consent.evidence} onChange={(event) => setConsent({ ...consent, evidence: event.target.value })} />
+                  <Input
+                    id="lf-cevidence"
+                    placeholder="Ticked “Email me offers from North Shore Motors”"
+                    value={consent.evidence}
+                    onChange={(event) => setConsent({ ...consent, evidence: event.target.value })}
+                  />
                 </Field>
               </>
             ) : null}
@@ -349,7 +474,16 @@ export function TaskDialog({
   leadId?: string | null;
 }) {
   const { me, can } = useCrm();
-  const blank = { title: '', description: '', dueAt: '', priority: 'MEDIUM', status: 'OPEN', reminderAt: '', recurrence: 'NONE', assignedToId: '' };
+  const blank = {
+    title: '',
+    description: '',
+    dueAt: '',
+    priority: 'MEDIUM',
+    status: 'OPEN',
+    reminderAt: '',
+    recurrence: 'NONE',
+    assignedToId: '',
+  };
   const [form, setForm] = useState(blank);
   useEffect(() => {
     if (!open) return;
@@ -370,7 +504,8 @@ export function TaskDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, task]);
   const save = useCrmMutation(
-    (payload: Record<string, unknown>) => (task ? crm.put(`/tasks/${task.id}`, payload) : crm.post('/tasks', payload)),
+    (payload: Record<string, unknown>) =>
+      task ? crm.put(`/tasks/${task.id}`, payload) : crm.post('/tasks', payload),
     () => onClose(),
   );
   const submit = (event: FormEvent) => {
@@ -405,17 +540,41 @@ export function TaskDialog({
       }
     >
       <form id="task-form" onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-        <Field label="Title" htmlFor="tf-title" className="sm:col-span-2" error={fieldError(save.error, 'title')}>
-          <Input id="tf-title" required value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
+        <Field
+          label="Title"
+          htmlFor="tf-title"
+          className="sm:col-span-2"
+          error={fieldError(save.error, 'title')}
+        >
+          <Input
+            id="tf-title"
+            required
+            value={form.title}
+            onChange={(event) => setForm({ ...form, title: event.target.value })}
+          />
         </Field>
         <Field label="Due" htmlFor="tf-due" error={fieldError(save.error, 'dueAt')}>
-          <Input id="tf-due" type="datetime-local" value={form.dueAt} onChange={(event) => setForm({ ...form, dueAt: event.target.value })} />
+          <Input
+            id="tf-due"
+            type="datetime-local"
+            value={form.dueAt}
+            onChange={(event) => setForm({ ...form, dueAt: event.target.value })}
+          />
         </Field>
         <Field label="Reminder" htmlFor="tf-reminder" error={fieldError(save.error, 'reminderAt')}>
-          <Input id="tf-reminder" type="datetime-local" value={form.reminderAt} onChange={(event) => setForm({ ...form, reminderAt: event.target.value })} />
+          <Input
+            id="tf-reminder"
+            type="datetime-local"
+            value={form.reminderAt}
+            onChange={(event) => setForm({ ...form, reminderAt: event.target.value })}
+          />
         </Field>
         <Field label="Priority" htmlFor="tf-priority">
-          <Select id="tf-priority" value={form.priority} onChange={(event) => setForm({ ...form, priority: event.target.value })}>
+          <Select
+            id="tf-priority"
+            value={form.priority}
+            onChange={(event) => setForm({ ...form, priority: event.target.value })}
+          >
             {CRM_PRIORITIES.map((priority) => (
               <option key={priority} value={priority}>
                 {humanize(priority)}
@@ -424,7 +583,11 @@ export function TaskDialog({
           </Select>
         </Field>
         <Field label="Repeats" htmlFor="tf-recurrence">
-          <Select id="tf-recurrence" value={form.recurrence} onChange={(event) => setForm({ ...form, recurrence: event.target.value })}>
+          <Select
+            id="tf-recurrence"
+            value={form.recurrence}
+            onChange={(event) => setForm({ ...form, recurrence: event.target.value })}
+          >
             {CRM_RECURRENCES.map((recurrence) => (
               <option key={recurrence} value={recurrence}>
                 {recurrence === 'NONE' ? 'Does not repeat' : humanize(recurrence)}
@@ -433,7 +596,12 @@ export function TaskDialog({
           </Select>
         </Field>
         <Field label="Assigned to" htmlFor="tf-assignee">
-          <Select id="tf-assignee" value={form.assignedToId} disabled={!can('crm.manage')} onChange={(event) => setForm({ ...form, assignedToId: event.target.value })}>
+          <Select
+            id="tf-assignee"
+            value={form.assignedToId}
+            disabled={!can('crm.manage')}
+            onChange={(event) => setForm({ ...form, assignedToId: event.target.value })}
+          >
             {me.staff.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.firstName} {person.lastName}
@@ -443,7 +611,11 @@ export function TaskDialog({
         </Field>
         {task ? (
           <Field label="Status" htmlFor="tf-status">
-            <Select id="tf-status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
+            <Select
+              id="tf-status"
+              value={form.status}
+              onChange={(event) => setForm({ ...form, status: event.target.value })}
+            >
               {['OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map((status) => (
                 <option key={status} value={status}>
                   {humanize(status)}
@@ -453,7 +625,12 @@ export function TaskDialog({
           </Field>
         ) : null}
         <Field label="Description" htmlFor="tf-description" className="sm:col-span-2">
-          <Textarea id="tf-description" rows={3} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+          <Textarea
+            id="tf-description"
+            rows={3}
+            value={form.description}
+            onChange={(event) => setForm({ ...form, description: event.target.value })}
+          />
         </Field>
         <ErrorAlert error={save.error} className="sm:col-span-2" />
       </form>
@@ -477,7 +654,16 @@ export function AppointmentDialog({
   defaultStart?: Date;
 }) {
   const { me, can } = useCrm();
-  const [form, setForm] = useState({ type: 'TEST_DRIVE', startsAt: '', endsAt: '', location: '', notes: '', status: 'SCHEDULED', reminderMinutes: '60', salespersonId: '' });
+  const [form, setForm] = useState({
+    type: 'TEST_DRIVE',
+    startsAt: '',
+    endsAt: '',
+    location: '',
+    notes: '',
+    status: 'SCHEDULED',
+    reminderMinutes: '60',
+    salespersonId: '',
+  });
   useEffect(() => {
     if (!open) return;
     if (appointment) {
@@ -488,11 +674,13 @@ export function AppointmentDialog({
         location: appointment.location ?? '',
         notes: appointment.notes ?? '',
         status: appointment.status,
-        reminderMinutes: appointment.reminderMinutes === null ? '' : String(appointment.reminderMinutes),
+        reminderMinutes:
+          appointment.reminderMinutes === null ? '' : String(appointment.reminderMinutes),
         salespersonId: appointment.salespersonId ?? '',
       });
     } else {
-      const start = defaultStart ?? new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000 + 86_400_000);
+      const start =
+        defaultStart ?? new Date(Math.ceil(Date.now() / 3_600_000) * 3_600_000 + 86_400_000);
       setForm({
         type: 'TEST_DRIVE',
         startsAt: toLocalInput(start),
@@ -507,7 +695,10 @@ export function AppointmentDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, appointment]);
   const save = useCrmMutation(
-    (payload: Record<string, unknown>) => (appointment ? crm.put(`/appointments/${appointment.id}`, payload) : crm.post('/appointments', payload)),
+    (payload: Record<string, unknown>) =>
+      appointment
+        ? crm.put(`/appointments/${appointment.id}`, payload)
+        : crm.post('/appointments', payload),
     () => onClose(),
   );
   const submit = (event: FormEvent) => {
@@ -543,7 +734,11 @@ export function AppointmentDialog({
     >
       <form id="appt-form" onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
         <Field label="Type" htmlFor="af-type">
-          <Select id="af-type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>
+          <Select
+            id="af-type"
+            value={form.type}
+            onChange={(event) => setForm({ ...form, type: event.target.value })}
+          >
             {APPOINTMENT_TYPES.map((type) => (
               <option key={type} value={type}>
                 {humanize(type)}
@@ -552,7 +747,12 @@ export function AppointmentDialog({
           </Select>
         </Field>
         <Field label="Salesperson" htmlFor="af-sales">
-          <Select id="af-sales" value={form.salespersonId} disabled={!can('crm.manage')} onChange={(event) => setForm({ ...form, salespersonId: event.target.value })}>
+          <Select
+            id="af-sales"
+            value={form.salespersonId}
+            disabled={!can('crm.manage')}
+            onChange={(event) => setForm({ ...form, salespersonId: event.target.value })}
+          >
             {me.staff.map((person) => (
               <option key={person.id} value={person.id}>
                 {person.firstName} {person.lastName}
@@ -568,23 +768,45 @@ export function AppointmentDialog({
             value={form.startsAt}
             onChange={(event) => {
               const start = event.target.value;
-              const end = start ? toLocalInput(new Date(new Date(start).getTime() + 3_600_000)) : form.endsAt;
+              const end = start
+                ? toLocalInput(new Date(new Date(start).getTime() + 3_600_000))
+                : form.endsAt;
               setForm({ ...form, startsAt: start, endsAt: end });
             }}
           />
         </Field>
         <Field label="Ends" htmlFor="af-end" error={fieldError(save.error, 'endsAt')}>
-          <Input id="af-end" type="datetime-local" required value={form.endsAt} onChange={(event) => setForm({ ...form, endsAt: event.target.value })} />
+          <Input
+            id="af-end"
+            type="datetime-local"
+            required
+            value={form.endsAt}
+            onChange={(event) => setForm({ ...form, endsAt: event.target.value })}
+          />
         </Field>
         <Field label="Location" htmlFor="af-location">
-          <Input id="af-location" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} />
+          <Input
+            id="af-location"
+            value={form.location}
+            onChange={(event) => setForm({ ...form, location: event.target.value })}
+          />
         </Field>
         <Field label="Remind (minutes before)" htmlFor="af-remind">
-          <Input id="af-remind" type="number" min={0} value={form.reminderMinutes} onChange={(event) => setForm({ ...form, reminderMinutes: event.target.value })} />
+          <Input
+            id="af-remind"
+            type="number"
+            min={0}
+            value={form.reminderMinutes}
+            onChange={(event) => setForm({ ...form, reminderMinutes: event.target.value })}
+          />
         </Field>
         {appointment ? (
           <Field label="Status" htmlFor="af-status">
-            <Select id="af-status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
+            <Select
+              id="af-status"
+              value={form.status}
+              onChange={(event) => setForm({ ...form, status: event.target.value })}
+            >
               {['SCHEDULED', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'].map((status) => (
                 <option key={status} value={status}>
                   {humanize(status)}
@@ -594,7 +816,12 @@ export function AppointmentDialog({
           </Field>
         ) : null}
         <Field label="Notes" htmlFor="af-notes" className="sm:col-span-2">
-          <Textarea id="af-notes" rows={2} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
+          <Textarea
+            id="af-notes"
+            rows={2}
+            value={form.notes}
+            onChange={(event) => setForm({ ...form, notes: event.target.value })}
+          />
         </Field>
         <ErrorAlert error={save.error} className="sm:col-span-2" />
       </form>
@@ -604,12 +831,40 @@ export function AppointmentDialog({
 
 // --- Activity ------------------------------------------------------------------------------------
 
-export function ActivityDialog({ open, onClose, leadId, defaultType = 'CALL' }: { open: boolean; onClose: () => void; leadId: string; defaultType?: string }) {
-  const [form, setForm] = useState({ type: defaultType, title: '', notes: '', outcome: '', nextAction: '', nextFollowUpAt: '' });
+export function ActivityDialog({
+  open,
+  onClose,
+  leadId,
+  defaultType = 'CALL',
+}: {
+  open: boolean;
+  onClose: () => void;
+  leadId: string;
+  defaultType?: string;
+}) {
+  const [form, setForm] = useState({
+    type: defaultType,
+    title: '',
+    notes: '',
+    outcome: '',
+    nextAction: '',
+    nextFollowUpAt: '',
+  });
   useEffect(() => {
-    if (open) setForm({ type: defaultType, title: '', notes: '', outcome: '', nextAction: '', nextFollowUpAt: '' });
+    if (open)
+      setForm({
+        type: defaultType,
+        title: '',
+        notes: '',
+        outcome: '',
+        nextAction: '',
+        nextFollowUpAt: '',
+      });
   }, [open, defaultType]);
-  const save = useCrmMutation((payload: Record<string, unknown>) => crm.post(`/leads/${leadId}/activities`, payload), () => onClose());
+  const save = useCrmMutation(
+    (payload: Record<string, unknown>) => crm.post(`/leads/${leadId}/activities`, payload),
+    () => onClose(),
+  );
   const submit = (event: FormEvent) => {
     event.preventDefault();
     save.mutate({
@@ -639,7 +894,11 @@ export function ActivityDialog({ open, onClose, leadId, defaultType = 'CALL' }: 
     >
       <form id="activity-form" onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
         <Field label="Type" htmlFor="ac-type">
-          <Select id="ac-type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}>
+          <Select
+            id="ac-type"
+            value={form.type}
+            onChange={(event) => setForm({ ...form, type: event.target.value })}
+          >
             {CRM_ACTIVITY_TYPES.map((type) => (
               <option key={type} value={type}>
                 {CRM_ACTIVITY_LABELS[type]}
@@ -648,19 +907,42 @@ export function ActivityDialog({ open, onClose, leadId, defaultType = 'CALL' }: 
           </Select>
         </Field>
         <Field label="Summary" htmlFor="ac-title">
-          <Input id="ac-title" placeholder={CRM_ACTIVITY_LABELS[form.type as keyof typeof CRM_ACTIVITY_LABELS]} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
+          <Input
+            id="ac-title"
+            placeholder={CRM_ACTIVITY_LABELS[form.type as keyof typeof CRM_ACTIVITY_LABELS]}
+            value={form.title}
+            onChange={(event) => setForm({ ...form, title: event.target.value })}
+          />
         </Field>
         <Field label="Outcome" htmlFor="ac-outcome">
-          <Input id="ac-outcome" value={form.outcome} onChange={(event) => setForm({ ...form, outcome: event.target.value })} />
+          <Input
+            id="ac-outcome"
+            value={form.outcome}
+            onChange={(event) => setForm({ ...form, outcome: event.target.value })}
+          />
         </Field>
         <Field label="Next action" htmlFor="ac-next">
-          <Input id="ac-next" value={form.nextAction} onChange={(event) => setForm({ ...form, nextAction: event.target.value })} />
+          <Input
+            id="ac-next"
+            value={form.nextAction}
+            onChange={(event) => setForm({ ...form, nextAction: event.target.value })}
+          />
         </Field>
         <Field label="Next follow-up" htmlFor="ac-follow">
-          <Input id="ac-follow" type="datetime-local" value={form.nextFollowUpAt} onChange={(event) => setForm({ ...form, nextFollowUpAt: event.target.value })} />
+          <Input
+            id="ac-follow"
+            type="datetime-local"
+            value={form.nextFollowUpAt}
+            onChange={(event) => setForm({ ...form, nextFollowUpAt: event.target.value })}
+          />
         </Field>
         <Field label="Notes" htmlFor="ac-notes" className="sm:col-span-2">
-          <Textarea id="ac-notes" rows={4} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
+          <Textarea
+            id="ac-notes"
+            rows={4}
+            value={form.notes}
+            onChange={(event) => setForm({ ...form, notes: event.target.value })}
+          />
         </Field>
         <ErrorAlert error={save.error} className="sm:col-span-2" />
       </form>
@@ -670,7 +952,17 @@ export function ActivityDialog({ open, onClose, leadId, defaultType = 'CALL' }: 
 
 // --- Email composer ----------------------------------------------------------------------------------
 
-export function ComposeDialog({ open, onClose, leadId, marketingAllowed }: { open: boolean; onClose: () => void; leadId: string; marketingAllowed: boolean }) {
+export function ComposeDialog({
+  open,
+  onClose,
+  leadId,
+  marketingAllowed,
+}: {
+  open: boolean;
+  onClose: () => void;
+  leadId: string;
+  marketingAllowed: boolean;
+}) {
   const { can } = useCrm();
   const [templateId, setTemplateId] = useState('');
   const [subject, setSubject] = useState('');
@@ -697,14 +989,23 @@ export function ComposeDialog({ open, onClose, leadId, marketingAllowed }: { ope
   const pickTemplate = async (id: string) => {
     setTemplateId(id);
     if (!id) return;
-    const template = await crm.get<{ subject: string; bodyHtml: string; purpose: 'TRANSACTIONAL' | 'MARKETING' }>(`/templates/${id}`);
+    const template = await crm.get<{
+      subject: string;
+      bodyHtml: string;
+      purpose: 'TRANSACTIONAL' | 'MARKETING';
+    }>(`/templates/${id}`);
     setSubject(template.subject);
     setBody(template.bodyHtml);
     setPurpose(template.purpose);
     setPreview(null);
   };
   const doPreview = useCrmMutation(
-    () => crm.post<{ subject: string; html: string }>('/email/preview', { subject, bodyHtml: body, leadId }),
+    () =>
+      crm.post<{ subject: string; html: string }>('/email/preview', {
+        subject,
+        bodyHtml: body,
+        leadId,
+      }),
     (result) => setPreview(result),
     'crm-preview',
   );
@@ -729,10 +1030,19 @@ export function ComposeDialog({ open, onClose, leadId, marketingAllowed }: { ope
       size="lg"
       footer={
         <>
-          <Button variant="outline" onClick={() => doPreview.mutate(undefined)} loading={doPreview.isPending} disabled={!subject || !body}>
+          <Button
+            variant="outline"
+            onClick={() => doPreview.mutate(undefined)}
+            loading={doPreview.isPending}
+            disabled={!subject || !body}
+          >
             Preview
           </Button>
-          <Button onClick={() => send.mutate(undefined)} loading={send.isPending} disabled={!subject || !body}>
+          <Button
+            onClick={() => send.mutate(undefined)}
+            loading={send.isPending}
+            disabled={!subject || !body}
+          >
             {when ? 'Schedule' : 'Send'}
           </Button>
         </>
@@ -740,40 +1050,95 @@ export function ComposeDialog({ open, onClose, leadId, marketingAllowed }: { ope
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Template" htmlFor="ce-template">
-          <Select id="ce-template" value={templateId} onChange={(event) => void pickTemplate(event.target.value)}>
+          <Select
+            id="ce-template"
+            value={templateId}
+            onChange={(event) => void pickTemplate(event.target.value)}
+          >
             <option value="">Write my own</option>
-            {(templates.data ?? []).filter((template) => template.isActive).map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.name}
-              </option>
-            ))}
+            {(templates.data ?? [])
+              .filter((template) => template.isActive)
+              .map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
           </Select>
         </Field>
-        <Field label="Kind" htmlFor="ce-purpose" hint={purpose === 'MARKETING' && !marketingAllowed ? 'No current marketing consent: this will not be sent.' : undefined}>
-          <Select id="ce-purpose" value={purpose} onChange={(event) => setPurpose(event.target.value as 'TRANSACTIONAL' | 'MARKETING')}>
+        <Field
+          label="Kind"
+          htmlFor="ce-purpose"
+          hint={
+            purpose === 'MARKETING' && !marketingAllowed
+              ? 'No current marketing consent: this will not be sent.'
+              : undefined
+          }
+        >
+          <Select
+            id="ce-purpose"
+            value={purpose}
+            onChange={(event) => setPurpose(event.target.value as 'TRANSACTIONAL' | 'MARKETING')}
+          >
             <option value="TRANSACTIONAL">Reply / follow-up on their request</option>
-            {can('crm.marketing') ? <option value="MARKETING">Marketing (needs consent)</option> : null}
+            {can('crm.marketing') ? (
+              <option value="MARKETING">Marketing (needs consent)</option>
+            ) : null}
           </Select>
         </Field>
-        <Field label="Subject" htmlFor="ce-subject" className="sm:col-span-2" error={fieldError(send.error, 'subject')}>
-          <Input id="ce-subject" value={subject} onChange={(event) => setSubject(event.target.value)} />
+        <Field
+          label="Subject"
+          htmlFor="ce-subject"
+          className="sm:col-span-2"
+          error={fieldError(send.error, 'subject')}
+        >
+          <Input
+            id="ce-subject"
+            value={subject}
+            onChange={(event) => setSubject(event.target.value)}
+          />
         </Field>
-        <Field label="Message (HTML; variables like {{customer.first_name}})" htmlFor="ce-body" className="sm:col-span-2" error={fieldError(send.error, 'bodyHtml')}>
-          <Textarea id="ce-body" rows={9} className="font-mono text-xs" value={body} onChange={(event) => setBody(event.target.value)} />
+        <Field
+          label="Message (HTML; variables like {{customer.first_name}})"
+          htmlFor="ce-body"
+          className="sm:col-span-2"
+          error={fieldError(send.error, 'bodyHtml')}
+        >
+          <Textarea
+            id="ce-body"
+            rows={9}
+            className="font-mono text-xs"
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+          />
         </Field>
         <Field label="Send later (optional)" htmlFor="ce-when">
-          <Input id="ce-when" type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} />
+          <Input
+            id="ce-when"
+            type="datetime-local"
+            value={when}
+            onChange={(event) => setWhen(event.target.value)}
+          />
         </Field>
         <label className="mt-6 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={businessHours} onChange={(event) => setBusinessHours(event.target.checked)} /> Hold for business hours
+          <input
+            type="checkbox"
+            checked={businessHours}
+            onChange={(event) => setBusinessHours(event.target.checked)}
+          />{' '}
+          Hold for business hours
         </label>
       </div>
       <ErrorAlert error={doPreview.error ?? send.error} className="mt-3" />
       {preview ? (
         <div className="mt-4 rounded-md border border-border">
-          <p className="border-b border-border bg-secondary/40 px-3 py-2 text-sm font-semibold">{preview.subject}</p>
+          <p className="border-b border-border bg-secondary/40 px-3 py-2 text-sm font-semibold">
+            {preview.subject}
+          </p>
           {/* The server sanitised this HTML and escaped every variable value. */}
-          <div className="prose prose-sm max-w-none px-3 py-2" dangerouslySetInnerHTML={{ __html: preview.html }} />
+          <div
+            className="prose prose-sm max-w-none px-3 py-2"
+            dangerouslySetInnerHTML={{ __html: preview.html }}
+          />
         </div>
       ) : null}
     </Dialog>

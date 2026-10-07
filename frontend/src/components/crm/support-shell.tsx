@@ -40,7 +40,10 @@ const NAV: Array<{ href: string; label: string; icon: LucideIcon; exact?: boolea
 export function SupportShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? '';
   const router = useRouter();
-  const active = (item: (typeof NAV)[number]) => (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const active = (item: (typeof NAV)[number]) =>
+    item.exact
+      ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(`${item.href}/`);
   const current = NAV.find(active);
   return (
     <RequireAuth adminOnly>
@@ -49,10 +52,18 @@ export function SupportShell({ children }: { children: ReactNode }) {
         <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
           <nav aria-label="Admin CRM" className="mb-6 lg:mb-0">
             <div className="lg:hidden">
-              <label htmlFor="support-section" className="sr-only">Section</label>
-              <Select id="support-section" value={current?.href ?? ''} onChange={(event) => router.push(event.target.value)}>
+              <label htmlFor="support-section" className="sr-only">
+                Section
+              </label>
+              <Select
+                id="support-section"
+                value={current?.href ?? ''}
+                onChange={(event) => router.push(event.target.value)}
+              >
                 {NAV.map((item) => (
-                  <option key={item.href} value={item.href}>{item.label}</option>
+                  <option key={item.href} value={item.href}>
+                    {item.label}
+                  </option>
                 ))}
               </Select>
             </div>

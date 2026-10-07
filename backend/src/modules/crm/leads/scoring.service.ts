@@ -60,12 +60,18 @@ export class ScoringService {
   /** After the thresholds change, every lead's temperature is re-read from its score. */
   async retemper(dealerId: string, hot: number, warm: number): Promise<void> {
     await this.prisma.$transaction([
-      this.prisma.crmLead.updateMany({ where: { dealerId, score: { gte: hot } }, data: { temperature: 'HOT' } }),
+      this.prisma.crmLead.updateMany({
+        where: { dealerId, score: { gte: hot } },
+        data: { temperature: 'HOT' },
+      }),
       this.prisma.crmLead.updateMany({
         where: { dealerId, score: { gte: warm, lt: hot } },
         data: { temperature: 'WARM' },
       }),
-      this.prisma.crmLead.updateMany({ where: { dealerId, score: { lt: warm } }, data: { temperature: 'COLD' } }),
+      this.prisma.crmLead.updateMany({
+        where: { dealerId, score: { lt: warm } },
+        data: { temperature: 'COLD' },
+      }),
     ]);
   }
 }

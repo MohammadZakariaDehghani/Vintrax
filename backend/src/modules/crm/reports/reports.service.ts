@@ -8,7 +8,8 @@ import { addDaysLocal, resolveRange, startOfLocalDay } from '../core/time';
 import { LeadsService, searchFilter } from '../leads/leads.service';
 
 const DAY = 86_400_000;
-const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : null);
+const pct = (part: number, whole: number) =>
+  whole > 0 ? Math.round((part / whole) * 1000) / 10 : null;
 
 /**
  * The CRM overview, reports, global search and exports. Every figure is a
@@ -23,7 +24,9 @@ export class CrmReportsService {
   ) {}
 
   private async context(ctx: CrmContext, query: CrmRangeQuery) {
-    const settings = await this.prisma.crmSettings.findUniqueOrThrow({ where: { dealerId: ctx.dealerId } });
+    const settings = await this.prisma.crmSettings.findUniqueOrThrow({
+      where: { dealerId: ctx.dealerId },
+    });
     const range = resolveRange(query.preset, settings.timezone, query);
     const scope = leadScope(ctx);
     /** Raw-SQL filter equal to `leadScope` (the lead alias is l). */
@@ -62,17 +65,50 @@ export class CrmReportsService {
       response,
     ] = await Promise.all([
       this.prisma.crmLead.count({ where: { ...scope, createdAt: inRange } }),
-      this.prisma.crmLead.count({ where: { ...scope, createdAt: { gte: range.previousFrom, lt: range.from } } }),
+      this.prisma.crmLead.count({
+        where: { ...scope, createdAt: { gte: range.previousFrom, lt: range.from } },
+      }),
       this.prisma.crmLead.count({ where: { ...scope, firstContactAt: null, status: open } }),
-      this.prisma.crmLead.count({ where: { ...scope, nextFollowUpAt: { gte: today, lt: tomorrow }, status: { kind: { in: ['OPEN', 'NURTURE'] } } } }),
-      this.prisma.crmLead.count({ where: { ...scope, nextFollowUpAt: { lt: now }, status: { kind: { in: ['OPEN', 'NURTURE'] } } } }),
-      this.prisma.crmLead.groupBy({ by: ['temperature'], where: { ...scope, status: open }, _count: { _all: true } }),
-      this.prisma.crmAppointment.count({ where: { dealerId: ctx.dealerId, ...this.mineAppointments(ctx), startsAt: { gte: today, lt: tomorrow }, status: { in: ['SCHEDULED', 'CONFIRMED'] } } }),
+      this.prisma.crmLead.count({
+        where: {
+          ...scope,
+          nextFollowUpAt: { gte: today, lt: tomorrow },
+          status: { kind: { in: ['OPEN', 'NURTURE'] } },
+        },
+      }),
+      this.prisma.crmLead.count({
+        where: {
+          ...scope,
+          nextFollowUpAt: { lt: now },
+          status: { kind: { in: ['OPEN', 'NURTURE'] } },
+        },
+      }),
+      this.prisma.crmLead.groupBy({
+        by: ['temperature'],
+        where: { ...scope, status: open },
+        _count: { _all: true },
+      }),
+      this.prisma.crmAppointment.count({
+        where: {
+          dealerId: ctx.dealerId,
+          ...this.mineAppointments(ctx),
+          startsAt: { gte: today, lt: tomorrow },
+          status: { in: ['SCHEDULED', 'CONFIRMED'] },
+        },
+      }),
       this.prisma.crmAppointment.findMany({
-        where: { dealerId: ctx.dealerId, ...this.mineAppointments(ctx), startsAt: { gte: now }, status: { in: ['SCHEDULED', 'CONFIRMED'] } },
+        where: {
+          dealerId: ctx.dealerId,
+          ...this.mineAppointments(ctx),
+          startsAt: { gte: now },
+          status: { in: ['SCHEDULED', 'CONFIRMED'] },
+        },
         orderBy: { startsAt: 'asc' },
         take: 8,
-        include: { lead: { select: { id: true, firstName: true, lastName: true } }, vehicle: { select: { title: true } } },
+        include: {
+          lead: { select: { id: true, firstName: true, lastName: true } },
+          vehicle: { select: { title: true } },
+        },
       }),
       this.prisma.crmTask.count({ where: { dealerId: ctx.dealerId, ...mine, status: taskOpen } }),
       this.prisma.crmTask.findMany({
@@ -84,7 +120,9 @@ export class CrmReportsService {
       this.prisma.crmLead.count({ where: { ...scope, status: open } }),
       this.prisma.crmLead.count({ where: { ...scope, wonAt: inRange } }),
       this.prisma.crmLead.count({ where: { ...scope, lostAt: inRange } }),
-      this.prisma.$queryRaw<Array<{ contacted: bigint; avg_minutes: number | null; within: bigint }>>`
+      this.prisma.$queryRaw<
+        Array<{ contacted: bigint; avg_minutes: number | null; within: bigint }>
+      >`
         SELECT count(l."firstContactAt") AS contacted,
                avg(EXTRACT(EPOCH FROM (l."firstContactAt" - l."createdAt")) / 60)::float AS avg_minutes,
                count(*) FILTER (WHERE l."firstContactAt" - l."createdAt" <= make_interval(mins => ${settings.responseTargetMinutes}::int)) AS within
@@ -93,7 +131,12 @@ export class CrmReportsService {
     ]);
     const [todaysTasks, hotLeads, overdueCount, wonOfNew] = await Promise.all([
       this.prisma.crmTask.findMany({
-        where: { dealerId: ctx.dealerId, ...mine, status: taskOpen, dueAt: { gte: today, lt: tomorrow } },
+        where: {
+          dealerId: ctx.dealerId,
+          ...mine,
+          status: taskOpen,
+          dueAt: { gte: today, lt: tomorrow },
+        },
         orderBy: { dueAt: 'asc' },
         take: 10,
         include: { lead: { select: { id: true, firstName: true, lastName: true, phone: true } } },
@@ -102,10 +145,23 @@ export class CrmReportsService {
         where: { ...scope, temperature: 'HOT', status: open },
         orderBy: { score: 'desc' },
         take: 8,
-        select: { id: true, number: true, firstName: true, lastName: true, score: true, phone: true, nextFollowUpAt: true, vehicle: { select: { title: true } } },
+        select: {
+          id: true,
+          number: true,
+          firstName: true,
+          lastName: true,
+          score: true,
+          phone: true,
+          nextFollowUpAt: true,
+          vehicle: { select: { title: true } },
+        },
       }),
-      this.prisma.crmTask.count({ where: { dealerId: ctx.dealerId, ...mine, status: taskOpen, dueAt: { lt: now } } }),
-      this.prisma.crmLead.count({ where: { ...scope, createdAt: inRange, status: { kind: 'WON' } } }),
+      this.prisma.crmTask.count({
+        where: { dealerId: ctx.dealerId, ...mine, status: taskOpen, dueAt: { lt: now } },
+      }),
+      this.prisma.crmLead.count({
+        where: { ...scope, createdAt: inRange, status: { kind: 'WON' } },
+      }),
     ]);
     const r = response[0];
     const temps = Object.fromEntries(temperatures.map((row) => [row.temperature, row._count._all]));
@@ -128,7 +184,10 @@ export class CrmReportsService {
         won,
         lost,
         conversionRate: pct(wonOfNew, newLeads),
-        averageResponseMinutes: r?.avg_minutes === null || r?.avg_minutes === undefined ? null : Math.round(r.avg_minutes),
+        averageResponseMinutes:
+          r?.avg_minutes === null || r?.avg_minutes === undefined
+            ? null
+            : Math.round(r.avg_minutes),
         contactedWithinTarget: pct(Number(r?.within ?? 0), newLeads),
       },
       todaysTasks,
@@ -147,7 +206,15 @@ export class CrmReportsService {
 
   private async bySource(ctx: CrmContext, scopeSql: Prisma.Sql, range: { from: Date; to: Date }) {
     const rows = await this.prisma.$queryRaw<
-      Array<{ id: string | null; label: string | null; monthly: number | null; leads: bigint; contacted: bigint; won: bigint; revenue: Prisma.Decimal | null }>
+      Array<{
+        id: string | null;
+        label: string | null;
+        monthly: number | null;
+        leads: bigint;
+        contacted: bigint;
+        won: bigint;
+        revenue: Prisma.Decimal | null;
+      }>
     >`
       SELECT s.id, s.label, s."monthlyCostCents" AS monthly,
              count(l.id) AS leads,
@@ -190,7 +257,19 @@ export class CrmReportsService {
       createdAt: { gte: range.from, lt: range.to },
       ...(can(ctx, 'crm.all_leads') ? {} : { lead: leadScope(ctx) }),
     };
-    const [total, sent, delivered, opened, clicked, replied, bounced, unsubscribed, failed, suppressed, converted] = await Promise.all([
+    const [
+      total,
+      sent,
+      delivered,
+      opened,
+      clicked,
+      replied,
+      bounced,
+      unsubscribed,
+      failed,
+      suppressed,
+      converted,
+    ] = await Promise.all([
       this.prisma.crmEmail.count({ where }),
       this.prisma.crmEmail.count({ where: { ...where, sentAt: { not: null } } }),
       this.prisma.crmEmail.count({ where: { ...where, deliveredAt: { not: null } } }),
@@ -201,7 +280,9 @@ export class CrmReportsService {
       this.prisma.crmEmail.count({ where: { ...where, unsubscribedAt: { not: null } } }),
       this.prisma.crmEmail.count({ where: { ...where, status: 'FAILED' } }),
       this.prisma.crmEmail.count({ where: { ...where, status: 'SUPPRESSED' } }),
-      this.prisma.crmEmail.count({ where: { ...where, sentAt: { not: null }, lead: { wonAt: { not: null } } } }),
+      this.prisma.crmEmail.count({
+        where: { ...where, sentAt: { not: null }, lead: { wonAt: { not: null } } },
+      }),
     ]);
     return {
       total,
@@ -231,21 +312,45 @@ export class CrmReportsService {
   private async followUp(ctx: CrmContext, range: { from: Date; to: Date }) {
     const mine = can(ctx, 'crm.all_leads') ? {} : { assignedToId: ctx.userId };
     const inRange = { gte: range.from, lt: range.to };
-    const [completed, completedOnTime, missed, booked, apptCompleted, noShows, contacted] = await Promise.all([
-      this.prisma.crmTask.count({ where: { dealerId: ctx.dealerId, ...mine, completedAt: inRange } }),
-      this.prisma.$queryRaw<Array<{ count: bigint }>>`
+    const [completed, completedOnTime, missed, booked, apptCompleted, noShows, contacted] =
+      await Promise.all([
+        this.prisma.crmTask.count({
+          where: { dealerId: ctx.dealerId, ...mine, completedAt: inRange },
+        }),
+        this.prisma.$queryRaw<Array<{ count: bigint }>>`
         SELECT count(*) AS count FROM "CrmTask"
         WHERE "dealerId" = ${ctx.dealerId}::uuid AND "completedAt" >= ${range.from} AND "completedAt" < ${range.to}
           AND ("dueAt" IS NULL OR "completedAt" <= "dueAt")
           ${can(ctx, 'crm.all_leads') ? Prisma.empty : Prisma.sql`AND "assignedToId" = ${ctx.userId}::uuid`}`,
-      this.prisma.crmTask.count({
-        where: { dealerId: ctx.dealerId, ...mine, dueAt: { gte: range.from, lt: new Date(Math.min(Date.now(), range.to.getTime())) }, status: { in: ['OPEN', 'IN_PROGRESS'] } },
-      }),
-      this.prisma.crmAppointment.count({ where: { dealerId: ctx.dealerId, ...this.mineAppointments(ctx), createdAt: inRange } }),
-      this.prisma.crmAppointment.count({ where: { dealerId: ctx.dealerId, ...this.mineAppointments(ctx), startsAt: inRange, status: 'COMPLETED' } }),
-      this.prisma.crmAppointment.count({ where: { dealerId: ctx.dealerId, ...this.mineAppointments(ctx), startsAt: inRange, status: 'NO_SHOW' } }),
-      this.prisma.crmLead.count({ where: { ...leadScope(ctx), firstContactAt: inRange } }),
-    ]);
+        this.prisma.crmTask.count({
+          where: {
+            dealerId: ctx.dealerId,
+            ...mine,
+            dueAt: { gte: range.from, lt: new Date(Math.min(Date.now(), range.to.getTime())) },
+            status: { in: ['OPEN', 'IN_PROGRESS'] },
+          },
+        }),
+        this.prisma.crmAppointment.count({
+          where: { dealerId: ctx.dealerId, ...this.mineAppointments(ctx), createdAt: inRange },
+        }),
+        this.prisma.crmAppointment.count({
+          where: {
+            dealerId: ctx.dealerId,
+            ...this.mineAppointments(ctx),
+            startsAt: inRange,
+            status: 'COMPLETED',
+          },
+        }),
+        this.prisma.crmAppointment.count({
+          where: {
+            dealerId: ctx.dealerId,
+            ...this.mineAppointments(ctx),
+            startsAt: inRange,
+            status: 'NO_SHOW',
+          },
+        }),
+        this.prisma.crmLead.count({ where: { ...leadScope(ctx), firstContactAt: inRange } }),
+      ]);
     return {
       tasksCompleted: completed,
       tasksCompletedOnTime: Number(completedOnTime[0]?.count ?? 0),
@@ -262,9 +367,29 @@ export class CrmReportsService {
   async reports(ctx: CrmContext, query: CrmRangeQuery) {
     const { range, scope, scopeSql } = await this.context(ctx, query);
     const inRange = { gte: range.from, lt: range.to };
-    const [byStatus, bySalesperson, byVehicle, lostReasons, funnel, responseBuckets, campaigns, automations, reengaged] = await Promise.all([
+    const [
+      byStatus,
+      bySalesperson,
+      byVehicle,
+      lostReasons,
+      funnel,
+      responseBuckets,
+      campaigns,
+      automations,
+      reengaged,
+    ] = await Promise.all([
       this.prisma.crmLead.groupBy({ by: ['statusId'], where: scope, _count: { _all: true } }),
-      this.prisma.$queryRaw<Array<{ id: string | null; first: string | null; last: string | null; leads: bigint; contacted: bigint; won: bigint; avg_minutes: number | null }>>`
+      this.prisma.$queryRaw<
+        Array<{
+          id: string | null;
+          first: string | null;
+          last: string | null;
+          leads: bigint;
+          contacted: bigint;
+          won: bigint;
+          avg_minutes: number | null;
+        }>
+      >`
         SELECT u.id, u."firstName" AS first, u."lastName" AS last, count(l.id) AS leads, count(l."firstContactAt") AS contacted,
                count(l."wonAt") AS won, avg(EXTRACT(EPOCH FROM (l."firstContactAt" - l."createdAt")) / 60)::float AS avg_minutes
         FROM "CrmLead" l LEFT JOIN "User" u ON u.id = l."assignedToId"
@@ -275,8 +400,22 @@ export class CrmReportsService {
         FROM "CrmLead" l JOIN "Vehicle" v ON v.id = l."vehicleId"
         WHERE ${scopeSql} AND l."createdAt" >= ${range.from} AND l."createdAt" < ${range.to}
         GROUP BY v.id, v.title ORDER BY leads DESC LIMIT 20`,
-      this.prisma.crmLead.groupBy({ by: ['lostReason'], where: { ...scope, lostAt: inRange }, _count: { _all: true }, orderBy: { _count: { lostReason: 'desc' } }, take: 15 }),
-      this.prisma.$queryRaw<Array<{ created: bigint; contacted: bigint; appointment: bigint; test_drive: bigint; won: bigint }>>`
+      this.prisma.crmLead.groupBy({
+        by: ['lostReason'],
+        where: { ...scope, lostAt: inRange },
+        _count: { _all: true },
+        orderBy: { _count: { lostReason: 'desc' } },
+        take: 15,
+      }),
+      this.prisma.$queryRaw<
+        Array<{
+          created: bigint;
+          contacted: bigint;
+          appointment: bigint;
+          test_drive: bigint;
+          won: bigint;
+        }>
+      >`
         SELECT count(*) AS created,
                count(l."firstContactAt") AS contacted,
                count(*) FILTER (WHERE EXISTS (SELECT 1 FROM "CrmAppointment" a WHERE a."leadId" = l.id)) AS appointment,
@@ -295,9 +434,28 @@ export class CrmReportsService {
         GROUP BY bucket`,
       this.prisma.crmCampaign.findMany({
         where: { dealerId: ctx.dealerId, OR: [{ startedAt: inRange }, { createdAt: inRange }] },
-        select: { id: true, name: true, type: true, status: true, recipientCount: true, skippedCount: true, costCents: true },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          status: true,
+          recipientCount: true,
+          skippedCount: true,
+          costCents: true,
+        },
       }),
-      this.prisma.$queryRaw<Array<{ id: string; name: string; enrolled: bigint; completed: bigint; stopped: bigint; failed: bigint; replied: bigint; won: bigint }>>`
+      this.prisma.$queryRaw<
+        Array<{
+          id: string;
+          name: string;
+          enrolled: bigint;
+          completed: bigint;
+          stopped: bigint;
+          failed: bigint;
+          replied: bigint;
+          won: bigint;
+        }>
+      >`
         SELECT a.id, a.name, count(e.id) AS enrolled,
                count(*) FILTER (WHERE e.status = 'COMPLETED') AS completed,
                count(*) FILTER (WHERE e.status = 'STOPPED') AS stopped,
@@ -313,7 +471,10 @@ export class CrmReportsService {
         WHERE ${scopeSql} AND l."lastRepliedAt" >= ${range.from} AND l."lastRepliedAt" < ${range.to}
           AND l."createdAt" < ${new Date(range.from.getTime() - 30 * DAY)}`,
     ]);
-    const statuses = await this.prisma.crmLeadStatus.findMany({ where: { dealerId: ctx.dealerId }, orderBy: { position: 'asc' } });
+    const statuses = await this.prisma.crmLeadStatus.findMany({
+      where: { dealerId: ctx.dealerId },
+      orderBy: { position: 'asc' },
+    });
     const campaignStats = campaigns.length
       ? await this.prisma.crmEmail.groupBy({
           by: ['campaignId'],
@@ -339,7 +500,12 @@ export class CrmReportsService {
         conversionRate: pct(Number(row.won), Number(row.leads)),
         averageResponseMinutes: row.avg_minutes === null ? null : Math.round(row.avg_minutes),
       })),
-      byVehicle: byVehicle.map((row) => ({ vehicleId: row.id, title: row.title, leads: Number(row.leads), won: Number(row.won) })),
+      byVehicle: byVehicle.map((row) => ({
+        vehicleId: row.id,
+        title: row.title,
+        leads: Number(row.leads),
+        won: Number(row.won),
+      })),
       funnel: {
         created: Number(f?.created ?? 0),
         contacted: Number(f?.contacted ?? 0),
@@ -350,8 +516,13 @@ export class CrmReportsService {
         testDriveConversion: pct(Number(f?.won ?? 0), Number(f?.test_drive ?? 0)),
         salesConversion: pct(Number(f?.won ?? 0), Number(f?.created ?? 0)),
       },
-      lostReasons: lostReasons.map((row) => ({ reason: row.lostReason ?? 'Not given', count: row._count._all })),
-      responseTime: Object.fromEntries(responseBuckets.map((row) => [row.bucket, Number(row.count)])),
+      lostReasons: lostReasons.map((row) => ({
+        reason: row.lostReason ?? 'Not given',
+        count: row._count._all,
+      })),
+      responseTime: Object.fromEntries(
+        responseBuckets.map((row) => [row.bucket, Number(row.count)]),
+      ),
       followUp: await this.followUp(ctx, range),
       email: await this.emailPerformance(ctx, range),
       campaigns: campaigns.map((campaign) => {
@@ -383,13 +554,22 @@ export class CrmReportsService {
   /** One box for everything: leads (name, email, phone, VIN, number), customers, tasks, campaigns, vehicles. */
   async search(ctx: CrmContext, q: string) {
     const term = q.trim();
-    if (term.length < 2) return { leads: [], customers: [], tasks: [], campaigns: [], vehicles: [] };
+    if (term.length < 2)
+      return { leads: [], customers: [], tasks: [], campaigns: [], vehicles: [] };
     const [leads, customers, tasks, campaigns, vehicles] = await Promise.all([
       this.prisma.crmLead.findMany({
         where: { AND: [leadScope(ctx), searchFilter(term)] },
         take: 10,
         orderBy: { updatedAt: 'desc' },
-        select: { id: true, number: true, firstName: true, lastName: true, email: true, phone: true, status: { select: { label: true } } },
+        select: {
+          id: true,
+          number: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          status: { select: { label: true } },
+        },
       }),
       can(ctx, 'crm.all_leads')
         ? this.prisma.customer.findMany({
@@ -402,7 +582,13 @@ export class CrmReportsService {
               ],
             },
             take: 8,
-            select: { id: true, name: true, email: true, phone: true, crmLeads: { select: { id: true }, take: 1 } },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              crmLeads: { select: { id: true }, take: 1 },
+            },
           })
         : Promise.resolve([]),
       this.prisma.crmTask.findMany({
@@ -431,7 +617,13 @@ export class CrmReportsService {
           ],
         },
         take: 5,
-        select: { id: true, title: true, vin: true, stockNumber: true, _count: { select: { crmLeads: true } } },
+        select: {
+          id: true,
+          title: true,
+          vin: true,
+          stockNumber: true,
+          _count: { select: { crmLeads: true } },
+        },
       }),
     ]);
     return { leads, customers, tasks, campaigns, vehicles };
@@ -452,9 +644,31 @@ export class CrmReportsService {
         tags: { select: { tag: { select: { name: true } } } },
       },
     });
-    await crmAudit(this.prisma, ctx, { action: 'lead.exported', entityType: 'CrmLead', after: { count: rows.length, view: query.view } });
+    await crmAudit(this.prisma, ctx, {
+      action: 'lead.exported',
+      entityType: 'CrmLead',
+      after: { count: rows.length, view: query.view },
+    });
     return toCsv([
-      ['Number', 'First name', 'Last name', 'Email', 'Phone', 'City', 'Province', 'Status', 'Source', 'Score', 'Temperature', 'Assigned to', 'Vehicle', 'Tags', 'Created', 'Last contact', 'Next follow-up'],
+      [
+        'Number',
+        'First name',
+        'Last name',
+        'Email',
+        'Phone',
+        'City',
+        'Province',
+        'Status',
+        'Source',
+        'Score',
+        'Temperature',
+        'Assigned to',
+        'Vehicle',
+        'Tags',
+        'Created',
+        'Last contact',
+        'Next follow-up',
+      ],
       ...rows.map((row) => [
         String(row.number),
         row.firstName,
@@ -481,7 +695,12 @@ export class CrmReportsService {
     const where = { scope: 'DEALER' as const, dealerId: ctx.dealerId };
     const [total, items] = await this.prisma.$transaction([
       this.prisma.crmAuditLog.count({ where }),
-      this.prisma.crmAuditLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
+      this.prisma.crmAuditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
     ]);
     return { items, page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
   }
@@ -518,7 +737,12 @@ export class CrmReportsService {
           createdAt: true,
           crmLeads: {
             where: { mergedIntoId: null },
-            select: { id: true, number: true, lastActivityAt: true, status: { select: { label: true } } },
+            select: {
+              id: true,
+              number: true,
+              lastActivityAt: true,
+              status: { select: { label: true } },
+            },
             take: 1,
             orderBy: { createdAt: 'desc' },
           },

@@ -18,7 +18,12 @@ export interface AutomationOwner {
   ctx?: CrmContext;
 }
 
-const DEALER_ONLY: AutomationStepType[] = ['MOVE_TO_NURTURE', 'ADD_TAG', 'REMOVE_TAG', 'APPOINTMENT_REMINDER'];
+const DEALER_ONLY: AutomationStepType[] = [
+  'MOVE_TO_NURTURE',
+  'ADD_TAG',
+  'REMOVE_TAG',
+  'APPOINTMENT_REMINDER',
+];
 
 /** CRM → Automations: the sequences, their enrollments and how they perform. */
 @Injectable()
@@ -41,7 +46,15 @@ export class AutomationsService {
         _count: { _all: true },
       }),
       ids.length
-        ? this.prisma.$queryRaw<Array<{ automationId: string; sent: bigint; opened: bigint; clicked: bigint; replied: bigint }>>`
+        ? this.prisma.$queryRaw<
+            Array<{
+              automationId: string;
+              sent: bigint;
+              opened: bigint;
+              clicked: bigint;
+              replied: bigint;
+            }>
+          >`
             SELECT e."automationId", count(m."sentAt") AS sent, count(m."openedAt") AS opened,
                    count(m."clickedAt") AS clicked, count(m."repliedAt") AS replied
             FROM "CrmEmail" m JOIN "CrmAutomationEnrollment" e ON e.id = m."enrollmentId"
@@ -51,7 +64,9 @@ export class AutomationsService {
     ]);
     return automations.map((automation) => {
       const counts = Object.fromEntries(
-        byStatus.filter((row) => row.automationId === automation.id).map((row) => [row.status, row._count._all]),
+        byStatus
+          .filter((row) => row.automationId === automation.id)
+          .map((row) => [row.status, row._count._all]),
       );
       const mail = emails.find((row) => row.automationId === automation.id);
       return {
@@ -95,7 +110,11 @@ export class AutomationsService {
         createdById: owner.actor.id,
       },
     });
-    await this.audit(owner, 'automation.created', automation.id, undefined, { name: input.name, trigger: input.trigger, isActive: input.isActive });
+    await this.audit(owner, 'automation.created', automation.id, undefined, {
+      name: input.name,
+      trigger: input.trigger,
+      isActive: input.isActive,
+    });
     return automation;
   }
 
@@ -119,27 +138,47 @@ export class AutomationsService {
     if (current.isActive && !input.isActive) await this.stopAll(id, 'AUTOMATION_OFF');
     // Running enrollments continue from their current step id; a step that no
     // longer exists ends them cleanly.
-    await this.audit(owner, 'automation.updated', id, { version: current.version, isActive: current.isActive }, { version: automation.version, isActive: input.isActive, name: input.name });
+    await this.audit(
+      owner,
+      'automation.updated',
+      id,
+      { version: current.version, isActive: current.isActive },
+      { version: automation.version, isActive: input.isActive, name: input.name },
+    );
     return automation;
   }
 
   async setActive(owner: AutomationOwner, id: string, isActive: boolean) {
     const current = await this.get(owner, id);
-    const automation = await this.prisma.crmAutomation.update({ where: { id }, data: { isActive } });
+    const automation = await this.prisma.crmAutomation.update({
+      where: { id },
+      data: { isActive },
+    });
     if (current.isActive && !isActive) await this.stopAll(id, 'AUTOMATION_OFF');
-    await this.audit(owner, isActive ? 'automation.activated' : 'automation.deactivated', id, { isActive: current.isActive }, { isActive });
+    await this.audit(
+      owner,
+      isActive ? 'automation.activated' : 'automation.deactivated',
+      id,
+      { isActive: current.isActive },
+      { isActive },
+    );
     return automation;
   }
 
   async remove(owner: AutomationOwner, id: string) {
     const automation = await this.get(owner, id);
-    if (automation.key) throw new BadRequestException('A starting automation can be switched off but not deleted');
+    if (automation.key)
+      throw new BadRequestException('A starting automation can be switched off but not deleted');
     await this.stopAll(id, 'DELETED');
     await this.prisma.crmAutomation.delete({ where: { id } });
     await this.audit(owner, 'automation.deleted', id, { name: automation.name });
   }
 
-  async enrollments(owner: Pick<AutomationOwner, 'scope' | 'dealerId'>, id: string, status?: string) {
+  async enrollments(
+    owner: Pick<AutomationOwner, 'scope' | 'dealerId'>,
+    id: string,
+    status?: string,
+  ) {
     await this.get(owner, id);
     return this.prisma.crmAutomationEnrollment.findMany({
       where: { automationId: id, ...(status ? { status: status as never } : {}) },
@@ -152,18 +191,32 @@ export class AutomationsService {
     });
   }
 
-  async enroll(owner: AutomationOwner, id: string, target: { leadId?: string | null; ticketId?: string | null }) {
+  async enroll(
+    owner: AutomationOwner,
+    id: string,
+    target: { leadId?: string | null; ticketId?: string | null },
+  ) {
     const automation = await this.get(owner, id);
     if (!automation.isActive) throw new BadRequestException('Turn the automation on first');
     if (owner.scope === 'DEALER') {
-      const lead = await this.prisma.crmLead.findFirst({ where: { id: target.leadId ?? '', dealerId: owner.dealerId! } });
+      const lead = await this.prisma.crmLead.findFirst({
+        where: { id: target.leadId ?? '', dealerId: owner.dealerId! },
+      });
       if (!lead) throw new BadRequestException('Choose one of your leads');
-    } else if (!(await this.prisma.supportTicket.findUnique({ where: { id: target.ticketId ?? '' } }))) {
+    } else if (
+      !(await this.prisma.supportTicket.findUnique({ where: { id: target.ticketId ?? '' } }))
+    ) {
       throw new BadRequestException('Choose a ticket');
     }
-    const enrollment = await this.engine.enrollManually(id, { dealerId: owner.dealerId, ...target });
+    const enrollment = await this.engine.enrollManually(id, {
+      dealerId: owner.dealerId,
+      ...target,
+    });
     if (!enrollment) throw new BadRequestException('Already running for them');
-    await this.audit(owner, 'automation.enrolled', id, undefined, { enrollmentId: enrollment.id, ...target });
+    await this.audit(owner, 'automation.enrolled', id, undefined, {
+      enrollmentId: enrollment.id,
+      ...target,
+    });
     return enrollment;
   }
 
@@ -173,12 +226,18 @@ export class AutomationsService {
     });
     if (!enrollment) throw new NotFoundException('Enrollment not found');
     await this.engine.stop(enrollmentId, 'MANUAL');
-    await this.audit(owner, 'automation.stopped_by_hand', enrollment.automationId, undefined, { enrollmentId });
+    await this.audit(owner, 'automation.stopped_by_hand', enrollment.automationId, undefined, {
+      enrollmentId,
+    });
   }
 
   async retryEnrollment(owner: AutomationOwner, enrollmentId: string) {
     const enrollment = await this.prisma.crmAutomationEnrollment.findFirst({
-      where: { id: enrollmentId, status: 'FAILED', automation: { scope: owner.scope, dealerId: owner.dealerId } },
+      where: {
+        id: enrollmentId,
+        status: 'FAILED',
+        automation: { scope: owner.scope, dealerId: owner.dealerId },
+      },
     });
     if (!enrollment) throw new NotFoundException('Only a failed enrollment can be retried');
     await this.engine.retry(enrollmentId);
@@ -192,10 +251,17 @@ export class AutomationsService {
     for (const { id } of running) await this.engine.stop(id, reason);
   }
 
-  private async validate(owner: Pick<AutomationOwner, 'scope' | 'dealerId'>, input: AutomationInput) {
-    const triggers: readonly string[] = owner.scope === 'DEALER' ? DEALER_TRIGGERS : SUPPORT_TRIGGERS;
+  private async validate(
+    owner: Pick<AutomationOwner, 'scope' | 'dealerId'>,
+    input: AutomationInput,
+  ) {
+    const triggers: readonly string[] =
+      owner.scope === 'DEALER' ? DEALER_TRIGGERS : SUPPORT_TRIGGERS;
     if (!triggers.includes(input.trigger)) {
-      throw new BadRequestException({ message: 'Unknown trigger', details: { trigger: ['Choose a trigger from the list'] } });
+      throw new BadRequestException({
+        message: 'Unknown trigger',
+        details: { trigger: ['Choose a trigger from the list'] },
+      });
     }
     for (const step of input.steps) {
       if (owner.scope === 'SUPPORT' && DEALER_ONLY.includes(step.type)) {
@@ -211,7 +277,8 @@ export class AutomationsService {
           },
           select: { id: true },
         });
-        if (!template) throw new BadRequestException(`Step "${step.id}": the template does not exist`);
+        if (!template)
+          throw new BadRequestException(`Step "${step.id}": the template does not exist`);
       }
       if (step.type === 'SET_STATUS' && owner.scope === 'DEALER' && config.statusKey) {
         const status = await this.prisma.crmLeadStatus.findUnique({
@@ -223,13 +290,23 @@ export class AutomationsService {
         const staff = await this.prisma.dealerMember.findUnique({
           where: { dealerId_userId: { dealerId: owner.dealerId!, userId: config.userId } },
         });
-        const dealer = await this.prisma.dealer.findUnique({ where: { id: owner.dealerId! }, select: { ownerId: true } });
-        if (!staff && dealer?.ownerId !== config.userId) throw new BadRequestException(`Step "${step.id}": not on your staff`);
+        const dealer = await this.prisma.dealer.findUnique({
+          where: { id: owner.dealerId! },
+          select: { ownerId: true },
+        });
+        if (!staff && dealer?.ownerId !== config.userId)
+          throw new BadRequestException(`Step "${step.id}": not on your staff`);
       }
     }
   }
 
-  private async audit(owner: AutomationOwner, action: string, id: string, before?: unknown, after?: unknown) {
+  private async audit(
+    owner: AutomationOwner,
+    action: string,
+    id: string,
+    before?: unknown,
+    after?: unknown,
+  ) {
     const entry = { action, entityType: 'CrmAutomation', entityId: id, before, after };
     if (owner.scope === 'DEALER' && owner.ctx) await crmAudit(this.prisma, owner.ctx, entry);
     else await supportAudit(this.prisma, owner.actor, entry);

@@ -47,19 +47,28 @@ export class CrmWorkController {
   }
 
   @Post('tasks')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Create a task' })
   createTask(@Crm() ctx: CrmContext, @Body(zodBody(taskSchema)) input: TaskInput) {
     return this.work.createTask(ctx, input);
   }
 
   @Put('tasks/:id')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Update a task' })
-  updateTask(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string, @Body(zodBody(taskSchema)) input: TaskInput) {
+  updateTask(
+    @Crm() ctx: CrmContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(zodBody(taskSchema)) input: TaskInput,
+  ) {
     return this.work.updateTask(ctx, id, input);
   }
 
   @Post('tasks/:id/status')
-  @ApiOperation({ summary: 'Start, complete or cancel a task (completing a repeating task opens the next)' })
+  @RequireCrm('crm.work')
+  @ApiOperation({
+    summary: 'Start, complete or cancel a task (completing a repeating task opens the next)',
+  })
   taskStatus(
     @Crm() ctx: CrmContext,
     @Param('id', ParseUUIDPipe) id: string,
@@ -69,6 +78,7 @@ export class CrmWorkController {
   }
 
   @Delete('tasks/:id')
+  @RequireCrm('crm.work')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a task' })
   async deleteTask(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -77,17 +87,29 @@ export class CrmWorkController {
 
   @Get('appointments')
   @ApiOperation({ summary: 'Appointments between two instants' })
-  appointments(@Crm() ctx: CrmContext, @Query(zodQuery(calendarQuerySchema)) query: z.infer<typeof calendarQuerySchema>) {
-    return this.work.listAppointments(ctx, { from: new Date(query.from), to: new Date(query.to), salespersonId: query.salespersonId });
+  appointments(
+    @Crm() ctx: CrmContext,
+    @Query(zodQuery(calendarQuerySchema)) query: z.infer<typeof calendarQuerySchema>,
+  ) {
+    return this.work.listAppointments(ctx, {
+      from: new Date(query.from),
+      to: new Date(query.to),
+      salespersonId: query.salespersonId,
+    });
   }
 
   @Post('appointments')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Book an appointment' })
-  createAppointment(@Crm() ctx: CrmContext, @Body(zodBody(appointmentSchema)) input: AppointmentInput) {
+  createAppointment(
+    @Crm() ctx: CrmContext,
+    @Body(zodBody(appointmentSchema)) input: AppointmentInput,
+  ) {
     return this.work.createAppointment(ctx, input);
   }
 
   @Put('appointments/:id')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Update an appointment' })
   updateAppointment(
     @Crm() ctx: CrmContext,
@@ -98,6 +120,7 @@ export class CrmWorkController {
   }
 
   @Post('appointments/:id/status')
+  @RequireCrm('crm.work')
   @ApiOperation({ summary: 'Confirm, complete, cancel or mark a no-show' })
   appointmentStatus(
     @Crm() ctx: CrmContext,
@@ -108,6 +131,7 @@ export class CrmWorkController {
   }
 
   @Delete('appointments/:id')
+  @RequireCrm('crm.work')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an appointment' })
   async deleteAppointment(@Crm() ctx: CrmContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -116,7 +140,14 @@ export class CrmWorkController {
 
   @Get('calendar')
   @ApiOperation({ summary: 'Appointments and dated tasks for the day, week or month views' })
-  calendar(@Crm() ctx: CrmContext, @Query(zodQuery(calendarQuerySchema)) query: z.infer<typeof calendarQuerySchema>) {
-    return this.work.calendar(ctx, { from: new Date(query.from), to: new Date(query.to), salespersonId: query.salespersonId });
+  calendar(
+    @Crm() ctx: CrmContext,
+    @Query(zodQuery(calendarQuerySchema)) query: z.infer<typeof calendarQuerySchema>,
+  ) {
+    return this.work.calendar(ctx, {
+      from: new Date(query.from),
+      to: new Date(query.to),
+      salespersonId: query.salespersonId,
+    });
   }
 }

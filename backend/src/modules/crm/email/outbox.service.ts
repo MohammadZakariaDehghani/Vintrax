@@ -70,17 +70,41 @@ export class OutboxService {
     const lead = await this.prisma.crmLead.findUniqueOrThrow({
       where: { id: leadId },
       include: {
-        vehicle: { select: { year: true, make: true, model: true, trim: true, priceCad: true, vin: true, slug: true } },
+        vehicle: {
+          select: {
+            year: true,
+            make: true,
+            model: true,
+            trim: true,
+            priceCad: true,
+            vin: true,
+            slug: true,
+          },
+        },
         assignedTo: { select: { firstName: true, lastName: true, phone: true, email: true } },
-        dealer: { select: { name: true, phone: true, city: true, province: true, owner: { select: { email: true } } } },
+        dealer: {
+          select: {
+            name: true,
+            phone: true,
+            city: true,
+            province: true,
+            owner: { select: { email: true } },
+          },
+        },
       },
     });
-    const settings = await this.prisma.crmSettings.findUnique({ where: { dealerId: lead.dealerId } });
+    const settings = await this.prisma.crmSettings.findUnique({
+      where: { dealerId: lead.dealerId },
+    });
     const timezone = settings?.timezone ?? 'America/Toronto';
     const appointment = appointmentId
       ? await this.prisma.crmAppointment.findFirst({ where: { id: appointmentId, leadId } })
       : await this.prisma.crmAppointment.findFirst({
-          where: { leadId, startsAt: { gte: new Date() }, status: { in: ['SCHEDULED', 'CONFIRMED'] } },
+          where: {
+            leadId,
+            startsAt: { gte: new Date() },
+            status: { in: ['SCHEDULED', 'CONFIRMED'] },
+          },
           orderBy: { startsAt: 'asc' },
         });
     const vehicle = lead.vehicle;
@@ -92,7 +116,8 @@ export class OutboxService {
       'dealer.phone': settings?.businessPhone ?? lead.dealer.phone,
       'dealer.email': settings?.businessEmail ?? settings?.replyToEmail ?? lead.dealer.owner.email,
       'dealer.address':
-        settings?.businessAddress ?? [lead.dealer.city, lead.dealer.province].filter(Boolean).join(', '),
+        settings?.businessAddress ??
+        [lead.dealer.city, lead.dealer.province].filter(Boolean).join(', '),
       'vehicle.year': vehicle ? String(vehicle.year) : null,
       'vehicle.make': vehicle?.make,
       'vehicle.model': vehicle?.model,
@@ -100,17 +125,28 @@ export class OutboxService {
       'vehicle.price': vehicle ? `$${vehicle.priceCad.toLocaleString('en-CA')}` : null,
       'vehicle.vin': vehicle?.vin ?? lead.interestedVin,
       'vehicle.url': vehicle ? `${this.appUrl}/vehicles/${vehicle.slug}` : lead.vehicleUrl,
-      'salesperson.name': lead.assignedTo ? `${lead.assignedTo.firstName} ${lead.assignedTo.lastName}`.trim() : null,
+      'salesperson.name': lead.assignedTo
+        ? `${lead.assignedTo.firstName} ${lead.assignedTo.lastName}`.trim()
+        : null,
       'salesperson.phone': lead.assignedTo?.phone ?? settings?.businessPhone ?? lead.dealer.phone,
       'salesperson.email': lead.assignedTo?.email,
       'appointment.date': appointment
-        ? formatLocal(appointment.startsAt, timezone, { weekday: 'long', month: 'long', day: 'numeric' })
+        ? formatLocal(appointment.startsAt, timezone, {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          })
         : null,
       'appointment.time': appointment
         ? formatLocal(appointment.startsAt, timezone, { hour: 'numeric', minute: '2-digit' })
         : null,
       'lead.next_follow_up': lead.nextFollowUpAt
-        ? formatLocal(lead.nextFollowUpAt, timezone, { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        ? formatLocal(lead.nextFollowUpAt, timezone, {
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
         : null,
     };
   }
@@ -161,8 +197,17 @@ export class OutboxService {
   }
 
   /** Renders a subject and body for preview or sending. */
-  render(subject: string, bodyHtml: string, values: TemplateValues, scope: 'DEALER' | 'SUPPORT' = 'DEALER') {
-    assertKnownVariables(scope === 'DEALER' ? DEALER_TEMPLATE_VARIABLES : SUPPORT_TEMPLATE_VARIABLES, subject, bodyHtml);
+  render(
+    subject: string,
+    bodyHtml: string,
+    values: TemplateValues,
+    scope: 'DEALER' | 'SUPPORT' = 'DEALER',
+  ) {
+    assertKnownVariables(
+      scope === 'DEALER' ? DEALER_TEMPLATE_VARIABLES : SUPPORT_TEMPLATE_VARIABLES,
+      subject,
+      bodyHtml,
+    );
     const safe = sanitizeHtml(bodyHtml);
     const html = renderTemplate(safe, values, 'html');
     return { subject: renderSubject(subject, values), html, text: htmlToText(html) };
@@ -190,7 +235,10 @@ export class OutboxService {
     });
     if (!lead) throw new NotFoundException('Lead not found');
     const to = request.toSalesperson ? lead.assignedTo?.email : lead.email;
-    if (!to) throw new BadRequestException(request.toSalesperson ? 'The lead has no salesperson' : 'The lead has no email address');
+    if (!to)
+      throw new BadRequestException(
+        request.toSalesperson ? 'The lead has no salesperson' : 'The lead has no email address',
+      );
     const toName = request.toSalesperson
       ? `${lead.assignedTo!.firstName} ${lead.assignedTo!.lastName}`.trim()
       : [lead.firstName, lead.lastName].filter(Boolean).join(' ');
@@ -201,16 +249,25 @@ export class OutboxService {
     const purpose: EmailPurpose = request.toSalesperson ? 'TRANSACTIONAL' : request.purpose;
     const decision = await this.compliance.canSend(ctx.dealerId, to, purpose);
 
-    const settings = await this.prisma.crmSettings.findUnique({ where: { dealerId: ctx.dealerId } });
+    const settings = await this.prisma.crmSettings.findUnique({
+      where: { dealerId: ctx.dealerId },
+    });
     let scheduledAt = request.scheduledAt ?? new Date();
     if (request.respectSendWindow && settings && !request.toSalesperson) {
       scheduledAt = nextSendTime(scheduledAt, settings);
     }
-    const dealer = await this.prisma.dealer.findUniqueOrThrow({ where: { id: ctx.dealerId }, select: { name: true } });
+    const dealer = await this.prisma.dealer.findUniqueOrThrow({
+      where: { id: ctx.dealerId },
+      select: { name: true },
+    });
     const replyTo =
       settings?.replyToEmail ??
-      (await this.prisma.crmLead.findUnique({ where: { id: lead.id }, select: { assignedTo: { select: { email: true } } } }))
-        ?.assignedTo?.email ??
+      (
+        await this.prisma.crmLead.findUnique({
+          where: { id: lead.id },
+          select: { assignedTo: { select: { email: true } } },
+        })
+      )?.assignedTo?.email ??
       null;
 
     try {
@@ -232,7 +289,11 @@ export class OutboxService {
             campaignId: request.campaignId ?? null,
             enrollmentId: request.enrollmentId ?? null,
             automationStepId: request.automationStepId ?? null,
-            status: decision.allowed ? (scheduledAt > new Date() ? 'SCHEDULED' : 'QUEUED') : 'SUPPRESSED',
+            status: decision.allowed
+              ? scheduledAt > new Date()
+                ? 'SCHEDULED'
+                : 'QUEUED'
+              : 'SUPPRESSED',
             lastError: decision.allowed ? null : decision.reason,
             scheduledAt,
             nextAttemptAt: scheduledAt,
@@ -254,7 +315,13 @@ export class OutboxService {
             action: 'email.queued',
             entityType: 'CrmEmail',
             entityId: row.id,
-            after: { leadId: lead.id, subject: rendered.subject, purpose, scheduledAt, status: row.status },
+            after: {
+              leadId: lead.id,
+              subject: rendered.subject,
+              purpose,
+              scheduledAt,
+              status: row.status,
+            },
           });
         }
         return row;
@@ -262,7 +329,11 @@ export class OutboxService {
       return { ...email, created: true, reason: decision.reason };
     } catch (error) {
       // Two runs racing with one key: the loser returns the winner's email.
-      if (request.idempotencyKey && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      if (
+        request.idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         const existing = await this.prisma.crmEmail.findUniqueOrThrow({
           where: { idempotencyKey: request.idempotencyKey },
           select: { id: true, status: true },
@@ -295,11 +366,26 @@ export class OutboxService {
     }
     const ticket = await this.prisma.supportTicket.findUniqueOrThrow({
       where: { id: request.ticketId },
-      select: { id: true, requesterEmail: true, requesterName: true, requesterId: true, dealerId: true },
+      select: {
+        id: true,
+        requesterEmail: true,
+        requesterName: true,
+        requesterId: true,
+        dealerId: true,
+      },
     });
     const rendered = request.raw
-      ? { subject: request.subject, html: sanitizeHtml(request.bodyHtml), text: htmlToText(sanitizeHtml(request.bodyHtml)) }
-      : this.render(request.subject, request.bodyHtml, await this.ticketValues(ticket.id), 'SUPPORT');
+      ? {
+          subject: request.subject,
+          html: sanitizeHtml(request.bodyHtml),
+          text: htmlToText(sanitizeHtml(request.bodyHtml)),
+        }
+      : this.render(
+          request.subject,
+          request.bodyHtml,
+          await this.ticketValues(ticket.id),
+          'SUPPORT',
+        );
     const decision = await this.compliance.canSend(null, ticket.requesterEmail, 'TRANSACTIONAL');
     const row = await this.prisma.crmEmail.create({
       data: {
@@ -321,7 +407,12 @@ export class OutboxService {
         idempotencyKey: request.idempotencyKey ?? `support:${newTrackingToken()}`,
         trackingToken: newTrackingToken(),
         createdById: request.actorId ?? null,
-        events: { create: { type: decision.allowed ? 'QUEUED' : 'SUPPRESSED', detail: decision.reason ?? null } },
+        events: {
+          create: {
+            type: decision.allowed ? 'QUEUED' : 'SUPPRESSED',
+            detail: decision.reason ?? null,
+          },
+        },
       },
       select: { id: true, status: true },
     });
@@ -357,7 +448,12 @@ export class OutboxService {
         idempotencyKey: `direct:${newTrackingToken()}`,
         trackingToken: newTrackingToken(),
         createdById: input.actorId,
-        events: { create: { type: decision.allowed ? 'QUEUED' : 'SUPPRESSED', detail: decision.reason ?? null } },
+        events: {
+          create: {
+            type: decision.allowed ? 'QUEUED' : 'SUPPRESSED',
+            detail: decision.reason ?? null,
+          },
+        },
       },
       select: { id: true, status: true },
     });
@@ -372,9 +468,16 @@ export class OutboxService {
       where: { id, status: { in: ['SCHEDULED', 'QUEUED'] } },
       data: { status: 'CANCELLED' },
     });
-    if (updated.count === 0) throw new BadRequestException('Only a scheduled or queued email can be cancelled');
-    await this.prisma.crmEmailEvent.create({ data: { emailId: id, type: 'CANCELLED', detail: ctx.actorEmail } });
-    await crmAudit(this.prisma, ctx, { action: 'email.cancelled', entityType: 'CrmEmail', entityId: id });
+    if (updated.count === 0)
+      throw new BadRequestException('Only a scheduled or queued email can be cancelled');
+    await this.prisma.crmEmailEvent.create({
+      data: { emailId: id, type: 'CANCELLED', detail: ctx.actorEmail },
+    });
+    await crmAudit(this.prisma, ctx, {
+      action: 'email.cancelled',
+      entityType: 'CrmEmail',
+      entityId: id,
+    });
     return { id, status: 'CANCELLED' };
   }
 }

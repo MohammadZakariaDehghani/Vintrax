@@ -74,7 +74,13 @@ export class EmailsService {
         },
       }),
     ]);
-    return { items, page: query.page, pageSize: query.pageSize, total, totalPages: Math.max(1, Math.ceil(total / query.pageSize)) };
+    return {
+      items,
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    };
   }
 
   async get(ctx: CrmContext, id: string) {
@@ -113,7 +119,10 @@ export class EmailsService {
       respectSendWindow: input.respectSendWindow,
     });
     if (result.status === 'SUPPRESSED') {
-      throw new BadRequestException({ message: `Not sent: ${result.reason}`, details: { _: [result.reason ?? 'Blocked'] } });
+      throw new BadRequestException({
+        message: `Not sent: ${result.reason}`,
+        details: { _: [result.reason ?? 'Blocked'] },
+      });
     }
     return result;
   }
@@ -131,12 +140,15 @@ export class EmailsService {
 
   async retry(ctx: CrmContext, id: string) {
     const email = await this.get(ctx, id);
-    if (email.status !== 'FAILED') throw new BadRequestException('Only a failed email can be retried');
+    if (email.status !== 'FAILED')
+      throw new BadRequestException('Only a failed email can be retried');
     await this.prisma.crmEmail.update({
       where: { id },
       data: { status: 'QUEUED', nextAttemptAt: new Date(), attempts: 0, lastError: null },
     });
-    await this.prisma.crmEmailEvent.create({ data: { emailId: id, type: 'RETRY', detail: `Requeued by ${ctx.actorEmail}` } });
+    await this.prisma.crmEmailEvent.create({
+      data: { emailId: id, type: 'RETRY', detail: `Requeued by ${ctx.actorEmail}` },
+    });
     return { id, status: 'QUEUED' };
   }
 
@@ -144,18 +156,28 @@ export class EmailsService {
 
   async consents(ctx: CrmContext, leadId: string) {
     await this.leads.findVisible(ctx, leadId);
-    return this.prisma.crmConsent.findMany({ where: { leadId, dealerId: ctx.dealerId }, orderBy: { grantedAt: 'desc' } });
+    return this.prisma.crmConsent.findMany({
+      where: { leadId, dealerId: ctx.dealerId },
+      orderBy: { grantedAt: 'desc' },
+    });
   }
 
   async recordConsent(ctx: CrmContext, input: ConsentInput) {
     await this.leads.findVisible(ctx, input.leadId);
-    const lead = await this.prisma.crmLead.findUniqueOrThrow({ where: { id: input.leadId }, select: { emailNormalized: true } });
+    const lead = await this.prisma.crmLead.findUniqueOrThrow({
+      where: { id: input.leadId },
+      select: { emailNormalized: true },
+    });
     if (!lead.emailNormalized) throw new BadRequestException('The lead has no email address');
-    return this.prisma.$transaction((tx) => this.leads.recordConsent(tx, ctx, input.leadId, lead.emailNormalized!, input));
+    return this.prisma.$transaction((tx) =>
+      this.leads.recordConsent(tx, ctx, input.leadId, lead.emailNormalized!, input),
+    );
   }
 
   async withdrawConsent(ctx: CrmContext, consentId: string) {
-    const consent = await this.prisma.crmConsent.findFirst({ where: { id: consentId, dealerId: ctx.dealerId } });
+    const consent = await this.prisma.crmConsent.findFirst({
+      where: { id: consentId, dealerId: ctx.dealerId },
+    });
     if (!consent) throw new NotFoundException('Consent not found');
     if (consent.leadId) await this.leads.findVisible(ctx, consent.leadId);
     await this.prisma.$transaction(async (tx) => {
@@ -198,7 +220,10 @@ export class EmailsService {
 
   async unsuppress(ctx: CrmContext, id: string) {
     assertCrm(ctx, 'crm.manage');
-    const removed = await this.compliance.unsuppress(ctx.dealerId, id, { id: ctx.userId, email: ctx.actorEmail });
+    const removed = await this.compliance.unsuppress(ctx.dealerId, id, {
+      id: ctx.userId,
+      email: ctx.actorEmail,
+    });
     if (!removed) throw new NotFoundException('Only your own dealership’s entries can be removed');
   }
 }

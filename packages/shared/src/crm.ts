@@ -16,6 +16,8 @@ export const CRM_PERMISSIONS = [
   'crm.view',
   /** See every lead of the dealership, not only your own. */
   'crm.all_leads',
+  /** Work leads: create and edit them, log activities, change status, tasks and appointments. */
+  'crm.work',
   /** Edit, assign, merge, import and delete any lead. */
   'crm.manage',
   /** Send individual emails from a lead. */
@@ -37,7 +39,7 @@ export const CRM_ROLE_PERMISSIONS: Record<DealerStaffRole, readonly CrmPermissio
   OWNER: CRM_PERMISSIONS,
   MANAGER: CRM_PERMISSIONS,
   SALES_MANAGER: CRM_PERMISSIONS.filter((permission) => permission !== 'crm.settings'),
-  SALES_USER: ['crm.view', 'crm.email'],
+  SALES_USER: ['crm.view', 'crm.work', 'crm.email'],
   // The books, not the sales floor: reads leads and reports, changes nothing.
   ACCOUNTANT: ['crm.view', 'crm.all_leads', 'crm.reports'],
 };
@@ -48,7 +50,11 @@ export const CRM_ROLE_PERMISSIONS: Record<DealerStaffRole, readonly CrmPermissio
 export const LEAD_STATUS_KINDS = ['OPEN', 'WON', 'LOST', 'NURTURE', 'UNRESPONSIVE'] as const;
 export type LeadStatusKind = (typeof LEAD_STATUS_KINDS)[number];
 
-export const DEFAULT_LEAD_STATUSES: ReadonlyArray<{ key: string; label: string; kind: LeadStatusKind }> = [
+export const DEFAULT_LEAD_STATUSES: ReadonlyArray<{
+  key: string;
+  label: string;
+  kind: LeadStatusKind;
+}> = [
   { key: 'NEW', label: 'New', kind: 'OPEN' },
   { key: 'CONTACTED', label: 'Contacted', kind: 'OPEN' },
   { key: 'ENGAGED', label: 'Engaged', kind: 'OPEN' },
@@ -143,7 +149,10 @@ export const SCORE_SIGNAL_LABELS: Record<ScoreSignal, string> = {
 };
 
 /** A score at or above `hot` is Hot, at or above `warm` Warm, otherwise Cold. */
-export function temperatureFor(score: number, thresholds: { hot: number; warm: number }): LeadTemperature {
+export function temperatureFor(
+  score: number,
+  thresholds: { hot: number; warm: number },
+): LeadTemperature {
   if (score >= thresholds.hot) return 'HOT';
   if (score >= thresholds.warm) return 'WARM';
   return 'COLD';
@@ -228,9 +237,17 @@ export const CRM_ACTIVITY_LABELS: Record<CrmActivityType, string> = {
 export const JOURNEY_STAGES = [
   { key: 'LEAD_CREATED', label: 'Lead created', events: ['LEAD_CREATED'] },
   { key: 'ASSIGNED', label: 'Assigned', events: ['LEAD_ASSIGNED'] },
-  { key: 'FIRST_CONTACT', label: 'First contact', events: ['FIRST_CONTACT', 'CALL', 'EMAIL_SENT', 'EMAIL'] },
+  {
+    key: 'FIRST_CONTACT',
+    label: 'First contact',
+    events: ['FIRST_CONTACT', 'CALL', 'EMAIL_SENT', 'EMAIL'],
+  },
   { key: 'INQUIRY', label: 'Vehicle inquiry', events: ['VEHICLE_INQUIRY', 'VEHICLE_VIEWED'] },
-  { key: 'APPOINTMENT', label: 'Appointment', events: ['APPOINTMENT_BOOKED', 'APPOINTMENT', 'MEETING'] },
+  {
+    key: 'APPOINTMENT',
+    label: 'Appointment',
+    events: ['APPOINTMENT_BOOKED', 'APPOINTMENT', 'MEETING'],
+  },
   { key: 'TEST_DRIVE', label: 'Test drive', events: ['TEST_DRIVE'] },
   { key: 'TRADE_IN', label: 'Trade-in appraisal', events: ['TRADE_IN_APPRAISAL', 'TRADE_IN'] },
   { key: 'FINANCING', label: 'Financing', events: ['FINANCING_REQUESTED', 'FINANCE'] },
@@ -260,7 +277,13 @@ export const APPOINTMENT_TYPES = [
   'OTHER',
 ] as const;
 export type AppointmentType = (typeof APPOINTMENT_TYPES)[number];
-export const APPOINTMENT_STATUSES = ['SCHEDULED', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] as const;
+export const APPOINTMENT_STATUSES = [
+  'SCHEDULED',
+  'CONFIRMED',
+  'COMPLETED',
+  'CANCELLED',
+  'NO_SHOW',
+] as const;
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
 
 // --- Email -----------------------------------------------------------------------------
@@ -303,11 +326,22 @@ export const EMAIL_EVENT_TYPES = [
 ] as const;
 export type EmailEventType = (typeof EMAIL_EVENT_TYPES)[number];
 
-export const SUPPRESSION_REASONS = ['UNSUBSCRIBED', 'HARD_BOUNCE', 'INVALID', 'COMPLAINT', 'MANUAL'] as const;
+export const SUPPRESSION_REASONS = [
+  'UNSUBSCRIBED',
+  'HARD_BOUNCE',
+  'INVALID',
+  'COMPLAINT',
+  'MANUAL',
+] as const;
 export type SuppressionReason = (typeof SUPPRESSION_REASONS)[number];
 
 /** Suppressions that stop every email, not only marketing. */
-export const HARD_SUPPRESSIONS: readonly SuppressionReason[] = ['HARD_BOUNCE', 'INVALID', 'COMPLAINT', 'MANUAL'];
+export const HARD_SUPPRESSIONS: readonly SuppressionReason[] = [
+  'HARD_BOUNCE',
+  'INVALID',
+  'COMPLAINT',
+  'MANUAL',
+];
 
 /**
  * Consent kinds under CASL (S.C. 2010, c. 23, s. 10). Express consent does
@@ -444,7 +478,8 @@ export const SUPPORT_TRIGGERS = [
   'MANUAL',
 ] as const;
 export const AUTOMATION_TRIGGERS = [...new Set([...DEALER_TRIGGERS, ...SUPPORT_TRIGGERS])] as const;
-export type AutomationTrigger = (typeof DEALER_TRIGGERS)[number] | (typeof SUPPORT_TRIGGERS)[number];
+export type AutomationTrigger =
+  (typeof DEALER_TRIGGERS)[number] | (typeof SUPPORT_TRIGGERS)[number];
 
 export const AUTOMATION_TRIGGER_LABELS: Record<AutomationTrigger, string> = {
   LEAD_CREATED: 'A lead is created',
@@ -498,7 +533,18 @@ export const CONDITION_FIELDS = [
 ] as const;
 export type ConditionField = (typeof CONDITION_FIELDS)[number];
 
-export const CONDITION_OPERATORS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'contains', 'is_true', 'is_false'] as const;
+export const CONDITION_OPERATORS = [
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'in',
+  'contains',
+  'is_true',
+  'is_false',
+] as const;
 export type ConditionOperator = (typeof CONDITION_OPERATORS)[number];
 
 export const AUTOMATION_STEP_TYPES = [
@@ -578,7 +624,13 @@ export const DEFAULT_TICKET_CATEGORIES: ReadonlyArray<{ key: string; label: stri
   { key: 'OTHER', label: 'Other' },
 ];
 
-export const TICKET_SOURCES = ['ADMIN', 'USER_PORTAL', 'CONTACT_FORM', 'SUPPORT_CHAT', 'EMAIL'] as const;
+export const TICKET_SOURCES = [
+  'ADMIN',
+  'USER_PORTAL',
+  'CONTACT_FORM',
+  'SUPPORT_CHAT',
+  'EMAIL',
+] as const;
 export type TicketSource = (typeof TICKET_SOURCES)[number];
 
 /** PUBLIC messages reach the requester; INTERNAL notes never leave the admin team. */
@@ -624,7 +676,15 @@ export const CRM_NOTIFICATION_LABELS: Record<CrmNotificationEvent, string> = {
 
 // --- Ranges -----------------------------------------------------------------------------
 
-export const CRM_RANGE_PRESETS = ['TODAY', 'THIS_WEEK', 'THIS_MONTH', 'LAST_MONTH', 'THIS_QUARTER', 'THIS_YEAR', 'CUSTOM'] as const;
+export const CRM_RANGE_PRESETS = [
+  'TODAY',
+  'THIS_WEEK',
+  'THIS_MONTH',
+  'LAST_MONTH',
+  'THIS_QUARTER',
+  'THIS_YEAR',
+  'CUSTOM',
+] as const;
 export type CrmRangePreset = (typeof CRM_RANGE_PRESETS)[number];
 export const CRM_RANGE_LABELS: Record<CrmRangePreset, string> = {
   TODAY: 'Today',
