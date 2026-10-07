@@ -7,9 +7,11 @@ import {
   BookOpen,
   Building2,
   Calculator,
+  Contact,
   Gavel,
   Heart,
   LayoutDashboard,
+  LifeBuoy,
   MessagesSquare,
   Package,
   Bell,
@@ -25,6 +27,7 @@ const BUYER_LINKS = [
   { href: '/dashboard/my-bids', label: 'My bids', icon: Gavel },
   { href: '/dashboard/messages', label: 'Messages', icon: MessagesSquare, badge: 'messages' },
   { href: '/dashboard/notifications', label: 'Notifications', icon: Bell, badge: 'notifications' },
+  { href: '/dashboard/support', label: 'Support', icon: LifeBuoy },
   { href: '/dashboard/account', label: 'Account', icon: UserCog },
 ] as const;
 
@@ -32,12 +35,16 @@ const BUYER_LINKS = [
 const SELLER_LINKS = [
   { href: '/dealer/dashboard', label: 'Dealer', icon: Building2 },
   { href: '/dealer/inventory', label: 'Inventory', icon: Package },
+  { href: '/dealer/crm', label: 'CRM', icon: Contact },
   { href: '/dealer/costs', label: 'Costs', icon: Calculator },
   { href: '/dealer/accounting', label: 'Accounting', icon: BookOpen },
 ] as const;
 
 /** For dealership staff (accountants, salespeople) who sign in with their own buyer account. */
-const STAFF_LINKS = [{ href: '/dealer/accounting', label: 'Accounting', icon: BookOpen }] as const;
+const STAFF_LINKS = [
+  { href: '/dealer/crm', label: 'CRM', icon: Contact },
+  { href: '/dealer/accounting', label: 'Accounting', icon: BookOpen },
+] as const;
 
 /** A private seller's own cars: one simple list, none of the dealer tools. */
 const PRIVATE_SELLER_LINKS = [
@@ -109,8 +116,10 @@ export function DashboardNav() {
         // prefix test would light up Overview on all of them.
         const active =
           pathname === link.href ||
-          (link.href === '/dealer/accounting' &&
-            Boolean(pathname?.startsWith('/dealer/accounting/')));
+          ((link.href === '/dealer/accounting' ||
+            link.href === '/dealer/crm' ||
+            link.href === '/dashboard/support') &&
+            Boolean(pathname?.startsWith(`${link.href}/`)));
         const count = 'badge' in link ? counts[link.badge] : undefined;
 
         return (

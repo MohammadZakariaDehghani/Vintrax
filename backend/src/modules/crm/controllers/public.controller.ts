@@ -18,8 +18,10 @@ import type { Response } from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { Env } from '../../../config/env';
-import { Public } from '../../../common/decorators';
+import type { AuthUser } from '../../../common/auth/auth-user';
+import { CurrentUser, Public } from '../../../common/decorators';
 import { zodBody, zodQuery } from '../../../common/pipes/zod-validation.pipe';
+import { CrmAccessService } from '../core/access.service';
 import { DispatcherService } from '../email/dispatcher.service';
 import { PIXEL } from '../email/tracking';
 
@@ -46,10 +48,18 @@ export class CrmPublicController {
 
   constructor(
     private readonly dispatcher: DispatcherService,
+    private readonly access: CrmAccessService,
     config: ConfigService<Env, true>,
   ) {
     this.webhookSecret = config.get('CRM_WEBHOOK_SECRET', { infer: true });
     this.appUrl = config.get('APP_URL', { infer: true }).replace(/\/$/, '');
+  }
+
+  /** Signed in, no dealership needed: the dealerships whose CRM the caller can open (often none). */
+  @Get('dealerships')
+  @ApiOperation({ summary: 'Dealerships whose CRM the caller can open' })
+  dealerships(@CurrentUser() user: AuthUser) {
+    return this.access.dealerships(user);
   }
 
   @Public()

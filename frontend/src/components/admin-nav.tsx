@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LayoutGrid,
   LayoutList,
+  LifeBuoy,
   Mail,
   Newspaper,
   PanelBottom,
@@ -40,6 +41,7 @@ const LINKS = [
   { href: '/admin/contact', label: 'Contact', icon: Mail },
   { href: '/admin/footer', label: 'Footer', icon: PanelBottom },
   { href: '/admin/support', label: 'Support', icon: Headset },
+  { href: '/admin/crm', label: 'CRM', icon: LifeBuoy },
 ] as const;
 
 /**

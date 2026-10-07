@@ -329,6 +329,34 @@ export class LeadsService {
     return { items, nextCursor: more ? items[items.length - 1]!.occurredAt.toISOString() : null };
   }
 
+  /** Recent activity across the caller's leads (CRM → Activities). */
+  async activities(
+    ctx: CrmContext,
+    query: { type?: string; userId?: string; people?: boolean; page: number; pageSize: number },
+  ) {
+    const where: Prisma.CrmActivityWhereInput = {
+      dealerId: ctx.dealerId,
+      lead: leadScope(ctx),
+      ...(query.type ? { type: query.type as CrmTimelineType } : {}),
+      ...(query.userId ? { userId: query.userId } : {}),
+      ...(query.people ? { isSystem: false } : {}),
+    };
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.crmActivity.count({ where }),
+      this.prisma.crmActivity.findMany({
+        where,
+        orderBy: { occurredAt: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true } },
+          lead: { select: { id: true, number: true, firstName: true, lastName: true } },
+        },
+      }),
+    ]);
+    return { items, page: query.page, pageSize: query.pageSize, total, totalPages: Math.max(1, Math.ceil(total / query.pageSize)) };
+  }
+
   // --- Writing -------------------------------------------------------------------
 
   async create(ctx: CrmContext, input: LeadInput, options: CreateLeadOptions = {}) {

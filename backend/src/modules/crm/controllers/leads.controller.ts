@@ -48,6 +48,16 @@ import { CrmReportsService } from '../reports/reports.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 
 const searchQuerySchema = z.object({ q: z.string().trim().max(100).default('') });
+const activityQuerySchema = z.object({
+  type: z.string().trim().max(40).optional(),
+  userId: z.string().uuid().optional(),
+  people: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
 const pageQuerySchema = z.object({
   q: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -88,6 +98,36 @@ export class CrmLeadsController {
   @ApiOperation({ summary: 'Search leads, customers, tasks, campaigns and vehicles' })
   search(@Crm() ctx: CrmContext, @Query(zodQuery(searchQuerySchema)) query: { q: string }) {
     return this.reports.search(ctx, query.q);
+  }
+
+  @Get('vehicles')
+  @ApiOperation({ summary: 'The dealership’s inventory, for the vehicle-interest picker' })
+  vehicles(@Crm() ctx: CrmContext, @Query(zodQuery(searchQuerySchema)) query: { q: string }) {
+    const q = query.q;
+    return this.prisma.vehicle.findMany({
+      where: {
+        sellerId: ctx.ownerUserId,
+        status: { notIn: ['ARCHIVED'] },
+        ...(q
+          ? {
+              OR: [
+                { title: { contains: q, mode: 'insensitive' } },
+                { vin: { contains: q.toUpperCase() } },
+                { stockNumber: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: { id: true, title: true, vin: true, stockNumber: true, priceCad: true, status: true },
+    });
+  }
+
+  @Get('activities')
+  @ApiOperation({ summary: 'Recent activity across your leads' })
+  activities(@Crm() ctx: CrmContext, @Query(zodQuery(activityQuerySchema)) query: z.infer<typeof activityQuerySchema>) {
+    return this.leads.activities(ctx, query);
   }
 
   @Get('customers')

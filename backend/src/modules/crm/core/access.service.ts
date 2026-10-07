@@ -16,6 +16,25 @@ import type { CrmContext } from './context';
 export class CrmAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** The dealerships whose CRM the caller can open, for the dealership picker. */
+  async dealerships(user: AuthUser) {
+    const owned = await this.prisma.dealer.findUnique({
+      where: { ownerId: user.id },
+      select: { id: true, name: true },
+    });
+    const staff = await this.prisma.dealerMember.findMany({
+      where: { userId: user.id },
+      select: { role: true, dealer: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return [
+      ...(owned ? [{ dealerId: owned.id, name: owned.name, role: 'OWNER' as DealerStaffRole }] : []),
+      ...staff
+        .filter((row) => row.dealer.id !== owned?.id)
+        .map((row) => ({ dealerId: row.dealer.id, name: row.dealer.name, role: row.role })),
+    ];
+  }
+
   async resolve(user: AuthUser, requestedDealerId?: string | null): Promise<CrmContext> {
     const memberships: Array<{ dealerId: string; role: DealerStaffRole; ownerUserId: string }> = [];
 
