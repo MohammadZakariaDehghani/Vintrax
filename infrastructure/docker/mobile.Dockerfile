@@ -10,7 +10,10 @@
 # manifest, the icons and the service worker are static files the PWA install
 # prompt will not appear without.
 
-FROM node:22-alpine AS base
+# node:22-alpine from AWS ECR Public's mirror of the Docker official images:
+# the same image as Docker Hub's, without Hub's unauthenticated pull limit,
+# which shared CI runners hit.
+FROM public.ecr.aws/docker/library/node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 WORKDIR /app
 
@@ -45,7 +48,7 @@ RUN pnpm --filter @vintrax/shared build \
  && pnpm --filter @vintrax/mobile build
 
 # ---- Runtime ----------------------------------------------------------------
-FROM node:22-alpine AS runtime
+FROM public.ecr.aws/docker/library/node:22-alpine AS runtime
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3002
