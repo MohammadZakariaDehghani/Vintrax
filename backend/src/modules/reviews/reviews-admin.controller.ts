@@ -44,7 +44,9 @@ export class ReviewsAdminController {
   @Get()
   @RequirePermissions('review:read')
   @ApiOperation({ summary: 'Reviews by view (pending, approved, reported …), searchable' })
-  list(@Query(zodQuery(adminReviewListQuerySchema)) query: AdminReviewListQuery): Promise<Paginated<AdminReviewRow>> {
+  list(
+    @Query(zodQuery(adminReviewListQuerySchema)) query: AdminReviewListQuery,
+  ): Promise<Paginated<AdminReviewRow>> {
     return this.reviews.list(query);
   }
 
@@ -58,7 +60,10 @@ export class ReviewsAdminController {
   @Post('bulk')
   @RequirePermissions('review:moderate')
   @ApiOperation({ summary: 'Approve, reject, hide or delete several reviews' })
-  bulk(@Body(zodBody(reviewBulkSchema)) input: ReviewBulkInput, @CurrentUser() admin: AuthUser): Promise<ReviewBulkResult> {
+  bulk(
+    @Body(zodBody(reviewBulkSchema)) input: ReviewBulkInput,
+    @CurrentUser() admin: AuthUser,
+  ): Promise<ReviewBulkResult> {
     // Deleting is its own permission, in bulk as one at a time.
     if (input.action === 'DELETE' && !hasPermission(admin.role, 'review:delete')) {
       throw new ForbiddenException('Insufficient permissions');

@@ -116,14 +116,25 @@ export class ReviewsAdminService {
         ipHash: true,
         reports: {
           orderBy: { createdAt: 'desc' },
-          select: { id: true, reason: true, details: true, userId: true, createdAt: true, resolvedAt: true },
+          select: {
+            id: true,
+            reason: true,
+            details: true,
+            userId: true,
+            createdAt: true,
+            resolvedAt: true,
+          },
         },
       },
     });
     if (!review) throw new NotFoundException('Review not found');
     const sameSourceCount = review.ipHash
       ? await this.prisma.vehicleReview.count({
-          where: { ipHash: review.ipHash, id: { not: id }, createdAt: { gte: new Date(Date.now() - 30 * DAY) } },
+          where: {
+            ipHash: review.ipHash,
+            id: { not: id },
+            createdAt: { gte: new Date(Date.now() - 30 * DAY) },
+          },
         })
       : 0;
     const iso = (value: Date | null) => value?.toISOString() ?? null;
@@ -171,7 +182,11 @@ export class ReviewsAdminService {
       newStatus: row.newStatus,
       reason: row.reason,
       actor: row.actor
-        ? { id: row.actor.id, name: `${row.actor.firstName} ${row.actor.lastName}`.trim(), email: row.actor.email }
+        ? {
+            id: row.actor.id,
+            name: `${row.actor.firstName} ${row.actor.lastName}`.trim(),
+            email: row.actor.email,
+          }
         : null,
       createdAt: row.createdAt.toISOString(),
     }));
@@ -202,12 +217,25 @@ export class ReviewsAdminService {
   }
 
   /** Marks a review's open reports as dealt with and clears its flag. */
-  async resolveReports(id: string, admin: AuthUser, note?: string | null): Promise<AdminReviewDetail> {
-    const review = await this.prisma.vehicleReview.findUnique({ where: { id }, select: { id: true, status: true } });
+  async resolveReports(
+    id: string,
+    admin: AuthUser,
+    note?: string | null,
+  ): Promise<AdminReviewDetail> {
+    const review = await this.prisma.vehicleReview.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
     if (!review) throw new NotFoundException('Review not found');
     await this.prisma.$transaction([
-      this.prisma.vehicleReviewReport.updateMany({ where: { reviewId: id, resolvedAt: null }, data: { resolvedAt: new Date() } }),
-      this.prisma.vehicleReview.update({ where: { id }, data: { openReportCount: 0, flaggedAt: null } }),
+      this.prisma.vehicleReviewReport.updateMany({
+        where: { reviewId: id, resolvedAt: null },
+        data: { resolvedAt: new Date() },
+      }),
+      this.prisma.vehicleReview.update({
+        where: { id },
+        data: { openReportCount: 0, flaggedAt: null },
+      }),
       this.prisma.vehicleReviewModerationLog.create({
         data: {
           reviewId: id,
@@ -247,15 +275,23 @@ export class ReviewsAdminService {
     return this.redis.remember(METRICS_KEY, METRICS_TTL_SECONDS, async () => {
       const now = Date.now();
       const live = { status: { not: 'DELETED' as const } };
-      const [total, pending, approved, reported, average, last7Days, last30Days] = await Promise.all([
-        this.prisma.vehicleReview.count({ where: live }),
-        this.prisma.vehicleReview.count({ where: { status: 'PENDING' } }),
-        this.prisma.vehicleReview.count({ where: { status: 'APPROVED' } }),
-        this.prisma.vehicleReview.count({ where: { ...live, openReportCount: { gt: 0 } } }),
-        this.prisma.vehicleReview.aggregate({ where: { status: 'APPROVED' }, _avg: { rating: true } }),
-        this.prisma.vehicleReview.count({ where: { ...live, createdAt: { gte: new Date(now - 7 * DAY) } } }),
-        this.prisma.vehicleReview.count({ where: { ...live, createdAt: { gte: new Date(now - 30 * DAY) } } }),
-      ]);
+      const [total, pending, approved, reported, average, last7Days, last30Days] =
+        await Promise.all([
+          this.prisma.vehicleReview.count({ where: live }),
+          this.prisma.vehicleReview.count({ where: { status: 'PENDING' } }),
+          this.prisma.vehicleReview.count({ where: { status: 'APPROVED' } }),
+          this.prisma.vehicleReview.count({ where: { ...live, openReportCount: { gt: 0 } } }),
+          this.prisma.vehicleReview.aggregate({
+            where: { status: 'APPROVED' },
+            _avg: { rating: true },
+          }),
+          this.prisma.vehicleReview.count({
+            where: { ...live, createdAt: { gte: new Date(now - 7 * DAY) } },
+          }),
+          this.prisma.vehicleReview.count({
+            where: { ...live, createdAt: { gte: new Date(now - 30 * DAY) } },
+          }),
+        ]);
       const avg = average._avg.rating;
       return {
         total,
@@ -280,25 +316,52 @@ export class ReviewsAdminService {
     const rule = TRANSITIONS[move];
     const review = await this.prisma.vehicleReview.findUnique({
       where: { id },
-      select: { id: true, status: true, vehicleId: true, userId: true, vehicle: { select: { title: true, slug: true } } },
+      select: {
+        id: true,
+        status: true,
+        vehicleId: true,
+        userId: true,
+        vehicle: { select: { title: true, slug: true } },
+      },
     });
     if (!review) throw new NotFoundException('Review not found');
     if (!rule.from.includes(review.status)) {
-      throw new ConflictException(`A ${review.status.toLowerCase()} review cannot be ${pastTense(move)}`);
+      throw new ConflictException(
+        `A ${review.status.toLowerCase()} review cannot be ${pastTense(move)}`,
+      );
     }
     const now = new Date();
     const next: VehicleReviewStatus =
-      move === 'approve' ? 'APPROVED'
-      : move === 'reject' ? 'REJECTED'
-      : move === 'hide' ? 'HIDDEN'
-      : move === 'delete' ? 'DELETED'
-      : review.status === 'HIDDEN' ? 'APPROVED'
-      : 'PENDING';
+      move === 'approve'
+        ? 'APPROVED'
+        : move === 'reject'
+          ? 'REJECTED'
+          : move === 'hide'
+            ? 'HIDDEN'
+            : move === 'delete'
+              ? 'DELETED'
+              : review.status === 'HIDDEN'
+                ? 'APPROVED'
+                : 'PENDING';
 
-    const data: Prisma.VehicleReviewUncheckedUpdateManyInput = { status: next, moderatedById: admin.id };
-    if (next === 'APPROVED') Object.assign(data, { approvedAt: now, hiddenAt: null, rejectedAt: null, rejectionReason: null, rejectionNote: null });
+    const data: Prisma.VehicleReviewUncheckedUpdateManyInput = {
+      status: next,
+      moderatedById: admin.id,
+    };
+    if (next === 'APPROVED')
+      Object.assign(data, {
+        approvedAt: now,
+        hiddenAt: null,
+        rejectedAt: null,
+        rejectionReason: null,
+        rejectionNote: null,
+      });
     if (next === 'REJECTED') {
-      Object.assign(data, { rejectedAt: now, rejectionReason: extra.rejection!.reason, rejectionNote: extra.rejection!.note });
+      Object.assign(data, {
+        rejectedAt: now,
+        rejectionReason: extra.rejection!.reason,
+        rejectionNote: extra.rejection!.note,
+      });
     }
     if (next === 'HIDDEN') Object.assign(data, { hiddenAt: now });
     if (next === 'DELETED') Object.assign(data, { deletedAt: now });
@@ -307,11 +370,19 @@ export class ReviewsAdminService {
     // Only if it is still in the state this moderator saw: two moderators
     // acting at once cannot both win.
     await this.prisma.$transaction(async (tx) => {
-      const changed = await tx.vehicleReview.updateMany({ where: { id, status: review.status }, data });
-      if (changed.count !== 1) throw new ConflictException('Someone else changed this review; reload it');
+      const changed = await tx.vehicleReview.updateMany({
+        where: { id, status: review.status },
+        data,
+      });
+      if (changed.count !== 1)
+        throw new ConflictException('Someone else changed this review; reload it');
       if (move === 'approve' && review.userId) {
         const sale = await tx.vehicleSale.findFirst({
-          where: { vehicleId: review.vehicleId, status: 'POSTED', customer: { userId: review.userId } },
+          where: {
+            vehicleId: review.vehicleId,
+            status: 'POSTED',
+            customer: { userId: review.userId },
+          },
           select: { id: true },
         });
         await tx.vehicleReview.update({ where: { id }, data: { verifiedPurchase: !!sale } });
@@ -328,13 +399,19 @@ export class ReviewsAdminService {
       });
     });
 
-    if (review.status === 'APPROVED' || next === 'APPROVED') await this.redis.del(summaryCacheKey(review.vehicleId));
+    if (review.status === 'APPROVED' || next === 'APPROVED')
+      await this.redis.del(summaryCacheKey(review.vehicleId));
     await this.redis.del(METRICS_KEY);
     const event = `review.${rule.action.toLowerCase()}`;
     this.logger.log(`${event} id=${id} from=${review.status} to=${next}`);
     await this.recordAudit(admin, event, id, { from: review.status, to: next });
 
-    if (this.notifyAuthor && review.userId && (next === 'APPROVED' || next === 'REJECTED') && review.status === 'PENDING') {
+    if (
+      this.notifyAuthor &&
+      review.userId &&
+      (next === 'APPROVED' || next === 'REJECTED') &&
+      review.status === 'PENDING'
+    ) {
       await this.notifications
         .notify({
           userId: review.userId,
@@ -346,14 +423,17 @@ export class ReviewsAdminService {
               : `Your review of the ${review.vehicle.title} did not meet our review guidelines, so it was not published.`,
           link: `/vehicles/${review.vehicle.slug}#reviews`,
         })
-        .catch((error: unknown) => this.logger.warn(`review notification failed: ${String(error)}`));
+        .catch((error: unknown) =>
+          this.logger.warn(`review notification failed: ${String(error)}`),
+        );
     }
     return this.get(id);
   }
 
   private listWhere(query: AdminReviewListQuery): Prisma.VehicleReviewWhereInput {
     const and: Prisma.VehicleReviewWhereInput[] = [];
-    if (query.view === 'REPORTED') and.push({ openReportCount: { gt: 0 }, status: { not: 'DELETED' } });
+    if (query.view === 'REPORTED')
+      and.push({ openReportCount: { gt: 0 }, status: { not: 'DELETED' } });
     else if (query.view === 'ALL') and.push({ status: { not: 'DELETED' } });
     else and.push({ status: query.view });
     if (query.rating) and.push({ rating: query.rating });
@@ -361,7 +441,8 @@ export class ReviewsAdminService {
     if (query.author === 'AUTHENTICATED') and.push({ userId: { not: null } });
     if (query.vehicleId) and.push({ vehicleId: query.vehicleId });
     if (query.from) and.push({ createdAt: { gte: new Date(`${query.from}T00:00:00Z`) } });
-    if (query.to) and.push({ createdAt: { lt: new Date(new Date(`${query.to}T00:00:00Z`).getTime() + DAY) } });
+    if (query.to)
+      and.push({ createdAt: { lt: new Date(new Date(`${query.to}T00:00:00Z`).getTime() + DAY) } });
     if (query.q) {
       const q = query.q;
       and.push({
@@ -377,7 +458,12 @@ export class ReviewsAdminService {
     return { AND: and };
   }
 
-  private recordAudit(admin: AuthUser, action: string, reviewId: string, metadata?: Record<string, unknown>) {
+  private recordAudit(
+    admin: AuthUser,
+    action: string,
+    reviewId: string,
+    metadata?: Record<string, unknown>,
+  ) {
     return this.audit.record({
       actorId: admin.id,
       actorEmail: admin.email,
@@ -409,5 +495,11 @@ function toRow(row: Row): AdminReviewRow {
 }
 
 function pastTense(move: Move): string {
-  return { approve: 'approved', reject: 'rejected', hide: 'hidden', restore: 'restored', delete: 'deleted' }[move];
+  return {
+    approve: 'approved',
+    reject: 'rejected',
+    hide: 'hidden',
+    restore: 'restored',
+    delete: 'deleted',
+  }[move];
 }

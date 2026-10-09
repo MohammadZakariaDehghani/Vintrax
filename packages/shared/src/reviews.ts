@@ -133,7 +133,7 @@ const displayNameSchema = z
   })
   .refine((value) => value === '' || value.length >= 2, { message: 'Use at least 2 characters' })
   .refine((value) => value === '' || /^[\p{L}\p{N} .'’-]+$/u.test(value), {
-    message: 'Use letters, numbers, spaces and . \' - only',
+    message: "Use letters, numbers, spaces and . ' - only",
   })
   .transform((value) => value || null);
 
@@ -201,7 +201,15 @@ export type ReviewReportInput = z.infer<typeof reviewReportSchema>;
 
 // --- Admin ----------------------------------------------------------------------------
 
-export const ADMIN_REVIEW_VIEWS = ['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'HIDDEN', 'DELETED', 'REPORTED'] as const;
+export const ADMIN_REVIEW_VIEWS = [
+  'ALL',
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+  'HIDDEN',
+  'DELETED',
+  'REPORTED',
+] as const;
 export type AdminReviewView = (typeof ADMIN_REVIEW_VIEWS)[number];
 
 const isoDate = z
@@ -248,7 +256,9 @@ export const reviewModerationNoteSchema = z
       .nullable()
       .transform((value) => value || null),
   })
-  .strict();
+  .strict()
+  // An action with nothing to say sends no body at all.
+  .default({});
 export type ReviewModerationNoteInput = z.infer<typeof reviewModerationNoteSchema>;
 
 export const REVIEW_BULK_ACTIONS = ['APPROVE', 'REJECT', 'HIDE', 'DELETE'] as const;

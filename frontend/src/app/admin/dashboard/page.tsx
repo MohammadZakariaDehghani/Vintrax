@@ -1,8 +1,16 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Building2, Car, DollarSign, Gavel, ShieldAlert, Users } from 'lucide-react';
-import type { AdminAnalytics, AuditLogEntry, Paginated } from '@vintrax/shared';
+import {
+  Building2,
+  Car,
+  DollarSign,
+  Gavel,
+  MessageSquareText,
+  ShieldAlert,
+  Users,
+} from 'lucide-react';
+import type { AdminAnalytics, AuditLogEntry, Paginated, ReviewMetrics } from '@vintrax/shared';
 import { api } from '@/lib/api-client';
 import { formatRelativeTime } from '@/lib/utils';
 import {
@@ -23,6 +31,12 @@ function AdminDashboard() {
   const { data, isPending, error } = useQuery({
     queryKey: ['admin-analytics'],
     queryFn: () => api.get<AdminAnalytics>('/admin/analytics'),
+  });
+
+  // Its own small cached endpoint, so the platform analytics stay as they were.
+  const { data: reviews } = useQuery({
+    queryKey: ['admin-reviews-metrics'],
+    queryFn: () => api.get<ReviewMetrics>('/admin/reviews/metrics'),
   });
 
   const { data: audit } = useQuery({
@@ -48,7 +62,7 @@ function AdminDashboard() {
           none — pending dealers and listings awaiting review — were exactly
           the two that needed acting on. "Sold this month" has no matching
           page to link to; it is read only. */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <StatTile
           label="Total users"
           value={data?.totalUsers ?? 0}
@@ -83,6 +97,13 @@ function AdminDashboard() {
           hint="Listings to moderate"
           icon={ShieldAlert}
           href="/admin/moderation"
+        />
+        <StatTile
+          label="Reviews to approve"
+          value={reviews?.pending ?? 0}
+          hint={reviews?.reported ? `${reviews.reported} reported` : 'Vehicle reviews'}
+          icon={MessageSquareText}
+          href="/admin/reviews"
         />
         <StatTile
           label="Sold this month"

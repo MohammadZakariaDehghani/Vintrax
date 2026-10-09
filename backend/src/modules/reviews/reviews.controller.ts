@@ -44,7 +44,9 @@ export class ReviewsController {
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Approved reviews, a page at a time; the first page carries the rating summary' })
+  @ApiOperation({
+    summary: 'Approved reviews, a page at a time; the first page carries the rating summary',
+  })
   list(
     @Param('vehicleId', ParseUUIDPipe) vehicleId: string,
     @Query(zodQuery(reviewListQuerySchema)) query: ReviewListQuery,
