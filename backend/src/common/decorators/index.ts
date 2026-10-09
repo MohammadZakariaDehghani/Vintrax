@@ -56,12 +56,13 @@ export const RequestId = createParamDecorator((_data: unknown, ctx: ExecutionCon
   return request.requestId ?? 'unknown';
 });
 
-/** Injects the caller's IP, honouring the proxy headers set by a load balancer. */
+/**
+ * Injects the caller's IP. Express resolves it from X-Forwarded-For using the
+ * `trust proxy` setting in main.ts, which counts hops from the right: the
+ * address the trusted proxy saw. Reading the header's first entry instead
+ * would take whatever a client chose to send, since Nginx appends to it.
+ */
 export const ClientIp = createParamDecorator((_data: unknown, ctx: ExecutionContext): string => {
   const request = ctx.switchToHttp().getRequest<Request>();
-  const forwarded = request.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0]!.trim();
-  }
   return request.ip ?? 'unknown';
 });
