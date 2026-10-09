@@ -57,6 +57,11 @@ export const PERMISSIONS = [
   // Working the support desk: tickets, internal notes, admin tasks, the
   // dealer/user 360 views and the support CRM settings.
   'support:manage',
+  // Vehicle reviews: reading the moderation queue, approving, rejecting and
+  // hiding, and deleting. Separate so a role can read without moderating.
+  'review:read',
+  'review:moderate',
+  'review:delete',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -105,6 +110,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'audit:read',
     'content:manage',
     'support:manage',
+    'review:read',
+    'review:moderate',
+    'review:delete',
   ],
   SUPER_ADMIN: PERMISSIONS,
 };
@@ -551,6 +559,8 @@ export const NOTIFICATION_TYPES = [
   'CRM_TASK',
   'CRM_APPOINTMENT',
   'SUPPORT_TICKET',
+  'REVIEW_APPROVED',
+  'REVIEW_REJECTED',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

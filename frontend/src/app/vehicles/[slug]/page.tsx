@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { AlertTriangle, ChevronRight, MapPin, ShieldCheck } from 'lucide-react';
-import type { VehicleDetail } from '@vintrax/shared';
+import type { PublicReviewPage, VehicleDetail } from '@vintrax/shared';
 import {
   ADVERSE_TITLE_STATUSES,
   TITLE_STATUS_LABELS,
@@ -12,7 +12,7 @@ import {
 } from '@vintrax/shared';
 import { serverFetch } from '@/lib/api-client';
 import { absoluteUrl } from '@/lib/site-url';
-import { jsonLdScript, vehicleStructuredData } from '@/lib/vehicle-structured-data';
+import { jsonLdScript, vehicleStructuredData, withReviews } from '@/lib/vehicle-structured-data';
 import { formatDate, formatEnum, formatKm, formatLocation, formatPrice } from '@/lib/utils';
 import { vehicleFacts, vehicleSubtitle } from '@/lib/vehicle-facts';
 import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
@@ -23,6 +23,7 @@ import { VehicleDocuments } from '@/components/vehicle-documents';
 import { DescriptionBody } from '@/components/description-body';
 import { VehicleHistory } from '@/components/vehicle-history';
 import { CompareButton } from '@/components/compare-button';
+import { VehicleReviews } from '@/components/reviews/vehicle-reviews';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -53,6 +54,11 @@ export default async function VehicleDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const vehicle = await serverFetch<VehicleDetail>(`/vehicles/${slug}`);
   if (!vehicle) notFound();
+
+  // The first page of approved reviews, server-rendered so search engines and
+  // people without JavaScript see them. A separate request: the vehicle itself
+  // does not wait on, or carry, its reviews.
+  const reviews = await serverFetch<PublicReviewPage>(`/vehicles/${vehicle.id}/reviews?limit=5`);
 
   const facts = vehicleFacts(vehicle);
   // Framed from the video id alone, on YouTube's no-cookie player.
@@ -123,10 +129,9 @@ export default async function VehicleDetailPage({ params }: PageProps) {
     ...(vehicle.vin ? ([['VIN', vehicle.vin]] as Array<[string, string]>) : []),
   ];
 
-  const structuredData = vehicleStructuredData(
-    vehicle,
-    absoluteUrl(`/vehicles/${vehicle.slug}`),
-    absoluteUrl,
+  const structuredData = withReviews(
+    vehicleStructuredData(vehicle, absoluteUrl(`/vehicles/${vehicle.slug}`), absoluteUrl),
+    reviews,
   );
 
   return (
@@ -338,6 +343,15 @@ export default async function VehicleDetailPage({ params }: PageProps) {
           </p>
         </div>
       </div>
+
+      {/* Below the vehicle information, full width. Absent when the listing
+          is not public (a draft, for example), since only public listings
+          take reviews. */}
+      {reviews ? (
+        <div className="mt-8">
+          <VehicleReviews vehicleId={vehicle.id} vehicleTitle={vehicle.title} initial={reviews} />
+        </div>
+      ) : null}
     </div>
   );
 }

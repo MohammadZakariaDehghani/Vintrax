@@ -1309,3 +1309,57 @@ Details: [accounting.md](./accounting.md).
   a support ticket, once per database, and sends no email.
 
 Details: [crm.md](./crm.md).
+
+## D-067 — Vehicle Reviews Are Pre-Moderated, Anonymous-Friendly, and Rated Only From Approved Reviews
+
+**Status:** Accepted, at the owner's request (issue #106).
+
+**Decision:**
+
+- **A module of its own on the existing stack.** `backend/src/modules/reviews`
+  adds three tables in one additive migration and uses the existing auth,
+  permission guard, audit log, notifications and Redis cache.
+- **Every review is pre-moderated.** Every review starts `PENDING`. Only
+  `APPROVED` reviews are listed, counted in the rating or put in structured
+  data. Deletion is soft, and every state change is written to a
+  per-review moderation history and to the audit log.
+- **Anonymous posting is allowed and protected.** The defences are:
+  - a honeypot;
+  - per-address hourly, pending and report limits counted in Postgres;
+  - duplicate-text detection;
+  - flags for the moderator.
+
+  Addresses and user agents are stored only as HMACs. There is no CAPTCHA,
+  because Vintrax has none to reuse.
+
+- **The public sees only public fields.** A public review is its id,
+  rating, text, display name, verified-purchase flag, date and edited flag.
+  Admin data (author email, reports, history, the rejection reason) is only
+  on `/admin/reviews` behind the new `review:read`, `review:moderate` and
+  `review:delete` permissions.
+- **"Verified purchase" requires the books to prove it.** It shows only when a
+  posted `VehicleSale` of the vehicle went to a `Customer` linked to the
+  author's account.
+- **Client IP from `req.ip`.** `ClientIp` and the audit trail now take the
+  address Express resolves under `trust proxy`, not the first
+  `X-Forwarded-For` entry, which a client controls.
+
+**Rationale:** The issue asked for a production feature that is open to
+anonymous visitors without becoming a spam channel. It also asked that
+public ratings are honest and that private data never leaks.
+
+- Pre-moderation plus server-side limits and fingerprints covers abuse
+  without adding a dependency.
+- Counting limits in the database keeps them exact across API instances
+  and when Redis is down.
+
+**Consequences:**
+
+- **Moderator workload.** A moderator must approve each review before it
+  shows. Pending reviews are on the admin dashboard.
+- **Shared addresses.** People behind one network address share the
+  per-address limits.
+- **The vehicle page.** It makes one extra server request for the first
+  page of reviews. The vehicle API is unchanged.
+
+Details: [reviews.md](./reviews.md).

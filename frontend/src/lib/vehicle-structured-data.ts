@@ -1,4 +1,4 @@
-import type { VehicleDetail } from '@vintrax/shared';
+import type { PublicReviewPage, VehicleDetail } from '@vintrax/shared';
 
 const BODY_TYPE: Partial<Record<VehicleDetail['bodyType'], string>> = {
   SEDAN: 'Sedan',
@@ -109,6 +109,42 @@ export function vehicleStructuredData(
     };
   }
   return data;
+}
+
+/**
+ * Adds the vehicle's approved reviews to its `Car` markup: the rating over
+ * every approved review, and the approved reviews shown on the page. Nothing
+ * is added without an approved review, so the markup never claims a rating
+ * the page does not show. Authors appear by the name shown on the page only.
+ */
+export function withReviews(
+  data: Record<string, unknown>,
+  reviews: PublicReviewPage | null,
+): Record<string, unknown> {
+  const summary = reviews?.summary;
+  if (!reviews || !summary || !summary.total || summary.average === null) return data;
+  return {
+    ...data,
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: summary.average,
+      reviewCount: summary.total,
+      bestRating: 5,
+      worstRating: 1,
+    },
+    review: reviews.reviews.map((review) => ({
+      '@type': 'Review',
+      reviewRating: {
+        '@type': 'Rating',
+        ratingValue: review.rating,
+        bestRating: 5,
+        worstRating: 1,
+      },
+      author: { '@type': 'Person', name: review.displayName },
+      datePublished: review.createdAt.slice(0, 10),
+      reviewBody: review.content,
+    })),
+  };
 }
 
 /**

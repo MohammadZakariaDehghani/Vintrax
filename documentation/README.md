@@ -17,6 +17,7 @@ how to work on it, and where it goes next.
 | Uploading or serving vehicle photos        | [Vehicle images](./images.md)                        |
 | Keeping a dealership's books               | [Dealer accounting](./accounting.md)                 |
 | Leads, follow-up and the support desk      | [CRM](./crm.md)                                      |
+| Vehicle reviews and their moderation       | [Vehicle reviews](./reviews.md)                      |
 | Deploying to a server                      | [Docker and production deployment](./docker.md)      |
 | Surveying the deployment options           | [Deployment](./deployment.md)                        |
 | Wondering why something is the way it is   | [Decision Log](./decision-log.md)                    |
@@ -42,6 +43,8 @@ how to work on it, and where it goes next.
 - **[CRM](./crm.md)** — the Dealer CRM (leads, follow-up, email, consent,
   automations, campaigns) and Vintrax's support desk (tickets, Dealer 360,
   User 360).
+- **[Vehicle reviews](./reviews.md)** — reviews and comments on vehicle pages:
+  moderation, abuse limits, reports, verified purchases and the admin queue.
 - **[Brand](./brand.md)** — the mark, the palette, and why red is not a brand
   colour here.
 - **[Roles and transaction flows](./transaction-flow.md)** — the permission

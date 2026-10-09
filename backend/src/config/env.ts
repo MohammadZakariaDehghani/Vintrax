@@ -198,6 +198,23 @@ const baseEnvSchema = z.object({
       'SUPPORT_REPLY_TO must be an email address',
     ),
 
+  // --- Vehicle reviews (D-067) ---
+  /** Reviews one network address may send in an hour, signed in or not. */
+  REVIEW_MAX_PER_IP_PER_HOUR: z.coerce.number().int().min(1).max(1000).default(5),
+  /** Reviews from one address that may wait for moderation at once. */
+  REVIEW_MAX_PENDING_PER_IP: z.coerce.number().int().min(1).max(1000).default(3),
+  /** Reports one network address may send in an hour. */
+  REVIEW_MAX_REPORTS_PER_IP_PER_HOUR: z.coerce.number().int().min(1).max(1000).default(10),
+  /** The same text on the same vehicle within this many hours is a duplicate. */
+  REVIEW_DUPLICATE_WINDOW_HOURS: z.coerce.number().int().min(1).max(8760).default(72),
+  /** Open reports that flag an approved review for another look. */
+  REVIEW_AUTO_FLAG_REPORT_THRESHOLD: z.coerce.number().int().min(1).max(1000).default(3),
+  /** Tell a signed-in author, in the app, when their review is approved or rejected. */
+  REVIEW_NOTIFY_AUTHOR: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
   // --- Rate limiting ---
   RATE_LIMIT_TTL_MS: z.coerce.number().int().min(1000).default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),

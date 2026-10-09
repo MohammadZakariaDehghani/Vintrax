@@ -19,6 +19,7 @@ import {
   Newspaper,
   PanelBottom,
   ShieldAlert,
+  Star,
   Tag,
   Users,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ import { api } from '@/lib/api-client';
 const LINKS = [
   { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/moderation', label: 'Moderation', icon: ShieldAlert },
+  { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/dealers', label: 'Dealerships', icon: Building2 },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper },

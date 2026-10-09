@@ -192,6 +192,8 @@ enum NotificationType {
   CRM_TASK
   CRM_APPOINTMENT
   SUPPORT_TICKET
+  REVIEW_APPROVED
+  REVIEW_REJECTED
 }
 
 enum NotificationChannel {
@@ -325,6 +327,11 @@ model User {
   supportTicketsAssigned  SupportTicket[]             @relation("SupportTicketAssignee")
   supportTicketMessages   SupportTicketMessage[]      @relation("SupportTicketMessageAuthor")
   adminTasksAssigned      AdminTask[]                 @relation("AdminTaskAssignee")
+
+  vehicleReviews          VehicleReview[]              @relation("VehicleReviewAuthor")
+  vehicleReviewsModerated VehicleReview[]              @relation("VehicleReviewModerator")
+  vehicleReviewReports    VehicleReviewReport[]        @relation("VehicleReviewReporter")
+  vehicleReviewActions    VehicleReviewModerationLog[] @relation("VehicleReviewActor")
 
   @@index([role, status])
   @@index([status, createdAt])
@@ -619,6 +626,8 @@ model Vehicle {
   // many vehicles with no stock number are unaffected.
   crmLeads        CrmLead[]        @relation("CrmLeadVehicle")
   crmAppointments CrmAppointment[] @relation("CrmAppointmentVehicle")
+
+  reviews VehicleReview[]
 
   @@unique([sellerId, stockNumber])
   // Search almost always constrains status first, so it leads the composite
@@ -3867,4 +3876,139 @@ model AdminTask {
   @@index([status, dueAt])
   @@index([dealerId])
   @@index([subjectUserId])
+}
+
+// --- Vehicle reviews (issue #106, D-067) ----------------------------------------------------
+
+enum VehicleReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+  DELETED
+}
+
+enum VehicleReviewReportReason {
+  SPAM
+  OFFENSIVE
+  HARASSMENT
+  FAKE_REVIEW
+  INCORRECT_INFORMATION
+  PERSONAL_INFORMATION
+  OTHER
+}
+
+enum VehicleReviewRejectionReason {
+  SPAM
+  INAPPROPRIATE
+  IRRELEVANT
+  DUPLICATE
+  PERSONAL_INFORMATION
+  OTHER
+}
+
+enum VehicleReviewAction {
+  SUBMITTED
+  EDITED
+  APPROVED
+  REJECTED
+  HIDDEN
+  RESTORED
+  DELETED
+  REPORTS_RESOLVED
+}
+
+/// A review of one vehicle, by a signed-in user or anonymously. Nothing is
+/// public until an administrator approves it. Only APPROVED reviews count
+/// towards the public rating. Deletion is soft: the row and its history stay.
+model VehicleReview {
+  id        String  @id @default(uuid()) @db.Uuid
+  vehicleId String  @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  /// Null for an anonymous review, or once the account is deleted.
+  userId    String? @db.Uuid
+  user      User?   @relation("VehicleReviewAuthor", fields: [userId], references: [id], onDelete: SetNull)
+
+  /// What the review is signed with: a nickname, or "Anonymous".
+  displayName      String              @db.VarChar(40)
+  /// 1 to 5, enforced by a CHECK constraint.
+  rating           Int                 @db.SmallInt
+  content          String              @db.Text
+  /// SHA-256 of the normalised, lower-cased text, for duplicate detection.
+  contentHash      String              @db.Char(64)
+  status           VehicleReviewStatus @default(PENDING)
+  /// Proven by a posted sale of this vehicle to a customer linked to the author.
+  verifiedPurchase Boolean             @default(false)
+  /// Heuristic signals for the moderator (links, contact details, …).
+  flags            String[]            @default([])
+
+  /// HMAC of the sender's IP address and user agent — never the raw values.
+  ipHash        String? @db.Char(64)
+  userAgentHash String? @db.Char(64)
+
+  reportCount     Int       @default(0)
+  openReportCount Int       @default(0)
+  /// Set when open reports reach the auto-flag threshold; cleared on resolve.
+  flaggedAt       DateTime?
+
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason VehicleReviewRejectionReason?
+  rejectionNote   String?                       @db.VarChar(500)
+  hiddenAt        DateTime?
+  deletedAt       DateTime?
+  /// The administrator who last changed the status.
+  moderatedById   String?                       @db.Uuid
+  moderatedBy     User?                         @relation("VehicleReviewModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+  editedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reports VehicleReviewReport[]
+  history VehicleReviewModerationLog[]
+
+  @@index([vehicleId, status, createdAt])
+  @@index([vehicleId, status, rating])
+  @@index([status, createdAt])
+  @@index([userId, vehicleId])
+  @@index([ipHash, createdAt])
+  @@index([vehicleId, contentHash])
+  @@index([flaggedAt])
+}
+
+/// A report of a review by a visitor. One per account, or per address for
+/// anonymous visitors, per review.
+model VehicleReviewReport {
+  id           String                    @id @default(uuid()) @db.Uuid
+  reviewId     String                    @db.Uuid
+  review       VehicleReview             @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId       String?                   @db.Uuid
+  user         User?                     @relation("VehicleReviewReporter", fields: [userId], references: [id], onDelete: SetNull)
+  /// HMAC of the reporter's address: the anonymous reporter's identity, and a rate-limit key.
+  reporterHash String                    @db.Char(64)
+  reason       VehicleReviewReportReason
+  details      String?                   @db.VarChar(500)
+  resolvedAt   DateTime?
+  createdAt    DateTime                  @default(now())
+
+  @@index([reviewId, resolvedAt])
+  @@index([reporterHash, createdAt])
+}
+
+/// Every change of a review's state: who, when, from what, to what, and why.
+model VehicleReviewModerationLog {
+  id             String               @id @default(uuid()) @db.Uuid
+  reviewId       String               @db.Uuid
+  review         VehicleReview        @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  /// The administrator, or the author for SUBMITTED / EDITED / their own DELETED; null for an anonymous author.
+  actorId        String?              @db.Uuid
+  actor          User?                @relation("VehicleReviewActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action         VehicleReviewAction
+  previousStatus VehicleReviewStatus?
+  newStatus      VehicleReviewStatus
+  reason         String?              @db.VarChar(500)
+  createdAt      DateTime             @default(now())
+
+  @@index([reviewId, createdAt])
 }
