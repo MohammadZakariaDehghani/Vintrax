@@ -14,9 +14,12 @@ jobs:
     name: Typecheck, test and build
     runs-on: ubuntu-latest
 
+    # Service images come from AWS ECR Public's mirror of the Docker official
+    # images, not Docker Hub: Hub's unauthenticated pull limit is shared by
+    # the runner's IP and fails the job before any step runs.
     services:
       postgres:
-        image: postgres:16-alpine
+        image: public.ecr.aws/docker/library/postgres:16-alpine
         env:
           POSTGRES_USER: vintrax
           POSTGRES_PASSWORD: vintrax
@@ -27,7 +30,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 12
 
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping"
@@ -110,14 +113,16 @@ jobs:
 
       # Trivy runs from its published image rather than the marketplace action:
       # the runner already has Docker, and this pins the scanner itself to an
-      # exact version instead of pinning an action that wraps it.
+      # exact version instead of pinning an action that wraps it. The image is
+      # pulled from GHCR (Aqua's own registry) rather than Docker Hub, whose
+      # unauthenticated pull limit the shared runner IPs keep hitting.
       - name: Scan filesystem for vulnerabilities, secrets and misconfiguration
         run: |
           mkdir -p trivy-report
           docker run --rm \
             -v "$PWD:/workspace:ro" \
             -v "$PWD/trivy-report:/report" \
-            aquasec/trivy:0.73.0 filesystem /workspace \
+            ghcr.io/aquasecurity/trivy:0.73.0 filesystem /workspace \
               --scanners vuln,secret,misconfig \
               --severity HIGH,CRITICAL \
               --ignore-unfixed \
@@ -126,7 +131,7 @@ jobs:
               --output /report/trivy.json
           docker run --rm \
             -v "$PWD/trivy-report:/report" \
-            aquasec/trivy:0.73.0 convert --format table /report/trivy.json
+            ghcr.io/aquasecurity/trivy:0.73.0 convert --format table /report/trivy.json
 
       # Reported, not enforced. Code scanning would be the natural home for
       # these findings, but SARIF upload needs Advanced Security, which this
