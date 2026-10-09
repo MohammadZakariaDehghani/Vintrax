@@ -17,7 +17,10 @@
 # which issue #67 reverted back to five badges the dealer sets directly (see
 # D-047, superseded). Nothing in this image talks to a browser any more, so
 # there is no more reason to carry Chromium's own dependency footprint.
-FROM node:22-alpine AS base
+# node:22-alpine from AWS ECR Public's mirror of the Docker official images:
+# the same image as Docker Hub's, without Hub's unauthenticated pull limit,
+# which shared CI runners hit.
+FROM public.ecr.aws/docker/library/node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 WORKDIR /app
 
@@ -62,7 +65,7 @@ COPY backend/prisma ./backend/prisma
 RUN pnpm --filter @vintrax/backend exec prisma generate
 
 # ---- Runtime ----------------------------------------------------------------
-FROM node:22-alpine AS runtime
+FROM public.ecr.aws/docker/library/node:22-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
