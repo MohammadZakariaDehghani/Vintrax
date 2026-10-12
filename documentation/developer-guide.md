@@ -21,8 +21,8 @@ corepack enable && corepack prepare pnpm@10.33.0 --activate
 ### Ubuntu
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
-cd Vintrax
+git clone https://github.com/variety-project-labs/Vintrax-MarketPlace.git
+cd Vintrax-MarketPlace
 ./scripts/setup-ubuntu.sh --mode dev
 ```
 
@@ -35,8 +35,8 @@ never overwrites an existing `.env`. See
 ### Every other platform
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
-cd Vintrax
+git clone https://github.com/variety-project-labs/Vintrax-MarketPlace.git
+cd Vintrax-MarketPlace
 
 pnpm install
 cp .env.example .env

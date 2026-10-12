@@ -20,8 +20,8 @@ corepack enable && corepack prepare pnpm@10.33.0 --activate
 ## Setup
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
-cd Vintrax
+git clone https://github.com/variety-project-labs/Vintrax-MarketPlace.git
+cd Vintrax-MarketPlace
 
 pnpm install
 cp .env.example .env

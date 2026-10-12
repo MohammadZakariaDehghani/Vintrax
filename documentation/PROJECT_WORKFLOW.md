@@ -30,10 +30,10 @@ control and are applied by `project-setup.yml`; a GitHub Project is account-leve
 data, and the `GITHUB_TOKEN` available to Actions cannot create or modify one.
 So it is made by hand, once:
 
-1. github.com/MohammadZakariaDehghani?tab=projects → **New project** → **Board**
+1. github.com/orgs/variety-project-labs/projects → **New project** → **Board**
 2. Name it **Vintrax Development**
 3. Rename the default columns to: Backlog, Todo, In Progress, Review, Testing, Done
-4. Settings → **Manage access** → add the `Vintrax` repository
+4. Settings → **Manage access** → add the `Vintrax-MarketPlace` repository
 5. Workflows → enable the built-in ones listed below
 
 ### What automation is actually reliable

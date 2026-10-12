@@ -209,16 +209,24 @@ sudo mkdir -p /opt/vintrax/{compose,env,scripts,state,backups}
 sudo chown -R "$USER":"$USER" /opt/vintrax
 ```
 
-Copy four things from the repository — you do **not** need to clone it here:
+Copy four things from the repository — you do **not** need to clone it here.
+The canonical repository, `variety-project-labs/Vintrax-MarketPlace`, is
+private, so the raw files need a token that can read its contents (a
+fine-grained token with **Contents: read** on that one repository). Read it
+into a variable rather than typing it on the command line, so it stays out of
+the shell history:
 
 ```bash
-BASE=https://raw.githubusercontent.com/MohammadZakariaDehghani/Vintrax/main
-curl -fsSL "$BASE/compose/docker-compose.prod.yml" -o /opt/vintrax/compose/docker-compose.prod.yml
+read -rs GITHUB_TOKEN     # paste the token; nothing is echoed
+BASE=https://raw.githubusercontent.com/variety-project-labs/Vintrax-MarketPlace/main
+fetch() { curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" "$BASE/$1" -o "$2"; }
+fetch compose/docker-compose.prod.yml /opt/vintrax/compose/docker-compose.prod.yml
 for s in deploy rollback backup-db restore-db; do
-  curl -fsSL "$BASE/scripts/$s.sh" -o "/opt/vintrax/scripts/$s.sh"
+  fetch "scripts/$s.sh" "/opt/vintrax/scripts/$s.sh"
 done
 chmod +x /opt/vintrax/scripts/*.sh
-curl -fsSL "$BASE/.env.production.example" -o /opt/vintrax/env/vintrax.env
+fetch .env.production.example /opt/vintrax/env/vintrax.env
+unset GITHUB_TOKEN
 ```
 
 ### 3.5 Configuration
@@ -248,12 +256,21 @@ rather than a crash loop.
 The images are private unless the packages are made public, so log in once:
 
 ```bash
-# A classic personal access token with the `read:packages` scope.
+# A classic personal access token with the `read:packages` scope, belonging to
+# an account that can read the variety-project-labs packages. If the
+# organisation enforces SAML SSO, authorise the token for it as well.
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 ```
 
 Credentials land in `~/.docker/config.json`. If the packages are public
 instead, skip this — anonymous pulls work.
+
+`IMAGE_NAMESPACE` in `vintrax.env` must be the lower-cased owner of the
+repository that publishes the images — `variety-project-labs` for the
+canonical repository. The release workflow derives the namespace from the
+repository owner, so a server whose `IMAGE_NAMESPACE` names a different owner
+pulls a tag that was never published there. Changing it on a running server is
+part of a repository move — see [repository-migration.md](./repository-migration.md).
 
 ### 3.7 First deployment
 
@@ -287,11 +304,14 @@ systemctl list-timers | grep certbot     # renewal is automatic
 sudo certbot renew --dry-run             # prove it
 ```
 
-Finally, set `NEXT_PUBLIC_WS_URL` to `https://your-real-domain.com` as a
-repository variable in GitHub and re-run the release workflow. WebSockets
-cannot go through Next's rewrite proxy, so the browser connects to that origin
-directly and Nginx proxies `/socket.io/` to the API. Until it is set, live
-auctions will not connect.
+`NEXT_PUBLIC_WS_URL` is a repository variable in GitHub, compiled into the web
+image. WebSockets cannot go through Next's rewrite proxy, so the socket clients
+address an origin directly and Nginx proxies `/socket.io/` to the API. **Left
+unset**, the clients connect to the page's own origin (`io('/auctions')`,
+`io('/messages')`), which is correct whenever the site and `/socket.io/` are
+served by the same Nginx host, as in the configuration above. Set it — to
+`https://your-real-domain.com`, then re-run the release workflow — only when
+sockets must reach a different origin.
 
 ---
 
@@ -338,6 +358,14 @@ cd /opt/vintrax/scripts && ./deploy.sh sha-d4e5f6g
 
 Nothing was installed on the server and nothing about it was reconfigured to
 make this work. The job needs only the SSH access that already existed.
+
+The canonical repository is
+[`variety-project-labs/Vintrax-MarketPlace`](https://github.com/variety-project-labs/Vintrax-MarketPlace).
+Its images publish to `ghcr.io/variety-project-labs/vintrax-{api,web,mobile}`,
+so the server's `IMAGE_NAMESPACE` must be `variety-project-labs`. Moving the
+pipeline from one repository to another — including from the earlier
+`MohammadZakariaDehghani/Vintrax` — is a step-by-step cutover in
+[repository-migration.md](./repository-migration.md).
 
 **Required repository secrets** — Settings → Secrets and variables → Actions:
 
@@ -642,8 +670,10 @@ on the page's own origin. Check that Nginx has the `/api/` block and is
 reloaded: `curl -I https://your-domain/api/health`.
 
 **Live auctions never connect.** `NEXT_PUBLIC_WS_URL` is compiled into the
-bundle. If it is empty or wrong, the socket has nowhere to go and no restart
-fixes it — set the repository variable and rebuild (§3.8). Also confirm Nginx's
+bundle. Empty means "the page's own origin", which needs Nginx to serve
+`/socket.io/` on that host; a wrong value sends the socket somewhere else, and
+no restart fixes either — correct the repository variable or the Nginx block
+and rebuild (§3.8). Also confirm Nginx's
 `/socket.io/` block forwards `Upgrade` and `Connection`; without them the
 connection silently degrades to polling that never upgrades.
 

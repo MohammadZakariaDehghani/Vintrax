@@ -761,7 +761,7 @@ install_systemd_units() {
   as_root tee /etc/systemd/system/vintrax-api.service >/dev/null <<UNIT
 [Unit]
 Description=Vintrax API
-Documentation=https://github.com/MohammadZakariaDehghani/Vintrax
+Documentation=https://github.com/variety-project-labs/Vintrax-MarketPlace
 After=network-online.target postgresql.service redis-server.service
 Wants=network-online.target postgresql.service redis-server.service
 
@@ -783,7 +783,7 @@ UNIT
   as_root tee /etc/systemd/system/vintrax-web.service >/dev/null <<UNIT
 [Unit]
 Description=Vintrax web
-Documentation=https://github.com/MohammadZakariaDehghani/Vintrax
+Documentation=https://github.com/variety-project-labs/Vintrax-MarketPlace
 After=network-online.target vintrax-api.service
 Wants=network-online.target
 
@@ -806,7 +806,7 @@ UNIT
   as_root tee /etc/systemd/system/vintrax-mobile.service >/dev/null <<UNIT
 [Unit]
 Description=Vintrax Mobile
-Documentation=https://github.com/MohammadZakariaDehghani/Vintrax
+Documentation=https://github.com/variety-project-labs/Vintrax-MarketPlace
 After=network-online.target vintrax-api.service
 Wants=network-online.target
 
