@@ -18,10 +18,13 @@
 # routes /api and /uploads to the API before Next sees them. It matters for the
 # bare compose stack, where Next is the only thing in front of the browser.
 
-# node:22-alpine from AWS ECR Public's mirror of the Docker official images:
-# the same image as Docker Hub's, without Hub's unauthenticated pull limit,
-# which shared CI runners hit.
-FROM public.ecr.aws/docker/library/node:22-alpine AS base
+# node:22-alpine, the Docker official image, pulled through Google's Docker Hub
+# mirror. Anonymous pulls from shared CI runners exhaust Docker Hub's rate limit
+# and ECR Public's data limit; the mirror serves the same image. NODE_IMAGE
+# overrides it in one place (--build-arg NODE_IMAGE=...) if this registry
+# becomes the problem instead.
+ARG NODE_IMAGE=mirror.gcr.io/library/node:22-alpine
+FROM ${NODE_IMAGE} AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 WORKDIR /app
 
@@ -60,7 +63,7 @@ RUN pnpm --filter @vintrax/shared build \
  && pnpm --filter @vintrax/frontend build
 
 # ---- Runtime ----------------------------------------------------------------
-FROM public.ecr.aws/docker/library/node:22-alpine AS runtime
+FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 # The traced server reads these rather than argv; `next start -p` is not what

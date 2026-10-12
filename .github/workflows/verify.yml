@@ -14,12 +14,13 @@ jobs:
     name: Typecheck, test and build
     runs-on: ubuntu-latest
 
-    # Service images come from AWS ECR Public's mirror of the Docker official
-    # images, not Docker Hub: Hub's unauthenticated pull limit is shared by
-    # the runner's IP and fails the job before any step runs.
+    # Service images are the Docker official images pulled through Google's
+    # Docker Hub mirror. Anonymous pulls from shared runner IPs exhaust Docker
+    # Hub's rate limit and ECR Public's data limit, and either fails the job
+    # before any step runs.
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16-alpine
+        image: mirror.gcr.io/library/postgres:16-alpine
         env:
           POSTGRES_USER: vintrax
           POSTGRES_PASSWORD: vintrax
@@ -30,7 +31,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 12
 
       redis:
-        image: public.ecr.aws/docker/library/redis:7-alpine
+        image: mirror.gcr.io/library/redis:7-alpine
         ports: ['6379:6379']
         options: >-
           --health-cmd "redis-cli ping"
