@@ -283,7 +283,8 @@ step "Pulling $VERSION"
 # Pull before stopping anything. A registry outage or a typo in the tag then
 # fails here, with the current version still serving traffic.
 if ! VINTRAX_VERSION="$VERSION" compose pull api web mobile; then
-  die "could not pull $VERSION. Check the tag exists in GHCR and that this machine is logged in (docker login ghcr.io)."
+  namespace=$(sed -n 's/^IMAGE_NAMESPACE=//p' "$ENV_FILE" | tail -n1)
+  die "could not pull $VERSION from ghcr.io/$namespace. Check that IMAGE_NAMESPACE in $ENV_FILE is the namespace the release published to (its Actions run summary names it), that the tag exists there, and that this machine is logged in (docker login ghcr.io)."
 fi
 ok "images for $VERSION are on this machine"
 

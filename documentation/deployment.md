@@ -21,9 +21,12 @@ Docker, Kubernetes and cloud deployment for Vintrax.
 ## Releasing
 
 A push to `main` runs `.github/workflows/release.yml`: the verification suite,
-then three image builds pushed to GHCR under an immutable `sha-` tag, then a
-`deploy` job that SSHes to the server and runs the existing
-`/opt/vintrax/scripts/deploy.sh` with that exact tag.
+then three image builds pushed to `ghcr.io/variety-project-labs/vintrax-{api,web,mobile}`
+under one immutable `sha-<commit>` tag, then a `deploy` job that SSHes to the
+server and runs the existing `/opt/vintrax/scripts/deploy.sh` with that exact
+tag. Before it does, the deploy job confirms all three images exist at the tag,
+and asks the server which images it would pull and whether it may read them;
+any disagreement stops the job with nothing changed.
 
 The four repository secrets it needs, how to pin the server's host key, how to
 make the first automatic release wait for an approval, and how to roll back are

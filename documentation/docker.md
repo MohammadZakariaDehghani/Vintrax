@@ -270,12 +270,14 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-s
 Credentials land in `~/.docker/config.json`. If the packages are public
 instead, skip this — anonymous pulls work.
 
-`IMAGE_NAMESPACE` in `vintrax.env` must be the lower-cased owner of the
-repository that publishes the images — `variety-project-labs` for the
-canonical repository. The release workflow derives the namespace from the
-repository owner, so a server whose `IMAGE_NAMESPACE` names a different owner
-pulls a tag that was never published there. Changing it on a running server is
-part of a repository move — see [repository-migration.md](./repository-migration.md).
+`IMAGE_NAMESPACE` in `vintrax.env` must be `variety-project-labs`, the value
+pinned as `IMAGE_NAMESPACE` at the top of `.github/workflows/release.yml`. The
+release publishes there (and refuses to run if that is not the repository's
+owner, the only namespace `GITHUB_TOKEN` can write to). Before it runs
+`deploy.sh`, the deploy job asks the server which images it would pull and
+whether it may read them, and stops — changing nothing — if the namespace
+differs or the login is missing. Changing it on a running server is part of a
+repository move — see [repository-migration.md](./repository-migration.md).
 
 ### 3.7 First deployment
 
