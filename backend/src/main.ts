@@ -22,6 +22,9 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     // The app's own logger; request logging belongs to the reverse proxy.
     logger: ['error', 'warn', 'log'],
+    // Keeps the unparsed request body beside the parsed one, for webhooks
+    // whose signature covers the exact bytes sent (POST /api/webhooks/resend).
+    rawBody: true,
   });
 
   const config = app.get(ConfigService<Env, true>);

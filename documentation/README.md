@@ -21,6 +21,7 @@ how to work on it, and where it goes next.
 | Deploying to a server                      | [Docker and production deployment](./docker.md)      |
 | Surveying the deployment options           | [Deployment](./deployment.md)                        |
 | Moving CI/CD to the canonical repository   | [Repository migration](./repository-migration.md)    |
+| Sending email, Resend, DNS and webhooks    | [Email](./email.md)                                  |
 | Wondering why something is the way it is   | [Decision Log](./decision-log.md)                    |
 | Planning what comes next                   | [Future work](./reference/future-work.md)            |
 | Picking up a task, or opening a PR         | [Project workflow](./PROJECT_WORKFLOW.md)            |
@@ -58,6 +59,8 @@ how to work on it, and where it goes next.
   page to follow to put this on a server.
 - **[Deployment](./deployment.md)** — Docker, Kubernetes, cloud, and what is
   still missing before production.
+- **[Email](./email.md)** — how platform and CRM email is sent, Resend setup
+  (domain, SPF/DKIM/DMARC, API key, webhook), statuses and troubleshooting.
 - **[Repository migration](./repository-migration.md)** — moving development
   and the release pipeline to `variety-project-labs/Vintrax-MarketPlace`: the
   GitHub settings, the server checks, the cutover and rollback.

@@ -16,3 +16,4 @@ export * from './accounting-schemas';
 export * from './crm';
 export * from './crm-schemas';
 export * from './reviews';
+export * from './emails';

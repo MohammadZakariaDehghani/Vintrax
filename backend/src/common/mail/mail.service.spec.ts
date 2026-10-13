@@ -32,22 +32,22 @@ function captureLogs(): { text: () => string; restore: () => void } {
 describe('the log mail driver', () => {
   it('prints the whole message in development, so reset and verify flows can be tested', async () => {
     const logs = captureLogs();
-    await mailer('development').sendPasswordReset('dana@example.test', 'SECRET-TOKEN', 'Dana');
+    await mailer('development').sendPasswordReset('dana@example.test', 'SECRET-TOKEN-0123456789abcdef', 'Dana');
     const text = logs.text();
     logs.restore();
-    expect(text).toContain('reset-password?token=SECRET-TOKEN');
+    expect(text).toContain('reset-password?token=SECRET-TOKEN-0123456789abcdef');
   });
 
   it('prints neither the link, the token nor the address in production', async () => {
     const logs = captureLogs();
     const mail = mailer('production');
-    await mail.sendPasswordReset('dana@example.test', 'SECRET-TOKEN', 'Dana');
-    await mail.sendEmailVerification('dana@example.test', 'VERIFY-TOKEN', 'Dana');
+    await mail.sendPasswordReset('dana@example.test', 'SECRET-TOKEN-0123456789abcdef', 'Dana');
+    await mail.sendEmailVerification('dana@example.test', 'VERIFY-TOKEN-0123456789abcdef', 'Dana');
     const text = logs.text();
     logs.restore();
 
-    expect(text).not.toContain('SECRET-TOKEN');
-    expect(text).not.toContain('VERIFY-TOKEN');
+    expect(text).not.toContain('SECRET-TOKEN-0123456789abcdef');
+    expect(text).not.toContain('VERIFY-TOKEN-0123456789abcdef');
     expect(text).not.toContain('dana@example.test');
     // It does say that nothing was sent, and why.
     expect(text).toContain('MAIL_DRIVER=log');

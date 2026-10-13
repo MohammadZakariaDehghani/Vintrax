@@ -48,6 +48,7 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { EmailModule } from './modules/email/email.module';
 import { CrmEventsModule } from './modules/crm/events/crm-events.service';
 
 @Module({
@@ -90,6 +91,7 @@ import { CrmEventsModule } from './modules/crm/events/crm-events.service';
     CrmEventsModule,
     CrmModule,
     ReviewsModule,
+    EmailModule,
     FinanceModule,
     SupportChatModule,
     DealerHelpModule,

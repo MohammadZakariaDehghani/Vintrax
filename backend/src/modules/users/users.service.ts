@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import type {
   Address,
@@ -20,6 +21,7 @@ import type { Prisma } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { MailService } from '../../common/mail/mail.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { permissionsFor, type AuthUser } from '../../common/auth/auth-user';
 
@@ -31,6 +33,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    /** Optional so unit tests can build the service without a mailer. */
+    @Optional() private readonly mail?: MailService,
   ) {}
 
   /** The self-view of an account. Never used to describe someone else. */
@@ -270,6 +274,15 @@ export class UsersService {
       select: { id: true },
     });
 
+    // Tells them the account exists and to choose their own password. The
+    // one the administrator typed is never sent anywhere.
+    await this.mail?.sendTemplate(
+      'account.created',
+      input.email,
+      { firstName: input.firstName, email: input.email },
+      { userId: created.id, idempotencyKey: `account.created:${created.id}` },
+    );
+
     return this.getPublicUser(created.id);
   }
 
@@ -445,7 +458,7 @@ export class UsersService {
 
     const target = await this.prisma.user.findUnique({
       where: { id: targetUserId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, status: true, email: true, firstName: true },
     });
     if (!target) throw new NotFoundException('User not found');
 
@@ -478,6 +491,17 @@ export class UsersService {
       entityId: targetUserId,
       metadata: { status: input.status, reason: input.reason ?? null },
     });
+
+    // Only a real change, and only to a state the person can act on. The
+    // administrator's reason stays in the audit log, not in the email.
+    if (target.status !== input.status && input.status !== 'PENDING') {
+      await this.mail?.sendTemplate(
+        'account.status-changed',
+        target.email,
+        { firstName: target.firstName, status: input.status },
+        { userId: targetUserId },
+      );
+    }
 
     return this.getPublicUser(targetUserId);
   }

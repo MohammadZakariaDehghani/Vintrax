@@ -126,10 +126,29 @@ export class AuthService {
             }
           : {}),
       },
-      select: { id: true, email: true, firstName: true, lastName: true, role: true },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        dealer: { select: { id: true, name: true } },
+      },
     });
 
     await this.issueEmailVerification(user.id, user.email, user.firstName);
+
+    // A new dealership waits for an administrator to verify it; tell them it
+    // is there rather than leaving it to be noticed in the list.
+    if (user.dealer) {
+      await this.mail.alertAdmins({
+        key: `dealer-registered:${user.dealer.id}`,
+        severity: 'info',
+        title: 'New dealer registration',
+        summary: `${user.dealer.name} registered as a dealership and is waiting for verification.`,
+        link: '/admin/dealers',
+      });
+    }
 
     await this.audit.record({
       actorId: user.id,
@@ -304,6 +323,14 @@ export class AuthService {
       entityType: 'User',
       entityId: user.id,
     });
+
+    // So a change the owner did not make does not go unnoticed.
+    await this.mail.sendTemplate(
+      'auth.password-changed',
+      user.email,
+      { firstName: user.firstName, via: 'settings' },
+      { userId: user.id },
+    );
   }
 
   /**
@@ -335,7 +362,9 @@ export class AuthService {
       },
     });
 
-    await this.mail.sendPasswordReset(user.email, token, user.firstName);
+    // Sent in the background with a network driver, so this request takes
+    // about as long as one for an address with no account.
+    await this.mail.sendPasswordReset(user.email, token, user.firstName, user.id);
   }
 
   async resetPassword(input: ResetPasswordInput): Promise<void> {
@@ -386,6 +415,19 @@ export class AuthService {
       entityType: 'User',
       entityId: record.userId,
     });
+
+    const owner = await this.prisma.user.findUnique({
+      where: { id: record.userId },
+      select: { email: true, firstName: true },
+    });
+    if (owner) {
+      await this.mail.sendTemplate(
+        'auth.password-changed',
+        owner.email,
+        { firstName: owner.firstName, via: 'reset' },
+        { userId: record.userId },
+      );
+    }
   }
 
   async verifyEmail(token: string): Promise<void> {
@@ -404,16 +446,22 @@ export class AuthService {
       throw new BadRequestException('This verification link is invalid or has expired');
     }
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({
+    const now = new Date();
+    await this.prisma.$transaction(async (tx) => {
+      // Claimed with a conditional update, as a reset link is: two requests
+      // racing with one link cannot both use it.
+      const claimed = await tx.authToken.updateMany({
+        where: { id: record.id, consumedAt: null, expiresAt: { gt: now } },
+        data: { consumedAt: now },
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException('This verification link is invalid or has expired');
+      }
+      await tx.user.update({
         where: { id: record.userId },
-        data: { emailVerified: true, emailVerifiedAt: new Date() },
-      }),
-      this.prisma.authToken.update({
-        where: { id: record.id },
-        data: { consumedAt: new Date() },
-      }),
-    ]);
+        data: { emailVerified: true, emailVerifiedAt: now },
+      });
+    });
   }
 
   /**
@@ -444,11 +492,12 @@ export class AuthService {
       data: { email: input.email, emailVerified: false, emailVerifiedAt: null },
     });
     await this.issueEmailVerification(user.id, input.email, record.firstName);
-    await this.mail.send({
-      to: record.email,
-      subject: 'Your Vintrax email address was changed',
-      text: `Hi ${record.firstName},\n\nThe email address on your Vintrax account was just changed to ${input.email}. If you did not do this, reset your password and contact us straight away.`,
-    });
+    await this.mail.sendTemplate(
+      'auth.email-changed',
+      record.email,
+      { firstName: record.firstName, newEmail: input.email },
+      { userId: user.id },
+    );
 
     await this.audit.record({
       actorId: user.id,
@@ -486,7 +535,7 @@ export class AuthService {
       },
     });
 
-    await this.mail.sendEmailVerification(email, token, firstName);
+    await this.mail.sendEmailVerification(email, token, firstName, userId);
   }
 
   private async revokeAllForUser(userId: string): Promise<void> {

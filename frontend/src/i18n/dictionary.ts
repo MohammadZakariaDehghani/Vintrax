@@ -151,6 +151,24 @@ const en = {
     businessNumber: 'Business number (optional)',
     province: 'Province (optional)',
     city: 'City (optional)',
+    forgotLink: 'Forgot your password?',
+    forgotTitle: 'Reset your password',
+    forgotSubtitle: 'Enter your account email and we will send a link to choose a new password.',
+    forgotSubmit: 'Send reset link',
+    forgotSent:
+      'If that address has a Vintrax account, a reset link is on its way. It works once and expires in 1 hour.',
+    resetTitle: 'Choose a new password',
+    newPassword: 'New password',
+    resetSubmit: 'Save new password',
+    resetDone: 'Your password has been changed and other sessions were signed out. Sign in with the new one.',
+    missingToken: 'This link is incomplete. Request a new one.',
+    verifyTitle: 'Confirm your email',
+    verifying: 'Confirming your email address…',
+    verifyDone: 'Your email address is confirmed.',
+    verifyFailed:
+      'This link is invalid or has expired. Sign in and send a new one from your account settings.',
+    backToSignIn: 'Back to sign in',
+    requestNewLink: 'Request a new link',
   },
 
   search: {
@@ -417,6 +435,26 @@ const fr: Dictionary = {
     businessNumber: 'Numéro d’entreprise (facultatif)',
     province: 'Province (facultatif)',
     city: 'Ville (facultatif)',
+    forgotLink: 'Mot de passe oublié ?',
+    forgotTitle: 'Réinitialiser votre mot de passe',
+    forgotSubtitle:
+      'Entrez le courriel de votre compte et nous vous enverrons un lien pour choisir un nouveau mot de passe.',
+    forgotSubmit: 'Envoyer le lien',
+    forgotSent:
+      'Si cette adresse a un compte Vintrax, un lien de réinitialisation est en route. Il fonctionne une fois et expire dans 1 heure.',
+    resetTitle: 'Choisir un nouveau mot de passe',
+    newPassword: 'Nouveau mot de passe',
+    resetSubmit: 'Enregistrer le mot de passe',
+    resetDone:
+      'Votre mot de passe a été changé et les autres sessions ont été fermées. Connectez-vous avec le nouveau.',
+    missingToken: 'Ce lien est incomplet. Demandez-en un nouveau.',
+    verifyTitle: 'Confirmer votre courriel',
+    verifying: 'Confirmation de votre courriel…',
+    verifyDone: 'Votre adresse courriel est confirmée.',
+    verifyFailed:
+      'Ce lien est invalide ou a expiré. Connectez-vous et demandez-en un nouveau dans les paramètres de votre compte.',
+    backToSignIn: 'Retour à la connexion',
+    requestNewLink: 'Demander un nouveau lien',
   },
 
   search: {

@@ -251,6 +251,11 @@ rather than a crash loop.
 > variable on every later start. Changing it later means changing it _in the
 > database_ with `ALTER ROLE`, and in `DATABASE_URL`, not just in this file.
 
+Email in production goes through Resend: set `MAIL_DRIVER=resend`,
+`RESEND_API_KEY`, `MAIL_FROM` on the verified domain and
+`RESEND_WEBHOOK_SECRET` here — the full setup, DNS included, is in
+[email.md](./email.md).
+
 ### 3.6 Registry access
 
 The images are private unless the packages are made public, so log in once:

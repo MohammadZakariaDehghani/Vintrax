@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { CrmNotificationEvent, NotificationType } from '@vintrax/shared';
 import { PrismaService } from '../../../common/prisma/prisma.service';
+import { appPathOrNull } from '../../../common/mail/templates/catalog';
 import { MailService } from '../../../common/mail/mail.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 
@@ -57,11 +58,17 @@ export class CrmNotifyService {
           select: { email: true, firstName: true },
         });
         if (user) {
-          await this.mail.send({
-            to: user.email,
-            subject: message.title,
-            text: `Hi ${user.firstName},\n\n${message.body}`,
-          });
+          await this.mail.sendTemplate(
+            'notification.generic',
+            user.email,
+            {
+              firstName: user.firstName,
+              title: message.title,
+              body: message.body,
+              link: appPathOrNull(message.link),
+            },
+            { userId },
+          );
         }
       }
     } catch (error) {

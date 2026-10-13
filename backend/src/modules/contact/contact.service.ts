@@ -66,16 +66,20 @@ export class ContactService {
       return;
     }
 
-    await this.mail.send({
-      to: recipient,
-      replyTo: input.email,
-      subject: `[Vintrax contact] ${singleLine(input.subject)}`,
-      text:
-        `${singleLine(input.name)} <${input.email}>` +
-        (input.phone ? `\nPhone: ${singleLine(input.phone)}` : '') +
-        `\n\n${input.message}\n\n` +
-        `Sent from the Contact page. Reply to this email to answer them directly.`,
-    });
+    // Reply-To is the visitor's own (validated) address, so answering reaches
+    // them; the sender is always the platform's verified address.
+    await this.mail.sendTemplate(
+      'contact.message',
+      recipient,
+      {
+        name: singleLine(input.name),
+        email: input.email,
+        phone: input.phone ? singleLine(input.phone) : null,
+        subject: singleLine(input.subject),
+        message: input.message,
+      },
+      { replyTo: input.email, related: { type: 'ContactMessage', id: saved.id } },
+    );
   }
 
   async list(query: PaginationQuery): Promise<Paginated<ContactMessage>> {

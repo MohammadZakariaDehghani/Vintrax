@@ -1241,6 +1241,21 @@ POST /api/admin/reviews/b7a0…/reject         (review:moderate)
       "rejectionNote": "About the dealership, not the car", … }
 ```
 
+## Email
+
+See [email.md](./email.md). Paths under `/api`.
+
+| Method | Path                      | Access                        | Purpose                                                                                                   |
+| ------ | ------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `POST` | `/webhooks/resend`        | Resend signature (`svix-*`)   | Delivery events. `401` unsigned, wrong or stale; `404` when `RESEND_WEBHOOK_SECRET` is unset; a repeated event id answers `{ received: true, duplicate: true }` |
+| `GET`  | `/admin/emails`           | `email:read`                  | Platform email log: `status`, `category`, `q` (recipient), paging. Each row says whether it is `retryable` |
+| `GET`  | `/admin/emails/stats`     | `email:read`                  | Counts by status and category over `hours` (default 168), retries, and the active driver                  |
+| `POST` | `/admin/emails/:id/retry` | `email:manage`                | Re-queue a failed message unchanged; `400` for a secret-link message or a suppressed address (audited)    |
+
+The account pages the emails link to call the existing auth routes:
+`POST /auth/password/forgot`, `POST /auth/password/reset` and
+`POST /auth/email/verify`.
+
 ## Uploads, admin, health
 
 | Method | Path                         | Auth             | Purpose                          |

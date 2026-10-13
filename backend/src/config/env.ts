@@ -13,6 +13,25 @@ export function isPlaceholderSecret(value: string): boolean {
   return PLACEHOLDER_SECRETS.includes(value) || /^change[_-]?me/i.test(value.trim());
 }
 
+/** "true"/"false" from the environment, as a boolean. */
+function booleanFlag(fallback: 'true' | 'false') {
+  return z
+    .enum(['true', 'false'])
+    .default(fallback)
+    .transform((value) => value === 'true');
+}
+
+function optionalEmail(name: string) {
+  return z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine(
+      (value) => !value || z.string().email().safeParse(value).success,
+      `${name} must be an email address`,
+    );
+}
+
 const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
@@ -121,13 +140,76 @@ const baseEnvSchema = z.object({
   OPENSEARCH_INDEX: z.string().default('vintrax-vehicles'),
 
   // --- Email ---
-  /** `log` prints messages to the server log, which is what development uses. */
-  MAIL_DRIVER: z.enum(['log', 'smtp']).default('log'),
-  MAIL_FROM: z.string().default('Vintrax <no-reply@vintrax.local>'),
+  /**
+   * `log` prints messages to the server log, which is what development uses;
+   * `resend` sends through the Resend API (D-068); `smtp` through any SMTP
+   * server. Exactly one sends — there is no fan-out to a second provider.
+   */
+  MAIL_DRIVER: z.enum(['log', 'smtp', 'resend']).default('log'),
+  /** "Name <address>". With Resend the address must be on a verified domain. */
+  MAIL_FROM: z
+    .string()
+    .default('Vintrax <no-reply@vintrax.local>')
+    // Deliberately loose here (an existing deployment may still run with a
+    // placeholder such as no-reply@localhost); the Resend rule below is strict.
+    .refine(
+      (value) => /^[^\s@<>]+@[^\s@<>]+$/.test(/<([^>]+)>\s*$/.exec(value)?.[1] ?? value.trim()),
+      'MAIL_FROM must be an email address, optionally as "Name <address>"',
+    ),
+  /** Where replies to platform email go (a monitored support inbox). Unset: MAIL_FROM. */
+  MAIL_REPLY_TO: optionalEmail('MAIL_REPLY_TO'),
+  /** Administrators who receive operational alerts, comma-separated. Unset: no alert email. */
+  MAIL_ADMIN_TO: z
+    .string()
+    .optional()
+    .transform((value) =>
+      (value ?? '')
+        .split(',')
+        .map((part) => part.trim().toLowerCase())
+        .filter(Boolean),
+    )
+    .refine(
+      (list) => list.every((address) => z.string().email().safeParse(address).success),
+      'MAIL_ADMIN_TO must be a comma-separated list of email addresses',
+    ),
+  /**
+   * Notification email (outbid, finance applications, in-app notifications
+   * mirrored to email, admin alerts). Security and account email — verification,
+   * password reset, password and address changes — is never switched off.
+   */
+  MAIL_NOTIFICATIONS_ENABLED: booleanFlag('true'),
+  /**
+   * Marketing email from the CRM (campaigns, nurture automations). Off holds
+   * them as suppressed rather than sending; transactional CRM email still goes.
+   */
+  MAIL_MARKETING_ENABLED: booleanFlag('true'),
+  /** Delivery attempts for a platform email before it is marked failed. */
+  MAIL_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
+  /** Failed platform emails in an hour that send the administrators one alert. */
+  MAIL_ALERT_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(10_000).default(10),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
+  /** Resend API key (re_…). Server-side only; required when MAIL_DRIVER=resend. */
+  RESEND_API_KEY: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  /**
+   * The signing secret (whsec_…) of the webhook created in the Resend
+   * dashboard, for POST /api/webhooks/resend. Unset: the endpoint answers 404.
+   */
+  RESEND_WEBHOOK_SECRET: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine(
+      (value) => !value || value.startsWith('whsec_'),
+      'RESEND_WEBHOOK_SECRET must be the whsec_… signing secret from the Resend dashboard',
+    ),
+  /** Requests per second to the Resend API; Resend rate-limits each team. */
+  RESEND_MAX_REQUESTS_PER_SECOND: z.coerce.number().min(0.1).max(100).default(2),
 
   // --- Dealer help assistant ---
   // Without a provider the assistant still answers, from the help articles
@@ -247,6 +329,28 @@ export const envSchema = baseEnvSchema
     message: 'MAIL_DRIVER=smtp requires SMTP_HOST and SMTP_PORT',
     path: ['SMTP_HOST'],
   })
+  .refine((env) => env.MAIL_DRIVER !== 'resend' || !!env.RESEND_API_KEY?.startsWith('re_'), {
+    message: 'MAIL_DRIVER=resend requires RESEND_API_KEY (re_…)',
+    path: ['RESEND_API_KEY'],
+  })
+  // Tests never send real email, whatever the environment around them says.
+  .refine((env) => env.NODE_ENV !== 'test' || env.MAIL_DRIVER === 'log', {
+    message: 'NODE_ENV=test only allows MAIL_DRIVER=log',
+    path: ['MAIL_DRIVER'],
+  })
+  // Resend only sends from a verified domain; say so at boot rather than as a
+  // stream of rejected messages. (Other drivers keep their old behaviour.)
+  .refine(
+    (env) =>
+      env.MAIL_DRIVER !== 'resend' ||
+      z.string().email().safeParse(/<([^>]+)>\s*$/.exec(env.MAIL_FROM)?.[1] ?? env.MAIL_FROM.trim())
+        .success &&
+        !/@[^>]*\.(local|test|example|invalid)>?\s*$/i.test(env.MAIL_FROM),
+    {
+      message: 'MAIL_DRIVER=resend needs MAIL_FROM on a real, verified sending domain',
+      path: ['MAIL_FROM'],
+    },
+  )
   .refine((env) => env.AI_PROVIDER === 'none' || !!env.AI_API_KEY?.trim(), {
     message: 'AI_PROVIDER requires AI_API_KEY',
     path: ['AI_API_KEY'],

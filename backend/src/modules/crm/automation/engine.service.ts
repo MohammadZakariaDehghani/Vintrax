@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import {
   DEALER_TRIGGERS,
   HARD_SUPPRESSIONS,
@@ -8,6 +8,7 @@ import {
   type StopCondition,
 } from '@vintrax/shared';
 import type { CrmAutomation, CrmAutomationEnrollment, Prisma } from '@prisma/client';
+import { MailService } from '../../../common/mail/mail.service';
 import { PrismaService } from '../../../common/prisma/prisma.service';
 import { CrmBus, type CrmSignal, type CrmSignalType } from '../core/bus';
 import { systemContext, type CrmContext } from '../core/context';
@@ -88,6 +89,7 @@ export class AutomationEngine implements OnModuleInit {
     private readonly assignment: AssignmentService,
     private readonly notify: CrmNotifyService,
     private readonly tickets: TicketsService,
+    @Optional() private readonly mail?: MailService,
   ) {}
 
   onModuleInit(): void {
@@ -433,6 +435,14 @@ export class AutomationEngine implements OnModuleInit {
           data: { attempts, lastError: message },
         });
         await this.stop(enrollmentId, 'STEP_FAILED', 'FAILED');
+        // Operators hear about automations that keep failing, once an hour per
+        // automation — not every lead it fails for. No lead data in the alert.
+        await this.mail?.alertAdmins({
+          key: `crm-automation-failed:${enrollment.automationId}`,
+          severity: 'warning',
+          title: 'CRM automation step failing',
+          summary: `The automation "${enrollment.automation.name}" stopped an enrollment after ${attempts} failed attempts at one step. Its enrollment history shows the error.`,
+        });
         return;
       }
       await this.prisma.crmAutomationEnrollment.update({

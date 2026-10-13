@@ -1085,6 +1085,93 @@ model Notification {
 /// Append-only record of security- and money-relevant actions. Rows are never
 /// updated or deleted; actorId is nullable so a deleted account does not erase
 /// the history of what it did.
+/// What kind of platform email a message is. SECURITY and ACCOUNT mail is
+/// always sent; NOTIFICATION and ADMIN mail follow MAIL_NOTIFICATIONS_ENABLED.
+enum EmailCategory {
+  SECURITY
+  ACCOUNT
+  NOTIFICATION
+  ADMIN
+}
+
+/// Where a platform email is. ACCEPTED means the provider took it; only a
+/// delivery event moves it to DELIVERED — accepting is not delivering.
+enum EmailMessageStatus {
+  QUEUED
+  SENDING
+  ACCEPTED
+  DELAYED
+  DELIVERED
+  BOUNCED
+  COMPLAINED
+  FAILED
+  SUPPRESSED
+  SKIPPED
+}
+
+/// The platform's sent-mail log and outbox (D-068). One row per logical email:
+/// the idempotency key makes a retried send a no-op. The message body is not
+/// stored — `payload` keeps the template variables of ordinary messages so a
+/// lost send can be re-rendered, and is null for messages carrying a secret
+/// link (verification, password reset), which are never written down.
+/// CRM email has its own outbox, CrmEmail; both share the provider webhook.
+model EmailMessage {
+  id                String             @id @default(uuid()) @db.Uuid
+  category          EmailCategory
+  /// The template that rendered it, e.g. auth.password-reset.
+  templateKey       String
+  toEmail           String
+  subject           String
+  status            EmailMessageStatus @default(QUEUED)
+  provider          String?
+  providerMessageId String?
+  attempts          Int                @default(0)
+  /// When the outbox may try again.
+  nextAttemptAt     DateTime           @default(now())
+  /// Claimed by one sender until this time.
+  lockedUntil       DateTime?
+  lastErrorCode     String?
+  /// Sanitised: never a token, a key or the message body.
+  lastError         String?
+  idempotencyKey    String             @unique
+  /// Ties log lines, retries and webhook events to the request that caused them.
+  correlationId     String?
+  userId            String?            @db.Uuid
+  dealerId          String?            @db.Uuid
+  relatedType       String?
+  relatedId         String?
+  payload           Json?
+  queuedAt          DateTime           @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  bouncedAt         DateTime?
+  complainedAt      DateTime?
+  failedAt          DateTime?
+  lastEventAt       DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([category, createdAt])
+  @@index([status, createdAt])
+  @@index([providerMessageId])
+  @@index([toEmail])
+  @@index([userId, createdAt])
+}
+
+/// Provider webhook deliveries already processed, by the provider's event id,
+/// so a redelivered event is acknowledged without being applied twice.
+model EmailWebhookEvent {
+  id                String   @id
+  provider          String
+  type              String
+  providerMessageId String?
+  receivedAt        DateTime @default(now())
+
+  @@index([providerMessageId])
+  @@index([receivedAt])
+}
+
 model AuditLog {
   id String @id @default(uuid()) @db.Uuid
 

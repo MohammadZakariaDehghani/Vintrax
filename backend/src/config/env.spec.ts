@@ -73,3 +73,81 @@ describe('CRM settings', () => {
     ).toThrow(/SUPPORT_REPLY_TO/);
   });
 });
+
+describe('email configuration (D-068)', () => {
+  const dev = { ...base, NODE_ENV: 'development' };
+
+  it('needs a Resend API key to use the Resend driver', () => {
+    expect(() => validateEnv({ ...dev, MAIL_DRIVER: 'resend' })).toThrow(/RESEND_API_KEY/);
+    expect(() =>
+      validateEnv({ ...dev, MAIL_DRIVER: 'resend', RESEND_API_KEY: 'not-a-key' }),
+    ).toThrow(/RESEND_API_KEY/);
+    expect(() =>
+      validateEnv({
+        ...dev,
+        MAIL_DRIVER: 'resend',
+        RESEND_API_KEY: 're_123456789',
+        MAIL_FROM: 'Vintrax <noreply@vintrax.ca>',
+      }),
+    ).not.toThrow();
+  });
+
+  it('never lets a test run send real email', () => {
+    expect(() =>
+      validateEnv({ ...base, NODE_ENV: 'test', MAIL_DRIVER: 'resend', RESEND_API_KEY: 're_1' }),
+    ).toThrow(/NODE_ENV=test only allows MAIL_DRIVER=log/);
+    expect(() => validateEnv({ ...base, NODE_ENV: 'test' })).not.toThrow();
+  });
+
+  it('still starts an existing deployment whose sender is a placeholder, with the old drivers', () => {
+    expect(() =>
+      validateEnv({ ...base, NODE_ENV: 'production', MAIL_FROM: 'Vintrax <no-reply@localhost>' }),
+    ).not.toThrow();
+  });
+
+  it('refuses a placeholder sending domain with Resend', () => {
+    expect(() =>
+      validateEnv({
+        ...base,
+        NODE_ENV: 'production',
+        MAIL_DRIVER: 'resend',
+        RESEND_API_KEY: 're_123456789',
+        MAIL_FROM: 'Vintrax <no-reply@vintrax.local>',
+      }),
+    ).toThrow(/MAIL_FROM/);
+    expect(() =>
+      validateEnv({
+        ...base,
+        NODE_ENV: 'production',
+        MAIL_DRIVER: 'resend',
+        RESEND_API_KEY: 're_123456789',
+        MAIL_FROM: 'Vintrax <noreply@vintrax.ca>',
+      }),
+    ).not.toThrow();
+  });
+
+  it('validates the sender, the reply-to and the admin list', () => {
+    expect(() => validateEnv({ ...dev, MAIL_FROM: 'Vintrax <not an address>' })).toThrow(/MAIL_FROM/);
+    expect(() => validateEnv({ ...dev, MAIL_REPLY_TO: 'support' })).toThrow(/MAIL_REPLY_TO/);
+    expect(() => validateEnv({ ...dev, MAIL_ADMIN_TO: 'ops@vintrax.ca, nope' })).toThrow(
+      /MAIL_ADMIN_TO/,
+    );
+    const env = validateEnv({ ...dev, MAIL_ADMIN_TO: ' Ops@Vintrax.ca , admin@vintrax.ca ' });
+    expect(env.MAIL_ADMIN_TO).toEqual(['ops@vintrax.ca', 'admin@vintrax.ca']);
+  });
+
+  it('only accepts the whsec_ signing secret for the webhook', () => {
+    expect(() => validateEnv({ ...dev, RESEND_WEBHOOK_SECRET: 'plain-secret' })).toThrow(
+      /RESEND_WEBHOOK_SECRET/,
+    );
+    expect(() => validateEnv({ ...dev, RESEND_WEBHOOK_SECRET: 'whsec_abc' })).not.toThrow();
+  });
+
+  it('defaults to sending notifications and marketing, as before', () => {
+    const env = validateEnv(dev);
+    expect(env.MAIL_DRIVER).toBe('log');
+    expect(env.MAIL_NOTIFICATIONS_ENABLED).toBe(true);
+    expect(env.MAIL_MARKETING_ENABLED).toBe(true);
+    expect(env.MAIL_ADMIN_TO).toEqual([]);
+  });
+});

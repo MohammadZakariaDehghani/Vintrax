@@ -16,4 +16,8 @@ data:
   S3_FORCE_PATH_STYLE: 'false'
   SEARCH_PROVIDER: opensearch
   OPENSEARCH_NODE: http://vintrax-opensearch:9200
-  MAIL_DRIVER: smtp
+  MAIL_DRIVER: resend
+  MAIL_FROM: Vintrax <noreply@vintrax.ca>
+  MAIL_REPLY_TO: support@vintrax.ca
+  MAIL_NOTIFICATIONS_ENABLED: 'true'
+  MAIL_MARKETING_ENABLED: 'true'

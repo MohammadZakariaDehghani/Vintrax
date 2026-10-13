@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { NotificationDto, NotificationType, Paginated } from '@vintrax/shared';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { appPathOrNull } from '../../common/mail/templates/catalog';
 import { MailService } from '../../common/mail/mail.service';
 
 export interface CreateNotification {
@@ -49,11 +50,17 @@ export class NotificationsService {
     }
 
     if (input.email && user.notificationChannels.includes('EMAIL')) {
-      await this.mail.send({
-        to: user.email,
-        subject: input.title,
-        text: `Hi ${user.firstName},\n\n${input.body}`,
-      });
+      await this.mail.sendTemplate(
+        'notification.generic',
+        user.email,
+        {
+          firstName: user.firstName,
+          title: input.title,
+          body: input.body,
+          link: appPathOrNull(input.link),
+        },
+        { userId: user.id },
+      );
     }
   }
 

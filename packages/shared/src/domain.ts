@@ -62,6 +62,10 @@ export const PERMISSIONS = [
   'review:read',
   'review:moderate',
   'review:delete',
+  // Platform email: the delivery log and statistics, and retrying a failed
+  // message (same template, same recipient — nothing else can be changed).
+  'email:read',
+  'email:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -113,6 +117,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     'review:read',
     'review:moderate',
     'review:delete',
+    'email:read',
+    'email:manage',
   ],
   SUPER_ADMIN: PERMISSIONS,
 };
