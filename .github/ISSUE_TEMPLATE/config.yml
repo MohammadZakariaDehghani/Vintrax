@@ -8,8 +8,8 @@ blank_issues_enabled: true
 
 contact_links:
   - name: Architecture decisions
-    url: https://github.com/MohammadZakariaDehghani/Vintrax/blob/main/documentation/decision-log.md
+    url: https://github.com/variety-project-labs/Vintrax-MarketPlace/blob/main/documentation/decision-log.md
     about: Read the decision log before proposing a change to how Vintrax is built. Significant decisions are recorded there with their rationale.
   - name: How this project is run
-    url: https://github.com/MohammadZakariaDehghani/Vintrax/blob/main/documentation/PROJECT_WORKFLOW.md
+    url: https://github.com/variety-project-labs/Vintrax-MarketPlace/blob/main/documentation/PROJECT_WORKFLOW.md
     about: Board columns, labels, branch naming, Definition of Done, and the rules AI assistants follow.

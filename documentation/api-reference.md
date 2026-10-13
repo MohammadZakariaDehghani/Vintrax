@@ -1144,6 +1144,118 @@ Paths under `/support`.
 | `GET`  | `/tickets/:id`         | signed in | One of your tickets and its public conversation (`404` for anyone else's) |
 | `POST` | `/tickets/:id/replies` | signed in | Reply; reopens a resolved ticket (not one closed over 30 days ago)        |
 
+## Vehicle reviews
+
+See [reviews.md](./reviews.md). Public routes take an optional token: a
+signed-in caller's review is linked to their account. The vehicle comes from
+the URL and the author from the session; a body field such as `status` or
+`userId` is refused with `400`. Only `APPROVED` reviews are ever returned
+publicly.
+
+| Method   | Path                                            | Access            | Purpose                                                                                                |
+| -------- | ----------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------ |
+| `GET`    | `/vehicles/:vehicleId/reviews`                  | public            | Approved reviews (`sort=RECENT\|HIGHEST\|LOWEST`, `limit`, `cursor`); the first page carries `summary` |
+| `POST`   | `/vehicles/:vehicleId/reviews`                  | public            | Submit `{ rating, content, displayName? }`; it waits for moderation                                    |
+| `GET`    | `/vehicles/:vehicleId/reviews/mine`             | signed in         | Your own review of the vehicle in any state, or `null`                                                 |
+| `PATCH`  | `/vehicles/:vehicleId/reviews/:reviewId`        | the author        | Edit; back to `PENDING`                                                                                |
+| `DELETE` | `/vehicles/:vehicleId/reviews/:reviewId`        | the author        | Withdraw (soft delete)                                                                                 |
+| `POST`   | `/vehicles/:vehicleId/reviews/:reviewId/report` | public            | Report an approved review `{ reason, details? }`                                                       |
+| `GET`    | `/admin/reviews`                                | `review:read`     | Moderation list: `view`, `q`, `rating`, `author`, `vehicleId`, `from`, `to`, `sort`, paging            |
+| `GET`    | `/admin/reviews/metrics`                        | `review:read`     | Totals, pending, approved, reported, average, last 7 / 30 days                                         |
+| `GET`    | `/admin/reviews/:id`                            | `review:read`     | The review with its author, reports and moderation fields                                              |
+| `GET`    | `/admin/reviews/:id/history`                    | `review:read`     | Moderation history                                                                                     |
+| `POST`   | `/admin/reviews/:id/approve`                    | `review:moderate` | `PENDING`/`REJECTED` → `APPROVED` (`{ note? }`)                                                        |
+| `POST`   | `/admin/reviews/:id/reject`                     | `review:moderate` | `PENDING` → `REJECTED` (`{ reason, note? }`)                                                           |
+| `POST`   | `/admin/reviews/:id/hide`                       | `review:moderate` | `APPROVED` → `HIDDEN`                                                                                  |
+| `POST`   | `/admin/reviews/:id/restore`                    | `review:moderate` | `HIDDEN` → `APPROVED`; `DELETED` → `PENDING`                                                           |
+| `POST`   | `/admin/reviews/:id/resolve-reports`            | `review:moderate` | Mark open reports as reviewed                                                                          |
+| `DELETE` | `/admin/reviews/:id`                            | `review:delete`   | Soft delete                                                                                            |
+| `POST`   | `/admin/reviews/bulk`                           | `review:moderate` | `{ ids, action: APPROVE\|REJECT\|HIDE\|DELETE, reason?, note? }` (delete also needs `review:delete`)   |
+
+An action not allowed from the review's current state answers `409`. Limits
+answer `429`; a duplicate or second review answers `409`.
+
+### Examples
+
+```http
+GET /api/vehicles/3f1c…/reviews?limit=2
+```
+
+```json
+{
+  "reviews": [
+    {
+      "id": "9d2e…",
+      "rating": 5,
+      "content": "Great experience with this vehicle. The description was accurate.",
+      "displayName": "Anonymous",
+      "verifiedPurchase": false,
+      "createdAt": "2026-10-07T15:04:11.000Z",
+      "edited": false
+    }
+  ],
+  "pagination": { "hasMore": true, "nextCursor": "eyJyIjo1LCJjIjoi…" },
+  "summary": {
+    "average": 4.7,
+    "total": 32,
+    "distribution": { "1": 0, "2": 1, "3": 1, "4": 5, "5": 25 }
+  }
+}
+```
+
+```http
+POST /api/vehicles/3f1c…/reviews            (no token: anonymous)
+{ "rating": 4, "content": "Very clean vehicle and good communication." }
+
+201 { "id": "b7a0…", "status": "PENDING",
+      "message": "Thanks for sharing your experience. Your review has been submitted and is awaiting approval." }
+```
+
+```http
+POST /api/vehicles/3f1c…/reviews            (Authorization: Bearer …)
+{ "rating": 5, "content": "Smooth purchase, car as described.", "displayName": "Jordan L." }
+
+201 { "id": "c41f…", "status": "PENDING", "message": "Thanks for sharing your experience. …" }
+409 { "message": "You've already submitted a review for this vehicle." }      (second time)
+```
+
+```http
+POST /api/vehicles/3f1c…/reviews/9d2e…/report
+{ "reason": "SPAM", "details": "Same text on five listings" }
+
+201 { "message": "Thanks. We've received your report and will review it." }
+```
+
+```http
+POST /api/admin/reviews/b7a0…/approve        (review:moderate)
+{}
+
+201 { "id": "b7a0…", "status": "APPROVED", "approvedAt": "2026-10-09T14:02:51.000Z", "reports": [], … }
+```
+
+```http
+POST /api/admin/reviews/b7a0…/reject         (review:moderate)
+{ "reason": "IRRELEVANT", "note": "About the dealership, not the car" }
+
+201 { "id": "b7a0…", "status": "REJECTED", "rejectionReason": "IRRELEVANT",
+      "rejectionNote": "About the dealership, not the car", … }
+```
+
+## Email
+
+See [email.md](./email.md). Paths under `/api`.
+
+| Method | Path                      | Access                        | Purpose                                                                                                   |
+| ------ | ------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `POST` | `/webhooks/resend`        | Resend signature (`svix-*`)   | Delivery events. `401` unsigned, wrong or stale; `404` when `RESEND_WEBHOOK_SECRET` is unset; a repeated event id answers `{ received: true, duplicate: true }` |
+| `GET`  | `/admin/emails`           | `email:read`                  | Platform email log: `status`, `category`, `q` (recipient), paging. Each row says whether it is `retryable` |
+| `GET`  | `/admin/emails/stats`     | `email:read`                  | Counts by status and category over `hours` (default 168), retries, and the active driver                  |
+| `POST` | `/admin/emails/:id/retry` | `email:manage`                | Re-queue a failed message unchanged; `400` for a secret-link message or a suppressed address (audited)    |
+
+The account pages the emails link to call the existing auth routes:
+`POST /auth/password/forgot`, `POST /auth/password/reset` and
+`POST /auth/email/verify`.
+
 ## Uploads, admin, health
 
 | Method | Path                         | Auth             | Purpose                          |

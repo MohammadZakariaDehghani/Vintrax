@@ -109,6 +109,12 @@ function LoginForm() {
               </Button>
             </form>
 
+            <p className="mt-4 text-sm">
+              <Link href="/forgot-password" className="font-medium text-primary hover:underline">
+                {t.auth.forgotLink}
+              </Link>
+            </p>
+
             <p className="mt-4 text-sm text-muted-foreground">
               {t.auth.noAccount}{' '}
               <Link href="/register" className="font-medium text-primary hover:underline">

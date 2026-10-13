@@ -80,6 +80,6 @@ export const CRM_PROVIDERS = [
     SupportPortalController,
   ],
   providers: CRM_PROVIDERS,
-  exports: [TicketsService],
+  exports: [TicketsService, DispatcherService],
 })
 export class CrmModule {}

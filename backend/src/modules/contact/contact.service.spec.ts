@@ -1,4 +1,5 @@
 import { contactMessageSchema } from '@vintrax/shared';
+import { renderTemplate } from '../../common/mail/templates/catalog';
 import { ContactService } from './contact.service';
 
 /**
@@ -19,13 +20,13 @@ const message = contactMessageSchema.parse({
 
 function setup(settings: { contactRecipient: string | null; contactEmail: string | null } | null) {
   const create = jest.fn().mockResolvedValue({ id: 'm1' });
-  const send = jest.fn().mockResolvedValue(undefined);
+  const send = jest.fn().mockResolvedValue('email-1');
   const contact = new ContactService(
     {
       contactMessage: { create },
       siteSettings: { findUnique: jest.fn().mockResolvedValue(settings) },
     } as never,
-    { send } as never,
+    { sendTemplate: send } as never,
   );
   return { contact, create, send };
 }
@@ -40,16 +41,17 @@ describe('a Contact-page message', () => {
     await contact.submit(message);
 
     expect(create).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'inbox@vintrax.ca', replyTo: 'sam@example.com' }),
-    );
-    expect(send.mock.calls[0][0].text).toContain('Is the 2021 Civic still available?');
+    const [template, to, vars, options] = send.mock.calls[0];
+    expect(template).toBe('contact.message');
+    expect(to).toBe('inbox@vintrax.ca');
+    expect(options).toMatchObject({ replyTo: 'sam@example.com' });
+    expect(vars.message).toContain('Is the 2021 Civic still available?');
   });
 
   it('goes to the public contact email when no private recipient is set', async () => {
     const { contact, send } = setup({ contactRecipient: null, contactEmail: 'hello@vintrax.ca' });
     await contact.submit(message);
-    expect(send.mock.calls[0][0].to).toBe('hello@vintrax.ca');
+    expect(send.mock.calls[0][1]).toBe('hello@vintrax.ca');
   });
 
   it('is still kept when there is nowhere to email it', async () => {
@@ -63,7 +65,11 @@ describe('a Contact-page message', () => {
   it('cannot add a header through the subject', async () => {
     const { contact, send } = setup({ contactRecipient: 'inbox@vintrax.ca', contactEmail: null });
     await contact.submit(message);
-    expect(send.mock.calls[0][0].subject).not.toMatch(/[\r\n]/);
+    const vars = send.mock.calls[0][2];
+    expect(vars.subject).not.toMatch(/[\r\n]/);
+    expect(renderTemplate('contact.message', vars, 'https://vintrax.test').subject).not.toMatch(
+      /[\r\n]/,
+    );
   });
 
   it('is dropped quietly when the hidden honeypot field is filled', async () => {

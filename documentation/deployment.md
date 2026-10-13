@@ -27,7 +27,10 @@ then three image builds pushed to GHCR under an immutable `sha-` tag, then a
 
 The four repository secrets it needs, how to pin the server's host key, how to
 make the first automatic release wait for an approval, and how to roll back are
-all in [docker.md § 4.1](./docker.md#41-automatic-releases-from-main). Nothing
+all in [docker.md § 4.1](./docker.md#41-automatic-releases-from-main). The
+canonical repository is `variety-project-labs/Vintrax-MarketPlace`; moving the
+pipeline to it from `MohammadZakariaDehghani/Vintrax` is described in
+[repository-migration.md](./repository-migration.md). Nothing
 on the server was changed to support it, and running the script by hand still
 works unchanged.
 
@@ -63,8 +66,8 @@ has been executed end to end. `scripts/setup-ubuntu.sh` takes a bare Ubuntu
 machine to a serving marketplace.
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
-cd Vintrax
+git clone https://github.com/variety-project-labs/Vintrax-MarketPlace.git
+cd Vintrax-MarketPlace
 
 VINTRAX_PUBLIC_URL=http://203.0.113.10:3000 \
   ./scripts/setup-ubuntu.sh --no-seed --systemd

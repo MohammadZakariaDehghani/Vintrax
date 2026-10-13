@@ -150,7 +150,8 @@ async function setup() {
   const mail = {
     sendPasswordReset: jest.fn(),
     sendEmailVerification: jest.fn(),
-    send: jest.fn(),
+    sendTemplate: jest.fn(),
+    alertAdmins: jest.fn(),
   };
   const auth = new AuthService(
     db as never,
@@ -267,6 +268,18 @@ describe('resetting a password', () => {
     expect(db.refreshTokens.every((t) => t.revokedAt !== null)).toBe(true);
   });
 
+  it('tells the owner their password was changed, without the new password', async () => {
+    const { auth, mail, token } = await requestLink();
+    await auth.resetPassword({ token, password: 'a new password 1!' });
+    expect(mail.sendTemplate).toHaveBeenCalledWith(
+      'auth.password-changed',
+      'dealer@example.test',
+      { firstName: 'Dana', via: 'reset' },
+      expect.objectContaining({ userId: 'u1' }),
+    );
+    expect(JSON.stringify(mail.sendTemplate.mock.calls)).not.toContain('a new password 1!');
+  });
+
   it('says nothing about whether an address has an account', async () => {
     const { auth, mail } = await setup();
     await expect(auth.requestPasswordReset('nobody@example.test')).resolves.toBeUndefined();
@@ -329,7 +342,43 @@ describe('changing the sign-in email', () => {
       'new@example.test',
       expect.any(String),
       'Dana',
+      'u1',
     );
-    expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'dealer@example.test' }));
+    // The old address is told, so a change the owner did not make is noticed.
+    expect(mail.sendTemplate).toHaveBeenCalledWith(
+      'auth.email-changed',
+      'dealer@example.test',
+      { firstName: 'Dana', newEmail: 'new@example.test' },
+      expect.objectContaining({ userId: 'u1' }),
+    );
+  });
+});
+
+describe('password and verification notices', () => {
+  const user = {
+    id: 'u1',
+    email: 'dealer@example.test',
+    firstName: 'Dana',
+    emailVerified: true,
+  } as never as Parameters<AuthService['changePassword']>[0];
+  it('tells the owner when they change their password in settings', async () => {
+    const { auth, mail } = await setup();
+    await auth.changePassword(user, { currentPassword: PASSWORD, newPassword: 'a brand new password 9!' });
+    expect(mail.sendTemplate).toHaveBeenCalledWith(
+      'auth.password-changed',
+      'dealer@example.test',
+      { firstName: 'Dana', via: 'settings' },
+      expect.objectContaining({ userId: 'u1' }),
+    );
+  });
+
+  it('uses a verification link once, even when it is opened twice at the same moment', async () => {
+    const { auth, db, mail } = await setup();
+    await auth.resendVerification({ ...user, emailVerified: false });
+    const token = mail.sendEmailVerification.mock.calls.at(-1)![1] as string;
+    const results = await Promise.allSettled([auth.verifyEmail(token), auth.verifyEmail(token)]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(db.users.get('u1')).toMatchObject({ emailVerified: true });
+    await expect(auth.verifyEmail(token)).rejects.toThrow(/invalid or has expired/);
   });
 });

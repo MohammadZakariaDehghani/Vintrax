@@ -21,8 +21,8 @@ corepack enable && corepack prepare pnpm@10.33.0 --activate
 ### Ubuntu
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
-cd Vintrax
+git clone https://github.com/variety-project-labs/Vintrax-MarketPlace.git
+cd Vintrax-MarketPlace
 ./scripts/setup-ubuntu.sh --mode dev
 ```
 
@@ -35,8 +35,8 @@ never overwrites an existing `.env`. See
 ### Every other platform
 
 ```bash
-git clone https://github.com/MohammadZakariaDehghani/Vintrax.git
-cd Vintrax
+git clone https://github.com/variety-project-labs/Vintrax-MarketPlace.git
+cd Vintrax-MarketPlace
 
 pnpm install
 cp .env.example .env
@@ -228,6 +228,16 @@ Advanced Security, which this repository does not have.
 When the audit fails on a transitive dependency whose parent has not yet
 released a fix, pin the patched version in the `pnpm.overrides` block in the
 root `package.json` and drop the entry once the parent catches up.
+
+When an advisory has **no patched release at all**, an override cannot fix it.
+Only then, and only when `pnpm why -r <package> --prod` shows it is in no
+production dependency tree, list its GHSA id in `pnpm.auditConfig.ignoreGhsas`
+in the same file and record it here. `pnpm audit` still prints it as
+"ignored", so it stays visible. Remove the entry once a fixed release exists.
+
+| Advisory | Package | Why it is ignored |
+| --- | --- | --- |
+| GHSA-vfj7-8cjw-p6xm (high) | `braces` ≤ 3.0.3 | No fixed release exists; 3.0.3 is the latest. It reaches the repo only through Jest's `micromatch` (test tooling) and is absent from every workspace's production tree. |
 
 Three notes for anyone editing it:
 

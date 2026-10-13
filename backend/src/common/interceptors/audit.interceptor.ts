@@ -64,11 +64,8 @@ export class AuditInterceptor implements NestInterceptor {
     );
   }
 
+  /** The address as Express resolves it under `trust proxy` (see ClientIp). */
   private clientIp(request: Request): string | null {
-    const forwarded = request.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.length > 0) {
-      return forwarded.split(',')[0]!.trim();
-    }
     return request.ip ?? null;
   }
 }

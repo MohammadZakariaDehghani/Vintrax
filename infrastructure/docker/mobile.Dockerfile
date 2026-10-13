@@ -10,7 +10,13 @@
 # manifest, the icons and the service worker are static files the PWA install
 # prompt will not appear without.
 
-FROM node:22-alpine AS base
+# node:22-alpine, the Docker official image, pulled through Google's Docker Hub
+# mirror. Anonymous pulls from shared CI runners exhaust Docker Hub's rate limit
+# and ECR Public's data limit; the mirror serves the same image. NODE_IMAGE
+# overrides it in one place (--build-arg NODE_IMAGE=...) if this registry
+# becomes the problem instead.
+ARG NODE_IMAGE=mirror.gcr.io/library/node:22-alpine
+FROM ${NODE_IMAGE} AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 WORKDIR /app
 
@@ -45,7 +51,7 @@ RUN pnpm --filter @vintrax/shared build \
  && pnpm --filter @vintrax/mobile build
 
 # ---- Runtime ----------------------------------------------------------------
-FROM node:22-alpine AS runtime
+FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3002

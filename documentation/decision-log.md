@@ -1309,3 +1309,122 @@ Details: [accounting.md](./accounting.md).
   a support ticket, once per database, and sends no email.
 
 Details: [crm.md](./crm.md).
+
+## D-067 — Vehicle Reviews Are Pre-Moderated, Anonymous-Friendly, and Rated Only From Approved Reviews
+
+**Status:** Accepted, at the owner's request (issue #106).
+
+**Decision:**
+
+- **A module of its own on the existing stack.** `backend/src/modules/reviews`
+  adds three tables in one additive migration and uses the existing auth,
+  permission guard, audit log, notifications and Redis cache.
+- **Every review is pre-moderated.** Every review starts `PENDING`. Only
+  `APPROVED` reviews are listed, counted in the rating or put in structured
+  data. Deletion is soft, and every state change is written to a
+  per-review moderation history and to the audit log.
+- **Anonymous posting is allowed and protected.** The defences are:
+  - a honeypot;
+  - per-address hourly, pending and report limits counted in Postgres;
+  - duplicate-text detection;
+  - flags for the moderator.
+
+  Addresses and user agents are stored only as HMACs. There is no CAPTCHA,
+  because Vintrax has none to reuse.
+
+- **The public sees only public fields.** A public review is its id,
+  rating, text, display name, verified-purchase flag, date and edited flag.
+  Admin data (author email, reports, history, the rejection reason) is only
+  on `/admin/reviews` behind the new `review:read`, `review:moderate` and
+  `review:delete` permissions.
+- **"Verified purchase" requires the books to prove it.** It shows only when a
+  posted `VehicleSale` of the vehicle went to a `Customer` linked to the
+  author's account.
+- **Client IP from `req.ip`.** `ClientIp` and the audit trail now take the
+  address Express resolves under `trust proxy`, not the first
+  `X-Forwarded-For` entry, which a client controls.
+
+**Rationale:** The issue asked for a production feature that is open to
+anonymous visitors without becoming a spam channel. It also asked that
+public ratings are honest and that private data never leaks.
+
+- Pre-moderation plus server-side limits and fingerprints covers abuse
+  without adding a dependency.
+- Counting limits in the database keeps them exact across API instances
+  and when Redis is down.
+
+**Consequences:**
+
+- **Moderator workload.** A moderator must approve each review before it
+  shows. Pending reviews are on the admin dashboard.
+- **Shared addresses.** People behind one network address share the
+  per-address limits.
+- **The vehicle page.** It makes one extra server request for the first
+  page of reviews. The vehicle API is unchanged.
+
+Details: [reviews.md](./reviews.md).
+
+## D-068 — Platform Email Goes Through One Logged, Retrying Service, With Resend as Its Production Driver
+
+**Status:** Accepted, at the owner's request (issue #46).
+
+**Decision:**
+
+- **One service, a third driver.** `MailService` already chose between `log`
+  and `smtp`; `resend` is added beside them, using the official SDK. Exactly
+  one driver is active and no message is sent twice through two providers.
+  The CRM keeps its own outbox and calls the same service to deliver.
+- **A template catalogue, not ad-hoc strings.** Every platform email is a
+  keyed template with validated variables, an HTML and a plain-text part, and
+  a category: `SECURITY` and `ACCOUNT` mail is always sent, `NOTIFICATION` and
+  `ADMIN` mail can be switched off. Values are escaped; links are built only
+  from `APP_URL` and fixed paths.
+- **A log and outbox in Postgres (`EmailMessage`), not BullMQ.** Rows carry an
+  idempotency key (also sent to Resend), attempts, the sanitised last error and
+  the provider id. Transient failures are retried with bounded backoff and
+  jitter; permanent ones are not. A sweep claims rows with
+  `FOR UPDATE SKIP LOCKED` — the CRM outbox's pattern — so any number of API
+  processes can run it.
+- **Secret links are never stored.** Verification and reset emails keep no
+  variables in the log; if their sender dies mid-send, the row is marked
+  failed and the person asks again. Everything else stores its template
+  variables (not its body) so it can be re-sent after a restart or by an
+  administrator.
+- **Sending is off the request path.** With a network driver the request
+  returns once the row is written, so a password-reset request takes about
+  the same time whether or not the address has an account.
+- **Delivery comes from a signed webhook.** `POST /api/webhooks/resend`
+  verifies the Standard Webhooks signature over the raw body (the SDK's own
+  check, with its replay window), processes each event id once, and never
+  moves a status backwards. `ACCEPTED` and `DELIVERED` are different states.
+  Hard bounces and complaints suppress the address in the list the CRM
+  already reads.
+- **Admin alerts by email**, deduplicated per alert per hour, to
+  `MAIL_ADMIN_TO`: new dealer registrations, email failure thresholds, failing
+  CRM automations.
+- **The missing pages.** `/verify-email`, `/reset-password` and
+  `/forgot-password` did not exist, so the links in the existing verification
+  and reset emails led nowhere; they are added.
+
+**Rationale:** The issue asked for production email on Resend across
+authentication, accounts, the CRM and administration without a second email
+system. The service, the CRM outbox, consent, suppression and the hashed
+single-use tokens already existed; the gaps were a production provider, a
+record of what was sent, delivery state, retries that survive a restart, and
+the pages the links point to. A database outbox matches the CRM's, needs no
+new infrastructure, and keeps job data — which for a reset email is a sign-in
+link — out of Redis.
+
+**Consequences:**
+
+- **Server configuration.** Production needs `MAIL_DRIVER=resend`,
+  `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, a verified domain, and the
+  updated `compose/docker-compose.prod.yml` copied to the server — `deploy.sh`
+  does not replace it.
+- **Marketing default.** The issue suggested marketing email off by default;
+  `MAIL_MARKETING_ENABLED` defaults to `true` so existing CRM campaigns keep
+  working. Turning it off is one line.
+- **English only.** Platform email is not localised; accounts do not store a
+  language.
+
+Details: [email.md](./email.md).

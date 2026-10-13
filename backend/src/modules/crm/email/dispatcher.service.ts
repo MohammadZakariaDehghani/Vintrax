@@ -87,7 +87,10 @@ export class DispatcherService {
   private async sendOne(id: string, now: Date): Promise<void> {
     const email = await this.prisma.crmEmail.findUniqueOrThrow({ where: { id } });
     // Consent may have been withdrawn, or the address bounced, since queueing.
-    const decision = await this.compliance.canSend(email.dealerId, email.toEmail, email.purpose);
+    const decision =
+      email.purpose === 'MARKETING' && this.mail.marketingEnabled === false
+        ? { allowed: false as const, reason: 'Marketing email is switched off (MAIL_MARKETING_ENABLED=false)' }
+        : await this.compliance.canSend(email.dealerId, email.toEmail, email.purpose);
     if (!decision.allowed) {
       await this.prisma.crmEmail.update({
         where: { id },
@@ -110,6 +113,9 @@ export class DispatcherService {
         text: message.text,
         html: message.html,
         headers: message.headers,
+        // The outbox row's own key, so a retry after a timeout cannot make the
+        // provider send a second copy.
+        idempotencyKey: `crm:${email.idempotencyKey}`.slice(0, 256),
       });
       await this.prisma.$transaction(async (tx) => {
         await tx.crmEmail.update({

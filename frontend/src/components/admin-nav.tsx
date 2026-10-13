@@ -16,9 +16,11 @@ import {
   LayoutList,
   LifeBuoy,
   Mail,
+  MailCheck,
   Newspaper,
   PanelBottom,
   ShieldAlert,
+  Star,
   Tag,
   Users,
 } from 'lucide-react';
@@ -27,6 +29,7 @@ import { api } from '@/lib/api-client';
 const LINKS = [
   { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/moderation', label: 'Moderation', icon: ShieldAlert },
+  { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/dealers', label: 'Dealerships', icon: Building2 },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper },
@@ -39,6 +42,7 @@ const LINKS = [
   { href: '/admin/partners', label: 'Partners', icon: Handshake },
   { href: '/admin/pages', label: 'Pages', icon: FileText },
   { href: '/admin/contact', label: 'Contact', icon: Mail },
+  { href: '/admin/emails', label: 'Emails', icon: MailCheck },
   { href: '/admin/footer', label: 'Footer', icon: PanelBottom },
   { href: '/admin/support', label: 'Support', icon: Headset },
   { href: '/admin/crm', label: 'CRM', icon: LifeBuoy },
