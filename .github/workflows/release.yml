@@ -27,6 +27,15 @@ concurrency:
   # that cannot be reasoned about.
   cancel-in-progress: false
 
+# Where the images live, written down once rather than inferred. Both jobs read
+# it: publish pushes there, and deploy checks the server pulls from there
+# before it runs anything. It must be this repository's owner, lower-cased —
+# GITHUB_TOKEN can publish to no other namespace — and publish fails if it is
+# not, so moving or forking the repository is a decision someone makes here,
+# not a namespace change that happens silently.
+env:
+  IMAGE_NAMESPACE: variety-project-labs
+
 jobs:
   # The same suite the pull request ran. Nothing is published without it.
   verify:
@@ -58,13 +67,27 @@ jobs:
           - { name: mobile, dockerfile: infrastructure/docker/mobile.Dockerfile }
 
     steps:
+      # This repository at the commit that triggered the run — the default,
+      # written out because the image tag below is derived from the same SHA.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
       # GHCR rejects an uppercase path, and a GitHub owner may contain capitals.
-      # Derived rather than hard-coded so a fork publishes under its own owner.
       - name: Resolve the image name
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/vintrax-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+        env:
+          SERVICE: ${{ matrix.name }}
+        run: |
+          set -euo pipefail
+          owner=${GITHUB_REPOSITORY_OWNER,,}
+          if [[ $IMAGE_NAMESPACE != "$owner" ]]; then
+            echo "::error::IMAGE_NAMESPACE is '$IMAGE_NAMESPACE' but $GITHUB_REPOSITORY belongs to '$owner'."
+            echo "GITHUB_TOKEN can publish only to ghcr.io/$owner. Change IMAGE_NAMESPACE at the top of" >&2
+            echo "this workflow, and the server's IMAGE_NAMESPACE with it, if the owner really changed." >&2
+            exit 1
+          fi
+          echo "name=ghcr.io/$IMAGE_NAMESPACE/vintrax-$SERVICE" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -130,6 +153,11 @@ jobs:
             echo "::error::this build published no sha- tag, so there is nothing immutable to deploy"
             exit 1
           fi
+          # The tag must name the commit this run built, and nothing else.
+          if [[ $GITHUB_SHA != "${version#sha-}"* ]]; then
+            echo "::error::published $version, which is not this run's commit ($GITHUB_SHA)"
+            exit 1
+          fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
 
       - name: Summarise what was published
@@ -171,7 +199,10 @@ jobs:
     # automates is "push to main goes live", and a `v*` tag is a release marker
     # that may be cut from anywhere. Ship one by hand, or dispatch this workflow
     # from main.
-    if: github.ref == 'refs/heads/main'
+    #
+    # And only from this repository. A fork, or the repository this one
+    # replaced, may still hold the workflow; neither deploys production.
+    if: github.ref == 'refs/heads/main' && github.repository == 'variety-project-labs/Vintrax-MarketPlace'
 
     # Gives this a record in the repository's Environments view, and a place to
     # hang a required reviewer. Adding one there is how the first automatic run
@@ -180,6 +211,9 @@ jobs:
 
     permissions:
       contents: read
+      # To confirm the three images exist before going near the server. Read
+      # only: this job never publishes.
+      packages: read
 
     # Serialises production releases across every trigger, which the
     # workflow-level group above does not: that one is keyed on the ref, so a
@@ -233,7 +267,38 @@ jobs:
           [[ $TARGET_PORT =~ ^[0-9]{1,5}$ ]] \
             || { echo "::error::DEPLOY_PORT '$TARGET_PORT' is not a port number"; exit 1; }
 
+          [[ $IMAGE_NAMESPACE =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] \
+            || { echo "::error::IMAGE_NAMESPACE '$IMAGE_NAMESPACE' is not a lower-case GHCR owner"; exit 1; }
+
           echo "Target: $TARGET_USER@$TARGET_HOST:$TARGET_PORT ($TARGET_PATH), version $VERSION"
+          echo "Images: ghcr.io/$IMAGE_NAMESPACE/vintrax-{api,web,mobile}:$VERSION"
+
+      # `needs: publish` already means every leg of the matrix succeeded. This
+      # asks the registry itself, so an image that is missing at this tag — for
+      # whatever reason — stops the job here, before the server is touched.
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Confirm all three images are published at this tag
+        run: |
+          set -euo pipefail
+          missing=()
+          for service in api web mobile; do
+            ref="ghcr.io/$IMAGE_NAMESPACE/vintrax-$service:$VERSION"
+            if docker buildx imagetools inspect "$ref" > /dev/null 2>&1; then
+              echo "✓ $ref"
+            else
+              missing+=("$ref")
+            fi
+          done
+          if (( ${#missing[@]} )); then
+            echo "::error::not in the registry: ${missing[*]}. Nothing was deployed."
+            exit 1
+          fi
 
       # Preparation is four separate steps rather than one.
       #
@@ -430,6 +495,69 @@ jobs:
             echo "::error::SSH FAILED (exit 255) — see the ssh output above."
           fi
           exit 1
+
+      # The server pulls whatever its own compose file and environment file
+      # name, which this workflow does not control. This asks it, read-only,
+      # which images it would pull for this version and whether it is allowed
+      # to read them. A namespace that disagrees with IMAGE_NAMESPACE above then
+      # fails here, naming both, instead of as "not found" inside deploy.sh.
+      # `compose config --images` prints image references only, never a value
+      # from the environment file; `docker manifest inspect` downloads nothing.
+      - name: Check the server pulls the images this run published
+        if: success()
+        run: |
+          set -uo pipefail
+
+          expected=$(for service in api web mobile; do
+                       echo "ghcr.io/$IMAGE_NAMESPACE/vintrax-$service:$VERSION"
+                     done | sort)
+
+          output=$(ssh -T vintrax-target \
+                     "VINTRAX_VERSION='$VERSION' docker compose --env-file '$TARGET_PATH/env/vintrax.env' -f '$TARGET_PATH/compose/docker-compose.prod.yml' config --images" 2>&1) \
+            && rc=0 || rc=$?
+          if (( rc != 0 )); then
+            # Not printed: a parse error from compose can quote the environment
+            # file, which holds production credentials.
+            echo "::error::could not read the image names from the server's compose file (exit $rc). Nothing was deployed."
+            echo "To see why, run on the server:" >&2
+            echo "  VINTRAX_VERSION=$VERSION docker compose --env-file $TARGET_PATH/env/vintrax.env -f $TARGET_PATH/compose/docker-compose.prod.yml config --images" >&2
+            exit 1
+          fi
+
+          actual=$(printf '%s\n' "$output" | grep -E '/vintrax-(api|web|mobile):' | sort -u || true)
+          echo "This run published:"
+          printf '%s\n' "$expected" | sed 's/^/  /'
+          echo "The server would pull:"
+          printf '%s\n' "${actual:-(no vintrax images)}" | sed 's/^/  /'
+
+          if [[ $actual != "$expected" ]]; then
+            echo "::error::IMAGE NAMESPACE MISMATCH — the server would pull images this run did not publish. Nothing was deployed."
+            echo "Set IMAGE_NAMESPACE=$IMAGE_NAMESPACE (and no REGISTRY other than ghcr.io) in" >&2
+            echo "$TARGET_PATH/env/vintrax.env on the server, keeping a copy of the file first." >&2
+            echo "documentation/repository-migration.md § 3 has the exact commands." >&2
+            exit 1
+          fi
+
+          failed=false
+          for ref in $expected; do
+            err=$(ssh -T vintrax-target "docker manifest inspect '$ref'" 2>&1 > /dev/null) && rc=0 || rc=$?
+            if (( rc == 0 )); then
+              echo "✓ the server can read $ref"
+              continue
+            fi
+            failed=true
+            if (( rc == 255 )); then
+              echo "::error::the SSH session failed while checking $ref."
+            elif printf '%s\n' "$err" | grep -qiE 'unauthorized|denied|authentication required'; then
+              echo "::error::REGISTRY ACCESS — the server is not allowed to read $ref."
+              echo "On the server, as $TARGET_USER: docker login ghcr.io with a token that can read" >&2
+              echo "the $IMAGE_NAMESPACE packages (read:packages). documentation/docker.md § 3.6." >&2
+            else
+              echo "::error::the server could not read $ref:"
+              printf '  %s\n' "$err" >&2
+            fi
+          done
+          [[ $failed == false ]] || exit 1
 
       # The release itself. One command, the existing one.
       #

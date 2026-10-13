@@ -291,6 +291,106 @@ describe('the release workflow', () => {
 });
 
 /**
+ * One image namespace, end to end. A release from the new repository published
+ * to ghcr.io/variety-project-labs while the server still pulled from the old
+ * owner, and the first anyone heard of it was "not found" inside deploy.sh.
+ * These pin the namespace in one place and the checks that make the two sides
+ * agree before anything on the server runs.
+ */
+describe('the image namespace', () => {
+  const root = join(__dirname, '..', '..');
+  const release = readFileSync(join(root, '.github', 'workflows', 'release.yml'), 'utf8');
+  const directives = release
+    .split('\n')
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n');
+  const deployJob = directives.slice(directives.indexOf('\n  deploy:'));
+  const stepNames = directives
+    .split('\n')
+    .map((line) => /^\s*- name:\s*(.+?)\s*$/.exec(line)?.[1])
+    .filter((name): name is string => Boolean(name));
+  const orderOf = (name: string) => stepNames.indexOf(name);
+
+  it('is written down once, as the new repository owner', () => {
+    expect(directives).toMatch(/^env:\n\s+IMAGE_NAMESPACE: variety-project-labs$/m);
+  });
+
+  it('is what publish pushes to, and only if it is the repository owner GITHUB_TOKEN can write to', () => {
+    expect(directives).toContain('echo "name=ghcr.io/$IMAGE_NAMESPACE/vintrax-$SERVICE"');
+    expect(directives).toContain('if [[ $IMAGE_NAMESPACE != "$owner" ]]; then');
+    expect(directives).not.toMatch(/ghcr\.io\/\$\{GITHUB_REPOSITORY_OWNER/);
+  });
+
+  it('names nothing from the repository this one replaced', () => {
+    for (const file of [
+      '.github/workflows/release.yml',
+      '.github/workflows/verify.yml',
+      '.github/workflows/ci.yml',
+      'compose/docker-compose.prod.yml',
+      'scripts/deploy.sh',
+      'scripts/rollback.sh',
+      '.env.production.example',
+    ]) {
+      expect(readFileSync(join(root, file), 'utf8').toLowerCase()).not.toContain(
+        'mohammadzakariadehghani',
+      );
+    }
+  });
+
+  it('is the value the production example tells the server to use', () => {
+    const example = readFileSync(join(root, '.env.production.example'), 'utf8');
+    expect(example).toMatch(/^IMAGE_NAMESPACE=variety-project-labs$/m);
+  });
+
+  it('is what the production stack pulls, for all three images', () => {
+    const prod = readFileSync(join(root, 'compose', 'docker-compose.prod.yml'), 'utf8');
+    for (const service of ['api', 'web', 'mobile']) {
+      expect(prod).toContain(
+        `image: \${REGISTRY:-ghcr.io}/\${IMAGE_NAMESPACE:?set IMAGE_NAMESPACE}/vintrax-${service}:\${VINTRAX_VERSION:?set VINTRAX_VERSION}`,
+      );
+    }
+  });
+
+  it('builds every image from the commit the tag names', () => {
+    expect(directives).toMatch(
+      /- uses: actions\/checkout@v4\n\s+with:\n\s+ref: \$\{\{ github\.sha \}\}/,
+    );
+    expect(directives).toContain('if [[ $GITHUB_SHA != "${version#sha-}"* ]]; then');
+  });
+
+  it('deploys only from this repository', () => {
+    expect(directives).toContain(
+      "if: github.ref == 'refs/heads/main' && github.repository == 'variety-project-labs/Vintrax-MarketPlace'",
+    );
+  });
+
+  it('reads the registry with no more than package read access', () => {
+    expect(deployJob).toMatch(/permissions:\n\s+contents: read\n\s+packages: read\n/);
+    expect(deployJob).not.toContain('packages: write');
+  });
+
+  it('confirms all three images exist at the tag before the server is touched', () => {
+    expect(deployJob).toContain('ref="ghcr.io/$IMAGE_NAMESPACE/vintrax-$service:$VERSION"');
+    expect(orderOf('Confirm all three images are published at this tag')).toBeLessThan(
+      orderOf('Create the SSH directory'),
+    );
+  });
+
+  it('checks the server would pull exactly those images, and may, before deploying', () => {
+    const check = orderOf('Check the server pulls the images this run published');
+    expect(check).toBeGreaterThan(orderOf('Test the SSH connection'));
+    expect(check).toBeLessThan(orderOf('Run the existing deploy script'));
+    expect(directives).toMatch(
+      /- name: Check the server pulls the images this run published\n\s+if: success\(\)/,
+    );
+    expect(deployJob).toContain('config --images');
+    expect(deployJob).toContain("docker manifest inspect '$ref'");
+    expect(deployJob).toContain('::error::IMAGE NAMESPACE MISMATCH');
+    expect(deployJob).toContain('::error::REGISTRY ACCESS');
+  });
+});
+
+/**
  * SSH preparation, as its own suite.
  *
  * Every one of these exists because the job failed with exit code 255 and the

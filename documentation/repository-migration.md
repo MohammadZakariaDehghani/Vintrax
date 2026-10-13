@@ -145,9 +145,12 @@ Packages). The first release creates `vintrax-api`, `vintrax-web` and
 
 If any step fails before 5, nothing has changed on the server except
 possibly the `IMAGE_NAMESPACE` line, which `vintrax.env.pre-migration` restores.
-If the deploy job runs before step 4 (no reviewer configured), `deploy.sh`
-fails at the pull — it pulls before stopping anything — and the current
-version keeps serving.
+If the deploy job runs before step 4 (no reviewer configured), it stops at
+**Check the server pulls the images this run published** with an
+`IMAGE NAMESPACE MISMATCH` error that names both namespaces, before
+`deploy.sh` runs, and the current version keeps serving. A server that cannot
+read the organisation's packages stops at the same step with
+`REGISTRY ACCESS` (step 3).
 
 ## 4. Rollback after the move
 
