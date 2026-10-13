@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import type { Env } from '../../config/env';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailSettingsService } from './email-settings.service';
 import { ResendTransport, TransportError } from './resend.transport';
 import {
   EMAIL_TEMPLATES,
@@ -61,6 +62,10 @@ export interface SendOptions {
   related?: { type: string; id: string } | null;
   replyTo?: string | null;
   correlationId?: string;
+  /** Wait for the outcome instead of sending in the background (the admin's test email). */
+  wait?: boolean;
+  /** Fewer attempts than MAIL_MAX_ATTEMPTS — 1 for a test, so the admin sees the real answer. */
+  maxAttempts?: number;
 }
 
 export type AdminAlertSeverity = 'info' | 'warning' | 'critical';
@@ -149,6 +154,8 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     @Optional() private readonly prisma?: PrismaService,
     /** For tests: a stand-in Resend transport. */
     @Optional() resendTransport?: ResendTransport,
+    /** Provider settings saved in the admin (D-069); without it, the environment decides. */
+    @Optional() private readonly settings?: EmailSettingsService,
   ) {
     this.driver = this.config.get('MAIL_DRIVER', { infer: true });
     this.from = this.config.get('MAIL_FROM', { infer: true });
@@ -304,8 +311,9 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       recipient,
       options.replyTo ?? undefined,
       correlationId,
+      options.maxAttempts,
     );
-    if (this.driver === 'log') {
+    if (options.wait || (await this.activeConfig()).driver === 'log') {
       // Nothing leaves the machine, so there is nothing to wait for — and
       // development wants the link in the log by the time the request returns.
       await run.catch((error: unknown) =>
@@ -343,6 +351,49 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
         { idempotencyKey: `admin.alert:${alert.key}:${hour}:${to}` },
       );
     }
+  }
+
+  /**
+   * The admin's test email (D-069): sent once, now, through the provider in
+   * force, and reported back as it happened — accepted with an id, or the
+   * provider's refusal.
+   */
+  async sendTestEmail(
+    to: string,
+    firstName: string,
+    userId: string,
+  ): Promise<{ ok: boolean; providerMessageId: string | null; message: string }> {
+    const active = await this.activeConfig();
+    const id = await this.sendTemplate(
+      'settings.test-email',
+      to,
+      {
+        firstName,
+        provider: active.driver,
+        source: active.source,
+        sentAt: new Date().toISOString(),
+      },
+      { userId, wait: true, maxAttempts: 1 },
+    );
+    if (!id || !this.prisma) {
+      return { ok: false, providerMessageId: null, message: 'The test email could not be recorded.' };
+    }
+    const row = await this.prisma.emailMessage.findUniqueOrThrow({ where: { id } });
+    if (row.status === 'ACCEPTED') {
+      return {
+        ok: true,
+        providerMessageId: row.providerMessageId,
+        message:
+          active.driver === 'log'
+            ? 'Nothing was sent: the active driver is log, which writes email to the server log.'
+            : `${active.driver === 'resend' ? 'Resend' : 'The SMTP server'} accepted it. Check the inbox — acceptance is not delivery.`,
+      };
+    }
+    return {
+      ok: false,
+      providerMessageId: null,
+      message: `Not sent (${row.lastErrorCode ?? row.status}): ${row.lastError ?? 'see Admin → Emails'}`,
+    };
   }
 
   // --- Named sends, for readability at the call sites -------------------------
@@ -409,6 +460,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     to: string,
     replyTo: string | undefined,
     correlationId: string,
+    maxAttempts = this.maxAttempts,
   ): Promise<void> {
     if (!this.prisma) return;
     for (;;) {
@@ -441,7 +493,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
         return;
       } catch (error) {
         const failure = asDeliveryError(error);
-        const giveUp = failure.permanent || row.attempts >= this.maxAttempts;
+        const giveUp = failure.permanent || row.attempts >= maxAttempts;
         const wait = mailBackoffMs(row.attempts, failure.retryAfterMs);
         const inline = !giveUp && wait <= LONGEST_INLINE_WAIT_MS;
         await this.prisma.emailMessage.update({
@@ -477,14 +529,30 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     replyTo: string | undefined,
     idempotencyKey: string | undefined,
   ): Promise<MailReceipt> {
+    const active = await this.activeConfig();
     return this.deliver({
       to,
       subject: rendered.subject,
       text: rendered.text,
       html: rendered.html,
-      replyTo: replyTo ?? this.replyTo ?? null,
+      replyTo: replyTo ?? active.replyTo ?? null,
       idempotencyKey,
     });
+  }
+
+  /**
+   * The provider configuration in force for this send: the admin's stored
+   * settings when they are switched on, otherwise the environment.
+   */
+  private async activeConfig(): Promise<{
+    source: 'database' | 'environment';
+    driver: 'log' | 'smtp' | 'resend';
+    from: string;
+    replyTo?: string;
+    apiKey?: string;
+  }> {
+    if (this.settings) return this.settings.active();
+    return { source: 'environment', driver: this.driver, from: this.from, replyTo: this.replyTo };
   }
 
   /**
@@ -493,15 +561,16 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
    * `MailDeliveryError`, so the caller can retry or record a bounce.
    */
   async deliver(message: RichMailMessage): Promise<MailReceipt> {
-    const fromAddress = /<([^>]+)>/.exec(this.from)?.[1] ?? this.from;
+    const active = await this.activeConfig();
+    const fromAddress = /<([^>]+)>/.exec(active.from)?.[1] ?? active.from;
     const from = message.fromName
       ? `"${message.fromName.replace(/["\\\r\n]/g, '')}" <${fromAddress}>`
-      : this.from;
+      : active.from;
     const to = message.toName
       ? `"${message.toName.replace(/["\\\r\n]/g, '')}" <${message.to}>`
       : message.to;
 
-    if (this.driver === 'log') {
+    if (active.driver === 'log') {
       if (this.logBodies) {
         this.logger.log(
           `\n--- email (${from} -> ${to}) ---\n` +
@@ -514,9 +583,20 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       return { provider: 'log', messageId: `log-${randomUUID()}` };
     }
 
-    if (this.driver === 'resend') {
+    if (active.driver === 'resend') {
+      const transport =
+        active.source === 'database' && active.apiKey && this.settings
+          ? this.settings.transportFor(active.apiKey)
+          : this.resend;
+      if (!transport) {
+        throw new MailDeliveryError(
+          'Resend is selected but no API key is configured',
+          true,
+          'missing_api_key',
+        );
+      }
       try {
-        const { messageId } = await this.resend!.send({
+        const { messageId } = await transport.send({
           from,
           to,
           subject: message.subject,
@@ -788,7 +868,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
   async stats(since: Date) {
     const empty = {
       since: since.toISOString(),
-      driver: this.driver,
+      driver: (await this.activeConfig()).driver as string,
       total: 0,
       retried: 0,
       byStatus: {} as Record<string, number>,

@@ -1428,3 +1428,48 @@ link — out of Redis.
   language.
 
 Details: [email.md](./email.md).
+
+## D-069 — Email Provider Settings Can Be Managed in the Admin, With the API Key Encrypted at Rest
+
+**Status:** Accepted, at the owner's request.
+
+**Decision:**
+
+- **A Super-Admin-only settings page.** Admin → Settings → Email
+  (`settings:manage`, held only by SUPER_ADMIN) sets the provider (Resend),
+  the API key, the sender name and address, and the reply-to address.
+- **The key is stored encrypted, not in the environment file.** The
+  environment file is the project's secrets store, but the app cannot write it,
+  and a key managed from the admin has to be saved by the app. So the key is
+  sealed with AES-256-GCM (fresh IV each time, authentication tag stored, the
+  purpose bound in as associated data) under `SETTINGS_ENCRYPTION_KEY` — a new
+  server environment variable that never reaches the database or the
+  repository. A fingerprint of that key is stored to tell "wrong key" from
+  "corrupt value".
+- **Write-only.** The API returns whether a key is set, its last four
+  characters and when; never the key. Logs and the audit log never carry it.
+- **Opt-in precedence.** Stored settings apply only when switched on and
+  readable; otherwise the environment's `MAIL_*` settings send, as before. One
+  resolution point in `MailService` means platform and CRM email both follow
+  it. Tests never use stored settings unless a stand-in transport is injected.
+- **Tests that cannot be abused.** Test connection stores nothing; the test
+  email goes only to the caller's own verified address. Both are rate-limited
+  per address, and test emails also per admin in the database.
+
+**Rationale:** The owner asked for the provider to be configurable from the
+admin without credentials ever reaching Git, the frontend, API responses or
+logs. Encrypting with a key held only in the environment keeps a database
+dump — or a read-only database user — from yielding a working API key, while
+still letting a super admin rotate the key without a deploy.
+
+**Consequences:**
+
+- **One new server secret**, `SETTINGS_ENCRYPTION_KEY`. Losing or changing it
+  makes the stored key unreadable: the environment settings take over and the
+  key must be entered again.
+- **Other API processes** pick up a change within 30 seconds (an in-process
+  cache), not instantly.
+- **Webhook signing secret** stays in the environment (`RESEND_WEBHOOK_SECRET`);
+  it is set once and needs no admin control.
+
+Details: [email.md](./email.md#admin--settings--email).

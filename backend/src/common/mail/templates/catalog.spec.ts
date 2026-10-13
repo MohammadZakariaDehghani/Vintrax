@@ -41,6 +41,12 @@ const SAMPLES: { [K in EmailTemplateKey]: Parameters<typeof renderTemplate<K>>[1
     subject: 'Hello',
     message: 'Is it available?',
   },
+  'settings.test-email': {
+    firstName: 'Dana',
+    provider: 'resend',
+    source: 'database',
+    sentAt: '2026-10-14T12:00:00.000Z',
+  },
   'admin.alert': {
     severity: 'warning',
     title: 'Email delivery failures',

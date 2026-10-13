@@ -139,6 +139,53 @@ export class ResendTransport {
     return { messageId: response.data.id };
   }
 
+
+  /**
+   * Checks the key, and the sending domain if the key may read domains. A
+   * sending-only key (Resend's recommended kind) answers `restricted_api_key`
+   * here: it is valid, but the domain cannot be checked with it.
+   */
+  async checkConnection(fromEmail: string | null): Promise<{
+    keyValid: boolean;
+    restricted: boolean;
+    domain: { name: string; status: string; verified: boolean } | null;
+    error: string | null;
+  }> {
+    let response: Awaited<ReturnType<Resend['domains']['list']>>;
+    try {
+      response = await this.client.domains.list();
+    } catch (error) {
+      return {
+        keyValid: false,
+        restricted: false,
+        domain: null,
+        error: `Could not reach Resend: ${String((error as Error)?.message ?? error).slice(0, 200)}`,
+      };
+    }
+    if (response.error) {
+      const restricted = response.error.name === 'restricted_api_key';
+      return {
+        keyValid: restricted,
+        restricted,
+        domain: null,
+        error: restricted ? null : `Resend refused the key (${response.error.name})`,
+      };
+    }
+    const wanted = fromEmail?.split('@')[1]?.toLowerCase() ?? null;
+    const match = wanted
+      ? (response.data?.data ?? []).find(
+          (domain) => wanted === domain.name.toLowerCase() || wanted.endsWith(`.${domain.name.toLowerCase()}`),
+        )
+      : undefined;
+    return {
+      keyValid: true,
+      restricted: false,
+      domain: match
+        ? { name: match.name, status: match.status, verified: match.status === 'verified' }
+        : null,
+      error: null,
+    };
+  }
 }
 
 let verifier: Resend | undefined;

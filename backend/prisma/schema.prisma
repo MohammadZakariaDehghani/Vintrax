@@ -1085,6 +1085,32 @@ model Notification {
 /// Append-only record of security- and money-relevant actions. Rows are never
 /// updated or deleted; actorId is nullable so a deleted account does not erase
 /// the history of what it did.
+/// Email provider settings managed in Admin → Settings → Email (D-069). One
+/// row (id 1). The API key is stored only encrypted (AES-256-GCM under
+/// SETTINGS_ENCRYPTION_KEY, which lives in the server environment and never
+/// here); `apiKeyLast4` is the only part of it ever shown. While `enabled` is
+/// false the environment's MAIL_* settings keep sending.
+model EmailProviderSettings {
+  id               Int       @id @default(1)
+  provider         String    @default("resend")
+  enabled          Boolean   @default(false)
+  fromName         String    @default("Vintrax")
+  fromEmail        String?
+  replyTo          String?
+  /// base64 AES-256-GCM ciphertext, its IV and its authentication tag.
+  apiKeyCiphertext String?
+  apiKeyIv         String?
+  apiKeyTag        String?
+  apiKeyLast4      String?
+  /// First 16 hex chars of SHA-256 over the encryption key: detects a missing
+  /// or rotated key without revealing it.
+  apiKeyKeyId      String?
+  apiKeyUpdatedAt  DateTime?
+  updatedById      String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
 /// What kind of platform email a message is. SECURITY and ACCOUNT mail is
 /// always sent; NOTIFICATION and ADMIN mail follow MAIL_NOTIFICATIONS_ENABLED.
 enum EmailCategory {

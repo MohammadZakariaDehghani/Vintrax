@@ -210,6 +210,20 @@ const baseEnvSchema = z.object({
     ),
   /** Requests per second to the Resend API; Resend rate-limits each team. */
   RESEND_MAX_REQUESTS_PER_SECOND: z.coerce.number().min(0.1).max(100).default(2),
+  /**
+   * Encrypts secrets saved through the admin (D-069), e.g. a Resend API key
+   * entered in Admin → Settings → Email: 32 random bytes, base64
+   * (`openssl rand -base64 32`). Lives only in the server environment — never
+   * in the database or the repository. Unset: the admin cannot store secrets.
+   */
+  SETTINGS_ENCRYPTION_KEY: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined)
+    .refine(
+      (value) => !value || Buffer.from(value, 'base64').length === 32,
+      'SETTINGS_ENCRYPTION_KEY must be 32 bytes, base64-encoded (openssl rand -base64 32)',
+    ),
 
   // --- Dealer help assistant ---
   // Without a provider the assistant still answers, from the help articles
