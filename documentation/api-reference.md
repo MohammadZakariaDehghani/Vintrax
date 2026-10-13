@@ -1251,6 +1251,10 @@ See [email.md](./email.md). Paths under `/api`.
 | `GET`  | `/admin/emails`           | `email:read`                  | Platform email log: `status`, `category`, `q` (recipient), paging. Each row says whether it is `retryable` |
 | `GET`  | `/admin/emails/stats`     | `email:read`                  | Counts by status and category over `hours` (default 168), retries, and the active driver                  |
 | `POST` | `/admin/emails/:id/retry` | `email:manage`                | Re-queue a failed message unchanged; `400` for a secret-link message or a suppressed address (audited)    |
+| `GET`  | `/admin/settings/email`                 | `settings:manage` | Provider settings. The API key is never returned: `apiKey: { set, last4, updatedAt, decryptable }`, plus what is sending now |
+| `PUT`  | `/admin/settings/email`                 | `settings:manage` | `{ provider, enabled, fromName, fromEmail, replyTo?, apiKey?, clearApiKey? }`; a new `apiKey` replaces the stored one (audited by field name) |
+| `POST` | `/admin/settings/email/test-connection` | `settings:manage` | `{ apiKey?, fromEmail? }`: checks a typed or the stored key and the sending domain; stores nothing (5 / 10 min) |
+| `POST` | `/admin/settings/email/test-email`      | `settings:manage` | Sends a test to the caller's own verified address through the active provider (5 / 10 min, 10 / hour) |
 
 The account pages the emails link to call the existing auth routes:
 `POST /auth/password/forgot`, `POST /auth/password/reset` and

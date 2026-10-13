@@ -162,6 +162,8 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
       RESEND_MAX_REQUESTS_PER_SECOND: ${RESEND_MAX_REQUESTS_PER_SECOND:-2}
+      # Encrypts secrets saved in the admin (Admin → Settings → Email). Secret.
+      SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY:-}
       SUPPORT_REPLY_TO: ${SUPPORT_REPLY_TO:-}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}

@@ -289,6 +289,35 @@ export const EMAIL_TEMPLATES = {
       ),
   }),
 
+  'settings.test-email': define({
+    category: 'ACCOUNT',
+    secret: false,
+    schema: z.object({
+      firstName: name,
+      provider: z.enum(['resend', 'smtp', 'log']),
+      source: z.enum(['database', 'environment']),
+      sentAt: z.string().datetime(),
+    }),
+    render: (v, app) =>
+      renderEmail(
+        'Vintrax test email',
+        {
+          preheader: 'Your email settings work.',
+          heading: 'Your email settings work',
+          paragraphs: [
+            `Hi ${v.firstName}, this is the test email you sent from Admin → Settings → Email. If you are reading it, Vintrax can deliver mail to this address.`,
+          ],
+          details: [
+            ['Provider', v.provider],
+            ['Settings from', v.source === 'database' ? 'the admin (stored, encrypted)' : 'the server environment'],
+            ['Sent', `${v.sentAt.replace('T', ' ').slice(0, 16)} UTC`],
+          ],
+          footnote: 'Only a super admin can send this, and only to their own verified address.',
+        },
+        app,
+      ),
+  }),
+
   'admin.alert': define({
     category: 'ADMIN',
     secret: false,

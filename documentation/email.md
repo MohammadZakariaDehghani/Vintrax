@@ -119,6 +119,61 @@ template to the same recipient with the same variables — nothing can be
 changed — and is written to the audit log. Secret-link messages and suppressed
 addresses cannot be retried.
 
+## Admin → Settings → Email
+
+`/admin/settings/email` lets a **super admin** (permission `settings:manage`)
+set the provider without touching the server: Resend, the API key, the sender
+name and address, and the reply-to address. Decision record:
+[D-069](./decision-log.md).
+
+- **Precedence.** While the stored settings are switched off — or their key
+  cannot be decrypted — the environment's `MAIL_*` / `RESEND_*` settings keep
+  sending, exactly as before. Switched on, the stored settings are used by every
+  email the platform sends: registration and verification, password reset,
+  account notices, admin alerts and CRM email. Changes take effect at once on
+  the process that saved them and within 30 seconds on any other.
+- **The API key is write-only.** It is encrypted before it reaches the
+  database (AES-256-GCM, a fresh IV per save, the purpose bound in as
+  associated data) under `SETTINGS_ENCRYPTION_KEY`, which lives only in the
+  server environment. The page shows only whether a key is stored, its last
+  four characters and when it was saved. It is never returned by the API,
+  written to a log, or recorded in the audit log — the audit entry says
+  `apiKey.added`, `apiKey.replaced` or `apiKey.removed`.
+- **Replacing and removing.** Leave the key field empty to keep the stored key;
+  enter a new one to replace it. Removing the key also switches the stored
+  settings off.
+- **Test connection** checks a key — the one typed into the form, or the
+  stored one — against Resend without saving anything, and reports whether the
+  sender's domain is verified. A sending-only key (Resend's recommended kind)
+  is valid but cannot read domains; the test says so.
+- **Send a test email** goes to the signed-in super admin's own verified
+  address — the request names no recipient — through whatever is sending now,
+  and reports Resend's answer.
+- **Limits.** Both tests: 5 per 10 minutes per address; test emails also 10
+  an hour per admin, counted in the database.
+
+If `SETTINGS_ENCRYPTION_KEY` is not set, the page says so and refuses to store
+a key; the other fields can still be saved. If the encryption key changes, a
+stored key can no longer be decrypted: the page says so, the environment
+settings take over, and the key has to be entered again.
+
+### Enabling it on the server
+
+Do this once, before a super admin saves a key:
+
+```bash
+ssh root@<server>
+openssl rand -base64 32                     # copy the output
+nano /opt/vintrax/env/vintrax.env           # SETTINGS_ENCRYPTION_KEY=<that value>
+chmod 600 /opt/vintrax/env/vintrax.env
+```
+
+Keep a copy in your password manager: without it the stored key cannot be
+read, and has to be entered again. Copy the updated
+`compose/docker-compose.prod.yml` to the server (it passes the variable to the
+API), then deploy. The release applies the additive migration
+`20261014000000_email_provider_settings`.
+
 ## Configuration
 
 Set on the server in `/opt/vintrax/env/vintrax.env` (chmod 600). Secrets

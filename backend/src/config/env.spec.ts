@@ -151,3 +151,20 @@ describe('email configuration (D-068)', () => {
     expect(env.MAIL_ADMIN_TO).toEqual([]);
   });
 });
+
+describe('the settings encryption key (D-069)', () => {
+  const dev = { ...base, NODE_ENV: 'development' };
+
+  it('is optional, and must be 32 base64 bytes when set', () => {
+    expect(() => validateEnv(dev)).not.toThrow();
+    expect(() =>
+      validateEnv({ ...dev, SETTINGS_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64') }),
+    ).not.toThrow();
+    expect(() =>
+      validateEnv({ ...dev, SETTINGS_ENCRYPTION_KEY: Buffer.alloc(16, 7).toString('base64') }),
+    ).toThrow(/SETTINGS_ENCRYPTION_KEY/);
+    expect(() => validateEnv({ ...dev, SETTINGS_ENCRYPTION_KEY: 'too-short' })).toThrow(
+      /SETTINGS_ENCRYPTION_KEY/,
+    );
+  });
+});

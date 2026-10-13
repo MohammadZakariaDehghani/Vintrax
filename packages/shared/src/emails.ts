@@ -69,3 +69,90 @@ export interface EmailStats {
   byStatus: Partial<Record<EmailMessageStatus, number>>;
   byCategory: Partial<Record<EmailCategory, number>>;
 }
+
+// --- Provider settings (Admin → Settings → Email, D-069) ---------------------
+
+export const EMAIL_PROVIDERS = ['resend'] as const;
+export type EmailProvider = (typeof EMAIL_PROVIDERS)[number];
+
+/** A Resend API key: `re_` and its token. Only ever sent to the API, never back. */
+export const RESEND_API_KEY_PATTERN = /^re_[A-Za-z0-9_-]{8,200}$/;
+
+const senderName = z
+  .string()
+  .trim()
+  .min(1, 'Enter a sender name')
+  .max(100)
+  .regex(/^[^\r\n"<>\\]+$/, 'No quotes, angle brackets, backslashes or line breaks');
+
+const address = z.string().trim().toLowerCase().email('Enter a valid email address').max(254);
+
+const apiKey = z.string().trim().regex(RESEND_API_KEY_PATTERN, 'A Resend API key starts with re_');
+
+export const emailSettingsUpdateSchema = z
+  .object({
+    provider: z.enum(EMAIL_PROVIDERS),
+    /** Send through these settings instead of the server environment's. */
+    enabled: z.boolean(),
+    fromName: senderName,
+    fromEmail: address,
+    replyTo: address.nullish(),
+    /** A new key replaces the stored one; leave it out to keep the stored one. */
+    apiKey: apiKey.optional(),
+    /** Removes the stored key (and so turns the settings off). */
+    clearApiKey: z.boolean().optional(),
+  })
+  .strict()
+  .refine((value) => !(value.apiKey && value.clearApiKey), {
+    message: 'Either replace the key or remove it, not both',
+    path: ['apiKey'],
+  });
+export type EmailSettingsUpdateInput = z.infer<typeof emailSettingsUpdateSchema>;
+
+/** Test the stored key, or a key typed into the form before it is saved. */
+export const emailConnectionTestSchema = z
+  .object({ apiKey: apiKey.optional(), fromEmail: address.optional() })
+  .strict();
+export type EmailConnectionTestInput = z.infer<typeof emailConnectionTestSchema>;
+
+export interface EmailSettingsView {
+  provider: EmailProvider;
+  enabled: boolean;
+  fromName: string;
+  fromEmail: string | null;
+  replyTo: string | null;
+  /** Never the key itself: whether one is stored, its last four characters, when. */
+  apiKey: {
+    set: boolean;
+    last4: string | null;
+    updatedAt: string | null;
+    /** False when SETTINGS_ENCRYPTION_KEY is missing or not the one it was saved with. */
+    decryptable: boolean;
+  };
+  /** Whether the server can store secrets at all (SETTINGS_ENCRYPTION_KEY is set). */
+  encryptionConfigured: boolean;
+  /** What is sending right now. */
+  active: {
+    source: 'database' | 'environment';
+    driver: 'resend' | 'smtp' | 'log';
+    from: string;
+  };
+  updatedAt: string | null;
+}
+
+export interface EmailConnectionTestResult {
+  ok: boolean;
+  /** The key was accepted by Resend. */
+  keyValid: boolean;
+  /** A sending-only key cannot list domains; it is valid but the domain is not checked. */
+  restricted: boolean;
+  domain: { name: string; status: string; verified: boolean } | null;
+  message: string;
+}
+
+export interface EmailTestSendResult {
+  ok: boolean;
+  to: string;
+  providerMessageId: string | null;
+  message: string;
+}
